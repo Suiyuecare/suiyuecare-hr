@@ -1,3 +1,8 @@
+import {
+  evaluateTaiwanStatutoryLeavePolicyCoverage,
+  type StatutoryLeaveCategory,
+} from "@/server/leave/statutory";
+
 export type DatabaseVerificationMode = "demo" | "production";
 
 export type DatabaseVerificationSnapshot = {
@@ -48,6 +53,13 @@ export type DatabaseVerificationSnapshot = {
     payrollComplianceProfileEmployeeIds: string[];
     paymentProfileEmployeeIds: string[];
   };
+  leavePolicySettings: Array<{
+    code: string;
+    name: string;
+    status: "active" | "inactive";
+    statutoryCategory: StatutoryLeaveCategory;
+    requiresLegalReview: boolean;
+  }>;
   accessCoverage: {
     privilegedUserIds: string[];
     externalIdentityUserIds: string[];
@@ -213,7 +225,9 @@ export function buildDatabaseVerificationChecks(
       ? `${snapshot.laborRuleChangeControl.reviewStatus}: ${snapshot.laborRuleChangeControl.reason ?? "missing reason"}`
       : "missing",
   ));
+  const statutoryLeaveCoverage = evaluateTaiwanStatutoryLeavePolicyCoverage(snapshot.leavePolicySettings);
   checks.push(check("leave policies", snapshot.counts.leavePolicies >= 1, `${snapshot.counts.leavePolicies} leave policy record(s)`));
+  checks.push(check("statutory leave policy coverage", statutoryLeaveCoverage.ready, statutoryLeaveCoverage.detail));
   checks.push(check("leave balances", snapshot.counts.leaveBalances >= snapshot.counts.employees, `${snapshot.counts.leaveBalances} balance record(s)`));
   const salaryCoverage = profileCoverage(snapshot.profileCoverage.activeEmployeeIds, snapshot.profileCoverage.salaryProfileEmployeeIds);
   const complianceCoverage = profileCoverage(

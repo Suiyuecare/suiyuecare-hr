@@ -2,6 +2,10 @@ import { writeAuditLog } from "@/server/audit/audit";
 import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
+import {
+  taiwanStatutoryLeaveRequirements,
+  type StatutoryLeaveCategory,
+} from "@/server/leave/statutory";
 
 type SessionLike = {
   role: RoleKey;
@@ -19,7 +23,7 @@ export type LeavePolicyInput = {
   unit: string;
   attachmentRequired: boolean;
   status: "active" | "inactive";
-  statutoryCategory: "annual_leave" | "sick_leave" | "personal_leave" | "family_care" | "parental" | "maternity" | "bereavement" | "marriage" | "official" | "company";
+  statutoryCategory: StatutoryLeaveCategory;
   eligibilityRule: "all_employees" | "employee_self" | "caregiver" | "parent" | "pregnancy_related" | "manual_review";
   payRatePercent: number;
   annualLimitNote?: string | null;
@@ -107,52 +111,28 @@ export async function saveLeavePolicySettings(session: SessionLike, input: Leave
 export function resetLeavePolicyDemoState() {
   const now = new Date();
   globalForLeavePolicies.hrOneLeavePolicyDemoState = {
-    policies: [
-      {
-        id: "demo-leave-policy-annual",
-        code: "annual",
-        name: "Annual leave",
-        annualUnits: 7,
-        unit: "day",
-        attachmentRequired: false,
-        status: "active",
-        statutoryCategory: "annual_leave",
-        eligibilityRule: "all_employees",
-        payRatePercent: 100,
-        annualLimitNote: "Generated from service-month entitlement tiers in Taiwan labor rule settings.",
-        requiresLegalReview: false,
-        accrualMethod: "annual_grant",
-        minNoticeDays: 0,
-        carryoverLimitUnits: null,
-        paid: true,
-        syncBalancesOnUpdate: true,
-        balanceCount: 5,
-        createdAt: now,
-        updatedAt: now,
-      },
-      {
-        id: "demo-leave-policy-sick",
-        code: "sick",
-        name: "Sick leave",
-        annualUnits: 30,
-        unit: "day",
-        attachmentRequired: true,
-        status: "active",
-        statutoryCategory: "sick_leave",
-        eligibilityRule: "employee_self",
-        payRatePercent: 50,
-        annualLimitNote: "Review company policy and current statutory references before launch.",
-        requiresLegalReview: true,
-        accrualMethod: "annual_grant",
-        minNoticeDays: 0,
-        carryoverLimitUnits: null,
-        paid: false,
-        syncBalancesOnUpdate: false,
-        balanceCount: 0,
-        createdAt: now,
-        updatedAt: now,
-      },
-    ],
+    policies: taiwanStatutoryLeaveRequirements.map((requirement) => ({
+      id: `demo-leave-policy-${requirement.recommendedCode}`,
+      code: requirement.recommendedCode,
+      name: requirement.name,
+      annualUnits: requirement.annualUnits,
+      unit: requirement.unit,
+      attachmentRequired: requirement.category === "sick_leave" || requirement.category === "occupational_injury",
+      status: "active",
+      statutoryCategory: requirement.category,
+      eligibilityRule: requirement.eligibilityRule,
+      payRatePercent: requirement.payRatePercent,
+      annualLimitNote: requirement.note,
+      requiresLegalReview: false,
+      accrualMethod: requirement.accrualMethod,
+      minNoticeDays: 0,
+      carryoverLimitUnits: null,
+      paid: requirement.paid,
+      syncBalancesOnUpdate: requirement.category === "annual_leave",
+      balanceCount: requirement.category === "annual_leave" ? 5 : 0,
+      createdAt: now,
+      updatedAt: now,
+    })),
   };
 }
 
@@ -417,11 +397,14 @@ function normalizeStatutoryCategory(value: string): LeavePolicyView["statutoryCa
     value === "sick_leave" ||
     value === "personal_leave" ||
     value === "family_care" ||
+    value === "menstrual" ||
     value === "parental" ||
     value === "maternity" ||
+    value === "paternity" ||
     value === "bereavement" ||
     value === "marriage" ||
-    value === "official"
+    value === "official" ||
+    value === "occupational_injury"
   ) {
     return value;
   }

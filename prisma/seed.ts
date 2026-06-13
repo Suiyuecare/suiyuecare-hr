@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient, RoleKey } from "@prisma/client";
 import { createHash } from "node:crypto";
+import { taiwanStatutoryLeaveRequirements } from "../src/server/leave/statutory";
 import { defaultTaiwanLaborStandardsConfig } from "../src/server/rules/taiwan-labor-standards";
 import {
   buildRuleVersionTestCases,
@@ -460,21 +461,26 @@ async function main() {
     },
   });
 
-  const leavePolicy = await prisma.leavePolicy.create({
+  const leavePolicies = await Promise.all(taiwanStatutoryLeaveRequirements.map((requirement) => prisma.leavePolicy.create({
     data: {
       tenantId: tenant.id,
       companyId: company.id,
-      code: "annual",
-      name: "Annual leave",
-      annualUnits: 14,
-      unit: "day",
-      statutoryCategory: "annual_leave",
-      eligibilityRule: "all_employees",
-      payRatePercent: 100,
-      annualLimitNote: "Seed annual leave policy; review company rule version before rollout.",
+      code: requirement.recommendedCode,
+      name: requirement.name,
+      annualUnits: requirement.annualUnits,
+      unit: requirement.unit,
+      attachmentRequired: requirement.category === "sick_leave" || requirement.category === "occupational_injury",
+      statutoryCategory: requirement.category,
+      eligibilityRule: requirement.eligibilityRule,
+      payRatePercent: requirement.payRatePercent,
+      annualLimitNote: requirement.note,
       requiresLegalReview: false,
+      accrualMethod: requirement.accrualMethod,
+      paid: requirement.paid,
     },
-  });
+  })));
+  const leavePolicy = leavePolicies.find((policy) => policy.code === "annual") ?? leavePolicies[0];
+  if (!leavePolicy) throw new Error("Annual leave policy seed failed.");
 
   await prisma.leaveBalance.createMany({
     data: [hrEmployee, managerEmployee, employeeOne, employeeTwo, employeeThree].map(

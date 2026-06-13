@@ -1,6 +1,7 @@
 import { EmptyState } from "@/components/EmptyState";
 import { getDemoSession } from "@/server/auth/demo-session";
 import { getLeavePolicySettings } from "@/server/leave/policies";
+import { evaluateTaiwanStatutoryLeavePolicyCoverage } from "@/server/leave/statutory";
 
 type SearchParams = Promise<{
   error?: string;
@@ -10,6 +11,7 @@ export default async function LeavePoliciesPage({ searchParams }: { searchParams
   const params = await searchParams;
   const session = await getDemoSession();
   const policies = await getLeavePolicySettings(session);
+  const coverage = evaluateTaiwanStatutoryLeavePolicyCoverage(policies);
 
   return (
     <main className="page">
@@ -46,6 +48,42 @@ export default async function LeavePoliciesPage({ searchParams }: { searchParams
           <strong>{policies.filter((policy) => policy.requiresLegalReview).length}</strong>
           <span className="badge warning">Before rollout</span>
         </div>
+
+        <section className="panel span-12">
+          <div className="section-heading">
+            <div>
+              <h2>Taiwan statutory leave coverage</h2>
+              <p className="muted">{coverage.detail}</p>
+            </div>
+            <span className={`badge ${coverage.ready ? "" : "warning"}`}>
+              {coverage.ready ? "Ready" : "Action needed"}
+            </span>
+          </div>
+          {coverage.missing.length > 0 || coverage.needsReview.length > 0 ? (
+            <ul className="task-list">
+              {coverage.missing.map((requirement) => (
+                <li className="task" key={`missing-${requirement.category}`}>
+                  <span>
+                    <strong>{requirement.name}</strong>
+                    <small>{requirement.note}</small>
+                  </span>
+                  <span className="badge warning">Missing · {requirement.recommendedCode}</span>
+                </li>
+              ))}
+              {coverage.needsReview.map((requirement) => (
+                <li className="task" key={`review-${requirement.category}`}>
+                  <span>
+                    <strong>{requirement.name}</strong>
+                    <small>{requirement.policyName} needs HR/legal approval before rollout.</small>
+                  </span>
+                  <span className="badge warning">Review · {requirement.policyCode}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">All required Taiwan statutory leave categories have active approved policies.</p>
+          )}
+        </section>
 
         <section className="panel span-12">
           <div className="section-heading">
@@ -149,11 +187,14 @@ export default async function LeavePoliciesPage({ searchParams }: { searchParams
                   <option value="sick_leave">Sick leave</option>
                   <option value="personal_leave">Personal leave</option>
                   <option value="family_care">Family care</option>
+                  <option value="menstrual">Menstrual leave</option>
                   <option value="parental">Parental</option>
                   <option value="maternity">Maternity</option>
+                  <option value="paternity">Paternity/checkup accompaniment</option>
                   <option value="bereavement">Bereavement</option>
                   <option value="marriage">Marriage</option>
                   <option value="official">Official duty</option>
+                  <option value="occupational_injury">Occupational injury/sickness</option>
                 </select>
               </label>
               <label>

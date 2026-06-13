@@ -63,11 +63,14 @@ function readStatutoryCategory(value: FormDataEntryValue | null) {
     raw === "sick_leave" ||
     raw === "personal_leave" ||
     raw === "family_care" ||
+    raw === "menstrual" ||
     raw === "parental" ||
     raw === "maternity" ||
+    raw === "paternity" ||
     raw === "bereavement" ||
     raw === "marriage" ||
-    raw === "official"
+    raw === "official" ||
+    raw === "occupational_injury"
   ) {
     return raw;
   }

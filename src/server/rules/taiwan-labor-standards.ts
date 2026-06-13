@@ -236,6 +236,18 @@ export const defaultTaiwanLaborStandardsConfig: TaiwanLaborStandardsConfig = {
       checkedAt: "2026-06-12",
     },
     {
+      id: "tw-worker-leave-rules",
+      title: "Regulations of Leave-Taking by Workers",
+      url: "https://law.moj.gov.tw/ENG/LawClass/LawAll.aspx?pcode=N0030006",
+      checkedAt: "2026-06-12",
+    },
+    {
+      id: "tw-gender-equality-employment-act",
+      title: "Gender Equality in Employment Act",
+      url: "https://law.moj.gov.tw/ENG/LawClass/LawAll.aspx?pcode=N0030014",
+      checkedAt: "2026-06-12",
+    },
+    {
       id: "tw-minimum-wage-2026",
       title: "Ministry of Labor 2026 minimum wage announcement",
       url: "https://english.mol.gov.tw/21139/40790/87087/",

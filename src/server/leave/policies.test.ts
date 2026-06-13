@@ -5,6 +5,7 @@ import {
   resetLeavePolicyDemoState,
   saveLeavePolicySettings,
 } from "./policies";
+import { evaluateTaiwanStatutoryLeavePolicyCoverage } from "./statutory";
 
 const hrSession = {
   role: "hr_admin" as const,
@@ -28,7 +29,30 @@ describe("leave policy settings", () => {
     resetAuditDemoState();
   });
 
-  it("lets HR configure a leave policy with audited balance sync intent", async () => {
+  it("starts with reviewed Taiwan statutory leave coverage", async () => {
+    const policies = await getLeavePolicySettings(hrSession);
+    const coverage = evaluateTaiwanStatutoryLeavePolicyCoverage(policies);
+
+    expect(coverage).toMatchObject({
+      ready: true,
+      detail: "11/11 statutory leave categories approved; 0 missing; 0 pending review.",
+    });
+    expect(policies.map((policy) => policy.statutoryCategory)).toEqual(expect.arrayContaining([
+      "annual_leave",
+      "sick_leave",
+      "personal_leave",
+      "family_care",
+      "menstrual",
+      "maternity",
+      "paternity",
+      "bereavement",
+      "marriage",
+      "official",
+      "occupational_injury",
+    ]));
+  });
+
+  it("lets HR update a statutory leave policy with audited balance sync intent", async () => {
     const policy = await saveLeavePolicySettings(hrSession, {
       code: "family-care",
       name: "Family care leave",
@@ -62,7 +86,7 @@ describe("leave policy settings", () => {
     });
     expect(policies).toEqual(expect.arrayContaining([expect.objectContaining({ code: "family-care" })]));
     expect(getAuditDemoState().logs[0]).toMatchObject({
-      action: "create",
+      action: "update",
       entityType: "leave_policy",
       metadataJson: expect.objectContaining({
         statutoryCategory: "family_care",

@@ -3,6 +3,7 @@ import {
   buildDatabaseVerificationChecks,
   type DatabaseVerificationSnapshot,
 } from "@/server/readiness/database-verification";
+import { taiwanStatutoryLeaveRequirements } from "@/server/leave/statutory";
 
 const readySnapshot: DatabaseVerificationSnapshot = {
   databaseUrlConfigured: true,
@@ -24,7 +25,7 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     calendarDays: 1,
     activeLawRules: 3,
     activeRuleVersions: 3,
-    leavePolicies: 1,
+    leavePolicies: 11,
     leaveBalances: 5,
     salaryProfiles: 5,
     payrollComplianceProfiles: 5,
@@ -52,6 +53,13 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     payrollComplianceProfileEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
     paymentProfileEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
   },
+  leavePolicySettings: taiwanStatutoryLeaveRequirements.map((requirement) => ({
+    code: requirement.recommendedCode,
+    name: requirement.name,
+    status: "active",
+    statutoryCategory: requirement.category,
+    requiresLegalReview: false,
+  })),
   accessCoverage: {
     privilegedUserIds: ["user_owner", "user_hr", "user_manager"],
     externalIdentityUserIds: ["user_owner", "user_hr", "user_manager", "user_employee"],
@@ -250,6 +258,27 @@ describe("database verification checks", () => {
     expect(checks.find((item) => item.name === "salary profile coverage")).toMatchObject({
       passed: false,
       detail: "4/5 active employee(s) covered; 5 profile record(s)",
+    });
+  });
+
+  it("requires every Taiwan statutory leave category to be active and reviewed", () => {
+    const checks = buildDatabaseVerificationChecks(
+      {
+        ...readySnapshot,
+        leavePolicySettings: readySnapshot.leavePolicySettings
+          .filter((policy) => policy.statutoryCategory !== "menstrual")
+          .map((policy) =>
+            policy.statutoryCategory === "paternity"
+              ? { ...policy, requiresLegalReview: true }
+              : policy,
+          ),
+      },
+      "production",
+    );
+
+    expect(checks.find((item) => item.name === "statutory leave policy coverage")).toMatchObject({
+      passed: false,
+      detail: "9/11 statutory leave categories approved; 1 missing; 1 pending review.",
     });
   });
 

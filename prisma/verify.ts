@@ -75,6 +75,7 @@ async function buildSnapshot(
     currentSalaryProfiles,
     currentPayrollComplianceProfiles,
     currentPaymentProfiles,
+    leavePolicySettings,
     externalIdentities,
     auditEntityTypes,
     activeApprovedSupportGrantCount,
@@ -134,6 +135,16 @@ async function buildSnapshot(
     prisma.employeePaymentProfile.findMany({
       where: { tenantId, companyId, status: "active", effectiveTo: null },
       select: { employeeId: true },
+    }),
+    prisma.leavePolicy.findMany({
+      where: { tenantId, companyId },
+      select: {
+        code: true,
+        name: true,
+        status: true,
+        statutoryCategory: true,
+        requiresLegalReview: true,
+      },
     }),
     prisma.userExternalIdentity.findMany({
       where: { tenantId },
@@ -236,6 +247,13 @@ async function buildSnapshot(
       payrollComplianceProfileEmployeeIds: uniqueIds(currentPayrollComplianceProfiles.map((profile) => profile.employeeId)),
       paymentProfileEmployeeIds: uniqueIds(currentPaymentProfiles.map((profile) => profile.employeeId)),
     },
+    leavePolicySettings: leavePolicySettings.map((policy) => ({
+      code: policy.code,
+      name: policy.name,
+      status: policy.status === "inactive" ? "inactive" : "active",
+      statutoryCategory: readStatutoryLeaveCategory(policy.statutoryCategory),
+      requiresLegalReview: policy.requiresLegalReview,
+    })),
     accessCoverage: {
       privilegedUserIds: uniqueIds(
         userRoles
@@ -347,6 +365,7 @@ function emptySnapshot(
       payrollComplianceProfileEmployeeIds: [],
       paymentProfileEmployeeIds: [],
     },
+    leavePolicySettings: [],
     accessCoverage: {
       privilegedUserIds: [],
       externalIdentityUserIds: [],
@@ -489,6 +508,26 @@ function calendarYearRange(calendarYear: number) {
     gte: new Date(`${calendarYear}-01-01T00:00:00.000Z`),
     lt: new Date(`${calendarYear + 1}-01-01T00:00:00.000Z`),
   };
+}
+
+function readStatutoryLeaveCategory(value: string) {
+  if (
+    value === "annual_leave" ||
+    value === "sick_leave" ||
+    value === "personal_leave" ||
+    value === "family_care" ||
+    value === "menstrual" ||
+    value === "maternity" ||
+    value === "paternity" ||
+    value === "parental" ||
+    value === "bereavement" ||
+    value === "marriage" ||
+    value === "official" ||
+    value === "occupational_injury"
+  ) {
+    return value;
+  }
+  return "company";
 }
 
 function reportAndExit(checks: DatabaseVerificationCheck[], options: CliOptions) {
