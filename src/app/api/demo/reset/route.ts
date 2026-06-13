@@ -9,6 +9,7 @@ import { resetWorktimeAgreementDemoState } from "@/server/attendance/worktime-ag
 import { resetWorktimeComplianceDemoState } from "@/server/attendance/worktime-compliance";
 import { resetCompanyCalendarDemoState } from "@/server/calendar/company-calendar";
 import { resetEmployeeDocumentDemoState } from "@/server/employees/documents";
+import { resetEmploymentTermsDemoState } from "@/server/employees/employment-terms";
 import { resetEmployeeImportDemoState } from "@/server/employees/imports";
 import { resetEmployeeLifecycleDemoState } from "@/server/employees/lifecycle";
 import { resetOffboardingDemoState } from "@/server/employees/offboarding";
@@ -76,6 +77,7 @@ export async function POST() {
     resetWorktimeComplianceDemoState();
     resetCompanyCalendarDemoState();
     resetEmployeeDocumentDemoState();
+    resetEmploymentTermsDemoState();
     resetEmployeeImportDemoState();
     resetEmployeeLifecycleDemoState();
     resetOffboardingDemoState();

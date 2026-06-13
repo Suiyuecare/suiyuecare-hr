@@ -220,6 +220,9 @@ export default async function EmployeeHomePage() {
               <a className="button" href="/app/work-rules">
                 Work rules
               </a>
+              <a className="button" href="/app/employment-terms">
+                Terms
+              </a>
               <a className="button" href="/app/training">
                 Training
               </a>

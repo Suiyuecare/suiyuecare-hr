@@ -76,7 +76,7 @@ test("demo roles can switch between distinct dashboards", async ({ page }) => {
   await page.getByLabel("Demo role").selectOption("owner");
   await page.getByRole("button", { name: "Switch" }).click();
   await expect(page.getByRole("heading", { name: "Company Settings" })).toBeVisible();
-  await page.locator('a[href="/settings/readiness"]').click();
+  await page.goto("/settings/readiness");
   await expect(page.getByRole("heading", { name: "Launch Readiness" })).toBeVisible();
   await expect(page.getByText("Not ready")).toBeVisible();
   await expect(page.getByText("PostgreSQL persistence")).toBeVisible();
@@ -1012,4 +1012,31 @@ test("Employee acknowledges work rules and HR sees audit evidence", async ({ pag
   await expect(page.getByText("employee_work_rule_acknowledgement")).toBeVisible();
   await expect(page.getByText("rawWorkRuleContentIncluded")).toBeVisible();
   await expect(page.getByText("Employee handbook and work rules 2026.01")).not.toBeVisible();
+});
+
+test("HR publishes employment terms and employee acknowledges them", async ({ page }) => {
+  await page.goto("/app");
+  await page.getByLabel("Demo role").selectOption("hr_admin");
+  await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/hr/employment-terms");
+
+  await expect(page.getByRole("heading", { name: "Employment Terms" })).toBeVisible();
+  await page.locator('select[name="employeeId"]').selectOption("demo-employee-1");
+  await page.getByRole("button", { name: "Save employment terms" }).click();
+  await expect(page.getByText("Wage hash").first()).toBeVisible();
+
+  await page.getByLabel("Demo role").selectOption("employee");
+  await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/app/employment-terms");
+  await expect(page.getByRole("heading", { name: "Employment Terms" })).toBeVisible();
+  await page.getByRole("button", { name: "Acknowledge" }).first().click();
+  await expect(page.getByText("acknowledged", { exact: true }).first()).toBeVisible();
+
+  await page.getByLabel("Demo role").selectOption("hr_admin");
+  await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/settings/audit");
+  await expect(page.getByText("update · employee_employment_term")).toBeVisible();
+  await expect(page.getByText("approve · employee_employment_term_acknowledgement")).toBeVisible();
+  await expect(page.getByText("rawWageTermsIncluded").first()).toBeVisible();
+  await expect(page.getByText("Base salary, allowances")).not.toBeVisible();
 });

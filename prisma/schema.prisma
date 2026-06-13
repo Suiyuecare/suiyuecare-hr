@@ -111,6 +111,7 @@ model Company {
   employeeLifecycleEvents EmployeeLifecycleEvent[]
   employeeOffboardingTasks EmployeeOffboardingTask[]
   employeeDocuments EmployeeDocument[]
+  employeeEmploymentTerms EmployeeEmploymentTerm[]
   privacySetting CompanyPrivacySetting?
   employeePrivacyConsents EmployeePrivacyConsent[]
   dataSubjectRequests DataSubjectRequest[]
@@ -348,6 +349,7 @@ model Employee {
   lifecycleEvents  EmployeeLifecycleEvent[]
   offboardingTasks EmployeeOffboardingTask[]
   documents        EmployeeDocument[]
+  employmentTerms  EmployeeEmploymentTerm[]
   privacyConsents  EmployeePrivacyConsent[]
   dataSubjectRequests DataSubjectRequest[]
   workRuleAcknowledgements EmployeeWorkRuleAcknowledgement[]
@@ -446,6 +448,37 @@ model EmployeeDocument {
   @@index([tenantId, companyId, employeeId])
   @@index([tenantId, companyId, category])
   @@index([tenantId, companyId, status])
+}
+
+model EmployeeEmploymentTerm {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  companyId             String
+  company               Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId            String
+  employee              Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  version               String
+  status                String   @default("draft")
+  effectiveFrom         DateTime
+  jobTitle              String
+  workLocation          String
+  regularWorkSchedule   String
+  wagePaymentDay        String
+  wageBasisSummaryHash  String
+  benefitsSummary       String
+  sourceRef             String?
+  acknowledgementRequired Boolean @default(true)
+  acknowledgementHash   String?
+  acknowledgedAt        DateTime?
+  createdByUserId       String?
+  updatedByUserId       String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([employeeId, version])
+  @@index([tenantId, companyId, status])
+  @@index([tenantId, companyId, employeeId])
+  @@index([tenantId, companyId, acknowledgedAt])
 }
 
 model CompanyFileStorageSetting {

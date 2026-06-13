@@ -79,6 +79,7 @@ async function main() {
   await prisma.workSchedule.deleteMany();
   await prisma.ruleVersion.deleteMany();
   await prisma.lawRule.deleteMany();
+  await prisma.employeeEmploymentTerm.deleteMany();
   await prisma.employeeDocument.deleteMany();
   await prisma.employeeOffboardingTask.deleteMany();
   await prisma.employeeLifecycleEvent.deleteMany();
@@ -565,6 +566,35 @@ async function main() {
       source: "seed",
       acknowledgedAt: new Date(Date.UTC(2026, 5, 1, 1, index)),
     })),
+  });
+
+  const employmentTerm = await prisma.employeeEmploymentTerm.create({
+    data: {
+      tenantId: tenant.id,
+      companyId: company.id,
+      employeeId: employeeOne.id,
+      version: "2026.01",
+      status: "active",
+      effectiveFrom: new Date("2026-06-01T00:00:00.000Z"),
+      jobTitle: employeeOne.jobTitle,
+      workLocation: "Taipei office / approved remote work",
+      regularWorkSchedule: "Regular 09:00-18:00, one-hour break, based on active shift policy.",
+      wagePaymentDay: "Monthly, paid by the 5th business day.",
+      wageBasisSummaryHash: hash(`${employeeOne.id}:salary-profile-linked`),
+      benefitsSummary: "Statutory insurance, labor pension, annual leave, and company benefits follow active HR One policies.",
+      sourceRef: "demo://employment-terms/2026.01",
+      acknowledgementRequired: true,
+      createdByUserId: hrUser.id,
+      updatedByUserId: hrUser.id,
+    },
+  });
+
+  await prisma.employeeEmploymentTerm.update({
+    where: { id: employmentTerm.id },
+    data: {
+      acknowledgementHash: hash(`${employeeOne.id}:employment-terms:2026.01`),
+      acknowledgedAt: new Date("2026-06-01T02:00:00.000Z"),
+    },
   });
 
   await Promise.all(
