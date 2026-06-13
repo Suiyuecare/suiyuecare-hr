@@ -4,6 +4,8 @@ import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
 import { getFallbackCompanyOverview } from "@/server/demo/fallback";
+import { getTaiwanLaborStandardsConfig } from "@/server/rules/settings";
+import { evaluateSalaryProfileMinimumWageCompliance } from "./minimum-wage";
 import type { MoneyItem } from "./types";
 
 type SessionLike = {
@@ -108,6 +110,20 @@ export async function getSalaryProfileWorkspace(session: SessionLike): Promise<S
 export async function saveSalaryProfile(session: SessionLike, input: SalaryProfileInput) {
   assertPermission(session.role, "payroll:manage");
   const normalized = normalizeSalaryProfileInput(input);
+  const laborConfig = await getTaiwanLaborStandardsConfig(session);
+  const minimumWage = evaluateSalaryProfileMinimumWageCompliance(
+    [
+      {
+        employeeId: normalized.employeeId,
+        baseSalary: normalized.baseSalary,
+        hourlyWage: normalized.hourlyWage,
+      },
+    ],
+    laborConfig,
+  );
+  if (!minimumWage.ready) {
+    throw new Error(minimumWage.violations.map((violation) => violation.message).join(" "));
+  }
   if (canUseDatabase(session)) {
     try {
       return saveDbSalaryProfile(session, normalized);

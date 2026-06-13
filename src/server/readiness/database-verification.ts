@@ -2,6 +2,7 @@ import {
   evaluateTaiwanStatutoryLeavePolicyCoverage,
   type StatutoryLeaveCategory,
 } from "@/server/leave/statutory";
+import type { MinimumWageComplianceReport } from "@/server/payroll/minimum-wage";
 
 export type DatabaseVerificationMode = "demo" | "production";
 
@@ -60,6 +61,10 @@ export type DatabaseVerificationSnapshot = {
     statutoryCategory: StatutoryLeaveCategory;
     requiresLegalReview: boolean;
   }>;
+  minimumWageCompliance: Pick<
+    MinimumWageComplianceReport,
+    "ready" | "checkedCount" | "monthlyViolationCount" | "hourlyViolationCount" | "detail"
+  >;
   accessCoverage: {
     privilegedUserIds: string[];
     externalIdentityUserIds: string[];
@@ -240,6 +245,13 @@ export function buildDatabaseVerificationChecks(
     "salary profile coverage",
     salaryCoverage.missingCount === 0,
     `${salaryCoverage.configuredCount}/${salaryCoverage.totalCount} active employee(s) covered; ${snapshot.counts.salaryProfiles} profile record(s)`,
+  ));
+  checks.push(check(
+    "salary minimum wage compliance",
+    salaryCoverage.missingCount === 0 &&
+      snapshot.minimumWageCompliance.checkedCount >= salaryCoverage.totalCount &&
+      snapshot.minimumWageCompliance.ready,
+    snapshot.minimumWageCompliance.detail,
   ));
   checks.push(check(
     "payroll compliance profile coverage",

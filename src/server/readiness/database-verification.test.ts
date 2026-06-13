@@ -60,6 +60,13 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     statutoryCategory: requirement.category,
     requiresLegalReview: false,
   })),
+  minimumWageCompliance: {
+    ready: true,
+    checkedCount: 5,
+    monthlyViolationCount: 0,
+    hourlyViolationCount: 0,
+    detail: "5 salary profile(s) checked; no configured Taiwan minimum wage violations.",
+  },
   accessCoverage: {
     privilegedUserIds: ["user_owner", "user_hr", "user_manager"],
     externalIdentityUserIds: ["user_owner", "user_hr", "user_manager", "user_employee"],
@@ -280,6 +287,29 @@ describe("database verification checks", () => {
       passed: false,
       detail: "9/11 statutory leave categories approved; 1 missing; 1 pending review.",
     });
+  });
+
+  it("blocks launch when salary profiles are below configured Taiwan minimum wage", () => {
+    const checks = buildDatabaseVerificationChecks(
+      {
+        ...readySnapshot,
+        minimumWageCompliance: {
+          ready: false,
+          checkedCount: 5,
+          monthlyViolationCount: 1,
+          hourlyViolationCount: 1,
+          detail: "5 salary profile(s) checked; 1 monthly and 1 hourly minimum wage violation(s).",
+        },
+      },
+      "production",
+    );
+
+    expect(checks.find((item) => item.name === "salary minimum wage compliance")).toMatchObject({
+      passed: false,
+      detail: "5 salary profile(s) checked; 1 monthly and 1 hourly minimum wage violation(s).",
+    });
+    expect(checks.find((item) => item.name === "salary minimum wage compliance")?.detail).not.toContain("28000");
+    expect(checks.find((item) => item.name === "salary minimum wage compliance")?.detail).not.toContain("190");
   });
 
   it("requires every core role to have an assigned user, not only a role definition", () => {

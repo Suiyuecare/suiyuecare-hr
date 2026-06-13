@@ -5,6 +5,11 @@ import {
   type DatabaseVerificationMode,
   type DatabaseVerificationSnapshot,
 } from "../src/server/readiness/database-verification";
+import { evaluateSalaryProfileMinimumWageCompliance } from "../src/server/payroll/minimum-wage";
+import {
+  defaultTaiwanLaborStandardsConfig,
+  type TaiwanLaborStandardsConfig,
+} from "../src/server/rules/taiwan-labor-standards";
 import { readRuleValidationSummary } from "../src/server/rules/validation";
 
 const prisma = new PrismaClient();
@@ -126,7 +131,7 @@ async function buildSnapshot(
     }),
     prisma.salaryProfile.findMany({
       where: { tenantId, companyId, effectiveTo: null },
-      select: { employeeId: true },
+      select: { employeeId: true, baseSalary: true, hourlyWage: true },
     }),
     prisma.payrollComplianceProfile.findMany({
       where: { tenantId, companyId, effectiveTo: null },
@@ -181,8 +186,19 @@ async function buildSnapshot(
   ]);
 
   const laborSettingsVersion = activeRuleVersions.find((version) => hasTaiwanLaborSettings(version.definitionJson));
+  const laborConfig = laborSettingsVersion
+    ? readTaiwanLaborConfig(laborSettingsVersion.definitionJson)
+    : defaultTaiwanLaborStandardsConfig;
   const ruleValidation = summarizeRuleValidation(activeRuleVersions.map((version) => version.definitionJson));
   const legalSourceFreshness = summarizeLegalSourceFreshness(activeRuleVersions.map((version) => version.definitionJson));
+  const minimumWageCompliance = evaluateSalaryProfileMinimumWageCompliance(
+    currentSalaryProfiles.map((profile) => ({
+      employeeId: profile.employeeId,
+      baseSalary: decimalToNumber(profile.baseSalary),
+      hourlyWage: decimalToNullableNumber(profile.hourlyWage),
+    })),
+    laborConfig,
+  );
   return {
     databaseUrlConfigured: Boolean(process.env.DATABASE_URL),
     ...identity,
@@ -254,6 +270,13 @@ async function buildSnapshot(
       statutoryCategory: readStatutoryLeaveCategory(policy.statutoryCategory),
       requiresLegalReview: policy.requiresLegalReview,
     })),
+    minimumWageCompliance: {
+      ready: minimumWageCompliance.ready,
+      checkedCount: minimumWageCompliance.checkedCount,
+      monthlyViolationCount: minimumWageCompliance.monthlyViolationCount,
+      hourlyViolationCount: minimumWageCompliance.hourlyViolationCount,
+      detail: minimumWageCompliance.detail,
+    },
     accessCoverage: {
       privilegedUserIds: uniqueIds(
         userRoles
@@ -366,6 +389,13 @@ function emptySnapshot(
       paymentProfileEmployeeIds: [],
     },
     leavePolicySettings: [],
+    minimumWageCompliance: {
+      ready: false,
+      checkedCount: 0,
+      monthlyViolationCount: 0,
+      hourlyViolationCount: 0,
+      detail: "0 salary profile(s) checked; missing configured Taiwan minimum wage verification.",
+    },
     accessCoverage: {
       privilegedUserIds: [],
       externalIdentityUserIds: [],
@@ -426,6 +456,32 @@ function hasTaiwanLaborSettings(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
   return record.type === "taiwan_labor_standards_settings" || Boolean(record.taiwanLaborStandards);
+}
+
+function readTaiwanLaborConfig(value: unknown): TaiwanLaborStandardsConfig {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    const candidate = record.taiwanLaborStandards ?? record;
+    if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+      const config = candidate as Partial<TaiwanLaborStandardsConfig>;
+      if (
+        config.jurisdiction === "TW" &&
+        typeof config.minimumMonthlyWage === "number" &&
+        typeof config.minimumHourlyWage === "number"
+      ) {
+        return {
+          ...defaultTaiwanLaborStandardsConfig,
+          ...config,
+          statutoryPayroll: {
+            ...defaultTaiwanLaborStandardsConfig.statutoryPayroll,
+            ...(config.statutoryPayroll ?? {}),
+          },
+          sources: Array.isArray(config.sources) ? config.sources : defaultTaiwanLaborStandardsConfig.sources,
+        };
+      }
+    }
+  }
+  return defaultTaiwanLaborStandardsConfig;
 }
 
 function readChangeControl(value: unknown) {
@@ -501,6 +557,20 @@ function readSourceFreshnessSummary(value: unknown) {
 
 function uniqueIds(values: string[]) {
   return Array.from(new Set(values));
+}
+
+function decimalToNumber(value: unknown) {
+  return decimalToNullableNumber(value) ?? 0;
+}
+
+function decimalToNullableNumber(value: unknown) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return value;
+  if (typeof value === "object" && "toNumber" in value && typeof value.toNumber === "function") {
+    return value.toNumber();
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function calendarYearRange(calendarYear: number) {

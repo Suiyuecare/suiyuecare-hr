@@ -34,6 +34,7 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 - Salary profile, payroll run, seven-step monthly close, payroll draft, lock, release, and employee payslip demo flow.
 - Payroll close tracks the active Taiwan labor/payroll rule version used by each draft. If rules are pending legal review or marked for recalculation after a company override, payroll lock is blocked until HR recalculates with the reviewed active version.
 - HR salary profile management with effective dates, recurring allowances/deductions, payroll-only RBAC, and redacted audit logs.
+- HR salary profile minimum wage readiness checks compare current profiles against the active configurable Taiwan labor rule version, block below-minimum saves, and keep production verification details aggregate-only so raw salary values do not leak into logs.
 - HR employee payment profile management with payment coverage tracking, masked account display, account hashes, and redacted audit logs.
 - Audited payroll export packages for locked/released payroll runs, including bank-transfer readiness, configurable token-vault/KMS/bank-format verification posture, and configurable accounting-journal summaries with content hashes and redacted audit metadata.
 - PostgreSQL-backed payroll run creation, recalculation, HR confirmation, lock, payslip release, and employee payslip reads are available when `DATABASE_URL` is configured, with demo fallback for local UI smoke tests.

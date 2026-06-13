@@ -1,6 +1,8 @@
 import { EmptyState } from "@/components/EmptyState";
 import { getDemoSession } from "@/server/auth/demo-session";
+import { evaluateSalaryProfileMinimumWageCompliance } from "@/server/payroll/minimum-wage";
 import { getSalaryProfileWorkspace } from "@/server/payroll/salary-profiles";
+import { getTaiwanLaborStandardsConfig } from "@/server/rules/settings";
 
 type SearchParams = Promise<{
   error?: string;
@@ -9,7 +11,12 @@ type SearchParams = Promise<{
 export default async function SalaryProfilesPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const session = await getDemoSession();
-  const workspace = await getSalaryProfileWorkspace(session);
+  const [workspace, laborConfig] = await Promise.all([
+    getSalaryProfileWorkspace(session),
+    getTaiwanLaborStandardsConfig(session),
+  ]);
+  const currentProfiles = workspace.profiles.filter((profile) => !profile.effectiveTo);
+  const minimumWage = evaluateSalaryProfileMinimumWageCompliance(currentProfiles, laborConfig);
 
   return (
     <main className="page">
@@ -40,6 +47,36 @@ export default async function SalaryProfilesPage({ searchParams }: { searchParam
           <span className="muted">Audit mode</span>
           <strong>Redacted</strong>
           <span className="badge warning">Sensitive</span>
+        </div>
+        <div className="panel span-12 risk-box">
+          <div className="section-heading">
+            <div>
+              <h2>Taiwan minimum wage check</h2>
+              <p className="muted">{minimumWage.detail}</p>
+            </div>
+            <span className={`badge ${minimumWage.ready ? "" : "danger"}`}>
+              {minimumWage.ready ? "Ready" : "Action needed"}
+            </span>
+          </div>
+          <p className="muted">
+            Configured monthly minimum {formatMoney(laborConfig.minimumMonthlyWage)} · hourly minimum{" "}
+            {formatMoney(laborConfig.minimumHourlyWage)}
+          </p>
+          {minimumWage.violations.length ? (
+            <ul className="task-list compact">
+              {minimumWage.violations.slice(0, 5).map((violation) => (
+                <li className="task" key={`${violation.employeeId}-${violation.type}`}>
+                  <span>
+                    <strong>
+                      {violation.employeeName ?? "Employee"} {violation.employeeNo ? `· ${violation.employeeNo}` : ""}
+                    </strong>
+                    <small>{violation.message}</small>
+                  </span>
+                  <span className="badge danger">Min {formatMoney(violation.requiredMinimum)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
 
         <section className="panel span-12">
