@@ -92,6 +92,12 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
               </a>
             </li>
             <li className="task">
+              <span>Commercial subscription</span>
+              <a className="button" href="/settings/subscription">
+                Review
+              </a>
+            </li>
+            <li className="task">
               <span>Law rules</span>
               <span className="badge">{laborConfig.version}</span>
             </li>

@@ -518,6 +518,57 @@ describe("launch readiness", () => {
     });
   });
 
+  it("blocks launch when customer subscription is not commercially verified", () => {
+    const report = buildLaunchReadinessReport({
+      databaseConfigured: true,
+      employeeCount: 5,
+      auditCount: 8,
+      activeRuleCount: 3,
+      laborConfig: defaultTaiwanLaborStandardsConfig,
+      securitySettings: secureSettings,
+      fileStorageSettings: secureStorage,
+      notificationSettings,
+      privilegedSsoIdentityCoverage: {
+        total: 3,
+        linked: 3,
+      },
+      supportAccessGovernance: {
+        activeApprovedCount: 0,
+        activeUnapprovedCount: 0,
+        expiredStillApprovedCount: 0,
+      },
+      payrollPaymentSecurity: readyPaymentSecurity,
+      operationalResilience: {
+        ready: true,
+        detail: "Managed backups verified.",
+      },
+      subscriptionReadiness: {
+        ready: false,
+        detail: "demo / trial; 6/5 seat(s); trial 14 day(s); contract n/a day(s); review unverified.",
+        missing: [
+          "paid customer plan selected",
+          "active subscription status",
+          "seat limit covers active users",
+          "contract reference and hash",
+          "commercial terms reviewed",
+        ],
+      },
+      calendarReadiness: readyCalendar,
+      kpis: passingKpis,
+    });
+
+    expect(report.items.find((item) => item.id === "subscription")).toMatchObject({
+      status: "blocked",
+      actionHref: "/settings/subscription",
+      nextStep:
+        "Clear subscription gaps: paid customer plan selected, active subscription status, seat limit covers active users, contract reference and hash, commercial terms reviewed.",
+    });
+    expect(report.setupSteps[0]).toMatchObject({
+      status: "blocked",
+      actionHref: "/settings/subscription",
+    });
+  });
+
   it("marks a fully configured workspace ready for sale", () => {
     const report = buildLaunchReadinessReport({
       databaseConfigured: true,

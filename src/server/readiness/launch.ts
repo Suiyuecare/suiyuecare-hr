@@ -19,6 +19,7 @@ import {
 } from "@/server/rules/validation";
 import type { CompanySecuritySettings } from "@/server/settings/security";
 import { getCompanySecuritySettings, hasSsoMetadata } from "@/server/settings/security";
+import { getSubscriptionWorkspace, type SubscriptionReadiness } from "@/server/subscriptions/service";
 import { getSupportAccessGovernance } from "@/server/support/access";
 import { getTrainingWorkspace, type TrainingReadiness } from "@/server/training/compliance";
 
@@ -78,6 +79,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     trainingWorkspace,
     operationalResilience,
     calendarWorkspace,
+    subscriptionWorkspace,
     kpis,
   ] = await Promise.all([
     getCompanyOverview(),
@@ -93,6 +95,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     getTrainingWorkspace(session),
     getOperationalResilienceReadiness(session),
     getCompanyCalendarWorkspace(session),
+    getSubscriptionWorkspace(session),
     getHrOneKpis(),
   ]);
 
@@ -134,6 +137,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     trainingReadiness: trainingWorkspace.readiness,
     operationalResilience,
     calendarReadiness: calendarWorkspace.readiness,
+    subscriptionReadiness: subscriptionWorkspace.readiness,
     kpis,
   });
 }
@@ -180,6 +184,7 @@ export function buildLaunchReadinessReport(input: {
     detail: string;
   };
   calendarReadiness?: Pick<CompanyCalendarReadiness, "ready" | "calendarYear" | "detail">;
+  subscriptionReadiness?: Pick<SubscriptionReadiness, "ready" | "detail" | "missing">;
   kpis: HrOneKpi[];
 }): LaunchReadinessReport {
   const kpiSummary = summarizeHrOneKpis(input.kpis);
@@ -228,6 +233,11 @@ export function buildLaunchReadinessReport(input: {
     detail: "Training readiness not evaluated in this test context.",
     missing: [],
   };
+  const subscriptionReadiness = input.subscriptionReadiness ?? {
+    ready: true,
+    detail: "Commercial subscription readiness not evaluated in this test context.",
+    missing: [],
+  };
   const items: LaunchReadinessItem[] = [
     {
       id: "database",
@@ -260,6 +270,18 @@ export function buildLaunchReadinessReport(input: {
       nextStep: "Configure backups, encrypted retention, and a recent passed restore drill before production launch.",
       actionLabel: "Configure resilience",
       actionHref: "/settings/operational-resilience",
+    },
+    {
+      id: "subscription",
+      area: "Operations",
+      title: "Commercial subscription",
+      status: subscriptionReadiness.ready ? "ready" : "blocked",
+      detail: subscriptionReadiness.detail,
+      nextStep: subscriptionReadiness.missing.length > 0
+        ? `Clear subscription gaps: ${subscriptionReadiness.missing.join(", ")}.`
+        : "Keep customer plan, seats, contract evidence, billing contact, and commercial verification current.",
+      actionLabel: "Review subscription",
+      actionHref: "/settings/subscription",
     },
     {
       id: "security",
@@ -440,8 +462,8 @@ function buildSetupSteps(items: LaunchReadinessItem[]): LaunchSetupStep[] {
     setupStep({
       step: 1,
       title: "Create durable tenant foundation",
-      itemIds: ["database", "tenant_seed", "operational_resilience"],
-      summary: "Migrate, seed or import, configure backup/restore evidence, then run production tenant verification before onboarding employees.",
+      itemIds: ["database", "tenant_seed", "subscription", "operational_resilience"],
+      summary: "Migrate, seed or import, confirm commercial terms, configure backup/restore evidence, then run production tenant verification before onboarding employees.",
       actionLabel: "Start database setup",
       actionHref: "/settings/readiness#database-setup",
       items,

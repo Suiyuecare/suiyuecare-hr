@@ -83,6 +83,7 @@ async function main() {
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
   await prisma.department.deleteMany();
+  await prisma.tenantSubscription.deleteMany();
   await prisma.companyOperationalResilienceSetting.deleteMany();
   await prisma.companyNotificationSetting.deleteMany();
   await prisma.companyFileStorageSetting.deleteMany();
@@ -95,6 +96,26 @@ async function main() {
       name: "HR One Demo Tenant",
       slug: "hr-one-demo",
       plan: "demo",
+    },
+  });
+
+  await prisma.tenantSubscription.create({
+    data: {
+      tenantId: tenant.id,
+      plan: "demo",
+      status: "trial",
+      seatLimit: 10,
+      activeSeatCount: 6,
+      trialEndsAt: new Date("2026-06-27T00:00:00.000Z"),
+      contractStartsAt: null,
+      contractEndsAt: null,
+      renewalNoticeDays: 30,
+      billingContactEmail: "owner@hrone.test",
+      contractRef: null,
+      contractHash: null,
+      paymentCollectionMode: "manual_invoice",
+      verificationStatus: "unverified",
+      lastReviewedAt: null,
     },
   });
 

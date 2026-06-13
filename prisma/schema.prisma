@@ -92,6 +92,7 @@ model Tenant {
   users     User[]
   roles     Role[]
   auditLogs AuditLog[]
+  subscription TenantSubscription?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 }
@@ -272,6 +273,33 @@ model UserRole {
 
   @@unique([companyId, userId, roleId])
   @@index([tenantId, companyId])
+}
+
+model TenantSubscription {
+  id                    String   @id @default(cuid())
+  tenantId              String   @unique
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan                  String   @default("demo")
+  status                String   @default("trial")
+  seatLimit             Int      @default(10)
+  activeSeatCount       Int      @default(0)
+  trialEndsAt           DateTime?
+  contractStartsAt      DateTime?
+  contractEndsAt        DateTime?
+  renewalNoticeDays     Int      @default(30)
+  billingContactEmail   String?
+  contractRef           String?
+  contractHash          String?
+  paymentCollectionMode String   @default("manual_invoice")
+  verificationStatus    String   @default("unverified")
+  lastReviewedAt        DateTime?
+  updatedByUserId       String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([tenantId, status])
+  @@index([tenantId, plan])
+  @@index([tenantId, contractEndsAt])
 }
 
 model Employee {

@@ -67,6 +67,7 @@ async function buildSnapshot(
     worktimeAgreementSetting,
     payrollRecordkeepingSetting,
     operationalResilienceSetting,
+    subscription,
     calendarReview,
     attendancePolicyCount,
     activeAttendancePolicy,
@@ -112,6 +113,7 @@ async function buildSnapshot(
     prisma.companyWorktimeAgreementSetting.findUnique({ where: { companyId } }),
     prisma.companyPayrollRecordkeepingSetting.findUnique({ where: { companyId } }),
     prisma.companyOperationalResilienceSetting.findUnique({ where: { companyId } }),
+    prisma.tenantSubscription.findUnique({ where: { tenantId } }),
     prisma.companyCalendarReview.findFirst({
       where: { tenantId, companyId, calendarYear: new Date().getFullYear() },
       orderBy: { updatedAt: "desc" },
@@ -422,6 +424,21 @@ async function buildSnapshot(
           verificationStatus: operationalResilienceSetting.verificationStatus,
         }
       : null,
+    subscription: subscription
+      ? {
+          plan: subscription.plan,
+          status: subscription.status,
+          seatLimit: subscription.seatLimit,
+          activeSeatCount: subscription.activeSeatCount,
+          billingContactEmail: subscription.billingContactEmail,
+          contractRef: subscription.contractRef,
+          contractHash: subscription.contractHash,
+          contractStartsAt: subscription.contractStartsAt,
+          contractEndsAt: subscription.contractEndsAt,
+          renewalNoticeDays: subscription.renewalNoticeDays,
+          verificationStatus: subscription.verificationStatus,
+        }
+      : null,
     supportAccessGovernance: {
       activeApprovedCount: activeApprovedSupportGrantCount,
       activeUnapprovedCount: activeUnapprovedSupportGrantCount,
@@ -510,6 +527,7 @@ function emptySnapshot(
     notificationSettings: null,
     payrollPaymentSecuritySettings: null,
     operationalResilienceSettings: null,
+    subscription: null,
     supportAccessGovernance: {
       activeApprovedCount: 0,
       activeUnapprovedCount: 0,

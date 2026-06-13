@@ -26,6 +26,7 @@ export type Permission =
   | "training:self"
   | "incident:manage"
   | "incident:self"
+  | "subscription:manage"
   | "payroll:manage"
   | "payroll_adjustment:approve"
   | "payslip:self"
@@ -53,6 +54,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "training:self",
     "incident:manage",
     "incident:self",
+    "subscription:manage",
     "payroll:manage",
     "payroll_adjustment:approve",
     "ai:policy",

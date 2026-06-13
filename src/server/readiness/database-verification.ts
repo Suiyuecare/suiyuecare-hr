@@ -150,6 +150,19 @@ export type DatabaseVerificationSnapshot = {
     restoreDrillTicket: string | null;
     verificationStatus: string;
   } | null;
+  subscription: {
+    plan: string;
+    status: string;
+    seatLimit: number;
+    activeSeatCount: number;
+    billingContactEmail: string | null;
+    contractRef: string | null;
+    contractHash: string | null;
+    contractStartsAt: Date | null;
+    contractEndsAt: Date | null;
+    renewalNoticeDays: number;
+    verificationStatus: string;
+  } | null;
   supportAccessGovernance: {
     activeApprovedCount: number;
     activeUnapprovedCount: number;
@@ -360,6 +373,19 @@ function buildProductionChecks(snapshot: DatabaseVerificationSnapshot): Database
       snapshot.operationalResilienceSettings.restoreDrillTicket &&
       snapshot.operationalResilienceSettings.verificationStatus === "verified"
   );
+  const subscriptionReady = Boolean(
+    snapshot.subscription &&
+      snapshot.subscription.plan !== "demo" &&
+      snapshot.subscription.status === "active" &&
+      snapshot.subscription.activeSeatCount <= snapshot.subscription.seatLimit &&
+      snapshot.subscription.billingContactEmail &&
+      snapshot.subscription.contractRef &&
+      snapshot.subscription.contractHash &&
+      snapshot.subscription.contractStartsAt &&
+      snapshot.subscription.contractEndsAt &&
+      daysUntil(snapshot.subscription.contractEndsAt) > snapshot.subscription.renewalNoticeDays &&
+      snapshot.subscription.verificationStatus === "verified",
+  );
 
   return [
     check(
@@ -371,6 +397,13 @@ function buildProductionChecks(snapshot: DatabaseVerificationSnapshot): Database
       "production company identity",
       Boolean(snapshot.company?.taxId && !snapshot.company.taxId.toLowerCase().includes("demo")),
       snapshot.company?.taxId ? "tax id configured" : "missing tax id",
+    ),
+    check(
+      "commercial subscription",
+      subscriptionReady,
+      snapshot.subscription
+        ? `${snapshot.subscription.plan}; ${snapshot.subscription.status}; ${snapshot.subscription.activeSeatCount}/${snapshot.subscription.seatLimit} seat(s); ${snapshot.subscription.verificationStatus}`
+        : "missing tenant subscription",
     ),
     check(
       "production SSO",
@@ -471,4 +504,12 @@ function daysSince(value: Date | null) {
   const startToday = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
   const startValue = Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate());
   return Math.floor((startToday - startValue) / 86_400_000);
+}
+
+function daysUntil(value: Date | null) {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const today = new Date();
+  const startToday = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  const startValue = Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate());
+  return Math.ceil((startValue - startToday) / 86_400_000);
 }

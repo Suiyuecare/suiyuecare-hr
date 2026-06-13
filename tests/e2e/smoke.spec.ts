@@ -187,6 +187,35 @@ test("Owner records backup and restore drill evidence for launch readiness", asy
   await expect(page.getByText("create · audit_evidence_package")).toBeVisible();
 });
 
+test("Owner verifies customer subscription without exposing raw contract references", async ({ page }) => {
+  await page.goto("/app");
+  await page.getByLabel("Demo role").selectOption("owner");
+  await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/settings/subscription");
+
+  await expect(page.getByRole("heading", { name: "Subscription" })).toBeVisible();
+  await expect(page.getByText("Commercial gaps remain")).toBeVisible();
+  await page.getByLabel("Plan").selectOption("enterprise");
+  await page.locator('select[name="status"]').selectOption("active");
+  await page.getByLabel("Seat limit").fill("25");
+  await page.getByLabel("Trial ends").fill("2026-06-27");
+  await page.getByLabel("Contract starts").fill("2026-06-01");
+  await page.getByLabel("Contract ends").fill("2027-06-01");
+  await page.getByLabel("Billing contact email").fill("billing@customer.example");
+  await page.getByLabel("Contract reference").fill("contract://customer-a/hrone-2026");
+  await page.getByLabel("Verification status").selectOption("verified");
+  await page.getByRole("button", { name: "Save subscription" }).click();
+
+  await expect(page.getByText("Ready for commercial launch")).toBeVisible();
+  await expect(page.getByLabel("Plan")).toHaveValue("enterprise");
+  await expect(page.locator('select[name="status"]')).toHaveValue("active");
+
+  await page.goto("/settings/audit");
+  await expect(page.getByText("update · tenant_subscription")).toBeVisible();
+  await expect(page.getByText("contract://customer-a/hrone-2026")).not.toBeVisible();
+  await expect(page.getByText("Raw values hidden")).toBeVisible();
+});
+
 test("employee submits leave and manager approves from unified inbox", async ({ page }) => {
   await page.goto("/app");
   await page.getByRole("button", { name: "Clock in" }).click();

@@ -182,6 +182,19 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     restoreDrillTicket: "OPS-1234",
     verificationStatus: "verified",
   },
+  subscription: {
+    plan: "enterprise",
+    status: "active",
+    seatLimit: 25,
+    activeSeatCount: 6,
+    billingContactEmail: "billing@customer.example",
+    contractRef: "contract://customer-a/hrone-2026",
+    contractHash: "contract-hash",
+    contractStartsAt: new Date("2026-06-01T00:00:00.000Z"),
+    contractEndsAt: new Date("2027-06-01T00:00:00.000Z"),
+    renewalNoticeDays: 30,
+    verificationStatus: "verified",
+  },
   supportAccessGovernance: {
     activeApprovedCount: 0,
     activeUnapprovedCount: 0,
@@ -621,6 +634,27 @@ describe("database verification checks", () => {
     expect(checks.find((item) => item.name === "annual calendar review")).toMatchObject({
       passed: false,
       detail: "2026; pending_review; 1/3 national holiday(s), 1/1 makeup workday(s)",
+    });
+  });
+
+  it("requires a verified commercial subscription before production verification passes", () => {
+    const checks = buildDatabaseVerificationChecks(
+      {
+        ...readySnapshot,
+        subscription: {
+          ...readySnapshot.subscription!,
+          plan: "demo",
+          status: "trial",
+          seatLimit: 5,
+          verificationStatus: "unverified",
+        },
+      },
+      "production",
+    );
+
+    expect(checks.find((item) => item.name === "commercial subscription")).toMatchObject({
+      passed: false,
+      detail: "demo; trial; 6/5 seat(s); unverified",
     });
   });
 
