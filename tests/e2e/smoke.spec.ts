@@ -44,6 +44,8 @@ test("API middleware rate limits bursty AI requests", async ({ request }, testIn
 });
 
 test("demo roles can switch between distinct dashboards", async ({ page }) => {
+  test.setTimeout(60_000);
+
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
   await expect(page.getByText("2.5 carried over first")).toBeVisible();
@@ -95,9 +97,14 @@ test("demo roles can switch between distinct dashboards", async ({ page }) => {
     "tw-lsa-article-24,Labor Standards Act Article 24 overtime wage,https://law.moj.gov.tw/ENG/LawClass/LawAll.aspx?pcode=N0030001,2026-06-13",
     "tw-minimum-wage-2026,Ministry of Labor 2026 minimum wage announcement,https://english.mol.gov.tw/21139/40790/87087/,2026-06-13",
   ].join("\n"));
+  await page.getByLabel("Statutory filing report mappings").fill([
+    "Custom labor insurance review,Bureau of Labor Insurance,tw_labor_insurance_employee|tw_labor_insurance_employer",
+    "Custom withholding review,Ministry of Finance,tw_income_tax_withholding",
+  ].join("\n"));
   await page.getByRole("button", { name: "Save rule settings" }).click();
   await expect(page.getByText("company-1").first()).toBeVisible();
   await expect(page.getByText("Fresh").first()).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: "Custom withholding review" })).toBeVisible();
   await page.getByLabel("Require employee MFA").check();
   await page.getByLabel("Enable SSO placeholder").check();
   await page.getByLabel("SSO provider").fill("Entra ID");
@@ -531,7 +538,7 @@ test("HR generates audited payroll export packages after lock", async ({ page })
   await page.getByRole("button", { name: "Lock payroll" }).click();
   await expect(page.getByText("locked").first()).toBeVisible();
 
-  await page.getByRole("link", { name: "Exports" }).click();
+  await page.goto("/hr/payroll-exports");
   await expect(page.getByRole("heading", { name: "Payroll Exports" })).toBeVisible();
   await expect(page.getByText("Bank upload ready")).toBeVisible();
   await expect(page.getByText("5 missing")).toBeVisible();

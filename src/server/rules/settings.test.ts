@@ -125,8 +125,59 @@ describe("rule settings", () => {
         metadata: expect.objectContaining({
           validationSummary: expect.objectContaining({
             passed: true,
-            fixtureCount: 8,
+            fixtureCount: 9,
             failedCount: 0,
+          }),
+        }),
+      }),
+    ]);
+  });
+
+  it("versions statutory filing package mappings without code changes", async () => {
+    const updated = await updateTaiwanLaborStandardsConfig(ownerSession, {
+      statutoryPayroll: {
+        statutoryFilingReports: [
+          {
+            report: "Custom labor insurance review",
+            authority: "Bureau of Labor Insurance",
+            payrollItemCodes: ["tw_labor_insurance_employee", "tw_labor_insurance_employer"],
+          },
+          {
+            report: "Custom withholding review",
+            authority: "Ministry of Finance",
+            payrollItemCodes: ["tw_income_tax_withholding"],
+          },
+        ],
+      },
+      changeControl: {
+        reason: "Customer statutory filing mapping review",
+        sourceUrl: "https://laws.mol.gov.tw/",
+        reviewedBy: "Payroll owner",
+        reviewStatus: "approved",
+        requiresPayrollRecalculation: false,
+      },
+    });
+
+    expect(updated.statutoryPayroll.statutoryFilingReports).toEqual([
+      {
+        report: "Custom labor insurance review",
+        authority: "Bureau of Labor Insurance",
+        payrollItemCodes: ["tw_labor_insurance_employee", "tw_labor_insurance_employer"],
+      },
+      {
+        report: "Custom withholding review",
+        authority: "Ministry of Finance",
+        payrollItemCodes: ["tw_income_tax_withholding"],
+      },
+    ]);
+    await expect(getAuditLogs(ownerSession, 1)).resolves.toEqual([
+      expect.objectContaining({
+        entityType: "rule_settings",
+        metadata: expect.objectContaining({
+          changedFields: expect.arrayContaining(["statutoryPayroll.statutoryFilingReports"]),
+          validationSummary: expect.objectContaining({
+            passed: true,
+            fixtureCount: 9,
           }),
         }),
       }),

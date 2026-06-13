@@ -1073,6 +1073,38 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
                 <span className="badge">{laborConfig.statutoryPayroll.laborPensionContributionGrades.length} levels</span>
               </li>
             </ul>
+            <div className="section-heading compact-heading">
+              <div>
+                <h3>Statutory filing package mappings</h3>
+                <p className="muted">
+                  Define which payroll item codes roll up into each HR/accounting review package before government filing.
+                </p>
+              </div>
+              <span className="badge warning">Rule controlled</span>
+            </div>
+            <label>
+              Statutory filing report mappings
+              <textarea
+                name="statutoryFilingReportsCsv"
+                rows={6}
+                defaultValue={formatStatutoryFilingReportsCsv(laborConfig.statutoryPayroll.statutoryFilingReports)}
+                aria-describedby="statutory-filing-help"
+              />
+            </label>
+            <p className="muted" id="statutory-filing-help">
+              Format: report,authority,payroll item codes. Separate multiple payroll item codes with |. Do not include employee names, salary amounts, national IDs, or bank data.
+            </p>
+            <ul className="task-list">
+              {laborConfig.statutoryPayroll.statutoryFilingReports.map((report) => (
+                <li className="task" key={`${report.report}:${report.authority}`}>
+                  <span>
+                    <strong>{report.report}</strong>
+                    <small>{report.authority} · {report.payrollItemCodes.join(", ")}</small>
+                  </span>
+                  <span className="badge">{report.payrollItemCodes.length} code(s)</span>
+                </li>
+              ))}
+            </ul>
             <button className="button primary" type="submit">
               Save rule settings
             </button>
@@ -1147,6 +1179,18 @@ function formatLegalSourcesCsv(
       source.title,
       source.url,
       source.checkedAt,
+    ].map(escapeCsvCell).join(","))
+    .join("\n");
+}
+
+function formatStatutoryFilingReportsCsv(
+  reports: Array<{ report: string; authority: string; payrollItemCodes: string[] }>,
+) {
+  return reports
+    .map((report) => [
+      report.report,
+      report.authority,
+      report.payrollItemCodes.join("|"),
     ].map(escapeCsvCell).join(","))
     .join("\n");
 }

@@ -32,7 +32,7 @@ export type RuleValidationSummary = {
   fixtures: RuleValidationFixture[];
 };
 
-export const taiwanLaborFixtureSetVersion = "tw-labor-fixtures-2026.06-v2";
+export const taiwanLaborFixtureSetVersion = "tw-labor-fixtures-2026.06-v3";
 export const defaultLegalSourceMaxAgeDays = 180;
 
 export type LegalSourceFreshnessSummary = {
@@ -61,6 +61,7 @@ export function validateTaiwanLaborStandardsRuleSet(
     validateAnnualLeaveTiers(config),
     validateTerminationCompliance(config),
     validateSupplementaryNhiPremium(config),
+    validateStatutoryFilingMappings(config),
   ];
   const failedCount = fixtures.filter((fixture) => !fixture.passed).length;
   return {
@@ -373,6 +374,31 @@ function validateSupplementaryNhiPremium(config: TaiwanLaborStandardsConfig): Ru
       ? `Bonus excess 10000 produces supplementary premium ${expected}.`
       : `Expected ${expected}, got ${result.amount}.`,
     sourceIds: sourceIds(result.sources),
+  };
+}
+
+function validateStatutoryFilingMappings(config: TaiwanLaborStandardsConfig): RuleValidationFixture {
+  const reports = config.statutoryPayroll.statutoryFilingReports;
+  const reportKeys = new Set(reports.map((report) => `${report.report}:${report.authority}`));
+  const allCodes = reports.flatMap((report) => report.payrollItemCodes);
+  const passed =
+    reports.length > 0 &&
+    reportKeys.size === reports.length &&
+    reports.every((report) => (
+      report.report.trim().length > 0 &&
+      report.authority.trim().length > 0 &&
+      report.payrollItemCodes.length > 0 &&
+      report.payrollItemCodes.every((code) => code.trim().length > 0)
+    ));
+  return {
+    id: "tw_statutory_filing_mappings",
+    name: "Statutory filing packages map payroll item codes through versioned rules",
+    category: "payroll",
+    passed,
+    detail: passed
+      ? `${reports.length} filing package(s) map ${new Set(allCodes).size} payroll item code(s).`
+      : "Statutory filing mappings must include unique report/authority rows and at least one payroll item code.",
+    sourceIds: sourceIds(config.sources),
   };
 }
 

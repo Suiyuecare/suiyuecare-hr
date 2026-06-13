@@ -88,6 +88,7 @@ export async function POST(request: Request) {
         laborInsuranceSalaryGrades: parseSalaryGradesCsv(formData.get("laborInsuranceSalaryGradesCsv")),
         healthInsuranceSalaryGrades: parseSalaryGradesCsv(formData.get("healthInsuranceSalaryGradesCsv")),
         laborPensionContributionGrades: parseSalaryGradesCsv(formData.get("laborPensionContributionGradesCsv")),
+        statutoryFilingReports: parseStatutoryFilingReportsCsv(formData.get("statutoryFilingReportsCsv")),
       },
     });
     return NextResponse.redirect(new URL("/settings", request.url), 303);
@@ -217,6 +218,28 @@ function parseLegalSourcesCsv(value: FormDataEntryValue | null) {
       /^\d{4}-\d{2}-\d{2}$/.test(source.checkedAt)
     ));
   return sources.length > 0 ? sources : undefined;
+}
+
+function parseStatutoryFilingReportsCsv(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const reports = value
+    .split(/\r?\n/)
+    .map((line) => parseCsvLine(line.trim()))
+    .filter((parts) => parts.length >= 3)
+    .map(([report, authority, payrollItemCodes]) => ({
+      report,
+      authority,
+      payrollItemCodes: payrollItemCodes
+        .split("|")
+        .map((code) => code.trim())
+        .filter(Boolean),
+    }))
+    .filter((report) => (
+      report.report.length > 0 &&
+      report.authority.length > 0 &&
+      report.payrollItemCodes.length > 0
+    ));
+  return reports.length > 0 ? reports : undefined;
 }
 
 function parseCsvLine(line: string) {
