@@ -26,6 +26,7 @@ export function CustomFormCard({ template, today }: CustomFormCardProps) {
       aria-label={`Submit ${template.title}`}
     >
       <input type="hidden" name="templateId" value={template.id} />
+      <input type="hidden" name="taskStartedAt" value={Date.now()} />
       <div>
         <h3>{template.title}</h3>
         <p className="muted">{template.description}</p>

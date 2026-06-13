@@ -1,4 +1,5 @@
 import { getFallbackCompanyOverview } from "@/server/demo/fallback";
+import { recordDemoProductTelemetryEvent } from "@/server/telemetry/product";
 import {
   hasShiftConflict,
   nextApprovalStatus,
@@ -193,6 +194,18 @@ export function createDemoFormTemplate(input: {
   };
   state.formTemplates.unshift(template);
   state.auditCount += 1;
+  recordDemoProductTelemetryEvent({
+    eventName: "form_template_created",
+    workflow: "form_builder",
+    step: "hr_self_serve",
+    success: true,
+    metadata: {
+      engineeringSupport: false,
+      fieldCount: template.fields.length,
+      workflowStepCount: template.workflowSteps.length,
+      visibilityRuleCount: template.visibilityRules.length,
+    },
+  });
   return template;
 }
 
@@ -225,6 +238,7 @@ export function submitDemoCustomForm(input: {
   state.requests.unshift(request);
   notifyForApprover(firstStep, "New form submission", `張小安 submitted ${template.title}.`);
   state.auditCount += 1;
+  recordDemoMobileTask("custom_form");
 }
 
 export function getDemoHrExceptions() {
@@ -305,6 +319,17 @@ export function submitDemoLeave(input: {
   state.requests.unshift(request);
   notify("manager", "New leave request", "張小安 submitted annual leave for approval.");
   state.auditCount += 1;
+  recordDemoProductTelemetryEvent({
+    eventName: "leave_request_success",
+    workflow: "leave",
+    step: "first_success",
+    durationMs: estimateDurationMs(input.startAt, 45_000),
+    metadata: {
+      source: "demo_employee_mobile",
+      attachmentCount: request.attachments?.length ?? 0,
+    },
+  });
+  recordDemoMobileTask("leave");
 }
 
 export function submitDemoOvertime(input: {
@@ -333,6 +358,7 @@ export function submitDemoOvertime(input: {
   state.requests.unshift(request);
   notify("manager", "New overtime request", "張小安 submitted overtime for approval.");
   state.auditCount += 1;
+  recordDemoMobileTask("overtime");
 }
 
 export function submitDemoPunchCorrection(input: {
@@ -359,6 +385,7 @@ export function submitDemoPunchCorrection(input: {
   state.requests.unshift(request);
   notify("manager", "New punch correction", "張小安 submitted a missing punch correction.");
   state.auditCount += 1;
+  recordDemoMobileTask("punch_correction");
 }
 
 export function decideDemoApproval(input: {
@@ -382,6 +409,7 @@ export function decideDemoApproval(input: {
       request.currentStepLabel = nextStep.label;
       notifyForApprover(nextStep, "Form approval needed", `${request.employeeName} submitted ${request.title}.`);
       state.auditCount += 1;
+      recordDemoApprovalTelemetry(request.type, input.action, request.createdAt);
       return;
     }
   }
@@ -407,6 +435,44 @@ export function decideDemoApproval(input: {
     `${request.title} was ${nextStatus} by ${actorName}.`,
   );
   state.auditCount += 1;
+  recordDemoApprovalTelemetry(request.type, input.action, request.createdAt);
+}
+
+function recordDemoMobileTask(taskType: string) {
+  recordDemoProductTelemetryEvent({
+    eventName: "mobile_task_started",
+    workflow: "mobile_task",
+    step: "employee_self_service",
+    metadata: { taskType },
+  });
+  recordDemoProductTelemetryEvent({
+    eventName: "mobile_task_completed",
+    workflow: "mobile_task",
+    step: "employee_self_service",
+    metadata: { taskType },
+  });
+}
+
+function recordDemoApprovalTelemetry(type: RequestType, action: ApprovalAction, createdAt: Date) {
+  if (type !== "leave") {
+    return;
+  }
+  recordDemoProductTelemetryEvent({
+    eventName: "manager_approval_done",
+    workflow: "approval",
+    step: "manager_leave",
+    durationMs: estimateDurationMs(createdAt, 12_000),
+    success: action === "approve",
+    metadata: { requestType: type },
+  });
+}
+
+function estimateDurationMs(startedAt: Date, fallbackMs: number) {
+  const elapsed = Date.now() - startedAt.getTime();
+  if (!Number.isFinite(elapsed) || elapsed < 0 || elapsed > 24 * 60 * 60 * 1000) {
+    return fallbackMs;
+  }
+  return Math.max(1_000, elapsed);
 }
 
 function createRequest(input: {

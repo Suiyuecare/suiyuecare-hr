@@ -76,6 +76,25 @@ export async function recordProductTelemetryEvent(
   });
 }
 
+export function recordDemoProductTelemetryEvent(input: ProductTelemetryEventInput) {
+  const normalized = normalizeEvent({
+    role: "employee",
+    tenantId: "demo-tenant",
+    companyId: "demo-company",
+    user: null,
+    employee: null,
+  }, input);
+  getProductTelemetryDemoState().events.push({
+    tenantId: "demo-tenant",
+    companyId: "demo-company",
+    ...normalized,
+  });
+}
+
+export function getProductTelemetryDemoEvents() {
+  return [...getProductTelemetryDemoState().events];
+}
+
 export async function getProductTelemetrySnapshot(
   session?: Pick<SessionLike, "tenantId" | "companyId">,
 ): Promise<ProductTelemetrySnapshot> {

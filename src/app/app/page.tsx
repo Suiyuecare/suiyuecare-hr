@@ -8,6 +8,7 @@ export default async function EmployeeHomePage() {
   const session = await getDemoSession();
   const workspace = await getEmployeeWorkspace(session);
   const today = toInputDate(new Date());
+  const taskStartedAt = Date.now();
   const pendingRequests = workspace.requests.filter((request) => request.status === "pending");
 
   return (
@@ -88,6 +89,7 @@ export default async function EmployeeHomePage() {
                 className="mini-form"
                 aria-label="Submit leave"
               >
+                <input type="hidden" name="taskStartedAt" value={taskStartedAt} />
                 <h3>Leave</h3>
                 <div className="field-grid">
                   <label>
@@ -137,6 +139,7 @@ export default async function EmployeeHomePage() {
                 className="mini-form"
                 aria-label="Submit overtime"
               >
+                <input type="hidden" name="taskStartedAt" value={taskStartedAt} />
                 <h3>Overtime</h3>
                 <div className="field-grid">
                   <label>
@@ -171,6 +174,7 @@ export default async function EmployeeHomePage() {
                 className="mini-form"
                 aria-label="Submit punch correction"
               >
+                <input type="hidden" name="taskStartedAt" value={taskStartedAt} />
                 <h3>Punch correction</h3>
                 <div className="field-grid">
                   <label>

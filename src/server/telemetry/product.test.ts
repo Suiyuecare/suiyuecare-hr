@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  getProductTelemetryDemoEvents,
   getProductTelemetrySnapshot,
+  recordDemoProductTelemetryEvent,
   recordProductTelemetryEvent,
   resetProductTelemetryDemoState,
 } from "./product";
@@ -46,5 +48,25 @@ describe("product telemetry", () => {
     expect(snapshot.averageLeaveSuccessSeconds).toBe(52);
     expect(JSON.stringify(snapshot)).not.toContain("A123456789");
     expect(JSON.stringify(snapshot)).not.toContain("60000");
+  });
+
+  it("redacts sensitive metadata from stored demo events", () => {
+    recordDemoProductTelemetryEvent({
+      eventName: "mobile_task_completed",
+      workflow: "mobile_task",
+      step: "employee_self_service",
+      metadata: {
+        taskType: "leave",
+        nationalId: "A123456789",
+        bankAccount: "004123456789",
+      },
+    });
+
+    const event = getProductTelemetryDemoEvents().at(-1);
+    expect(event?.metadata).toMatchObject({
+      taskType: "leave",
+      nationalId: "[REDACTED]",
+      bankAccount: "[REDACTED]",
+    });
   });
 });

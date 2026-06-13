@@ -6,6 +6,7 @@ import { hasPermission, roleKeys, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
 import { sendNotificationInTransaction, type NotificationEventType } from "@/server/notifications/service";
 import { listPayrollAdjustments, type PayrollAdjustmentView } from "@/server/payroll/adjustments";
+import { recordProductTelemetryEvent } from "@/server/telemetry/product";
 import {
   flattenFormAttachments,
   normalizeAttachmentMetadata,
@@ -184,6 +185,17 @@ export async function createFormTemplate(
         },
       });
     });
+    await recordWorkflowTelemetry(session, {
+      eventName: "form_template_created",
+      workflow: "form_builder",
+      step: "hr_self_serve",
+      metadata: {
+        engineeringSupport: false,
+        fieldCount: input.fields.length,
+        workflowStepCount: input.workflowStepTypes.length,
+        visibilityRuleCount: visibilityRulesFromFields(input.fields).length,
+      },
+    });
     return;
   }
   createDemoFormTemplate(input);
@@ -195,6 +207,7 @@ export async function createCustomFormSubmission(
     templateId: string;
     values: Record<string, string>;
     attachments?: Record<string, AttachmentInput[] | undefined>;
+    telemetryStartedAt?: Date | null;
   },
 ) {
   if (!session.employee) {
@@ -276,6 +289,7 @@ export async function createCustomFormSubmission(
         ...summarizeAttachmentsForAudit(attachments),
       });
     });
+    await recordMobileTaskTelemetry(session, "custom_form", input.telemetryStartedAt);
     return;
   }
   submitDemoCustomForm(input);
@@ -377,6 +391,7 @@ export async function createLeaveRequest(
     units: number;
     reason: string;
     attachment?: AttachmentInput | null;
+    telemetryStartedAt?: Date | null;
   },
 ) {
   if (!canUseDatabase(session)) {
@@ -458,11 +473,22 @@ export async function createLeaveRequest(
       ...summarizeAttachmentsForAudit(attachments),
     });
   });
+  await recordWorkflowTelemetry(session, {
+    eventName: "leave_request_success",
+    workflow: "leave",
+    step: "first_success",
+    durationMs: durationSince(input.telemetryStartedAt),
+    metadata: {
+      source: "employee_self_service",
+      attachmentProvided: Boolean(input.attachment?.fileName || input.attachment?.storageKey),
+    },
+  });
+  await recordMobileTaskTelemetry(session, "leave", input.telemetryStartedAt);
 }
 
 export async function createOvertimeRequest(
   session: SessionLike,
-  input: { startAt: Date; endAt: Date; reason: string },
+  input: { startAt: Date; endAt: Date; reason: string; telemetryStartedAt?: Date | null },
 ) {
   const policy = await getActiveAttendancePolicy({
     ...session,
@@ -511,6 +537,7 @@ export async function createOvertimeRequest(
     await notify(tx, session, context.manager.userId, "New overtime request", `${session.employee!.displayName} submitted overtime for approval.`, "/manager/inbox", "approval_submitted");
     await auditCreate(tx, session, "overtime_request", request.id, request);
   });
+  await recordMobileTaskTelemetry(session, "overtime", input.telemetryStartedAt);
 }
 
 export async function createPunchCorrectionRequest(
@@ -520,6 +547,7 @@ export async function createPunchCorrectionRequest(
     requestedClockInAt?: Date | null;
     requestedClockOutAt?: Date | null;
     reason: string;
+    telemetryStartedAt?: Date | null;
   },
 ) {
   if (!canUseDatabase(session)) {
@@ -555,6 +583,7 @@ export async function createPunchCorrectionRequest(
     await notify(tx, session, context.manager.userId, "New punch correction", `${session.employee!.displayName} submitted a missing punch correction.`, "/manager/inbox", "approval_submitted");
     await auditCreate(tx, session, "punch_correction_request", request.id, request);
   });
+  await recordMobileTaskTelemetry(session, "punch_correction", input.telemetryStartedAt);
 }
 
 export async function decideApproval(
@@ -711,6 +740,7 @@ export async function decideApproval(
       },
     });
   });
+  await recordApprovalTelemetry(session, input.requestId, input.action);
 }
 
 async function decideCustomFormApproval(
@@ -1478,6 +1508,92 @@ function summarizeFormValues(fields: FormField[], values: Record<string, string>
     .slice(0, 3)
     .map((field) => `${field.label}: ${values[field.id] ?? "-"}`)
     .join(" · ");
+}
+
+async function recordMobileTaskTelemetry(
+  session: SessionLike,
+  taskType: string,
+  startedAt?: Date | null,
+) {
+  await recordWorkflowTelemetry(session, {
+    eventName: "mobile_task_started",
+    workflow: "mobile_task",
+    step: "employee_self_service",
+    metadata: { taskType },
+  });
+  await recordWorkflowTelemetry(session, {
+    eventName: "mobile_task_completed",
+    workflow: "mobile_task",
+    step: "employee_self_service",
+    durationMs: durationSince(startedAt),
+    metadata: { taskType },
+  });
+}
+
+async function recordApprovalTelemetry(
+  session: SessionLike,
+  requestId: string,
+  action: ApprovalAction,
+) {
+  if (!canUseDatabase(session)) {
+    return;
+  }
+
+  try {
+    const task = await getDb().approvalTask.findFirst({
+      where: {
+        requestId,
+        approverEmployeeId: session.employee!.id,
+        requestType: "leave",
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+    if (!task) {
+      return;
+    }
+    await recordWorkflowTelemetry(session, {
+      eventName: "manager_approval_done",
+      workflow: "approval",
+      step: "manager_leave",
+      durationMs: durationSince(task.createdAt),
+      success: action === "approve",
+      metadata: { requestType: task.requestType },
+    });
+  } catch {
+    // Telemetry must never block approval decisions.
+  }
+}
+
+async function recordWorkflowTelemetry(
+  session: SessionLike,
+  input: Parameters<typeof recordProductTelemetryEvent>[1],
+) {
+  const role = asRoleKey(session.role);
+  if (!role) {
+    return;
+  }
+  try {
+    await recordProductTelemetryEvent(
+      {
+        ...session,
+        role,
+      },
+      input,
+    );
+  } catch {
+    // Product analytics is advisory and must not break HR workflows.
+  }
+}
+
+function durationSince(startedAt?: Date | null) {
+  if (!startedAt) {
+    return null;
+  }
+  const elapsed = Date.now() - startedAt.getTime();
+  if (!Number.isFinite(elapsed) || elapsed < 0 || elapsed > 24 * 60 * 60 * 1000) {
+    return null;
+  }
+  return Math.max(1_000, Math.round(elapsed));
 }
 
 function canUseDatabase(session: SessionLike) {

@@ -56,6 +56,15 @@ export function parseOptionalText(value: FormDataEntryValue | null) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+export function parseTelemetryStartedAt(value: FormDataEntryValue | null) {
+  const timestamp = Number(value);
+  if (!Number.isFinite(timestamp) || timestamp <= 0) {
+    return null;
+  }
+  const date = new Date(timestamp);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function todayInputValue() {
   return toInputDate(new Date());
 }

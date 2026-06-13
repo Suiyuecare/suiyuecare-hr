@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireTenantSession } from "@/server/auth/guards";
 import { createCustomFormSubmission, getFormTemplates } from "@/server/workflows/service";
-import { parseAttachmentMetadata } from "@/app/api/workflows/form-utils";
+import { parseAttachmentMetadata, parseTelemetryStartedAt } from "@/app/api/workflows/form-utils";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -27,6 +27,7 @@ export async function POST(request: Request) {
     templateId,
     values,
     attachments,
+    telemetryStartedAt: parseTelemetryStartedAt(formData.get("taskStartedAt")),
   });
   return NextResponse.redirect(new URL("/app#requests", request.url), 303);
 }

@@ -5,6 +5,7 @@ import {
   combineDateAndTime,
   parseDate,
   parseOptionalTime,
+  parseTelemetryStartedAt,
   parseText,
 } from "../form-utils";
 
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
     requestedClockInAt: clockInTime ? combineDateAndTime(workDate, clockInTime) : null,
     requestedClockOutAt: clockOutTime ? combineDateAndTime(workDate, clockOutTime) : null,
     reason: parseText(formData.get("reason"), "Punch correction request"),
+    telemetryStartedAt: parseTelemetryStartedAt(formData.get("taskStartedAt")),
   });
   return NextResponse.redirect(new URL("/app#requests", request.url), 303);
 }
