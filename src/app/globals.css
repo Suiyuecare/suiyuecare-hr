@@ -264,6 +264,90 @@ textarea {
   justify-content: flex-end;
 }
 
+.finance-strip {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.8fr) minmax(220px, 1.6fr) minmax(220px, 1.2fr);
+  align-items: center;
+  gap: 16px;
+  background: #101f1a;
+  color: #ffffff;
+}
+
+.finance-strip .muted {
+  color: #b8c7bf;
+}
+
+.finance-strip strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 22px;
+}
+
+.finance-strip-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.health-meter {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.health-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #34d399;
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.workflow-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 250px;
+}
+
+.workflow-card h2 {
+  margin: 4px 0 0;
+  font-size: 20px;
+}
+
+.workflow-card p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.workflow-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.workflow-card-primary .button {
+  width: 100%;
+}
+
+.compact-link-row {
+  gap: 8px;
+}
+
+.compact-link-row .button {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -652,9 +736,15 @@ legend {
   .field-grid,
   .decision-grid,
   .toggle-row,
+  .finance-strip,
+  .workspace-grid,
   .payroll-actions,
   .payroll-preview {
     grid-template-columns: 1fr;
+  }
+
+  .finance-strip-meta {
+    justify-content: flex-start;
   }
 
   .close-steps {

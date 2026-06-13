@@ -1,21 +1,33 @@
 import { EmptyState } from "@/components/EmptyState";
 import { getDemoSession } from "@/server/auth/demo-session";
 import { getCompanyOverview } from "@/server/dashboard/queries";
+import { getHrOneKpis, summarizeHrOneKpis } from "@/server/kpis/hr-one";
 import { getOnboardingReadinessReport } from "@/server/onboarding/readiness";
 import { getPayrollDashboard } from "@/server/payroll/service";
 import { getHrAttendanceExceptions } from "@/server/workflows/service";
 
 export default async function HrDashboardPage() {
   const [session, overview] = await Promise.all([getDemoSession(), getCompanyOverview()]);
-  const [exceptions, payroll, onboardingReadiness] = await Promise.all([
+  const [exceptions, payroll, onboardingReadiness, kpis] = await Promise.all([
     getHrAttendanceExceptions(session),
     getPayrollDashboard(session),
     getOnboardingReadinessReport(session),
+    getHrOneKpis(),
   ]);
+  const kpiSummary = summarizeHrOneKpis(kpis);
+  const focusKpis = kpis.filter((kpi) => kpi.status !== "passing").slice(0, 3);
+  const pendingExceptionCount = exceptions.filter((item) => item.status === "pending").length;
   const nextActions = buildNextActions({
-    attendanceExceptionCount: exceptions.filter((item) => item.status === "pending").length,
+    attendanceExceptionCount: pendingExceptionCount,
     onboardingReadiness,
     payroll,
+  });
+  const closeHealth = buildCloseHealth(payroll.checklist.steps);
+  const workspaceGroups = buildWorkspaceGroups({
+    pendingExceptionCount,
+    payrollStatus: payroll.run?.status ?? "not started",
+    onboardingOpenCount: onboardingReadiness.checks.filter((check) => check.status !== "ready").length,
+    kpiOpenCount: kpiSummary.watch + kpiSummary.failing,
   });
 
   if (!overview) {
@@ -44,14 +56,31 @@ export default async function HrDashboardPage() {
         </div>
         <div className="panel span-4 metric">
           <span className="muted">Attendance blockers</span>
-          <strong>{exceptions.filter((item) => item.status === "pending").length}</strong>
+          <strong>{pendingExceptionCount}</strong>
           <span className="badge warning">Before payroll</span>
         </div>
         <div className="panel span-4 metric">
-          <span className="muted">Active rule versions</span>
-          <strong>{overview.activeRuleCount}</strong>
-          <span className="badge">Versioned</span>
+          <span className="muted">KPI focus</span>
+          <strong>{kpiSummary.watch + kpiSummary.failing}</strong>
+          <span className={`badge ${kpiSummary.readyForSale ? "" : "warning"}`}>Sale gate</span>
         </div>
+
+        <section className="panel span-12 finance-strip">
+          <div>
+            <span className="muted">Close health</span>
+            <strong>{closeHealth.ready}/{closeHealth.total} ready</strong>
+          </div>
+          <div className="health-meter" aria-label={`Payroll close health ${closeHealth.percent}%`}>
+            <span style={{ width: `${closeHealth.percent}%` }} />
+          </div>
+          <div className="finance-strip-meta">
+            <span className="badge">{payroll.run?.status ?? "not started"}</span>
+            <span className={`badge ${kpiSummary.readyForSale ? "" : "warning"}`}>
+              {kpiSummary.passing}/{kpiSummary.total} KPIs passing
+            </span>
+            <span className="badge">Rules {overview.activeRuleCount}</span>
+          </div>
+        </section>
 
         <section className="panel span-12 command-panel">
           <div className="section-heading">
@@ -83,11 +112,40 @@ export default async function HrDashboardPage() {
           </ul>
         </section>
 
+        <section className="span-12 workspace-grid" aria-label="HR operations workspace">
+          {workspaceGroups.map((group) => (
+            <article className="panel workflow-card" key={group.id}>
+              <div className="workflow-card-header">
+                <div>
+                  <span className="muted">{group.area}</span>
+                  <h2>{group.title}</h2>
+                </div>
+                <span className={`badge ${group.tone === "warning" ? "warning" : group.tone === "danger" ? "danger" : ""}`}>
+                  {group.status}
+                </span>
+              </div>
+              <p className="muted">{group.summary}</p>
+              <div className="workflow-card-primary">
+                <a className="button primary" href={group.primary.href}>
+                  {group.primary.label}
+                </a>
+              </div>
+              <div className="inline-actions compact-link-row">
+                {group.links.map((link) => (
+                  <a className="button" href={link.href} key={link.href}>
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            </article>
+          ))}
+        </section>
+
         <section className="panel span-12">
           <div className="section-heading">
             <div>
               <h2>Employee forms</h2>
-              <p className="muted">Build mobile forms and route each request through the same approval Inbox.</p>
+              <p className="muted">Fast access for employee lifecycle tools; day-to-day priorities stay above in the workspace cards.</p>
             </div>
             <div className="inline-actions">
               <a className="button" href="/hr/employee-import">
@@ -140,7 +198,7 @@ export default async function HrDashboardPage() {
           <div className="section-heading">
             <div>
               <h2>Time operations</h2>
-              <p className="muted">Keep attendance policies, calendars, leave rules, and balances configurable without code changes.</p>
+              <p className="muted">Policy setup and exception tools stay configurable without code changes.</p>
             </div>
             <div className="inline-actions">
               <a className="button" href="/hr/shift-templates">
@@ -176,6 +234,34 @@ export default async function HrDashboardPage() {
             </div>
           </div>
         </section>
+
+        {focusKpis.length > 0 ? (
+          <section className="panel span-12">
+            <div className="section-heading">
+              <div>
+                <h2>KPI focus</h2>
+                <p className="muted">Use these product outcomes to keep HR One fast enough to sell, not just feature-complete.</p>
+              </div>
+              <a className="button" href="/hr/kpis">
+                Open scorecard
+              </a>
+            </div>
+            <ul className="task-list">
+              {focusKpis.map((kpi) => (
+                <li className="task" key={kpi.id}>
+                  <span>
+                    <strong>{kpi.name}</strong>
+                    <small>Target {kpi.target} · current {kpi.current}</small>
+                    <small>{kpi.nextStep}</small>
+                  </span>
+                  <span className={`badge ${kpi.status === "failing" ? "danger" : "warning"}`}>
+                    {kpi.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <section className="panel span-12">
           <div className="section-heading">
@@ -379,6 +465,25 @@ type NextAction = {
   primary?: boolean;
 };
 
+type WorkspaceGroup = {
+  id: string;
+  area: string;
+  title: string;
+  summary: string;
+  status: string;
+  tone: "ready" | "warning" | "danger";
+  primary: {
+    href: string;
+    label: string;
+  };
+  links: Array<{
+    href: string;
+    label: string;
+  }>;
+};
+
+type CloseStep = Awaited<ReturnType<typeof getPayrollDashboard>>["checklist"]["steps"][number];
+
 function buildNextActions(input: {
   attendanceExceptionCount: number;
   onboardingReadiness: Awaited<ReturnType<typeof getOnboardingReadinessReport>>;
@@ -441,6 +546,82 @@ function buildNextActions(input: {
   }
 
   return actions.slice(0, 3);
+}
+
+function buildCloseHealth(steps: CloseStep[]) {
+  const ready = steps.filter((step) => step.status === "done").length;
+  const total = steps.length || 1;
+  return {
+    ready,
+    total,
+    percent: Math.round((ready / total) * 100),
+  };
+}
+
+function buildWorkspaceGroups(input: {
+  pendingExceptionCount: number;
+  payrollStatus: string;
+  onboardingOpenCount: number;
+  kpiOpenCount: number;
+}): WorkspaceGroup[] {
+  return [
+    {
+      id: "payroll",
+      area: "Monthly close",
+      title: "Payroll close cockpit",
+      summary: "Clear blockers, calculate draft, lock payroll, release payslips, then prepare exports.",
+      status: input.payrollStatus,
+      tone: input.payrollStatus === "released" ? "ready" : "warning",
+      primary: { href: "/hr", label: "Continue close" },
+      links: [
+        { href: "/hr/payroll-compliance", label: "Compliance" },
+        { href: "/hr/payment-profiles", label: "Payment" },
+        { href: "/hr/payroll-exports", label: "Bank packages" },
+      ],
+    },
+    {
+      id: "time",
+      area: "Attendance",
+      title: "Exception queue",
+      summary: "Resolve missing punches, worktime risks, schedules, leave grants, and sign-offs before month end.",
+      status: input.pendingExceptionCount ? `${input.pendingExceptionCount} pending` : "clear",
+      tone: input.pendingExceptionCount ? "danger" : "ready",
+      primary: { href: "/hr/attendance-exceptions", label: "Resolve exceptions" },
+      links: [
+        { href: "/hr/attendance-policies", label: "Policies" },
+        { href: "/hr/worktime-compliance", label: "Worktime" },
+        { href: "/hr/calendar", label: "Calendar" },
+      ],
+    },
+    {
+      id: "people",
+      area: "People ops",
+      title: "Employee readiness",
+      summary: "Import employee data, collect labor roster evidence, publish documents, and close onboarding gaps.",
+      status: input.onboardingOpenCount ? `${input.onboardingOpenCount} gaps` : "ready",
+      tone: input.onboardingOpenCount ? "warning" : "ready",
+      primary: { href: "/hr/onboarding-readiness", label: "Review gaps" },
+      links: [
+        { href: "/hr/employee-import", label: "Import" },
+        { href: "/hr/labor-roster", label: "Labor roster" },
+        { href: "/hr/documents", label: "Documents" },
+      ],
+    },
+    {
+      id: "outcomes",
+      area: "Operating KPIs",
+      title: "Sales proof",
+      summary: "Track whether HR One is faster for employees, managers, HR admins, and security reviewers.",
+      status: input.kpiOpenCount ? `${input.kpiOpenCount} focus` : "ready",
+      tone: input.kpiOpenCount ? "warning" : "ready",
+      primary: { href: "/hr/kpis", label: "Open scorecard" },
+      links: [
+        { href: "/settings/readiness", label: "Launch gate" },
+        { href: "/settings/audit", label: "Audit" },
+        { href: "/hr/forms", label: "Forms" },
+      ],
+    },
+  ];
 }
 
 function formatMoney(value: number) {
