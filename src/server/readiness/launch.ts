@@ -2,6 +2,7 @@ import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { getUserAccessWorkspace } from "@/server/auth/access-management";
 import { getCompanyCalendarWorkspace, type CompanyCalendarReadiness } from "@/server/calendar/company-calendar";
 import { getCompanyOverview } from "@/server/dashboard/queries";
+import { getLaborRosterWorkspace } from "@/server/employees/labor-roster";
 import { getOffboardingWorkspace, type OffboardingReadiness } from "@/server/employees/offboarding";
 import type { FileStorageSettings } from "@/server/files/storage";
 import { getFileStorageSettings, isProductionStorageVerified } from "@/server/files/storage";
@@ -84,6 +85,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     subscriptionWorkspace,
     offboardingWorkspace,
     workRulesWorkspace,
+    laborRosterWorkspace,
     kpis,
   ] = await Promise.all([
     getCompanyOverview(),
@@ -102,6 +104,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     getSubscriptionWorkspace(session),
     getOffboardingWorkspace(session),
     getWorkRulesWorkspace(session),
+    getLaborRosterWorkspace(session),
     getHrOneKpis(),
   ]);
 
@@ -146,6 +149,15 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     subscriptionReadiness: subscriptionWorkspace.readiness,
     offboardingReadiness: offboardingWorkspace.readiness,
     workRuleReadiness: workRulesWorkspace.readiness,
+    laborRosterReadiness: {
+      ready: laborRosterWorkspace.coverage.employeeCount > 0 &&
+        laborRosterWorkspace.coverage.completeCount >= laborRosterWorkspace.coverage.employeeCount &&
+        laborRosterWorkspace.coverage.verifiedCount >= laborRosterWorkspace.coverage.employeeCount,
+      detail: `${laborRosterWorkspace.coverage.completeCount}/${laborRosterWorkspace.coverage.employeeCount} active employee(s) have complete roster profiles; ${laborRosterWorkspace.coverage.verifiedCount} verified.`,
+      missing: laborRosterWorkspace.profiles
+        .filter((profile) => profile.status !== "complete" || profile.verificationStatus !== "verified")
+        .map((profile) => profile.employeeName),
+    },
     kpis,
   });
 }
@@ -195,6 +207,11 @@ export function buildLaunchReadinessReport(input: {
   subscriptionReadiness?: Pick<SubscriptionReadiness, "ready" | "detail" | "missing">;
   offboardingReadiness?: Pick<OffboardingReadiness, "ready" | "detail" | "missing">;
   workRuleReadiness?: Pick<WorkRuleReadiness, "ready" | "detail" | "missing">;
+  laborRosterReadiness?: {
+    ready: boolean;
+    detail: string;
+    missing: string[];
+  };
   kpis: HrOneKpi[];
 }): LaunchReadinessReport {
   const kpiSummary = summarizeHrOneKpis(input.kpis);
@@ -256,6 +273,11 @@ export function buildLaunchReadinessReport(input: {
   const workRuleReadiness = input.workRuleReadiness ?? {
     ready: true,
     detail: "Work rules readiness not evaluated in this test context.",
+    missing: [],
+  };
+  const laborRosterReadiness = input.laborRosterReadiness ?? {
+    ready: true,
+    detail: "Labor roster readiness not evaluated in this test context.",
     missing: [],
   };
   const items: LaunchReadinessItem[] = [
@@ -393,6 +415,18 @@ export function buildLaunchReadinessReport(input: {
         : "Keep company work rules approved, active, versioned, and acknowledged by employees.",
       actionLabel: "Open work rules",
       actionHref: "/hr/work-rules",
+    },
+    {
+      id: "labor_roster",
+      area: "Compliance",
+      title: "Labor roster completeness",
+      status: laborRosterReadiness.ready ? "ready" : "blocked",
+      detail: laborRosterReadiness.detail,
+      nextStep: laborRosterReadiness.missing.length > 0
+        ? `Complete and verify labor roster profiles for: ${laborRosterReadiness.missing.join(", ")}.`
+        : "Keep Taiwan worker roster profiles complete, verified, sourced, and hash-only for sensitive fields.",
+      actionLabel: "Open labor roster",
+      actionHref: "/hr/labor-roster",
     },
     {
       id: "training",
@@ -533,8 +567,8 @@ function buildSetupSteps(items: LaunchReadinessItem[]): LaunchSetupStep[] {
     setupStep({
       step: 4,
       title: "Approve compliance controls",
-      itemIds: ["calendar", "law_rules", "work_rules", "training", "offboarding", "incidents", "audit"],
-      summary: "Review Taiwan annual calendars, rule versions, company work rules, onboarding training, termination offboarding, workplace incident response, and sensitive mutation audit evidence.",
+      itemIds: ["calendar", "law_rules", "work_rules", "labor_roster", "training", "offboarding", "incidents", "audit"],
+      summary: "Review Taiwan annual calendars, rule versions, company work rules, labor roster profiles, onboarding training, termination offboarding, workplace incident response, and sensitive mutation audit evidence.",
       actionLabel: "Review compliance",
       actionHref: "/settings#law-rules-setup",
       items,

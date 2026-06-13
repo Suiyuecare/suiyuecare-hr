@@ -102,6 +102,8 @@ async function buildSnapshot(
     currentSalaryProfiles,
     currentPayrollComplianceProfiles,
     currentPaymentProfiles,
+    completeLaborRosterProfiles,
+    verifiedLaborRosterProfiles,
     statutoryInsuranceRecords,
     leavePolicySettings,
     externalIdentities,
@@ -214,6 +216,14 @@ async function buildSnapshot(
     }),
     prisma.employeePaymentProfile.findMany({
       where: { tenantId, companyId, status: "active", effectiveTo: null },
+      select: { employeeId: true },
+    }),
+    prisma.employeeLaborRosterProfile.findMany({
+      where: { tenantId, companyId, status: "complete" },
+      select: { employeeId: true },
+    }),
+    prisma.employeeLaborRosterProfile.findMany({
+      where: { tenantId, companyId, status: "complete", verificationStatus: "verified" },
       select: { employeeId: true },
     }),
     prisma.statutoryInsuranceRecord.findMany({
@@ -378,6 +388,8 @@ async function buildSnapshot(
       payrollComplianceProfileEmployeeIds: uniqueIds(currentPayrollComplianceProfiles.map((profile) => profile.employeeId)),
       paymentProfileEmployeeIds: uniqueIds(currentPaymentProfiles.map((profile) => profile.employeeId)),
       statutoryInsuranceReadyEmployeeIds: statutoryInsuranceReadyEmployeeIds(statutoryInsuranceRecords),
+      completeLaborRosterEmployeeIds: uniqueIds(completeLaborRosterProfiles.map((profile) => profile.employeeId)),
+      verifiedLaborRosterEmployeeIds: uniqueIds(verifiedLaborRosterProfiles.map((profile) => profile.employeeId)),
     },
     leavePolicySettings: leavePolicySettings.map((policy) => ({
       code: policy.code,
@@ -546,6 +558,8 @@ function emptySnapshot(
       payrollComplianceProfileEmployeeIds: [],
       paymentProfileEmployeeIds: [],
       statutoryInsuranceReadyEmployeeIds: [],
+      completeLaborRosterEmployeeIds: [],
+      verifiedLaborRosterEmployeeIds: [],
     },
     leavePolicySettings: [],
     minimumWageCompliance: {

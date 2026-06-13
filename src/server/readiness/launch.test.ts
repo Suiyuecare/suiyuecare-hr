@@ -404,6 +404,46 @@ describe("launch readiness", () => {
     });
   });
 
+  it("blocks launch when labor roster profiles are incomplete or unverified", () => {
+    const report = buildLaunchReadinessReport({
+      databaseConfigured: true,
+      employeeCount: 5,
+      auditCount: 8,
+      activeRuleCount: 3,
+      laborConfig: defaultTaiwanLaborStandardsConfig,
+      securitySettings: secureSettings,
+      fileStorageSettings: secureStorage,
+      notificationSettings,
+      privilegedSsoIdentityCoverage: {
+        total: 3,
+        linked: 3,
+      },
+      supportAccessGovernance: {
+        activeApprovedCount: 0,
+        activeUnapprovedCount: 0,
+        expiredStillApprovedCount: 0,
+      },
+      payrollPaymentSecurity: readyPaymentSecurity,
+      laborRosterReadiness: {
+        ready: false,
+        detail: "4/5 active employee(s) have complete roster profiles; 3 verified.",
+        missing: ["張小安", "李小真"],
+      },
+      calendarReadiness: readyCalendar,
+      kpis: passingKpis,
+    });
+
+    expect(report.items.find((item) => item.id === "labor_roster")).toMatchObject({
+      status: "blocked",
+      actionHref: "/hr/labor-roster",
+      nextStep: "Complete and verify labor roster profiles for: 張小安, 李小真.",
+    });
+    expect(report.setupSteps[3]).toMatchObject({
+      status: "blocked",
+      actionHref: "/hr/labor-roster",
+    });
+  });
+
   it("blocks launch when termination offboarding tasks remain open", () => {
     const report = buildLaunchReadinessReport({
       databaseConfigured: true,

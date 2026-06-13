@@ -60,6 +60,8 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     payrollComplianceProfileEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
     paymentProfileEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
     statutoryInsuranceReadyEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
+    completeLaborRosterEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
+    verifiedLaborRosterEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
   },
   leavePolicySettings: taiwanStatutoryLeaveRequirements.map((requirement) => ({
     code: requirement.recommendedCode,
@@ -122,6 +124,7 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     "payroll_compliance_profile",
     "employee_payment_profile",
     "payroll_profile_import",
+    "employee_labor_roster_profile",
   ],
   lawRulesHaveActiveVersion: true,
   ruleValidation: {
@@ -317,6 +320,8 @@ describe("database verification checks", () => {
           payrollComplianceProfileEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
           paymentProfileEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
           statutoryInsuranceReadyEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
+          completeLaborRosterEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
+          verifiedLaborRosterEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
         },
       },
       "production",
@@ -518,7 +523,7 @@ describe("database verification checks", () => {
     });
     expect(checks.find((item) => item.name === "sensitive onboarding audit coverage")).toMatchObject({
       passed: false,
-      detail: "missing payroll_compliance_profile, payroll_profile_import",
+      detail: "missing payroll_compliance_profile, payroll_profile_import, employee_labor_roster_profile",
     });
   });
 
@@ -688,6 +693,25 @@ describe("database verification checks", () => {
     expect(checks.find((item) => item.name === "statutory insurance enrollment evidence")).toMatchObject({
       passed: false,
       detail: "4/5 active employee(s) have ready statutory insurance evidence; 20 record(s)",
+    });
+  });
+
+  it("requires complete and verified labor roster profiles for every active employee", () => {
+    const checks = buildDatabaseVerificationChecks(
+      {
+        ...readySnapshot,
+        profileCoverage: {
+          ...readySnapshot.profileCoverage,
+          completeLaborRosterEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4"],
+          verifiedLaborRosterEmployeeIds: ["emp_1", "emp_2", "emp_3"],
+        },
+      },
+      "production",
+    );
+
+    expect(checks.find((item) => item.name === "labor roster profile coverage")).toMatchObject({
+      passed: false,
+      detail: "4/5 active employee(s) have complete labor roster profiles; 3 verified",
     });
   });
 

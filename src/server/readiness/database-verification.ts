@@ -65,6 +65,8 @@ export type DatabaseVerificationSnapshot = {
     payrollComplianceProfileEmployeeIds: string[];
     paymentProfileEmployeeIds: string[];
     statutoryInsuranceReadyEmployeeIds: string[];
+    completeLaborRosterEmployeeIds: string[];
+    verifiedLaborRosterEmployeeIds: string[];
   };
   leavePolicySettings: Array<{
     code: string;
@@ -194,6 +196,7 @@ const requiredSensitiveOnboardingAuditEntityTypes = [
   "payroll_compliance_profile",
   "employee_payment_profile",
   "payroll_profile_import",
+  "employee_labor_roster_profile",
 ] as const;
 
 export function buildDatabaseVerificationChecks(
@@ -277,7 +280,21 @@ export function buildDatabaseVerificationChecks(
     snapshot.profileCoverage.payrollComplianceProfileEmployeeIds,
   );
   const paymentCoverage = profileCoverage(snapshot.profileCoverage.activeEmployeeIds, snapshot.profileCoverage.paymentProfileEmployeeIds);
+  const laborRosterCoverage = profileCoverage(
+    snapshot.profileCoverage.activeEmployeeIds,
+    snapshot.profileCoverage.completeLaborRosterEmployeeIds,
+  );
+  const verifiedLaborRosterCoverage = profileCoverage(
+    snapshot.profileCoverage.activeEmployeeIds,
+    snapshot.profileCoverage.verifiedLaborRosterEmployeeIds,
+  );
 
+  checks.push(check(
+    "labor roster profile coverage",
+    laborRosterCoverage.missingCount === 0 &&
+      verifiedLaborRosterCoverage.missingCount === 0,
+    `${laborRosterCoverage.configuredCount}/${laborRosterCoverage.totalCount} active employee(s) have complete labor roster profiles; ${verifiedLaborRosterCoverage.configuredCount} verified`,
+  ));
   checks.push(check(
     "salary profile coverage",
     salaryCoverage.missingCount === 0,
