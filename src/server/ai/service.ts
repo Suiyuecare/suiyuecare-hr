@@ -21,7 +21,7 @@ export async function answerPolicyQuestion(
   assertPermission(session.role, "ai:policy");
   const sanitizedQuestion = stripUnnecessaryPii(question);
   assertSafeAiUse({ category: "policy_qa", prompt: sanitizedQuestion });
-  const sources = findPolicySources(sanitizedQuestion);
+  const sources = await findPolicySources(session, sanitizedQuestion);
 
   const draft =
     sources.length === 0

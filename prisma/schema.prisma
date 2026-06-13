@@ -148,6 +148,7 @@ model Company {
   workflowTemplateSteps WorkflowTemplateStep[]
   formSubmissions FormSubmission[]
   supportAccessGrants SupportAccessGrant[]
+  policyDocuments CompanyPolicyDocument[]
   aiUsageLogs AiUsageLog[]
   productTelemetryEvents ProductTelemetryEvent[]
   createdAt   DateTime     @default(now())
@@ -937,6 +938,28 @@ model NotificationDelivery {
 
   @@index([tenantId, companyId, notificationId])
   @@index([tenantId, companyId, channel, status])
+}
+
+model CompanyPolicyDocument {
+  id               String   @id @default(cuid())
+  tenantId         String
+  companyId        String
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  title            String
+  category         String
+  status           String   @default("draft")
+  version          String   @default("v1")
+  sourceRef        String?
+  excerpt          String
+  keywordsJson     Json
+  approvedByUserId String?
+  approvedAt       DateTime?
+  updatedByUserId  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([tenantId, companyId, status])
+  @@index([tenantId, companyId, category])
 }
 
 model AiUsageLog {

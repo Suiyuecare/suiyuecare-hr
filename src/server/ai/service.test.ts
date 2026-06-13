@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetAiDemoState } from "./demo-store";
+import { resetPolicyDocumentDemoState, savePolicyDocument } from "./policy-docs";
 import {
   calculateDemoPayrollRun,
   createDemoPayrollRun,
@@ -31,6 +32,7 @@ const employeeSession: AiSessionLike = {
 describe("AI Copilot safety", () => {
   beforeEach(() => {
     resetAiDemoState();
+    resetPolicyDocumentDemoState();
     resetPayrollDemoState();
   });
 
@@ -44,6 +46,31 @@ describe("AI Copilot safety", () => {
     const answer = await answerPolicyQuestion(hrSession, "What is the cafeteria menu tomorrow?");
     expect(answer.confidence).toBe("insufficient");
     expect(answer.sources).toHaveLength(0);
+  });
+
+  it("uses HR-approved company policy sources and ignores inactive drafts", async () => {
+    await savePolicyDocument(hrSession, {
+      title: "Remote work policy",
+      category: "Workplace",
+      status: "approved",
+      version: "v2",
+      sourceRef: "handbook://remote/v2",
+      excerpt: "Remote work requests must include work dates, manager acknowledgement, and emergency contact availability.",
+      keywords: "remote, work, hybrid, 遠端",
+    });
+    await savePolicyDocument(hrSession, {
+      title: "Inactive cafeteria policy",
+      category: "Workplace",
+      status: "inactive",
+      excerpt: "This inactive policy should not be cited by AI policy answers.",
+      keywords: "cafeteria",
+    });
+
+    const remote = await answerPolicyQuestion(hrSession, "How does remote work approval happen?");
+    const cafeteria = await answerPolicyQuestion(hrSession, "cafeteria");
+
+    expect(remote.sources.map((source) => source.title)).toContain("Remote work policy · v2");
+    expect(cafeteria.confidence).toBe("insufficient");
   });
 
   it("blocks sensitive final decision prompts", async () => {

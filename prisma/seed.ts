@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient, RoleKey } from "@prisma/client";
 import { createHash } from "node:crypto";
+import { defaultApprovedPolicyDocs } from "../src/server/ai/policy-docs";
 import { taiwanStatutoryLeaveRequirements } from "../src/server/leave/statutory";
 import { defaultTaiwanLaborStandardsConfig } from "../src/server/rules/taiwan-labor-standards";
 import {
@@ -33,6 +34,7 @@ type SeedTelemetryEvent = readonly [
 async function main() {
   await prisma.auditLog.deleteMany();
   await prisma.aiUsageLog.deleteMany();
+  await prisma.companyPolicyDocument.deleteMany();
   await prisma.productTelemetryEvent.deleteMany();
   await prisma.notificationDelivery.deleteMany();
   await prisma.notification.deleteMany();
@@ -140,6 +142,22 @@ async function main() {
       wageCalculationDetailsEnabled: true,
       laborInspectionExportEnabled: true,
     },
+  });
+
+  await prisma.companyPolicyDocument.createMany({
+    data: defaultApprovedPolicyDocs.map((doc) => ({
+      tenantId: tenant.id,
+      companyId: company.id,
+      title: doc.title,
+      category: doc.category,
+      status: doc.status,
+      version: doc.version,
+      sourceRef: doc.sourceRef,
+      excerpt: doc.excerpt,
+      keywordsJson: doc.keywords,
+      approvedByUserId: null,
+      approvedAt: doc.approvedAt,
+    })),
   });
 
   await prisma.companyFileStorageSetting.create({

@@ -32,6 +32,8 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     paymentProfiles: 5,
     formTemplates: 1,
     workflowSteps: 1,
+    policyDocuments: 4,
+    approvedPolicyDocuments: 4,
     auditLogs: 8,
     telemetryEvents: 4,
   },
@@ -451,6 +453,25 @@ describe("database verification checks", () => {
     expect(checks.find((item) => item.name === "worktime agreement evidence")).toMatchObject({
       passed: false,
       detail: "labor-management conference approval; approval evidence missing; unverified; monthly 46h; 3-month 138h",
+    });
+  });
+
+  it("requires approved policy sources for AI policy answers", () => {
+    const checks = buildDatabaseVerificationChecks(
+      {
+        ...readySnapshot,
+        counts: {
+          ...readySnapshot.counts,
+          policyDocuments: 2,
+          approvedPolicyDocuments: 0,
+        },
+      },
+      "production",
+    );
+
+    expect(checks.find((item) => item.name === "approved policy sources")).toMatchObject({
+      passed: false,
+      detail: "0/2 approved source(s)",
     });
   });
 

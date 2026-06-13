@@ -37,6 +37,8 @@ export type DatabaseVerificationSnapshot = {
     paymentProfiles: number;
     formTemplates: number;
     workflowSteps: number;
+    policyDocuments: number;
+    approvedPolicyDocuments: number;
     auditLogs: number;
     telemetryEvents: number;
   };
@@ -287,6 +289,11 @@ export function buildDatabaseVerificationChecks(
     "form builder seed",
     snapshot.counts.formTemplates >= 1 && snapshot.counts.workflowSteps >= 1,
     `${snapshot.counts.formTemplates} form(s), ${snapshot.counts.workflowSteps} step(s)`,
+  ));
+  checks.push(check(
+    "approved policy sources",
+    snapshot.counts.approvedPolicyDocuments >= 1,
+    `${snapshot.counts.approvedPolicyDocuments}/${snapshot.counts.policyDocuments} approved source(s)`,
   ));
   checks.push(check("audit baseline", snapshot.counts.auditLogs >= 1, `${snapshot.counts.auditLogs} audit event(s)`));
   checks.push(check("product telemetry baseline", snapshot.counts.telemetryEvents >= 1, `${snapshot.counts.telemetryEvents} telemetry event(s)`));

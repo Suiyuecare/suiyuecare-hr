@@ -39,6 +39,9 @@ export default async function HrCopilotPage({ searchParams }: { searchParams: Se
           <button className="button primary" type="submit">
             Ask with sources
           </button>
+          <a className="button" href="/hr/policy-sources">
+            Manage sources
+          </a>
         </form>
 
         <form action="/api/ai/form-draft" method="post" className="panel span-4 mini-form">

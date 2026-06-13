@@ -270,15 +270,29 @@ test("HR uses AI Copilot for sourced Q&A and form draft confirmation", async ({ 
   await page.goto("/app");
   await page.getByLabel("Demo role").selectOption("hr_admin");
   await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/hr/policy-sources");
+  await expect(page.getByRole("heading", { name: "Policy Sources" })).toBeVisible();
+  await page.getByLabel("Title").fill("Remote work policy");
+  await page.getByLabel("Category").fill("Workplace");
+  await page.getByLabel("Version").fill("v2");
+  await page.getByLabel("Status").selectOption("approved");
+  await page.getByLabel("Source reference").fill("handbook://remote/v2");
+  await page.getByLabel("Keywords").fill("remote, work, hybrid, 遠端");
+  await page
+    .getByLabel("Approved excerpt")
+    .fill("Remote work requests must include work dates, manager acknowledgement, and emergency contact availability.");
+  await page.getByRole("button", { name: "Save policy source" }).click();
+  await expect(page.getByText("Remote work policy")).toBeVisible();
+
   await page.getByRole("link", { name: "AI Copilot" }).click();
   await expect(page.getByRole("heading", { name: "AI Copilot" })).toBeVisible();
 
   await page
     .locator('form[action="/api/ai/policy"] textarea[name="question"]')
-    .fill("How does annual leave approval affect balance?");
+    .fill("How does remote work approval happen?");
   await page.getByRole("button", { name: "Ask with sources" }).click();
   await expect(page.getByText("AI suggestion").first()).toBeVisible();
-  await expect(page.getByText("Annual Leave Policy v1")).toBeVisible();
+  await expect(page.getByText("Remote work policy · v2")).toBeVisible();
 
   await page
     .locator('form[action="/api/ai/form-draft"] textarea[name="prompt"]')

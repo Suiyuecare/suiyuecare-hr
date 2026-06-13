@@ -68,6 +68,9 @@ export default async function HrDashboardPage() {
               <a className="button" href="/hr/copilot">
                 AI Copilot
               </a>
+              <a className="button" href="/hr/policy-sources">
+                Policy sources
+              </a>
               <a className="button" href="/hr/kpis">
                 KPIs
               </a>

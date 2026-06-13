@@ -152,6 +152,7 @@ export async function provisionTenantFoundation(
 
     await createFoundationSettings(tx, input, tenant.id, company.id, ownerUser.id);
     await createTaiwanRuleBaseline(tx, tenant.id, company.id);
+    await createStarterPolicySources(tx, tenant.id, company.id, ownerUser.id);
     await createStarterHrForm(tx, tenant.id, company.id);
 
     await writeAuditLog(tx, {
@@ -187,6 +188,7 @@ export async function provisionTenantFoundation(
         "Import departments, managers, employees, and reporting lines.",
         "Create salary, payroll compliance, and payment profiles for every active employee.",
         "Review company calendar, leave policies, attendance policy, and shift templates with HR/legal.",
+        "Approve company policy sources before enabling AI policy Q&A for customer users.",
         "Run employee and manager workflow smoke tests to generate production KPI telemetry.",
         `Run pnpm db:verify:production -- --tenant-slug=${tenant.slug} before customer go-live.`,
       ],
@@ -515,6 +517,29 @@ async function createTaiwanRuleBaseline(
       },
       testCasesJson,
       status: "active",
+    },
+  });
+}
+
+async function createStarterPolicySources(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  companyId: string,
+  ownerUserId: string,
+) {
+  await tx.companyPolicyDocument.create({
+    data: {
+      tenantId,
+      companyId,
+      title: "AI safety policy draft",
+      category: "AI safety",
+      status: "draft",
+      version: "v1",
+      sourceRef: "customer://replace-with-approved-policy",
+      excerpt:
+        "AI may summarize, explain, draft, and recommend verification steps. HR must approve this source before AI policy Q&A can cite it.",
+      keywordsJson: ["ai", "copilot", "safety", "人工智慧"],
+      updatedByUserId: ownerUserId,
     },
   });
 }
