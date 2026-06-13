@@ -177,6 +177,7 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     bankFileFormat: "customer_bank_csv",
     bankFormatVersion: "v1",
     bankFormatVerified: true,
+    bankFileColumnOrder: ["employee_no", "bank_code", "branch_code", "account_token_ref", "amount", "currency"],
     verificationStatus: "verified",
     lastVerifiedAt: new Date("2026-06-12T00:00:00.000Z"),
   },
@@ -557,6 +558,7 @@ describe("database verification checks", () => {
           bankFileFormat: "tw_bank_csv_placeholder",
           bankFormatVersion: "v1",
           bankFormatVerified: false,
+          bankFileColumnOrder: ["employee_no", "currency"],
           verificationStatus: "unverified",
           lastVerifiedAt: null,
         },
@@ -566,7 +568,25 @@ describe("database verification checks", () => {
 
     expect(checks.find((item) => item.name === "payroll payment security")).toMatchObject({
       passed: false,
-      detail: "not_configured; tw_bank_csv_placeholder v1; unverified",
+      detail: "not_configured; tw_bank_csv_placeholder v1; 2 bank column(s); unverified",
+    });
+  });
+
+  it("requires bank payment exports to include account token and amount columns", () => {
+    const checks = buildDatabaseVerificationChecks(
+      {
+        ...readySnapshot,
+        payrollPaymentSecuritySettings: {
+          ...readySnapshot.payrollPaymentSecuritySettings!,
+          bankFileColumnOrder: ["employee_no", "currency"],
+        },
+      },
+      "production",
+    );
+
+    expect(checks.find((item) => item.name === "payroll payment security")).toMatchObject({
+      passed: false,
+      detail: "aws_secrets_manager; customer_bank_csv v1; 2 bank column(s); verified",
     });
   });
 

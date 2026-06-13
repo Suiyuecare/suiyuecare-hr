@@ -17,6 +17,7 @@ export type PayrollPaymentSecuritySettings = {
   kmsKeyRef: string | null;
   bankFileFormat: string;
   bankFormatVersion: string;
+  bankFileColumnOrder: BankTransferColumnKey[];
   bankFormatVerified: boolean;
   verificationStatus: "unverified" | "verified" | "failed";
   lastVerifiedAt: Date | null;
@@ -24,6 +25,36 @@ export type PayrollPaymentSecuritySettings = {
 };
 
 export type PayrollPaymentSecuritySettingsInput = Partial<PayrollPaymentSecuritySettings>;
+
+export type BankTransferColumnKey =
+  | "employee_no"
+  | "employee_name"
+  | "bank_code"
+  | "branch_code"
+  | "account_token_ref"
+  | "amount"
+  | "currency"
+  | "memo";
+
+export const defaultBankTransferColumnOrder: BankTransferColumnKey[] = [
+  "employee_no",
+  "bank_code",
+  "branch_code",
+  "account_token_ref",
+  "amount",
+  "currency",
+];
+
+const allowedBankTransferColumns = new Set<BankTransferColumnKey>([
+  "employee_no",
+  "employee_name",
+  "bank_code",
+  "branch_code",
+  "account_token_ref",
+  "amount",
+  "currency",
+  "memo",
+]);
 
 type PaymentSecurityDemoState = {
   settings: PayrollPaymentSecuritySettings;
@@ -35,6 +66,7 @@ const defaultPaymentSecuritySettings: PayrollPaymentSecuritySettings = {
   kmsKeyRef: null,
   bankFileFormat: "tw_bank_csv_placeholder",
   bankFormatVersion: "v1",
+  bankFileColumnOrder: defaultBankTransferColumnOrder,
   bankFormatVerified: false,
   verificationStatus: "unverified",
   lastVerifiedAt: null,
@@ -84,6 +116,7 @@ export function isPayrollPaymentSecurityReady(settings: PayrollPaymentSecuritySe
       settings.tokenVaultRef &&
       settings.kmsKeyRef &&
       settings.bankFileFormat !== "tw_bank_csv_placeholder" &&
+      hasRequiredBankColumns(settings.bankFileColumnOrder) &&
       settings.bankFormatVerified &&
       settings.verificationStatus === "verified" &&
       settings.lastVerifiedAt,
@@ -180,6 +213,7 @@ function normalizeSettings(
     kmsKeyRef: input.kmsKeyRef === undefined ? before.kmsKeyRef : cleanOptional(input.kmsKeyRef),
     bankFileFormat: cleanText(input.bankFileFormat) ?? before.bankFileFormat,
     bankFormatVersion: cleanText(input.bankFormatVersion) ?? before.bankFormatVersion,
+    bankFileColumnOrder: normalizeColumnOrder(input.bankFileColumnOrder, before.bankFileColumnOrder),
     bankFormatVerified: input.bankFormatVerified ?? before.bankFormatVerified,
     verificationStatus,
     lastVerifiedAt: verificationStatus === "verified" ? input.lastVerifiedAt ?? before.lastVerifiedAt ?? new Date() : null,
@@ -196,6 +230,7 @@ function paymentSecurityReadinessDetail(settings: PayrollPaymentSecuritySettings
     settings.tokenVaultRef ? null : "token vault reference",
     settings.kmsKeyRef ? null : "KMS key reference",
     settings.bankFileFormat === "tw_bank_csv_placeholder" ? "production bank file format" : null,
+    hasRequiredBankColumns(settings.bankFileColumnOrder) ? null : "bank file amount and account token columns",
     settings.bankFormatVerified ? null : "bank format verification",
     settings.verificationStatus === "verified" && settings.lastVerifiedAt ? null : "verification evidence",
   ].filter(Boolean);
@@ -205,16 +240,27 @@ function paymentSecurityReadinessDetail(settings: PayrollPaymentSecuritySettings
 function auditMetadata(before: PayrollPaymentSecuritySettings, after: PayrollPaymentSecuritySettings) {
   return {
     changedFields: Object.keys(after).filter((key) =>
-      before[key as keyof PayrollPaymentSecuritySettings] !== after[key as keyof PayrollPaymentSecuritySettings]
+      !sameAuditValue(
+        before[key as keyof PayrollPaymentSecuritySettings],
+        after[key as keyof PayrollPaymentSecuritySettings],
+      )
     ),
     tokenVaultProvider: after.tokenVaultProvider,
     bankFileFormat: after.bankFileFormat,
     bankFormatVersion: after.bankFormatVersion,
+    bankFileColumnOrder: after.bankFileColumnOrder,
     bankFormatVerified: after.bankFormatVerified,
     verificationStatus: after.verificationStatus,
     tokenVaultRefStoredAsReferenceOnly: Boolean(after.tokenVaultRef),
     kmsKeyRefStoredAsReferenceOnly: Boolean(after.kmsKeyRef),
   };
+}
+
+function sameAuditValue(before: unknown, after: unknown) {
+  if (Array.isArray(before) && Array.isArray(after)) {
+    return before.length === after.length && before.every((item, index) => item === after[index]);
+  }
+  return before === after;
 }
 
 function readRecord(record: {
@@ -223,6 +269,7 @@ function readRecord(record: {
   kmsKeyRef: string | null;
   bankFileFormat: string;
   bankFormatVersion: string;
+  bankFileColumnOrder?: string | null;
   bankFormatVerified: boolean;
   verificationStatus: string;
   lastVerifiedAt: Date | null;
@@ -234,6 +281,7 @@ function readRecord(record: {
     kmsKeyRef: record.kmsKeyRef,
     bankFileFormat: record.bankFileFormat,
     bankFormatVersion: record.bankFormatVersion,
+    bankFileColumnOrder: parseColumnOrder(record.bankFileColumnOrder),
     bankFormatVerified: record.bankFormatVerified,
     verificationStatus: normalizeVerificationStatus(record.verificationStatus),
     lastVerifiedAt: record.lastVerifiedAt,
@@ -248,6 +296,7 @@ function writeRecord(settings: PayrollPaymentSecuritySettings) {
     kmsKeyRef: settings.kmsKeyRef,
     bankFileFormat: settings.bankFileFormat,
     bankFormatVersion: settings.bankFormatVersion,
+    bankFileColumnOrder: settings.bankFileColumnOrder.join(","),
     bankFormatVerified: settings.bankFormatVerified,
     verificationStatus: settings.verificationStatus,
     lastVerifiedAt: settings.lastVerifiedAt,
@@ -258,6 +307,32 @@ function writeRecord(settings: PayrollPaymentSecuritySettings) {
 function normalizeVerificationStatus(value: string): PayrollPaymentSecuritySettings["verificationStatus"] {
   if (value === "verified" || value === "failed") return value;
   return "unverified";
+}
+
+function normalizeColumnOrder(
+  value: BankTransferColumnKey[] | undefined,
+  fallback: BankTransferColumnKey[],
+) {
+  if (!Array.isArray(value) || value.length === 0) return fallback;
+  const seen = new Set<BankTransferColumnKey>();
+  const columns = value.filter((column): column is BankTransferColumnKey => {
+    if (!allowedBankTransferColumns.has(column) || seen.has(column)) return false;
+    seen.add(column);
+    return true;
+  });
+  return columns.length > 0 ? columns : fallback;
+}
+
+function parseColumnOrder(value: string | null | undefined) {
+  if (!value) return defaultBankTransferColumnOrder;
+  return normalizeColumnOrder(
+    value.split(",").map((column) => column.trim()) as BankTransferColumnKey[],
+    defaultBankTransferColumnOrder,
+  );
+}
+
+function hasRequiredBankColumns(columns: BankTransferColumnKey[]) {
+  return columns.includes("account_token_ref") && columns.includes("amount");
 }
 
 function cleanText(value: string | null | undefined) {

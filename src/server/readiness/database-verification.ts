@@ -144,6 +144,7 @@ export type DatabaseVerificationSnapshot = {
     bankFileFormat: string;
     bankFormatVersion: string;
     bankFormatVerified: boolean;
+    bankFileColumnOrder: string[];
     verificationStatus: string;
     lastVerifiedAt: Date | null;
   } | null;
@@ -408,6 +409,8 @@ function buildProductionChecks(snapshot: DatabaseVerificationSnapshot): Database
       snapshot.payrollPaymentSecuritySettings.kmsKeyRef &&
       snapshot.payrollPaymentSecuritySettings.bankFileFormat !== "tw_bank_csv_placeholder" &&
       snapshot.payrollPaymentSecuritySettings.bankFormatVerified &&
+      snapshot.payrollPaymentSecuritySettings.bankFileColumnOrder.includes("account_token_ref") &&
+      snapshot.payrollPaymentSecuritySettings.bankFileColumnOrder.includes("amount") &&
       snapshot.payrollPaymentSecuritySettings.verificationStatus === "verified" &&
       snapshot.payrollPaymentSecuritySettings.lastVerifiedAt,
   );
@@ -498,7 +501,7 @@ function buildProductionChecks(snapshot: DatabaseVerificationSnapshot): Database
       "payroll payment security",
       payrollPaymentSecurityReady,
       snapshot.payrollPaymentSecuritySettings
-        ? `${snapshot.payrollPaymentSecuritySettings.tokenVaultProvider}; ${snapshot.payrollPaymentSecuritySettings.bankFileFormat} ${snapshot.payrollPaymentSecuritySettings.bankFormatVersion}; ${snapshot.payrollPaymentSecuritySettings.verificationStatus}`
+        ? `${snapshot.payrollPaymentSecuritySettings.tokenVaultProvider}; ${snapshot.payrollPaymentSecuritySettings.bankFileFormat} ${snapshot.payrollPaymentSecuritySettings.bankFormatVersion}; ${snapshot.payrollPaymentSecuritySettings.bankFileColumnOrder.length} bank column(s); ${snapshot.payrollPaymentSecuritySettings.verificationStatus}`
         : "missing token vault and bank format verification",
     ),
     check(

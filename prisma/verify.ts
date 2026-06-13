@@ -474,6 +474,7 @@ async function buildSnapshot(
           bankFileFormat: payrollPaymentSecuritySetting.bankFileFormat,
           bankFormatVersion: payrollPaymentSecuritySetting.bankFormatVersion,
           bankFormatVerified: payrollPaymentSecuritySetting.bankFormatVerified,
+          bankFileColumnOrder: readBankFileColumnOrder(payrollPaymentSecuritySetting.bankFileColumnOrder),
           verificationStatus: payrollPaymentSecuritySetting.verificationStatus,
           lastVerifiedAt: payrollPaymentSecuritySetting.lastVerifiedAt,
         }
@@ -694,6 +695,13 @@ function readChangeControl(value: unknown) {
 
 function readStringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function readBankFileColumnOrder(value: string | null | undefined) {
+  return (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function summarizeRuleValidation(definitions: unknown[]) {

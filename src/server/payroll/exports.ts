@@ -291,6 +291,7 @@ function buildPayrollExportDraft(
 ) {
   if (exportType === "bank_transfer") {
     const records = buildBankTransferRecords(run, paymentConfiguredEmployeeIds);
+    const bankRows = buildBankTransferRows(records, paymentSecuritySettings);
     const missingCount = records.filter((record) => record.paymentDestinationStatus === "missing").length;
     const paymentSecurityReady = isPaymentSecurityReady(paymentSecuritySettings);
     return buildDraft({
@@ -300,19 +301,19 @@ function buildPayrollExportDraft(
         ? `${paymentSecuritySettings.bankFileFormat}-${paymentSecuritySettings.bankFormatVersion}`
         : "tw-bank-transfer-placeholder-v1",
       fileName: `hr-one-bank-transfer-${formatPeriod(run.periodStart)}.csv`,
-      records,
+      records: bankRows,
       previewRows: records.slice(0, 5).map((record) => ({
         label: record.employeeName,
         description:
           record.paymentDestinationStatus === "configured"
-            ? "Payment destination configured; full account value is not shown in preview."
+            ? `Payment destination configured; columns ${paymentSecuritySettings.bankFileColumnOrder.join(", ")}.`
             : "Payment destination missing; configure employee payment profile before bank upload.",
         amountLabel: "Amount stored only in secure payroll calculation",
       })),
       warnings: missingCount > 0
         ? [`${missingCount} employee payment destination(s) are missing. This is not ready for bank upload.`]
         : paymentSecurityReady
-          ? [`Payment token vault and ${paymentSecuritySettings.bankFileFormat} ${paymentSecuritySettings.bankFormatVersion} verification are configured.`]
+          ? [`Payment token vault and ${paymentSecuritySettings.bankFileFormat} ${paymentSecuritySettings.bankFormatVersion} verification are configured with ${paymentSecuritySettings.bankFileColumnOrder.length} mapped column(s).`]
           : ["Payment destinations are configured, but production bank upload still requires KMS/token vault integration and verified customer bank format mapping."],
     });
   }
@@ -339,6 +340,8 @@ function isPaymentSecurityReady(settings: PayrollPaymentSecuritySettings) {
       settings.tokenVaultRef &&
       settings.kmsKeyRef &&
       settings.bankFileFormat !== "tw_bank_csv_placeholder" &&
+      settings.bankFileColumnOrder.includes("account_token_ref") &&
+      settings.bankFileColumnOrder.includes("amount") &&
       settings.bankFormatVerified &&
       settings.verificationStatus === "verified" &&
       settings.lastVerifiedAt,
@@ -391,6 +394,34 @@ function buildBankTransferRecords(run: PayrollRunView, paymentConfiguredEmployee
       paymentDestinationStatus: paymentConfiguredEmployeeIds.has(employeeId) ? "configured" : "missing",
     };
   });
+}
+
+function buildBankTransferRows(
+  records: ReturnType<typeof buildBankTransferRecords>,
+  settings: PayrollPaymentSecuritySettings,
+) {
+  return records.map((record) => {
+    const row: Record<string, string | number> = {};
+    for (const column of settings.bankFileColumnOrder) {
+      row[column] = bankColumnValue(column, record);
+    }
+    row.paymentDestinationStatus = record.paymentDestinationStatus;
+    return row;
+  });
+}
+
+function bankColumnValue(
+  column: PayrollPaymentSecuritySettings["bankFileColumnOrder"][number],
+  record: ReturnType<typeof buildBankTransferRecords>[number],
+) {
+  if (column === "employee_no") return record.employeeId;
+  if (column === "employee_name") return record.employeeName;
+  if (column === "bank_code") return record.paymentDestinationStatus === "configured" ? "vault_bank_code" : "missing";
+  if (column === "branch_code") return record.paymentDestinationStatus === "configured" ? "vault_branch_code" : "missing";
+  if (column === "account_token_ref") return record.paymentDestinationStatus === "configured" ? "vault_account_token_ref" : "missing";
+  if (column === "amount") return record.netPay;
+  if (column === "currency") return record.currency;
+  return `HR One payroll ${record.employeeId}`;
 }
 
 function payrollEmployeeIds(run: PayrollRunView) {

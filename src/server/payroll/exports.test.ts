@@ -106,6 +106,7 @@ describe("payroll exports", () => {
       kmsKeyRef: "alias/customer-payroll-payment",
       bankFileFormat: "customer_bank_csv",
       bankFormatVersion: "v2",
+      bankFileColumnOrder: ["employee_no", "bank_code", "account_token_ref", "amount", "memo"],
       bankFormatVerified: true,
       verificationStatus: "verified",
     });
@@ -132,7 +133,8 @@ describe("payroll exports", () => {
       exportType: "bank_transfer",
       format: "customer_bank_csv-v2",
     });
-    expect(bank.warnings).toContain("Payment token vault and customer_bank_csv v2 verification are configured.");
+    expect(bank.warnings).toContain("Payment token vault and customer_bank_csv v2 verification are configured with 5 mapped column(s).");
+    expect(bank.previewRows[0].description).toContain("employee_no, bank_code, account_token_ref, amount, memo");
   });
 
   it("blocks managers from payroll export access", async () => {

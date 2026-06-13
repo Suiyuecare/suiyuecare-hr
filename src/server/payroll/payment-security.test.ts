@@ -36,6 +36,7 @@ describe("payroll payment security settings", () => {
       kmsKeyRef: "alias/customer-payroll-payment",
       bankFileFormat: "customer_bank_csv",
       bankFormatVersion: "v1",
+      bankFileColumnOrder: ["employee_no", "account_token_ref", "amount", "currency"],
       bankFormatVerified: true,
       verificationStatus: "verified",
       verificationNote: "Customer bank sandbox file accepted.",
@@ -52,6 +53,24 @@ describe("payroll payment security settings", () => {
     });
     expect(JSON.stringify(audit.metadataJson)).toContain("aws_secrets_manager");
     expect(JSON.stringify(audit.metadataJson)).not.toContain("vault://customer/payroll-payment");
+  });
+
+  it("requires account token and amount columns before bank upload readiness", async () => {
+    await updatePayrollPaymentSecuritySettings(hrSession, {
+      tokenVaultProvider: "aws_secrets_manager",
+      tokenVaultRef: "vault://customer/payroll-payment",
+      kmsKeyRef: "alias/customer-payroll-payment",
+      bankFileFormat: "customer_bank_csv",
+      bankFormatVersion: "v1",
+      bankFileColumnOrder: ["employee_no", "currency"],
+      bankFormatVerified: true,
+      verificationStatus: "verified",
+      verificationNote: "Customer bank sandbox file accepted.",
+    });
+
+    const readiness = await getPayrollPaymentSecurityReadiness(hrSession);
+    expect(readiness.ready).toBe(false);
+    expect(readiness.detail).toContain("bank file amount and account token columns");
   });
 
   it("blocks non-payroll roles from reading or updating payment security", async () => {

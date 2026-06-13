@@ -94,6 +94,14 @@ export default async function PayrollPaymentSecurityPage({ searchParams }: { sea
                 <input name="bankFormatVersion" placeholder="v1" defaultValue={settings.bankFormatVersion} />
               </label>
               <label>
+                Bank file columns
+                <input
+                  name="bankFileColumnOrder"
+                  defaultValue={settings.bankFileColumnOrder.join(",")}
+                  aria-describedby="bank-file-columns-help"
+                />
+              </label>
+              <label>
                 Verification status
                 <select name="verificationStatus" defaultValue={settings.verificationStatus}>
                   <option value="unverified">Unverified</option>
@@ -106,6 +114,10 @@ export default async function PayrollPaymentSecurityPage({ searchParams }: { sea
               <input name="bankFormatVerified" type="checkbox" defaultChecked={settings.bankFormatVerified} />
               Customer bank format has been tested
             </label>
+            <p className="muted" id="bank-file-columns-help">
+              Allowed columns: employee_no, employee_name, bank_code, branch_code, account_token_ref, amount, currency, memo.
+              Account values stay in the vault and never appear in previews or logs.
+            </p>
             <label>
               Verification note
               <textarea

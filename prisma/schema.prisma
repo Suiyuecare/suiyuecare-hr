@@ -1485,6 +1485,7 @@ model CompanyPayrollPaymentSecuritySetting {
   kmsKeyRef                  String?
   bankFileFormat             String   @default("tw_bank_csv_placeholder")
   bankFormatVersion          String   @default("v1")
+  bankFileColumnOrder        String   @default("employee_no,bank_code,branch_code,account_token_ref,amount,currency")
   bankFormatVerified         Boolean  @default(false)
   verificationStatus         String   @default("unverified")
   lastVerifiedAt             DateTime?
