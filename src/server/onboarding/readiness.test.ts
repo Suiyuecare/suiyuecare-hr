@@ -31,6 +31,7 @@ const readySnapshot: OnboardingReadinessSnapshot = {
   paymentProfileEmployeeIds: employees.map((employee) => employee.id),
   payrollComplianceProfileEmployeeIds: employees.map((employee) => employee.id),
   statutoryInsuranceReadyEmployeeIds: employees.map((employee) => employee.id),
+  completeLaborRosterEmployeeIds: employees.map((employee) => employee.id),
   activeEmployees: employees,
 };
 
@@ -42,6 +43,7 @@ describe("onboarding readiness", () => {
       paymentProfileEmployeeIds: ["emp_1", "emp_2"],
       payrollComplianceProfileEmployeeIds: ["emp_1", "emp_2"],
       statutoryInsuranceReadyEmployeeIds: ["emp_1", "emp_2"],
+      completeLaborRosterEmployeeIds: employees.map((employee) => employee.id),
     });
 
     expect(report.readyForProductionVerify).toBe(false);
@@ -60,6 +62,23 @@ describe("onboarding readiness", () => {
       status: "blocked",
       actionHref: "/hr/insurance",
       missingEmployees: [{ id: "emp_3", employeeNo: "E003", displayName: "Employee" }],
+    });
+  });
+
+  it("blocks production verification when labor roster profiles are incomplete", () => {
+    const report = buildOnboardingReadinessReport({
+      ...readySnapshot,
+      completeLaborRosterEmployeeIds: ["emp_1"],
+    });
+
+    expect(report.readyForProductionVerify).toBe(false);
+    expect(report.checks.find((check) => check.id === "labor_roster")).toMatchObject({
+      status: "blocked",
+      actionHref: "/hr/labor-roster",
+      missingEmployees: [
+        { id: "emp_2", employeeNo: "E002", displayName: "Manager" },
+        { id: "emp_3", employeeNo: "E003", displayName: "Employee" },
+      ],
     });
   });
 

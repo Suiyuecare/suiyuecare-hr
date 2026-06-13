@@ -71,6 +71,10 @@ test("demo roles can switch between distinct dashboards", async ({ page }) => {
   await page.getByRole("link", { name: "KPIs" }).click();
   await expect(page.getByRole("heading", { name: "Winning KPIs" })).toBeVisible();
   await expect(page.getByText("Not yet")).toBeVisible();
+  await page.goto("/hr/onboarding-readiness");
+  await expect(page.getByRole("heading", { name: "Onboarding Readiness" })).toBeVisible();
+  await expect(page.getByText("Labor roster profiles", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open labor roster" })).toBeVisible();
   await page.goto("/hr");
 
   await page.getByLabel("Demo role").selectOption("owner");

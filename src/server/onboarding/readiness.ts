@@ -5,6 +5,7 @@ import { getSalaryProfileWorkspace } from "@/server/payroll/salary-profiles";
 import { getPaymentProfileWorkspace } from "@/server/payroll/payment-profiles";
 import { listPayrollComplianceProfiles } from "@/server/payroll/compliance";
 import { getStatutoryInsuranceWorkspace, statutoryInsuranceTypes } from "@/server/insurance/statutory";
+import { getLaborRosterWorkspace } from "@/server/employees/labor-roster";
 import { getTaiwanLaborStandardsConfig, getActiveTaiwanLaborStandardsConfig } from "@/server/rules/settings";
 import type { TaiwanStatutoryOnboardingConfig } from "@/server/rules/taiwan-labor-standards";
 
@@ -43,6 +44,7 @@ export type OnboardingReadinessSnapshot = {
   paymentProfileEmployeeIds: string[];
   payrollComplianceProfileEmployeeIds: string[];
   statutoryInsuranceReadyEmployeeIds: string[];
+  completeLaborRosterEmployeeIds: string[];
   statutoryOnboarding: TaiwanStatutoryOnboardingConfig;
   activeEmployees: Array<{ id: string; employeeNo: string; displayName: string; hireDate: Date }>;
 };
@@ -71,6 +73,7 @@ export function buildOnboardingReadinessReport(
   const missingPayment = missingEmployees(snapshot, snapshot.paymentProfileEmployeeIds);
   const missingCompliance = missingEmployees(snapshot, snapshot.payrollComplianceProfileEmployeeIds);
   const statutoryEnrollmentMissing = missingEmployees(snapshot, snapshot.statutoryInsuranceReadyEmployeeIds);
+  const missingLaborRoster = missingEmployees(snapshot, snapshot.completeLaborRosterEmployeeIds);
   const checks: OnboardingCheck[] = [
     {
       id: "employees",
@@ -99,6 +102,15 @@ export function buildOnboardingReadinessReport(
       actionLabel: "Import payroll profiles",
       actionHref: "/hr/payroll-profile-import",
       missingEmployees: missingSalary,
+    },
+    {
+      id: "labor_roster",
+      title: "Labor roster profiles",
+      status: missingLaborRoster.length === 0 && activeEmployeeIds.size > 0 ? "ready" : "blocked",
+      detail: `${activeEmployeeIds.size - missingLaborRoster.length}/${activeEmployeeIds.size} active employee(s) have complete and verified Taiwan labor roster profiles.`,
+      actionLabel: "Open labor roster",
+      actionHref: "/hr/labor-roster",
+      missingEmployees: missingLaborRoster,
     },
     {
       id: "payment_profiles",
@@ -176,6 +188,7 @@ async function buildDbSnapshot(session: SessionLike): Promise<OnboardingReadines
     salaryProfiles,
     paymentProfiles,
     complianceProfiles,
+    laborRosterWorkspace,
     insuranceWorkspace,
   ] = await Promise.all([
     getTaiwanLaborStandardsConfig({
@@ -206,6 +219,11 @@ async function buildDbSnapshot(session: SessionLike): Promise<OnboardingReadines
       where: { tenantId: session.tenantId!, companyId: session.companyId!, effectiveTo: null },
       select: { employeeId: true },
     }),
+    getLaborRosterWorkspace({
+      ...session,
+      tenantId: session.tenantId ?? null,
+      companyId: session.companyId ?? null,
+    }),
     getStatutoryInsuranceWorkspace(session),
   ]);
   return {
@@ -226,13 +244,16 @@ async function buildDbSnapshot(session: SessionLike): Promise<OnboardingReadines
     paymentProfileEmployeeIds: paymentProfiles.map((profile) => profile.employeeId),
     payrollComplianceProfileEmployeeIds: complianceProfiles.map((profile) => profile.employeeId),
     statutoryInsuranceReadyEmployeeIds: readyInsuranceEmployeeIds(insuranceWorkspace.records),
+    completeLaborRosterEmployeeIds: laborRosterWorkspace.profiles
+      .filter((profile) => profile.status === "complete" && profile.verificationStatus === "verified")
+      .map((profile) => profile.employeeId),
     activeEmployees: employees.map(toEmployeeRef),
   };
 }
 
 async function buildDemoSnapshot(session: SessionLike): Promise<OnboardingReadinessSnapshot> {
   const overview = getFallbackCompanyOverview();
-  const [salaryWorkspace, paymentWorkspace, complianceRows, insuranceWorkspace] = await Promise.all([
+  const [salaryWorkspace, paymentWorkspace, complianceRows, laborRosterWorkspace, insuranceWorkspace] = await Promise.all([
     getSalaryProfileWorkspace({
       role: "hr_admin",
       tenantId: session.tenantId ?? "demo-tenant",
@@ -248,6 +269,13 @@ async function buildDemoSnapshot(session: SessionLike): Promise<OnboardingReadin
       employee: session.employee,
     }),
     listPayrollComplianceProfiles({
+      role: "hr_admin",
+      tenantId: session.tenantId ?? "demo-tenant",
+      companyId: session.companyId ?? "demo-company",
+      user: session.user,
+      employee: session.employee,
+    }),
+    getLaborRosterWorkspace({
       role: "hr_admin",
       tenantId: session.tenantId ?? "demo-tenant",
       companyId: session.companyId ?? "demo-company",
@@ -282,6 +310,9 @@ async function buildDemoSnapshot(session: SessionLike): Promise<OnboardingReadin
       .map((profile) => profile.employeeId),
     payrollComplianceProfileEmployeeIds: complianceRows.map((row) => row.employeeId),
     statutoryInsuranceReadyEmployeeIds: readyInsuranceEmployeeIds(insuranceWorkspace.records),
+    completeLaborRosterEmployeeIds: laborRosterWorkspace.profiles
+      .filter((profile) => profile.status === "complete" && profile.verificationStatus === "verified")
+      .map((profile) => profile.employeeId),
     activeEmployees: overview.company.employees.map(toEmployeeRef),
   };
 }
