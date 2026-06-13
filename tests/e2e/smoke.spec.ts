@@ -176,6 +176,15 @@ test("Owner records backup and restore drill evidence for launch readiness", asy
   await expect(page.getByText("update · operational_resilience_settings")).toBeVisible();
   await expect(page.getByText("vault://customer/hrone/backup-key")).not.toBeVisible();
   await expect(page.getByText("Raw values hidden")).toBeVisible();
+  await page.getByRole("button", { name: "Generate evidence package" }).click();
+  await expect(page.getByRole("heading", { name: "Latest evidence package" })).toBeVisible();
+  await expect(
+    page
+      .locator("section")
+      .filter({ has: page.getByRole("heading", { name: "Latest evidence package" }) })
+      .getByText("operational_resilience_settings", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("create · audit_evidence_package")).toBeVisible();
 });
 
 test("employee submits leave and manager approves from unified inbox", async ({ page }) => {

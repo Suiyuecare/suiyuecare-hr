@@ -113,6 +113,7 @@ model Company {
   fileStorageSettings CompanyFileStorageSetting?
   operationalResilienceSetting CompanyOperationalResilienceSetting?
   auditLogs   AuditLog[]
+  auditEvidencePackages AuditEvidencePackage[]
   shiftTemplates ShiftTemplate[]
   workSchedules WorkSchedule[]
   calendarDays CompanyCalendarDay[]
@@ -1251,6 +1252,27 @@ model AuditLog {
 
   @@index([tenantId, companyId, entityType, entityId])
   @@index([actorUserId])
+}
+
+model AuditEvidencePackage {
+  id                String   @id @default(cuid())
+  tenantId          String
+  companyId         String
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  packageType       String   @default("labor_inspection")
+  periodStart       DateTime
+  periodEnd         DateTime
+  status            String   @default("generated")
+  recordCount       Int
+  coveredEntityTypes Json
+  summaryJson       Json
+  warningsJson      Json
+  contentHash       String
+  generatedByUserId String?
+  generatedAt       DateTime @default(now())
+
+  @@index([tenantId, companyId, packageType, generatedAt])
+  @@index([tenantId, companyId, periodStart, periodEnd])
 }
 
 model SupportAccessGrant {

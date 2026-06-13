@@ -32,6 +32,7 @@ type SeedTelemetryEvent = readonly [
 ];
 
 async function main() {
+  await prisma.auditEvidencePackage.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.aiUsageLog.deleteMany();
   await prisma.companyPolicyDocument.deleteMany();

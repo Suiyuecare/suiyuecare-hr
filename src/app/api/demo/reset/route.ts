@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { resetAuditDemoState } from "@/server/audit/demo-store";
+import { resetAuditEvidenceDemoState } from "@/server/audit/evidence-packages";
 import { resetAiDemoState } from "@/server/ai/demo-store";
 import { resetPolicyDocumentDemoState } from "@/server/ai/policy-docs";
 import { resetAttendancePolicyDemoState } from "@/server/attendance/policies";
@@ -78,6 +79,7 @@ export async function POST() {
     resetSupportAccessDemoState();
     resetShiftTemplateDemoState();
     resetProductTelemetryDemoState();
+    resetAuditEvidenceDemoState();
     resetAuditDemoState();
   }
 
