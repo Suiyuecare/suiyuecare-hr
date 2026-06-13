@@ -6,6 +6,7 @@ import type { Prisma } from "@prisma/client";
 import {
   defaultTaiwanLaborStandardsConfig,
   type InsuranceSalaryGrade,
+  type LegalSource,
   type RuleChangeControl,
   type TaiwanStatutoryPayrollConfig,
   type TaiwanLaborStandardsConfig,
@@ -58,6 +59,7 @@ type TaiwanLaborSettingsInput = Partial<Pick<
   statutoryPayroll?: Omit<Partial<TaiwanStatutoryPayrollConfig>, "incomeTaxWithholding"> & {
     incomeTaxWithholding?: Partial<TaiwanStatutoryPayrollConfig["incomeTaxWithholding"]>;
   };
+  sources?: LegalSource[];
 };
 
 export function getRuleSettingsDemoState() {
@@ -437,7 +439,33 @@ function normalizeRuleSettings(input: TaiwanLaborSettingsInput, base: TaiwanLabo
         base.statutoryPayroll.laborPensionContributionGrades,
       ),
     },
+    sources: normalizeLegalSources(input.sources, base.sources),
   };
+}
+
+function normalizeLegalSources(value: LegalSource[] | undefined, fallback: LegalSource[]) {
+  if (!Array.isArray(value) || value.length === 0) return fallback;
+  const seen = new Set<string>();
+  const sources: LegalSource[] = [];
+  for (const source of value) {
+    const normalized = {
+      id: cleanSourceId(source.id),
+      title: cleanText(source.title, ""),
+      url: cleanOptionalText(source.url) ?? "",
+      checkedAt: cleanDateOnly(source.checkedAt),
+    };
+    if (!normalized.id || !normalized.title || !normalized.url || !normalized.checkedAt || seen.has(normalized.id)) {
+      continue;
+    }
+    seen.add(normalized.id);
+    sources.push({
+      id: normalized.id,
+      title: normalized.title,
+      url: normalized.url,
+      checkedAt: normalized.checkedAt,
+    });
+  }
+  return sources.length > 0 ? sources : fallback;
 }
 
 function normalizeStatutoryOnboarding(
@@ -525,6 +553,24 @@ function cleanOptionalText(value: string | null | undefined) {
   return normalized.length > 0 ? normalized.slice(0, 500) : null;
 }
 
+function cleanSourceId(value: string | null | undefined) {
+  const normalized = cleanOptionalText(value);
+  if (!normalized) return null;
+  return normalized
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || null;
+}
+
+function cleanDateOnly(value: string | null | undefined) {
+  const normalized = cleanOptionalText(value);
+  if (!normalized) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
+  const parsed = new Date(`${normalized}T00:00:00.000Z`);
+  return Number.isNaN(parsed.getTime()) ? null : normalized;
+}
+
 function positiveNumber(value: number | undefined, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
 }
@@ -598,6 +644,7 @@ function getChangedFields(input: ReturnType<typeof normalizeRuleSettings>) {
     ...Object.keys(input.terminationCompliance).map((key) => `terminationCompliance.${key}`),
     ...Object.keys(input.statutoryOnboarding).map((key) => `statutoryOnboarding.${key}`),
     ...Object.keys(input.statutoryPayroll).map((key) => `statutoryPayroll.${key}`),
+    "sources",
   ];
 }
 

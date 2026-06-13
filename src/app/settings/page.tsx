@@ -25,6 +25,8 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
   const ssoMetadataReady = hasSsoMetadata(securitySettings);
   const ruleValidation = validateTaiwanLaborStandardsRuleSet(laborConfig);
   const sourceFreshness = evaluateLegalSourceFreshness(laborConfig.sources);
+  const staleSourceIds = new Set(sourceFreshness.staleSourceIds);
+  const invalidSourceIds = new Set(sourceFreshness.invalidSourceIds);
 
   if (!overview) {
     return (
@@ -381,6 +383,39 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
               {sourceFreshness.passed ? "Sources current" : "Source review needed"}
             </span>
           </div>
+          <div className={`panel-subtle ${sourceFreshness.passed ? "success-box" : "warning-box"}`}>
+            <div className="section-heading compact-heading">
+              <div>
+                <h3>Legal source monitor</h3>
+                <p className="muted">
+                  Review official Taiwan law, MOL, BLI, NHI, and tax sources before payroll, attendance, leave, or termination rules are trusted for launch.
+                </p>
+              </div>
+              <span className={`badge ${sourceFreshness.passed ? "" : "warning"}`}>
+                {sourceFreshness.staleSourceCount + sourceFreshness.invalidSourceCount} needs review
+              </span>
+            </div>
+            <ul className="task-list">
+              {laborConfig.sources.map((source) => {
+                const stale = staleSourceIds.has(source.id);
+                const invalid = invalidSourceIds.has(source.id);
+                return (
+                  <li className="task" key={source.id}>
+                    <span>
+                      <strong>{source.title}</strong>
+                      <small>{source.id} · {source.url}</small>
+                    </span>
+                    <span className="inline-actions">
+                      <span className={`badge ${stale || invalid ? "warning" : ""}`}>
+                        {invalid ? "Invalid date" : stale ? "Review due" : "Fresh"}
+                      </span>
+                      <span className="badge">{source.checkedAt}</span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
           <form action="/api/settings/law-rules" method="post" className="mini-form">
             <div className="section-heading compact-heading">
               <div>
@@ -449,6 +484,27 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
                 </span>
               </li>
             </ul>
+            <div className="section-heading compact-heading">
+              <div>
+                <h3>Official source review</h3>
+                <p className="muted">
+                  Keep the source inventory editable so HR/legal can refresh citations without code changes.
+                </p>
+              </div>
+              <span className="badge">CSV wizard</span>
+            </div>
+            <label>
+              Official legal sources
+              <textarea
+                name="legalSourcesCsv"
+                rows={10}
+                defaultValue={formatLegalSourcesCsv(laborConfig.sources)}
+                aria-describedby="legal-sources-help"
+              />
+            </label>
+            <p className="muted" id="legal-sources-help">
+              Format: id,title,url,checkedAt. Use YYYY-MM-DD for checkedAt. Do not paste internal notes or private employee data.
+            </p>
             <div className="field-grid">
               <label>
                 Minimum monthly wage
@@ -1021,17 +1077,6 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
               Save rule settings
             </button>
           </form>
-          <ul className="task-list">
-            {laborConfig.sources.map((source) => (
-              <li className="task" key={source.id}>
-                <span>
-                  <strong>{source.title}</strong>
-                  <small>{source.url}</small>
-                </span>
-                <span className="badge">{source.checkedAt}</span>
-              </li>
-            ))}
-          </ul>
         </section>
       </section>
     </main>
@@ -1091,6 +1136,23 @@ function formatAdvanceNoticeTiersCsv(
       tier.noticeDays,
     ].join(","))
     .join("\n");
+}
+
+function formatLegalSourcesCsv(
+  sources: Array<{ id: string; title: string; url: string; checkedAt: string }>,
+) {
+  return sources
+    .map((source) => [
+      source.id,
+      source.title,
+      source.url,
+      source.checkedAt,
+    ].map(escapeCsvCell).join(","))
+    .join("\n");
+}
+
+function escapeCsvCell(value: string) {
+  return /[",\n]/.test(value) ? `"${value.replaceAll("\"", "\"\"")}"` : value;
 }
 
 function formatMoney(value: number) {

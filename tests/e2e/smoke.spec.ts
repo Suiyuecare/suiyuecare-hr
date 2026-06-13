@@ -91,10 +91,16 @@ test("demo roles can switch between distinct dashboards", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Database setup path" })).toBeVisible();
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "Taiwan labor rule setup" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Legal source monitor" })).toBeVisible();
   await page.getByLabel("Minimum hourly wage").fill("200");
   await page.getByLabel("Employment insurance enrollment due days from hire").fill("1");
+  await page.getByLabel("Official legal sources").fill([
+    "tw-lsa-article-24,Labor Standards Act Article 24 overtime wage,https://law.moj.gov.tw/ENG/LawClass/LawAll.aspx?pcode=N0030001,2026-06-13",
+    "tw-minimum-wage-2026,Ministry of Labor 2026 minimum wage announcement,https://english.mol.gov.tw/21139/40790/87087/,2026-06-13",
+  ].join("\n"));
   await page.getByRole("button", { name: "Save rule settings" }).click();
   await expect(page.getByText("company-1").first()).toBeVisible();
+  await expect(page.getByText("Fresh").first()).toBeVisible();
   await page.getByLabel("Require employee MFA").check();
   await page.getByLabel("Enable SSO placeholder").check();
   await page.getByLabel("SSO provider").fill("Entra ID");

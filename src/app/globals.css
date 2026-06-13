@@ -516,6 +516,16 @@ legend {
   background: #fef2f2;
 }
 
+.warning-box {
+  border-left: 4px solid var(--warning);
+  background: #fffaf2;
+}
+
+.success-box {
+  border-left: 4px solid var(--success);
+  background: #f0fdf4;
+}
+
 .ai-summary-box,
 .ai-result {
   display: grid;

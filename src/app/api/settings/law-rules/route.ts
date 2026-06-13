@@ -28,6 +28,7 @@ export async function POST(request: Request) {
       restDayCycleDays: parseNumber(formData.get("restDayCycleDays")),
       requiredRegularLeaveDaysPerCycle: parseNumber(formData.get("requiredRegularLeaveDaysPerCycle")),
       requiredRestDaysPerCycle: parseNumber(formData.get("requiredRestDaysPerCycle")),
+      sources: parseLegalSourcesCsv(formData.get("legalSourcesCsv")),
       terminationCompliance: {
         advanceNoticeTiers: parseAdvanceNoticeTiersCsv(formData.get("terminationAdvanceNoticeTiersCsv")),
         laborPensionSeveranceMultiplierPerServiceYear: parseNumber(
@@ -195,4 +196,48 @@ function parseIncomeTaxBracketsCsv(value: FormDataEntryValue | null) {
       Number.isFinite(bracket.progressiveDifference)
     ));
   return brackets.length > 0 ? brackets : undefined;
+}
+
+function parseLegalSourcesCsv(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const sources = value
+    .split(/\r?\n/)
+    .map((line) => parseCsvLine(line.trim()))
+    .filter((parts) => parts.length >= 4)
+    .map(([id, title, url, checkedAt]) => ({
+      id,
+      title,
+      url,
+      checkedAt,
+    }))
+    .filter((source) => (
+      source.id.length > 0 &&
+      source.title.length > 0 &&
+      /^https?:\/\//.test(source.url) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(source.checkedAt)
+    ));
+  return sources.length > 0 ? sources : undefined;
+}
+
+function parseCsvLine(line: string) {
+  const cells: string[] = [];
+  let current = "";
+  let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const next = line[index + 1];
+    if (char === "\"" && quoted && next === "\"") {
+      current += "\"";
+      index += 1;
+    } else if (char === "\"") {
+      quoted = !quoted;
+    } else if (char === "," && !quoted) {
+      cells.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  cells.push(current.trim());
+  return cells;
 }

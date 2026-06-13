@@ -192,6 +192,51 @@ describe("rule settings", () => {
     });
   });
 
+  it("versions official legal source review evidence without code changes", async () => {
+    const updated = await updateTaiwanLaborStandardsConfig(ownerSession, {
+      changeControl: {
+        reason: "Quarterly official source review",
+        sourceUrl: "https://laws.mol.gov.tw/",
+        reviewedBy: "Legal reviewer",
+        reviewStatus: "approved",
+        requiresPayrollRecalculation: false,
+      },
+      sources: [
+        {
+          id: "tw-lsa-article-24",
+          title: "Labor Standards Act Article 24 overtime wage",
+          url: "https://law.moj.gov.tw/ENG/LawClass/LawAll.aspx?pcode=N0030001",
+          checkedAt: "2026-06-13",
+        },
+        {
+          id: "tw-minimum-wage-2026",
+          title: "Ministry of Labor 2026 minimum wage announcement",
+          url: "https://english.mol.gov.tw/21139/40790/87087/",
+          checkedAt: "2026-06-13",
+        },
+      ],
+    });
+
+    expect(updated.sources).toHaveLength(2);
+    expect(updated.sources[0]).toMatchObject({
+      id: "tw-lsa-article-24",
+      checkedAt: "2026-06-13",
+    });
+    await expect(getAuditLogs(ownerSession, 1)).resolves.toEqual([
+      expect.objectContaining({
+        entityType: "rule_settings",
+        metadata: expect.objectContaining({
+          sourceFreshness: expect.objectContaining({
+            passed: true,
+            freshSourceCount: 2,
+            totalSourceCount: 2,
+          }),
+          changedFields: expect.arrayContaining(["sources"]),
+        }),
+      }),
+    ]);
+  });
+
   it("keeps invalid zero work-time limits from replacing configured legal controls", async () => {
     const before = getActiveTaiwanLaborStandardsConfig();
     const updated = await updateTaiwanLaborStandardsConfig(ownerSession, {
