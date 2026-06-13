@@ -4,6 +4,7 @@ import { getCompanyCalendarWorkspace, type CompanyCalendarReadiness } from "@/se
 import { getCompanyOverview } from "@/server/dashboard/queries";
 import type { FileStorageSettings } from "@/server/files/storage";
 import { getFileStorageSettings, isProductionStorageVerified } from "@/server/files/storage";
+import { getIncidentWorkspace, type IncidentReadiness } from "@/server/incidents/workplace";
 import { getHrOneKpis, summarizeHrOneKpis, type HrOneKpi } from "@/server/kpis/hr-one";
 import type { NotificationChannelSettings } from "@/server/notifications/service";
 import { getNotificationSettings } from "@/server/notifications/service";
@@ -69,6 +70,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     securitySettings,
     fileStorageSettings,
     notificationSettings,
+    incidentWorkspace,
     accessWorkspace,
     supportAccessGovernance,
     payrollPaymentSecurity,
@@ -83,6 +85,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     getCompanySecuritySettings(session),
     getFileStorageSettings(session),
     getNotificationSettings(session),
+    getIncidentWorkspace(session),
     getUserAccessWorkspace(session),
     getSupportAccessGovernance(session),
     getPayrollPaymentSecurityReadiness(session),
@@ -120,6 +123,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     securitySettings,
     fileStorageSettings,
     notificationSettings,
+    incidentReadiness: incidentWorkspace.readiness,
     privilegedSsoIdentityCoverage: {
       total: privilegedUsers.length,
       linked: privilegedUsers.filter((user) => user.externalIdentities.length > 0).length,
@@ -155,6 +159,7 @@ export function buildLaunchReadinessReport(input: {
   securitySettings: CompanySecuritySettings;
   fileStorageSettings: FileStorageSettings;
   notificationSettings: NotificationChannelSettings;
+  incidentReadiness?: Pick<IncidentReadiness, "ready" | "detail" | "missing">;
   privilegedSsoIdentityCoverage: {
     total: number;
     linked: number;
@@ -211,6 +216,11 @@ export function buildLaunchReadinessReport(input: {
   const privacyReadiness = input.privacyReadiness ?? {
     ready: true,
     detail: "Privacy readiness not evaluated in this test context.",
+    missing: [],
+  };
+  const incidentReadiness = input.incidentReadiness ?? {
+    ready: true,
+    detail: "Incident readiness not evaluated in this test context.",
     missing: [],
   };
   const trainingReadiness = input.trainingReadiness ?? {
@@ -331,6 +341,18 @@ export function buildLaunchReadinessReport(input: {
       actionHref: "/hr/training",
     },
     {
+      id: "incidents",
+      area: "Compliance",
+      title: "Workplace incident response",
+      status: incidentReadiness.ready ? "ready" : "blocked",
+      detail: incidentReadiness.detail,
+      nextStep: incidentReadiness.missing.length > 0
+        ? `Clear incident gaps: ${incidentReadiness.missing.join(", ")}.`
+        : "Keep workplace incident reporting, investigation, and authority follow-up current.",
+      actionLabel: "Open incidents",
+      actionHref: "/hr/incidents",
+    },
+    {
       id: "notifications",
       area: "Operations",
       title: "Notification delivery",
@@ -445,8 +467,8 @@ function buildSetupSteps(items: LaunchReadinessItem[]): LaunchSetupStep[] {
     setupStep({
       step: 4,
       title: "Approve compliance controls",
-      itemIds: ["calendar", "law_rules", "training", "audit"],
-      summary: "Review Taiwan annual calendars, rule versions, onboarding training evidence, and sensitive mutation audit evidence.",
+      itemIds: ["calendar", "law_rules", "training", "incidents", "audit"],
+      summary: "Review Taiwan annual calendars, rule versions, onboarding training, workplace incident response, and sensitive mutation audit evidence.",
       actionLabel: "Review compliance",
       actionHref: "/settings#law-rules-setup",
       items,

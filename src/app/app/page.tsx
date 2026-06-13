@@ -247,6 +247,7 @@ export default async function EmployeeHomePage() {
         <DashboardLink href="/app/attendance" label="Time" />
         <DashboardLink href="/app/documents" label="Docs" />
         <DashboardLink href="/app/training" label="Training" />
+        <DashboardLink href="/app/incidents" label="Report" />
         <DashboardLink href="/app/privacy" label="Privacy" />
         <DashboardLink href="/app/payslip" label="Payslip" />
         <DashboardLink href="/manager/inbox" label="Inbox" />

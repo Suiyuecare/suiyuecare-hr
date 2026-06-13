@@ -11,6 +11,7 @@ import { resetEmployeeDocumentDemoState } from "@/server/employees/documents";
 import { resetEmployeeImportDemoState } from "@/server/employees/imports";
 import { resetEmployeeLifecycleDemoState } from "@/server/employees/lifecycle";
 import { resetFileStorageDemoState } from "@/server/files/storage";
+import { resetIncidentDemoState } from "@/server/incidents/workplace";
 import { resetAnnualLeaveExpiryDemoState } from "@/server/leave/annual-leave-expiry";
 import { resetAnnualLeaveSettlementDemoState } from "@/server/leave/annual-leave-settlements";
 import { resetAnnualLeaveGrantDemoState } from "@/server/leave/annual-leave-grants";
@@ -72,6 +73,7 @@ export async function POST() {
     resetEmployeeImportDemoState();
     resetEmployeeLifecycleDemoState();
     resetFileStorageDemoState();
+    resetIncidentDemoState();
     resetAnnualLeaveExpiryDemoState();
     resetAnnualLeaveGrantDemoState();
     resetAnnualLeaveSettlementDemoState();

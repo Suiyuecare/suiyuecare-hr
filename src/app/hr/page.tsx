@@ -68,6 +68,9 @@ export default async function HrDashboardPage() {
               <a className="button" href="/hr/training">
                 Training
               </a>
+              <a className="button" href="/hr/incidents">
+                Incidents
+              </a>
               <a className="button" href="/hr/copilot">
                 AI Copilot
               </a>

@@ -115,6 +115,8 @@ model Company {
   trainingSetting CompanyTrainingSetting?
   trainingCourses TrainingCourse[]
   trainingAssignments EmployeeTrainingAssignment[]
+  incidentSetting CompanyIncidentSetting?
+  workplaceIncidents WorkplaceIncident[]
   securitySettings CompanySecuritySetting?
   fileStorageSettings CompanyFileStorageSetting?
   operationalResilienceSetting CompanyOperationalResilienceSetting?
@@ -313,6 +315,7 @@ model Employee {
   privacyConsents  EmployeePrivacyConsent[]
   dataSubjectRequests DataSubjectRequest[]
   trainingAssignments EmployeeTrainingAssignment[]
+  workplaceIncidents WorkplaceIncident[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -538,6 +541,60 @@ model EmployeeTrainingAssignment {
   @@index([tenantId, companyId, status])
   @@index([tenantId, companyId, employeeId])
   @@index([tenantId, companyId, dueAt])
+}
+
+model CompanyIncidentSetting {
+  id                             String   @id @default(cuid())
+  tenantId                       String
+  companyId                      String   @unique
+  company                        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reportingEnabled               Boolean  @default(true)
+  anonymousReportingEnabled      Boolean  @default(false)
+  severeIncidentNotifyHours      Int      @default(8)
+  investigationTargetDays        Int      @default(7)
+  harassmentPolicyVersion        String   @default("2026.01")
+  safetyPolicyVersion            String   @default("2026.01")
+  authorityReportRequired        Boolean  @default(true)
+  verificationStatus             String   @default("unverified")
+  lastReviewedAt                 DateTime?
+  updatedByUserId                String?
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+
+  @@index([tenantId, companyId])
+  @@index([tenantId, companyId, verificationStatus])
+}
+
+model WorkplaceIncident {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  companyId             String
+  company               Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reporterEmployeeId    String?
+  reporterEmployee      Employee? @relation(fields: [reporterEmployeeId], references: [id], onDelete: SetNull)
+  incidentType          String
+  severity              String
+  status                String    @default("submitted")
+  occurredAt            DateTime
+  summary               String
+  location              String?
+  confidential          Boolean   @default(true)
+  authorityReportNeeded Boolean   @default(false)
+  authorityReportDueAt  DateTime?
+  authorityReportedAt   DateTime?
+  investigationDueAt    DateTime
+  closedAt              DateTime?
+  correctiveAction      String?
+  reportedByUserId      String?
+  assignedToUserId      String?
+  metadataJson          Json
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([tenantId, companyId, status])
+  @@index([tenantId, companyId, incidentType])
+  @@index([tenantId, companyId, investigationDueAt])
+  @@index([tenantId, companyId, authorityReportDueAt])
 }
 
 model CompanyOperationalResilienceSetting {

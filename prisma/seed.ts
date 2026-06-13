@@ -40,6 +40,8 @@ async function main() {
   await prisma.employeeTrainingAssignment.deleteMany();
   await prisma.trainingCourse.deleteMany();
   await prisma.companyTrainingSetting.deleteMany();
+  await prisma.workplaceIncident.deleteMany();
+  await prisma.companyIncidentSetting.deleteMany();
   await prisma.aiUsageLog.deleteMany();
   await prisma.companyPolicyDocument.deleteMany();
   await prisma.productTelemetryEvent.deleteMany();
@@ -163,6 +165,22 @@ async function main() {
       targetCompletionDays: 7,
       maxFirstWeekMinutes: 10,
       autoAssignNewHires: true,
+      verificationStatus: "unverified",
+      lastReviewedAt: null,
+    },
+  });
+
+  await prisma.companyIncidentSetting.create({
+    data: {
+      tenantId: tenant.id,
+      companyId: company.id,
+      reportingEnabled: true,
+      anonymousReportingEnabled: false,
+      severeIncidentNotifyHours: 8,
+      investigationTargetDays: 7,
+      harassmentPolicyVersion: "2026.01",
+      safetyPolicyVersion: "2026.01",
+      authorityReportRequired: true,
       verificationStatus: "unverified",
       lastReviewedAt: null,
     },

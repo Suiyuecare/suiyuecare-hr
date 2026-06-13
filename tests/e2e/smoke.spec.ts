@@ -267,6 +267,42 @@ test("HR assigns onboarding training and employee completes it", async ({ page }
   await expect(page.getByText("approve · employee_training_assignment")).toBeVisible();
 });
 
+test("employee reports workplace incident and HR closes follow-up", async ({ page }) => {
+  await page.goto("/app/incidents");
+  await expect(page.getByRole("heading", { name: "Report", exact: true })).toBeVisible();
+  await page.getByLabel("Type").selectOption("occupational_accident");
+  await page.getByLabel("Severity").selectOption("severe");
+  await page.getByLabel("Location").fill("Line A");
+  await page.getByLabel("What happened?").fill("Machine guard failed near production line.");
+  await page.getByRole("button", { name: "Submit report" }).click();
+  await expect(
+    page.getByRole("listitem").filter({ hasText: "occupational accident" }).getByText("submitted", { exact: true }),
+  ).toBeVisible();
+
+  await page.getByLabel("Demo role").selectOption("hr_admin");
+  await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/hr/incidents");
+  await expect(page.getByRole("heading", { name: "Workplace Incidents" })).toBeVisible();
+  await page.getByLabel("Verification status").selectOption("verified");
+  await page.getByRole("button", { name: "Save incident controls" }).click();
+  await expect(page.getByText("verified").first()).toBeVisible();
+  const incidentRow = page.getByRole("listitem").filter({ hasText: "張小安 · occupational accident" });
+  await incidentRow.getByLabel("Status for 張小安").selectOption("closed");
+  await incidentRow.getByLabel("Reported").check();
+  await incidentRow.getByLabel("Corrective action for 張小安").fill("Guard inspection completed.");
+  await incidentRow.getByRole("button", { name: "Update" }).click();
+  await expect(page.getByText("closed").first()).toBeVisible();
+
+  await page.getByLabel("Demo role").selectOption("owner");
+  await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/settings/audit");
+  await expect(page.getByText("update · incident_settings")).toBeVisible();
+  await expect(page.getByText("create · workplace_incident")).toBeVisible();
+  await expect(page.getByText("update · workplace_incident")).toBeVisible();
+  await expect(page.getByText("Machine guard failed")).not.toBeVisible();
+  await expect(page.getByText("Guard inspection completed.")).not.toBeVisible();
+});
+
 test("employee submits overtime and punch correction for manager review", async ({ page }) => {
   await page.goto("/app");
   await page

@@ -404,6 +404,46 @@ describe("launch readiness", () => {
     });
   });
 
+  it("blocks launch when workplace incident response is not ready", () => {
+    const report = buildLaunchReadinessReport({
+      databaseConfigured: true,
+      employeeCount: 5,
+      auditCount: 8,
+      activeRuleCount: 3,
+      laborConfig: defaultTaiwanLaborStandardsConfig,
+      securitySettings: secureSettings,
+      fileStorageSettings: secureStorage,
+      notificationSettings,
+      incidentReadiness: {
+        ready: false,
+        detail: "1 open incident(s); 1 overdue investigation(s); 1 overdue authority report(s); review unverified.",
+        missing: ["incident response policy HR/legal review", "overdue authority report follow-up"],
+      },
+      privilegedSsoIdentityCoverage: {
+        total: 3,
+        linked: 3,
+      },
+      supportAccessGovernance: {
+        activeApprovedCount: 0,
+        activeUnapprovedCount: 0,
+        expiredStillApprovedCount: 0,
+      },
+      payrollPaymentSecurity: readyPaymentSecurity,
+      calendarReadiness: readyCalendar,
+      kpis: passingKpis,
+    });
+
+    expect(report.items.find((item) => item.id === "incidents")).toMatchObject({
+      status: "blocked",
+      actionHref: "/hr/incidents",
+      nextStep: "Clear incident gaps: incident response policy HR/legal review, overdue authority report follow-up.",
+    });
+    expect(report.setupSteps[3]).toMatchObject({
+      status: "blocked",
+      actionHref: "/hr/incidents",
+    });
+  });
+
   it("blocks launch when payroll payment vault and bank format are not verified", () => {
     const report = buildLaunchReadinessReport({
       databaseConfigured: true,
