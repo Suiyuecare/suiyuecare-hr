@@ -1121,6 +1121,7 @@ model LeaveRequest {
   units                 Decimal       @db.Decimal(8, 2)
   reason                String
   attachmentPlaceholder String?
+  attachmentMetadataJson Json?
   conflictWarning       String?
   status                RequestStatus @default(pending)
   approvalTasks         ApprovalTask[]
@@ -1217,6 +1218,7 @@ model FormSubmission {
   employeeId       String
   employee         Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   valuesJson       Json
+  attachmentMetadataJson Json?
   status           RequestStatus   @default(pending)
   currentStepOrder Int             @default(1)
   approvalTasks    ApprovalTask[]

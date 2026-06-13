@@ -1,4 +1,5 @@
 import type { PunchSource } from "@/server/workflows/types";
+import { normalizeAttachmentMetadata, type AttachmentInput } from "@/server/workflows/attachments";
 
 export function parsePunchSource(value: FormDataEntryValue | null): PunchSource {
   return value === "web" || value === "manual" || value === "mobile" ? value : "mobile";
@@ -37,6 +38,24 @@ export function parseText(value: FormDataEntryValue | null, fallback: string) {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
+export function parseAttachmentMetadata(
+  formData: FormData,
+  prefix: string,
+): ReturnType<typeof normalizeAttachmentMetadata> {
+  const input: AttachmentInput = {
+    fileName: parseOptionalText(formData.get(`${prefix}FileName`)) ?? undefined,
+    mimeType: parseOptionalText(formData.get(`${prefix}MimeType`)) ?? undefined,
+    fileSizeBytes: parseNumber(formData.get(`${prefix}FileSizeBytes`), 0),
+    storageKey: parseOptionalText(formData.get(`${prefix}StorageKey`)) ?? undefined,
+    scanStatus: (parseOptionalText(formData.get(`${prefix}ScanStatus`)) ?? undefined) as AttachmentInput["scanStatus"],
+  };
+  return normalizeAttachmentMetadata(input);
+}
+
+export function parseOptionalText(value: FormDataEntryValue | null) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 function todayInputValue() {
   return toInputDate(new Date());
 }
@@ -47,4 +66,3 @@ function toInputDate(date: Date) {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
-

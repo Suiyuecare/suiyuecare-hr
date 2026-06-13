@@ -7,6 +7,14 @@ import { getDb } from "@/server/db/client";
 import { sendNotificationInTransaction, type NotificationEventType } from "@/server/notifications/service";
 import { listPayrollAdjustments, type PayrollAdjustmentView } from "@/server/payroll/adjustments";
 import {
+  flattenFormAttachments,
+  normalizeAttachmentMetadata,
+  readAttachmentMetadata,
+  summarizeAttachmentsForAudit,
+  summarizeAttachmentsForDisplay,
+  type AttachmentInput,
+} from "./attachments";
+import {
   clockDemo,
   createDemoFormTemplate,
   decideDemoApproval,
@@ -30,6 +38,7 @@ import {
 import { findNextWorkflowStep, getStepLabel, readWorkflowCondition, stepConditionMatches } from "./workflow-engine";
 import type {
   EmployeeWorkspace,
+  AttachmentMetadata,
   FormField,
   FormTemplateView,
   ManagerInbox,
@@ -178,7 +187,11 @@ export async function createFormTemplate(
 
 export async function createCustomFormSubmission(
   session: SessionLike,
-  input: { templateId: string; values: Record<string, string> },
+  input: {
+    templateId: string;
+    values: Record<string, string>;
+    attachments?: Record<string, AttachmentInput[] | undefined>;
+  },
 ) {
   if (!session.employee) {
     throw new Error("Employee session required.");
@@ -205,6 +218,17 @@ export async function createCustomFormSubmission(
       if (missing) {
         throw new Error(`${missing.label} is required.`);
       }
+      const attachments = flattenFormAttachments(
+        fields,
+        Object.fromEntries(
+          Object.entries(input.attachments ?? {}).map(([fieldId, items]) => [
+            fieldId,
+            (items ?? [])
+              .map((item) => normalizeAttachmentMetadata(item))
+              .filter((item): item is AttachmentMetadata => Boolean(item)),
+          ]),
+        ),
+      );
       const firstStep = template.workflowSteps.find((step) =>
         stepConditionMatches(step.conditionJson, input.values),
       );
@@ -219,6 +243,7 @@ export async function createCustomFormSubmission(
           formTemplateId: template.id,
           employeeId: employee.id,
           valuesJson: input.values,
+          attachmentMetadataJson: attachments.length > 0 ? attachments : Prisma.JsonNull,
           currentStepOrder: firstStep.stepOrder,
         },
       });
@@ -231,7 +256,7 @@ export async function createCustomFormSubmission(
         actorEmployeeId: employee.id,
         action: "submitted",
         comment: template.title,
-        riskSummary: `${template.category} form · ${fields.length} field(s) · low-code submission.`,
+        riskSummary: `${template.category} form · ${fields.length} field(s) · ${summarizeAttachmentsForDisplay(attachments)}.`,
       });
       await notify(
         tx,
@@ -242,7 +267,9 @@ export async function createCustomFormSubmission(
         "/manager/inbox",
         "approval_submitted",
       );
-      await auditCreate(tx, session, "form_submission", submission.id, submission);
+      await auditCreate(tx, session, "form_submission", submission.id, submission, {
+        ...summarizeAttachmentsForAudit(attachments),
+      });
     });
     return;
   }
@@ -339,7 +366,13 @@ export async function clockAttendance(
 
 export async function createLeaveRequest(
   session: SessionLike,
-  input: { startAt: Date; endAt: Date; units: number; reason: string },
+  input: {
+    startAt: Date;
+    endAt: Date;
+    units: number;
+    reason: string;
+    attachment?: AttachmentInput | null;
+  },
 ) {
   if (!canUseDatabase(session)) {
     submitDemoLeave(input);
@@ -375,6 +408,8 @@ export async function createLeaveRequest(
       },
     });
     const conflictWarning = hasShiftConflict(input.startAt, input.endAt, schedule);
+    const attachment = normalizeAttachmentMetadata(input.attachment ?? {});
+    const attachments = attachment ? [attachment] : [];
     const request = await tx.leaveRequest.create({
       data: {
         tenantId: session.tenantId!,
@@ -385,7 +420,8 @@ export async function createLeaveRequest(
         endAt: input.endAt,
         units: input.units,
         reason: input.reason,
-        attachmentPlaceholder: "attachment_support_placeholder",
+        attachmentPlaceholder: attachments.length > 0 ? "metadata_reference" : null,
+        attachmentMetadataJson: attachments.length > 0 ? attachments : Prisma.JsonNull,
         conflictWarning,
       },
     });
@@ -410,10 +446,12 @@ export async function createLeaveRequest(
       comment: input.reason,
       riskSummary:
         conflictWarning ??
-        `${reservation.balance.remainingUnits} day(s) remaining after this request.`,
+        `${reservation.balance.remainingUnits} day(s) remaining after this request. ${summarizeAttachmentsForDisplay(attachments)}.`,
     });
     await notify(tx, session, context.manager.userId, "New leave request", `${session.employee!.displayName} submitted leave for approval.`, "/manager/inbox", "approval_submitted");
-    await auditCreate(tx, session, "leave_request", request.id, request);
+    await auditCreate(tx, session, "leave_request", request.id, request, {
+      ...summarizeAttachmentsForAudit(attachments),
+    });
   });
 }
 
@@ -1097,6 +1135,7 @@ async function mapTaskToWorkflow(
       title: request.leavePolicy.name,
       detail: `${formatDateTime(request.startAt)} - ${formatDateTime(request.endAt)} · ${Number(request.units)} day(s)`,
       riskSummary: task.riskSummary,
+      attachments: readAttachmentMetadata(request.attachmentMetadataJson),
       units: Number(request.units),
       createdAt: request.createdAt,
       timeline,
@@ -1153,6 +1192,7 @@ async function mapTaskToWorkflow(
       currentStepLabel: currentStep ? getStepLabel(currentStep) : `Step ${request.currentStepOrder}`,
       formTemplateId: request.formTemplateId,
       values: request.valuesJson as Record<string, string>,
+      attachments: readAttachmentMetadata(request.attachmentMetadataJson),
       createdAt: request.createdAt,
       timeline,
     };
@@ -1332,6 +1372,7 @@ async function auditCreate(
   entityType: string,
   entityId: string,
   after: unknown,
+  metadata: Record<string, unknown> = {},
 ) {
   await writeAuditLog(tx, {
     tenantId: session.tenantId!,
@@ -1344,6 +1385,7 @@ async function auditCreate(
     after,
     metadata: {
       source: "employee_self_service",
+      ...metadata,
     },
   });
 }

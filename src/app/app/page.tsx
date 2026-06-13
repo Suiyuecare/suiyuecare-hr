@@ -111,7 +111,14 @@ export default async function EmployeeHomePage() {
                   </label>
                   <label>
                     Attachment
-                    <input disabled placeholder="Placeholder" />
+                    <input name="attachmentFileName" placeholder="Doctor note.pdf" />
+                  </label>
+                  <label>
+                    Storage ref
+                    <input name="attachmentStorageKey" placeholder="Optional object key" />
+                    <input type="hidden" name="attachmentMimeType" value="application/pdf" />
+                    <input type="hidden" name="attachmentScanStatus" value="pending" />
+                    <input type="hidden" name="attachmentFileSizeBytes" value="0" />
                   </label>
                 </div>
                 <label>
@@ -289,6 +296,9 @@ function RequestItem({ request }: { request: WorkflowRequest }) {
       <div>
         <strong>{request.title}</strong>
         <small>{request.detail}</small>
+        {request.attachments?.length ? (
+          <small>{formatAttachmentSummary(request.attachments)}</small>
+        ) : null}
         {request.currentStepLabel ? <small>Current step: {request.currentStepLabel}</small> : null}
         <ol className="timeline">
           {request.timeline.map((item) => (
@@ -375,10 +385,24 @@ function FormFieldInput({ field, today }: { field: FormField; today: string }) {
 
   if (field.type === "file") {
     return (
-      <label>
-        {field.label}
-        <input disabled placeholder="Attachment placeholder" />
-      </label>
+      <>
+        <label>
+          {field.label}
+          <input
+            name={`${field.id}__FileName`}
+            placeholder="File name"
+            required={field.required}
+          />
+        </label>
+        <label>
+          Storage ref
+          <input name={`${field.id}__StorageKey`} placeholder="Optional object key" />
+          <input type="hidden" name={`${field.id}__MimeType`} value="application/pdf" />
+          <input type="hidden" name={`${field.id}__ScanStatus`} value="pending" />
+          <input type="hidden" name={`${field.id}__FileSizeBytes`} value="0" />
+          <input type="hidden" name={field.id} value="Attachment evidence provided" />
+        </label>
+      </>
     );
   }
 
@@ -408,6 +432,19 @@ function formatTime(date: Date) {
     minute: "2-digit",
     hour12: false,
   });
+}
+
+function formatAttachmentSummary(attachments: WorkflowRequest["attachments"]) {
+  const items = attachments ?? [];
+  const pending = items.filter((item) => item.scanStatus === "pending").length;
+  const blocked = items.filter((item) => item.scanStatus === "blocked").length;
+  if (blocked > 0) {
+    return `${items.length} attachment reference(s), ${blocked} blocked`;
+  }
+  if (pending > 0) {
+    return `${items.length} attachment reference(s), ${pending} pending scan`;
+  }
+  return `${items.length} attachment reference(s)`;
 }
 
 function labelStatus(status: string) {

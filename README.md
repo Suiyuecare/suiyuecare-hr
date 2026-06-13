@@ -23,7 +23,7 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 - Work Rules Center for versioned employee handbook/company work rules, HR/legal review status, content hashes, employee acknowledgement evidence, and launch-readiness coverage.
 - Workplace Incident Center for safety hazards, near misses, occupational accidents, harassment, and workplace violence reports with confidential employee intake, HR investigation tracking, 8-hour severe incident notification target, corrective action evidence, and redacted audit logs.
 - HR shift template settings for reusable day/night/cross-midnight shifts and audited daily schedule generation.
-- Leave request with balance reservation, attachment placeholder, and shift conflict warning.
+- Leave request with balance reservation, safe attachment evidence metadata, and shift conflict warning.
 - Overtime request with daily work-hour threshold warning.
 - Punch correction request for missing punches.
 - HR attendance policy settings for regular daily minutes, overtime warning thresholds, punch grace minutes, mobile punch, and approval guardrails.
@@ -66,7 +66,7 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 - Attendance Exception Center tracks monthly close queues, safe missing-punch resolution suggestions, HR-reviewed working-time risks, KPI resolution rate, and redacted audit evidence before payroll lock.
 - Monthly attendance sign-off lets employees confirm attendance summaries from mobile before payroll close, while HR tracks coverage and audit hashes without exposing raw attendance logs.
 - Worktime agreement settings track labor union/labor-management conference approval evidence, effective periods, local authority filing status, and audited readiness before extended monthly overtime limits are used.
-- Low-code HR form builder with text, number, date, select, file placeholder, checkbox, and textarea fields.
+- Low-code HR form builder with text, number, date, select, file evidence metadata, checkbox, and textarea fields.
 - Workflow template steps for direct manager and HR review, including a simple no-code condition so HR review can run only when the first submitted field equals a configured value.
 - Safe AI Copilot layer for sourced policy Q&A, HR-reviewed form drafts, approval summaries, and payroll exception explanations.
 - HR-managed policy source library for AI Copilot. Policy Q&A only cites active approved company policy excerpts and configured rules; draft or inactive sources are excluded.

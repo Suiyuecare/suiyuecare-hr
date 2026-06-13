@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireTenantSession } from "@/server/auth/guards";
 import { createLeaveRequest } from "@/server/workflows/service";
-import { parseDateTime, parseNumber, parseText } from "../form-utils";
+import { parseAttachmentMetadata, parseDateTime, parseNumber, parseText } from "../form-utils";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -10,6 +10,7 @@ export async function POST(request: Request) {
     endAt: parseDateTime(formData.get("endDate"), formData.get("endTime")),
     units: parseNumber(formData.get("units"), 1),
     reason: parseText(formData.get("reason"), "Leave request"),
+    attachment: parseAttachmentMetadata(formData, "attachment"),
   });
   return NextResponse.redirect(new URL("/app#requests", request.url), 303);
 }

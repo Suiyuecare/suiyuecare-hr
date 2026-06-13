@@ -24,6 +24,14 @@ export type FormField = {
   options?: string[];
 };
 
+export type AttachmentMetadata = {
+  fileName: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  storageKey: string | null;
+  scanStatus: "not_required" | "pending" | "clean" | "blocked";
+};
+
 export type WorkflowApproverType =
   | "requester"
   | "direct_manager"
@@ -80,6 +88,7 @@ export type WorkflowRequest = {
   createdAt: Date;
   formTemplateId?: string;
   values?: Record<string, string>;
+  attachments?: AttachmentMetadata[];
   units?: number;
   minutes?: number;
   workDate?: Date;
