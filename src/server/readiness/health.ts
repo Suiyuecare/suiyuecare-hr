@@ -1,0 +1,104 @@
+import { getDb } from "@/server/db/client";
+import {
+  buildEnvironmentVerificationReport,
+  environmentVerificationPassed,
+} from "@/server/readiness/environment-verification";
+
+export type HealthStatus = "ok" | "degraded" | "fail";
+
+export type HealthReport = {
+  status: HealthStatus;
+  service: "hr-one";
+  timestamp: string;
+  checks: Array<{
+    name: string;
+    status: HealthStatus;
+    detail: string;
+  }>;
+};
+
+export type HealthOptions = {
+  now?: Date;
+  env?: Record<string, string | undefined>;
+  pingDatabase?: () => Promise<boolean>;
+};
+
+export function getLiveHealth(options: HealthOptions = {}): HealthReport {
+  return {
+    status: "ok",
+    service: "hr-one",
+    timestamp: (options.now ?? new Date()).toISOString(),
+    checks: [
+      {
+        name: "process",
+        status: "ok",
+        detail: "server process is running",
+      },
+    ],
+  };
+}
+
+export async function getReadyHealth(options: HealthOptions = {}): Promise<HealthReport> {
+  const env = options.env ?? process.env;
+  const production = env.HR_ONE_ENV === "production";
+  const checks: HealthReport["checks"] = [];
+
+  if (production) {
+    const envReport = buildEnvironmentVerificationReport(env, "production");
+    checks.push({
+      name: "environment",
+      status: environmentVerificationPassed(envReport) ? "ok" : "fail",
+      detail: environmentVerificationPassed(envReport)
+        ? "production environment posture verified"
+        : "production environment verification failed",
+    });
+  } else {
+    checks.push({
+      name: "environment",
+      status: "ok",
+      detail: "non-production environment",
+    });
+  }
+
+  if (env.DATABASE_URL) {
+    const databaseOk = await (options.pingDatabase ?? pingDatabase)();
+    checks.push({
+      name: "database",
+      status: databaseOk ? "ok" : "fail",
+      detail: databaseOk ? "database ping succeeded" : "database ping failed",
+    });
+  } else {
+    checks.push({
+      name: "database",
+      status: production ? "fail" : "degraded",
+      detail: production ? "database is required in production" : "database not configured; demo fallback available",
+    });
+  }
+
+  const status = summarizeStatus(checks.map((check) => check.status));
+  return {
+    status,
+    service: "hr-one",
+    timestamp: (options.now ?? new Date()).toISOString(),
+    checks,
+  };
+}
+
+export function healthHttpStatus(report: HealthReport) {
+  return report.status === "fail" ? 503 : 200;
+}
+
+async function pingDatabase() {
+  try {
+    await getDb().$queryRaw`SELECT 1`;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function summarizeStatus(statuses: HealthStatus[]): HealthStatus {
+  if (statuses.includes("fail")) return "fail";
+  if (statuses.includes("degraded")) return "degraded";
+  return "ok";
+}

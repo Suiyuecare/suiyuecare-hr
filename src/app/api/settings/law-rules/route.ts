@@ -1,0 +1,140 @@
+import { NextResponse } from "next/server";
+import { requireTenantSession } from "@/server/auth/guards";
+import { updateTaiwanLaborStandardsConfig } from "@/server/rules/settings";
+
+export async function POST(request: Request) {
+  const formData = await request.formData();
+  try {
+    await updateTaiwanLaborStandardsConfig(await requireTenantSession({ permission: "settings:write" }), {
+      changeControl: {
+        reason: parseText(formData.get("changeReason")),
+        sourceUrl: parseText(formData.get("changeSourceUrl")),
+        reviewedBy: parseText(formData.get("reviewedBy")),
+        reviewStatus: formData.get("reviewStatus") === "approved" ? "approved" : "pending_legal_review",
+        requiresPayrollRecalculation: formData.get("requiresPayrollRecalculation") === "on",
+      },
+      minimumMonthlyWage: parseNumber(formData.get("minimumMonthlyWage")),
+      minimumHourlyWage: parseNumber(formData.get("minimumHourlyWage")),
+      payrollStandardMonthlyHours: parseNumber(formData.get("payrollStandardMonthlyHours")),
+      holidayWorkMultiplier: parseNumber(formData.get("holidayWorkMultiplier")),
+      regularLeaveWorkMultiplier: parseNumber(formData.get("regularLeaveWorkMultiplier")),
+      emergencyOvertimeMultiplier: parseNumber(formData.get("emergencyOvertimeMultiplier")),
+      maxDailyWorkMinutesIncludingOvertime: parseHoursToMinutes(formData.get("maxDailyWorkHoursIncludingOvertime")),
+      maxMonthlyOvertimeMinutes: parseHoursToMinutes(formData.get("maxMonthlyOvertimeHours")),
+      maxMonthlyOvertimeMinutesWithAgreement: parseHoursToMinutes(formData.get("maxMonthlyOvertimeHoursWithAgreement")),
+      maxThreeMonthOvertimeMinutesWithAgreement: parseHoursToMinutes(
+        formData.get("maxThreeMonthOvertimeHoursWithAgreement"),
+      ),
+      restDayCycleDays: parseNumber(formData.get("restDayCycleDays")),
+      requiredRegularLeaveDaysPerCycle: parseNumber(formData.get("requiredRegularLeaveDaysPerCycle")),
+      requiredRestDaysPerCycle: parseNumber(formData.get("requiredRestDaysPerCycle")),
+      statutoryPayroll: {
+        laborInsuranceEmployeeRate: parsePercent(formData.get("laborInsuranceEmployeeRate")),
+        laborInsuranceEmployerShare: parsePercent(formData.get("laborInsuranceEmployerShare")),
+        nationalHealthInsuranceRate: parsePercent(formData.get("nationalHealthInsuranceRate")),
+        nationalHealthInsuranceEmployeeShare: parsePercent(formData.get("nationalHealthInsuranceEmployeeShare")),
+        nationalHealthInsuranceEmployerShare: parsePercent(formData.get("nationalHealthInsuranceEmployerShare")),
+        nationalHealthInsuranceAverageDependentCount: parseNumber(
+          formData.get("nationalHealthInsuranceAverageDependentCount"),
+        ),
+        nationalHealthInsuranceDependentLimit: parseNumber(formData.get("nationalHealthInsuranceDependentLimit")),
+        occupationalAccidentIndustryRate: parsePercent(formData.get("occupationalAccidentIndustryRate")),
+        occupationalAccidentCommuteRate: parsePercent(formData.get("occupationalAccidentCommuteRate")),
+        laborPensionEmployerContributionRate: parsePercent(formData.get("laborPensionEmployerContributionRate")),
+        incomeTaxWithholdingRate: parsePercent(formData.get("incomeTaxWithholdingRate")),
+        incomeTaxWithholding: {
+          monthsPerYear: parseNumber(formData.get("incomeTaxWithholdingMonthsPerYear")),
+          monthlyExemptionAmount: parseNumber(formData.get("monthlyExemptionAmount")),
+          monthlyStandardDeductionAmount: parseNumber(formData.get("monthlyStandardDeductionAmount")),
+          annualSalarySpecialDeductionAmount: parseNumber(formData.get("annualSalarySpecialDeductionAmount")),
+          minimumMonthlyWithholding: parseNumber(formData.get("minimumMonthlyWithholding")),
+          brackets: parseIncomeTaxBracketsCsv(formData.get("incomeTaxBracketsCsv")),
+        },
+        laborInsuranceSalaryGrades: parseSalaryGradesCsv(formData.get("laborInsuranceSalaryGradesCsv")),
+        healthInsuranceSalaryGrades: parseSalaryGradesCsv(formData.get("healthInsuranceSalaryGradesCsv")),
+        laborPensionContributionGrades: parseSalaryGradesCsv(formData.get("laborPensionContributionGradesCsv")),
+      },
+    });
+    return NextResponse.redirect(new URL("/settings", request.url), 303);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to update law rules.";
+    return NextResponse.redirect(
+      new URL(`/settings?error=${encodeURIComponent(message)}`, request.url),
+      303,
+    );
+  }
+}
+
+function parseText(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  return value.trim();
+}
+
+function parseNumber(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function parsePercent(value: FormDataEntryValue | null) {
+  const parsed = parseNumber(value);
+  if (parsed === undefined) return undefined;
+  return parsed / 100;
+}
+
+function parseHoursToMinutes(value: FormDataEntryValue | null) {
+  const parsed = parseNumber(value);
+  if (parsed === undefined) return undefined;
+  return Math.round(parsed * 60);
+}
+
+function parseSalaryGradesCsv(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const grades = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [level, insuredSalary, salaryFrom, salaryTo] = line.split(",").map((part) => part.trim());
+      return {
+        level: Number(level),
+        insuredSalary: Number(insuredSalary),
+        salaryFrom: Number(salaryFrom),
+        salaryTo: salaryTo ? Number(salaryTo) : null,
+      };
+    })
+    .filter((grade) => (
+      Number.isInteger(grade.level) &&
+      Number.isFinite(grade.insuredSalary) &&
+      Number.isFinite(grade.salaryFrom) &&
+      (grade.salaryTo === null || Number.isFinite(grade.salaryTo))
+    ));
+  return grades.length > 0 ? grades : undefined;
+}
+
+function parseIncomeTaxBracketsCsv(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const brackets = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [taxableIncomeFrom, taxableIncomeTo, ratePercent, progressiveDifference] =
+        line.split(",").map((part) => part.trim());
+      return {
+        taxableIncomeFrom: Number(taxableIncomeFrom),
+        taxableIncomeTo: taxableIncomeTo ? Number(taxableIncomeTo) : null,
+        rate: Number(ratePercent) / 100,
+        progressiveDifference: Number(progressiveDifference),
+      };
+    })
+    .filter((bracket) => (
+      Number.isFinite(bracket.taxableIncomeFrom) &&
+      (bracket.taxableIncomeTo === null || Number.isFinite(bracket.taxableIncomeTo)) &&
+      Number.isFinite(bracket.rate) &&
+      bracket.rate >= 0 &&
+      bracket.rate <= 1 &&
+      Number.isFinite(bracket.progressiveDifference)
+    ));
+  return brackets.length > 0 ? brackets : undefined;
+}

@@ -1,0 +1,93 @@
+import { describe, expect, it } from "vitest";
+import { getLiveHealth, getReadyHealth, healthHttpStatus } from "@/server/readiness/health";
+
+const productionEnv = {
+  HR_ONE_ENV: "production",
+  DATABASE_URL: "postgresql://hrone:secret@db.customer.internal:5432/hrone",
+  HR_ONE_APP_URL: "https://hr.customer.co",
+  HR_ONE_SESSION_SECRET: "session-secret-with-at-least-32-characters",
+  HR_ONE_ENCRYPTION_KEY: "encryption-key-with-at-least-32-chars",
+  HR_ONE_AUDIT_LOG_SIGNING_KEY: "audit-log-signing-key-with-32-chars",
+  HR_ONE_OBJECT_STORAGE_SECRET_REF: "vault://customer/hrone/storage",
+  HR_ONE_AUTH_PROVIDER: "entra_id",
+  HR_ONE_AUTH_SESSION_SOURCE: "oidc",
+  HR_ONE_AUTH_ISSUER_URL: "https://login.customer.co/customer/v2.0",
+  HR_ONE_AUTH_AUDIENCE: "hr-one-api",
+  HR_ONE_AUTH_JWKS_URL: "https://login.customer.co/customer/keys",
+  HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS: "3600",
+  HR_ONE_AI_PROVIDER: "disabled",
+  HR_ONE_AI_PROMPT_STORAGE: "hashed",
+  HR_ONE_RATE_LIMIT_PROVIDER: "vercel_firewall",
+  HR_ONE_RATE_LIMIT_SECRET_REF: "vault://customer/hrone/rate-limit",
+  HR_ONE_RATE_LIMIT_WINDOW_SECONDS: "60",
+  HR_ONE_RATE_LIMIT_MAX_REQUESTS: "600",
+  HR_ONE_BACKUP_ENABLED: "true",
+  HR_ONE_BACKUP_RETENTION_DAYS: "35",
+  HR_ONE_BACKUP_ENCRYPTION_KEY_REF: "vault://customer/hrone/backup-key",
+  HR_ONE_BACKUP_RESTORE_TESTED_AT: "2026-05-20",
+};
+
+describe("health reports", () => {
+  it("returns a safe liveness report", () => {
+    const report = getLiveHealth({ now: new Date("2026-06-12T00:00:00.000Z") });
+
+    expect(report).toEqual({
+      status: "ok",
+      service: "hr-one",
+      timestamp: "2026-06-12T00:00:00.000Z",
+      checks: [
+        {
+          name: "process",
+          status: "ok",
+          detail: "server process is running",
+        },
+      ],
+    });
+    expect(healthHttpStatus(report)).toBe(200);
+  });
+
+  it("keeps local readiness degraded but available without database", async () => {
+    const report = await getReadyHealth({
+      now: new Date("2026-06-12T00:00:00.000Z"),
+      env: { HR_ONE_ENV: "local" },
+    });
+
+    expect(report.status).toBe("degraded");
+    expect(healthHttpStatus(report)).toBe(200);
+    expect(report.checks.find((check) => check.name === "database")).toMatchObject({
+      status: "degraded",
+      detail: "database not configured; demo fallback available",
+    });
+  });
+
+  it("fails production readiness without exposing secret values", async () => {
+    const report = await getReadyHealth({
+      env: {
+        ...productionEnv,
+        DATABASE_URL: "postgresql://hrone:hrone@localhost:5432/hrone",
+        HR_ONE_SESSION_SECRET: "change-me",
+      },
+      pingDatabase: async () => true,
+    });
+
+    expect(report.status).toBe("fail");
+    expect(healthHttpStatus(report)).toBe(503);
+    expect(JSON.stringify(report)).not.toContain("change-me");
+    expect(JSON.stringify(report)).not.toContain("localhost:5432");
+    expect(report.checks.find((check) => check.name === "environment")).toMatchObject({
+      status: "fail",
+      detail: "production environment verification failed",
+    });
+  });
+
+  it("passes production readiness when environment and database are available", async () => {
+    const report = await getReadyHealth({
+      env: productionEnv,
+      now: new Date("2026-06-12T00:00:00.000Z"),
+      pingDatabase: async () => true,
+    });
+
+    expect(report.status).toBe("ok");
+    expect(healthHttpStatus(report)).toBe(200);
+  });
+});

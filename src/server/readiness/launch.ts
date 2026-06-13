@@ -1,0 +1,447 @@
+import { assertPermission, type RoleKey } from "@/server/auth/rbac";
+import { getUserAccessWorkspace } from "@/server/auth/access-management";
+import { getCompanyCalendarWorkspace, type CompanyCalendarReadiness } from "@/server/calendar/company-calendar";
+import { getCompanyOverview } from "@/server/dashboard/queries";
+import type { FileStorageSettings } from "@/server/files/storage";
+import { getFileStorageSettings, isProductionStorageVerified } from "@/server/files/storage";
+import { getHrOneKpis, summarizeHrOneKpis, type HrOneKpi } from "@/server/kpis/hr-one";
+import type { NotificationChannelSettings } from "@/server/notifications/service";
+import { getNotificationSettings } from "@/server/notifications/service";
+import { getPayrollPaymentSecurityReadiness } from "@/server/payroll/payment-security";
+import { getOperationalResilienceReadiness } from "@/server/readiness/operational-resilience";
+import type { TaiwanLaborStandardsConfig } from "@/server/rules/taiwan-labor-standards";
+import { getTaiwanLaborStandardsConfig } from "@/server/rules/settings";
+import {
+  evaluateLegalSourceFreshness,
+  validateTaiwanLaborStandardsRuleSet,
+} from "@/server/rules/validation";
+import type { CompanySecuritySettings } from "@/server/settings/security";
+import { getCompanySecuritySettings, hasSsoMetadata } from "@/server/settings/security";
+import { getSupportAccessGovernance } from "@/server/support/access";
+
+type SessionLike = {
+  role: RoleKey;
+  tenantId: string | null;
+  companyId: string | null;
+  user?: { id: string; displayName: string } | null;
+  employee?: { id: string; displayName: string } | null;
+};
+
+export type LaunchReadinessStatus = "ready" | "action_required" | "blocked";
+
+export type LaunchReadinessItem = {
+  id: string;
+  area: "Infrastructure" | "Security" | "Compliance" | "Operations" | "Product";
+  title: string;
+  status: LaunchReadinessStatus;
+  detail: string;
+  nextStep: string;
+  actionLabel: string;
+  actionHref: string;
+};
+
+export type LaunchReadinessReport = {
+  readyForSale: boolean;
+  readyCount: number;
+  actionRequiredCount: number;
+  blockedCount: number;
+  setupSteps: LaunchSetupStep[];
+  items: LaunchReadinessItem[];
+};
+
+export type LaunchSetupStep = {
+  step: number;
+  title: string;
+  status: LaunchReadinessStatus;
+  itemIds: string[];
+  summary: string;
+  actionLabel: string;
+  actionHref: string;
+};
+
+export async function getLaunchReadinessReport(session: SessionLike) {
+  assertPermission(session.role, "settings:read");
+  const [
+    overview,
+    laborConfig,
+    securitySettings,
+    fileStorageSettings,
+    notificationSettings,
+    accessWorkspace,
+    supportAccessGovernance,
+    payrollPaymentSecurity,
+    operationalResilience,
+    calendarWorkspace,
+    kpis,
+  ] = await Promise.all([
+    getCompanyOverview(),
+    getTaiwanLaborStandardsConfig(session),
+    getCompanySecuritySettings(session),
+    getFileStorageSettings(session),
+    getNotificationSettings(session),
+    getUserAccessWorkspace(session),
+    getSupportAccessGovernance(session),
+    getPayrollPaymentSecurityReadiness(session),
+    getOperationalResilienceReadiness(session),
+    getCompanyCalendarWorkspace(session),
+    getHrOneKpis(),
+  ]);
+
+  const privilegedUsers = accessWorkspace.users.filter((user) =>
+    user.roles.some((role) => role === "owner" || role === "hr_admin" || role === "manager"),
+  );
+  const laborRuleValidation = validateTaiwanLaborStandardsRuleSet(laborConfig);
+  const legalSourceFreshness = evaluateLegalSourceFreshness(laborConfig.sources);
+
+  return buildLaunchReadinessReport({
+    databaseConfigured: Boolean(process.env.DATABASE_URL),
+    employeeCount: overview?.employeeCount ?? 0,
+    auditCount: overview?.auditCount ?? 0,
+    activeRuleCount: overview?.activeRuleCount ?? 0,
+    laborConfig,
+    laborRuleValidation: {
+      passed: laborRuleValidation.passed,
+      passedCount: laborRuleValidation.passedCount,
+      fixtureCount: laborRuleValidation.fixtureCount,
+    },
+    legalSourceFreshness: {
+      passed: legalSourceFreshness.passed,
+      freshSourceCount: legalSourceFreshness.freshSourceCount,
+      totalSourceCount: legalSourceFreshness.totalSourceCount,
+      oldestCheckedAt: legalSourceFreshness.oldestCheckedAt,
+      maxAgeDays: legalSourceFreshness.maxAgeDays,
+    },
+    securitySettings,
+    fileStorageSettings,
+    notificationSettings,
+    privilegedSsoIdentityCoverage: {
+      total: privilegedUsers.length,
+      linked: privilegedUsers.filter((user) => user.externalIdentities.length > 0).length,
+    },
+    supportAccessGovernance,
+    payrollPaymentSecurity,
+    operationalResilience,
+    calendarReadiness: calendarWorkspace.readiness,
+    kpis,
+  });
+}
+
+export function buildLaunchReadinessReport(input: {
+  databaseConfigured: boolean;
+  employeeCount: number;
+  auditCount: number;
+  activeRuleCount: number;
+  laborConfig: TaiwanLaborStandardsConfig;
+  laborRuleValidation?: {
+    passed: boolean;
+    passedCount: number;
+    fixtureCount: number;
+  };
+  legalSourceFreshness?: {
+    passed: boolean;
+    freshSourceCount: number;
+    totalSourceCount: number;
+    oldestCheckedAt: string | null;
+    maxAgeDays: number;
+  };
+  securitySettings: CompanySecuritySettings;
+  fileStorageSettings: FileStorageSettings;
+  notificationSettings: NotificationChannelSettings;
+  privilegedSsoIdentityCoverage: {
+    total: number;
+    linked: number;
+  };
+  supportAccessGovernance: {
+    activeApprovedCount: number;
+    activeUnapprovedCount: number;
+    expiredStillApprovedCount: number;
+  };
+  payrollPaymentSecurity: {
+    ready: boolean;
+    detail: string;
+  };
+  operationalResilience?: {
+    ready: boolean;
+    detail: string;
+  };
+  calendarReadiness?: Pick<CompanyCalendarReadiness, "ready" | "calendarYear" | "detail">;
+  kpis: HrOneKpi[];
+}): LaunchReadinessReport {
+  const kpiSummary = summarizeHrOneKpis(input.kpis);
+  const externalNotificationsEnabled =
+    input.notificationSettings.emailEnabled ||
+    input.notificationSettings.lineEnabled ||
+    input.notificationSettings.slackEnabled ||
+    input.notificationSettings.teamsEnabled;
+  const ssoReady = input.securitySettings.ssoEnabled && hasSsoMetadata(input.securitySettings);
+  const supportAccessReady =
+    input.supportAccessGovernance.activeUnapprovedCount === 0 &&
+    input.supportAccessGovernance.expiredStillApprovedCount === 0;
+  const laborRuleValidation = input.laborRuleValidation ?? {
+    passed: true,
+    passedCount: 0,
+    fixtureCount: 0,
+  };
+  const legalSourceFreshness = input.legalSourceFreshness ?? {
+    passed: true,
+    freshSourceCount: 0,
+    totalSourceCount: 0,
+    oldestCheckedAt: null,
+    maxAgeDays: 180,
+  };
+  const calendarReadiness = input.calendarReadiness ?? {
+    ready: true,
+    calendarYear: new Date().getFullYear(),
+    detail: "Calendar readiness not evaluated in this test context.",
+  };
+  const operationalResilience = input.operationalResilience ?? {
+    ready: true,
+    detail: "Operational resilience not evaluated in this test context.",
+  };
+  const items: LaunchReadinessItem[] = [
+    {
+      id: "database",
+      area: "Infrastructure",
+      title: "PostgreSQL persistence",
+      status: input.databaseConfigured ? "ready" : "blocked",
+      detail: input.databaseConfigured
+        ? "DATABASE_URL is configured; services can use PostgreSQL-backed storage."
+        : "DATABASE_URL is not configured; the app is running with demo fallback state.",
+      nextStep: "Run migrations, seed/import the tenant, then run pnpm db:verify:production with the customer tenant slug.",
+      actionLabel: "Open setup docs",
+      actionHref: "/settings/readiness#database-setup",
+    },
+    {
+      id: "tenant_seed",
+      area: "Infrastructure",
+      title: "Tenant foundation",
+      status: input.employeeCount >= 5 ? "ready" : "action_required",
+      detail: `${input.employeeCount} employee record(s) are available for the active company.`,
+      nextStep: "Verify production onboarding imports departments, employees, managers, roles, policies, and payment profiles.",
+      actionLabel: "Import employees",
+      actionHref: "/hr/employee-import",
+    },
+    {
+      id: "operational_resilience",
+      area: "Infrastructure",
+      title: "Backup and restore readiness",
+      status: operationalResilience.ready ? "ready" : "blocked",
+      detail: operationalResilience.detail,
+      nextStep: "Configure backups, encrypted retention, and a recent passed restore drill before production launch.",
+      actionLabel: "Configure resilience",
+      actionHref: "/settings/operational-resilience",
+    },
+    {
+      id: "security",
+      area: "Security",
+      title: "Authentication posture",
+      status: input.securitySettings.mfaRequiredForAdmins && input.securitySettings.passwordMinLength >= 12
+        ? ssoReady ? "ready" : "action_required"
+        : "blocked",
+      detail: ssoReady
+        ? `SSO enabled with ${input.securitySettings.ssoProvider ?? "configured provider"} and issuer/JWKS metadata.`
+        : input.securitySettings.ssoEnabled
+          ? "SSO is enabled, but issuer URL, client ID, or JWKS URL is missing."
+          : "Admin MFA/password controls exist, but production SSO is not enabled yet.",
+      nextStep: "Connect production auth provider claims for SSO/MFA before selling to customers.",
+      actionLabel: "Configure security",
+      actionHref: "/settings#security-setup",
+    },
+    {
+      id: "sso_identities",
+      area: "Security",
+      title: "Privileged SSO identity bindings",
+      status: input.privilegedSsoIdentityCoverage.total > 0 &&
+        input.privilegedSsoIdentityCoverage.linked >= input.privilegedSsoIdentityCoverage.total
+        ? "ready"
+        : ssoReady
+          ? "blocked"
+          : "action_required",
+      detail: `${input.privilegedSsoIdentityCoverage.linked}/${input.privilegedSsoIdentityCoverage.total} privileged user(s) linked to stable issuer/subject identities.`,
+      nextStep: "Link every owner, HR admin, and manager to a stable OIDC issuer/subject identity before production verification.",
+      actionLabel: "Open access",
+      actionHref: "/settings/access",
+    },
+    {
+      id: "file_storage",
+      area: "Security",
+      title: "Document storage",
+      status: isProductionStorageVerified(input.fileStorageSettings) ? "ready" : "blocked",
+      detail: input.fileStorageSettings.provider === "demo_object_storage"
+        ? "Document storage is still configured for demo object storage."
+        : `Storage provider ${input.fileStorageSettings.provider}; KMS ${input.fileStorageSettings.kmsKeyRef ? "configured" : "missing"}; verification ${input.fileStorageSettings.verificationStatus}.`,
+      nextStep: "Configure production object storage, KMS reference, retention, signed URL TTL, malware scanning, and verification evidence.",
+      actionLabel: "Configure storage",
+      actionHref: "/settings#file-storage-setup",
+    },
+    {
+      id: "support_access",
+      area: "Security",
+      title: "Support access governance",
+      status: supportAccessReady ? "ready" : "blocked",
+      detail: supportAccessReady
+        ? `${input.supportAccessGovernance.activeApprovedCount} active approved support grant(s); no unapproved or expired active access.`
+        : `${input.supportAccessGovernance.activeUnapprovedCount} unapproved active grant(s), ${input.supportAccessGovernance.expiredStillApprovedCount} expired grant(s) still approved.`,
+      nextStep: "Revoke expired grants and require customer-owner approval, scope, ticket, and expiry for every support session.",
+      actionLabel: "Review support access",
+      actionHref: "/settings/support-access",
+    },
+    {
+      id: "notifications",
+      area: "Operations",
+      title: "Notification delivery",
+      status: externalNotificationsEnabled && input.notificationSettings.externalSummaryOnly ? "ready" : "action_required",
+      detail: externalNotificationsEnabled
+        ? "At least one external notification channel is enabled with summary-only payloads."
+        : "Only in-app notifications are enabled.",
+      nextStep: "Enable customer-approved email, LINE, Slack, or Teams delivery with summary-only payload hashes.",
+      actionLabel: "Configure notifications",
+      actionHref: "/settings/notifications",
+    },
+    {
+      id: "payment_security",
+      area: "Security",
+      title: "Payroll payment security",
+      status: input.payrollPaymentSecurity.ready ? "ready" : "blocked",
+      detail: input.payrollPaymentSecurity.detail,
+      nextStep: "Configure token vault, KMS reference, and verified customer bank file format before enabling production bank uploads.",
+      actionLabel: "Configure payment security",
+      actionHref: "/hr/payroll-payment-security",
+    },
+    {
+      id: "calendar",
+      area: "Compliance",
+      title: "Taiwan annual calendar",
+      status: calendarReadiness.ready ? "ready" : "blocked",
+      detail: calendarReadiness.detail,
+      nextStep: "Approve the annual Taiwan holiday and makeup-workday calendar with an official source before schedule/payroll launch.",
+      actionLabel: "Review calendar",
+      actionHref: "/hr/calendar",
+    },
+    {
+      id: "law_rules",
+      area: "Compliance",
+      title: "Taiwan rule governance",
+      status: input.activeRuleCount > 0 &&
+        input.laborConfig.changeControl.reviewStatus === "approved" &&
+        !input.laborConfig.changeControl.requiresPayrollRecalculation &&
+        laborRuleValidation.passed &&
+        legalSourceFreshness.passed
+        ? "ready"
+        : "blocked",
+      detail: `${input.activeRuleCount} active rule version(s); rule review status ${input.laborConfig.changeControl.reviewStatus}; ${laborRuleValidation.passedCount}/${laborRuleValidation.fixtureCount} fixture(s) passed; sources ${legalSourceFreshness.freshSourceCount}/${legalSourceFreshness.totalSourceCount} fresh, oldest ${legalSourceFreshness.oldestCheckedAt ?? "missing"}.`,
+      nextStep: "Approve active Taiwan labor/payroll rule versions, pass validation fixtures, refresh official source review dates, and recalculate any payroll drafts flagged by change control.",
+      actionLabel: "Review law rules",
+      actionHref: "/settings#law-rules-setup",
+    },
+    {
+      id: "audit",
+      area: "Security",
+      title: "Audit evidence",
+      status: input.auditCount > 0 ? "ready" : "blocked",
+      detail: `${input.auditCount} audit event(s) are visible in the current workspace.`,
+      nextStep: "Keep every employee, attendance, leave, overtime, payroll, form, workflow, and AI mutation audited.",
+      actionLabel: "Open audit logs",
+      actionHref: "/settings/audit",
+    },
+    {
+      id: "kpis",
+      area: "Product",
+      title: "Winning KPI gate",
+      status: kpiSummary.readyForSale ? "ready" : "action_required",
+      detail: `${kpiSummary.passing}/${kpiSummary.total} KPI(s) passing; ${kpiSummary.failing} failing.`,
+      nextStep: "Improve telemetry and workflow speed until sale-readiness KPIs pass.",
+      actionLabel: "Open KPIs",
+      actionHref: "/hr/kpis",
+    },
+  ];
+
+  const readyCount = items.filter((item) => item.status === "ready").length;
+  const actionRequiredCount = items.filter((item) => item.status === "action_required").length;
+  const blockedCount = items.filter((item) => item.status === "blocked").length;
+  return {
+    readyForSale: blockedCount === 0 && actionRequiredCount === 0,
+    readyCount,
+    actionRequiredCount,
+    blockedCount,
+    setupSteps: buildSetupSteps(items),
+    items,
+  };
+}
+
+function buildSetupSteps(items: LaunchReadinessItem[]): LaunchSetupStep[] {
+  return [
+    setupStep({
+      step: 1,
+      title: "Create durable tenant foundation",
+      itemIds: ["database", "tenant_seed", "operational_resilience"],
+      summary: "Migrate, seed or import, configure backup/restore evidence, then run production tenant verification before onboarding employees.",
+      actionLabel: "Start database setup",
+      actionHref: "/settings/readiness#database-setup",
+      items,
+    }),
+    setupStep({
+      step: 2,
+      title: "Harden access controls",
+      itemIds: ["security", "sso_identities", "support_access"],
+      summary: "Configure SSO, MFA, password posture, session timeout, allowed domains, privileged SSO identity bindings, and support access governance.",
+      actionLabel: "Configure access",
+      actionHref: "/settings/access",
+      items,
+    }),
+    setupStep({
+      step: 3,
+      title: "Connect delivery infrastructure",
+      itemIds: ["file_storage", "notifications", "payment_security"],
+      summary: "Move documents off demo storage, enable approved external notification channels, and verify payroll payment vault/bank export readiness.",
+      actionLabel: "Configure storage",
+      actionHref: "/settings#file-storage-setup",
+      items,
+    }),
+    setupStep({
+      step: 4,
+      title: "Approve compliance controls",
+      itemIds: ["calendar", "law_rules", "audit"],
+      summary: "Review Taiwan annual calendars and rule versions, then confirm sensitive mutation audit evidence.",
+      actionLabel: "Review calendar",
+      actionHref: "/settings#law-rules-setup",
+      items,
+    }),
+    setupStep({
+      step: 5,
+      title: "Validate sale-readiness KPIs",
+      itemIds: ["kpis"],
+      summary: "Use telemetry to prove the product is fast, safe, and easy enough to adopt.",
+      actionLabel: "Open KPIs",
+      actionHref: "/hr/kpis",
+      items,
+    }),
+  ];
+}
+
+function setupStep(input: {
+  step: number;
+  title: string;
+  itemIds: string[];
+  summary: string;
+  actionLabel: string;
+  actionHref: string;
+  items: LaunchReadinessItem[];
+}): LaunchSetupStep {
+  const matchedItems = input.items.filter((item) => input.itemIds.includes(item.id));
+  const status = matchedItems.some((item) => item.status === "blocked")
+    ? "blocked"
+    : matchedItems.some((item) => item.status === "action_required")
+      ? "action_required"
+      : "ready";
+  const firstOpenItem = matchedItems.find((item) => item.status !== "ready");
+  return {
+    step: input.step,
+    title: input.title,
+    status,
+    itemIds: input.itemIds,
+    summary: firstOpenItem ? `${input.summary} Next: ${firstOpenItem.nextStep}` : input.summary,
+    actionLabel: firstOpenItem?.actionLabel ?? input.actionLabel,
+    actionHref: firstOpenItem?.actionHref ?? input.actionHref,
+  };
+}

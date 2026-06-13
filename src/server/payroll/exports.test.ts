@@ -1,0 +1,142 @@
+import { beforeEach, describe, expect, it } from "vitest";
+import { getAuditDemoState, resetAuditDemoState } from "@/server/audit/demo-store";
+import {
+  confirmPayrollRun,
+  createPayrollRun,
+  lockPayrollRun,
+  recalculatePayrollRun,
+  resolvePayrollBlockers,
+} from "./service";
+import {
+  generatePayrollExport,
+  getPayrollExportWorkspace,
+  resetPayrollExportDemoState,
+} from "./exports";
+import {
+  resetPayrollAccountingSettingsDemoState,
+  updatePayrollAccountingSettings,
+} from "./accounting-settings";
+import { resetPayrollDemoState } from "./demo-store";
+import {
+  resetPaymentProfileDemoState,
+  savePaymentProfile,
+} from "./payment-profiles";
+import {
+  resetPayrollPaymentSecurityDemoState,
+  updatePayrollPaymentSecuritySettings,
+} from "./payment-security";
+
+const hrSession = {
+  role: "hr_admin" as const,
+  tenantId: "demo-tenant",
+  companyId: "demo-company",
+  user: { id: "demo-user-hr", displayName: "林人資" },
+  employee: { id: "demo-hr-employee", displayName: "林人資" },
+};
+
+const managerSession = {
+  role: "manager" as const,
+  tenantId: "demo-tenant",
+  companyId: "demo-company",
+  user: { id: "demo-user-manager", displayName: "陳主管" },
+  employee: { id: "demo-manager-employee", displayName: "陳主管" },
+};
+
+describe("payroll exports", () => {
+  beforeEach(() => {
+    resetPayrollDemoState();
+    resetPayrollAccountingSettingsDemoState();
+    resetPayrollExportDemoState();
+    resetPaymentProfileDemoState();
+    resetPayrollPaymentSecurityDemoState();
+    resetAuditDemoState();
+  });
+
+  it("generates audited bank and accounting packages only after payroll lock", async () => {
+    await createPayrollRun(hrSession);
+
+    await expect(generatePayrollExport(hrSession, "bank_transfer")).rejects.toThrow(/locked or released/);
+
+    await resolvePayrollBlockers(hrSession);
+    await recalculatePayrollRun(hrSession);
+    await confirmPayrollRun(hrSession);
+    await lockPayrollRun(hrSession);
+    await updatePayrollAccountingSettings(hrSession, {
+      grossPayrollDebitAccountCode: "6001",
+      grossPayrollDebitAccountName: "Payroll cost custom",
+    });
+
+    const bank = await generatePayrollExport(hrSession, "bank_transfer");
+    const accounting = await generatePayrollExport(hrSession, "accounting_journal");
+    const workspace = await getPayrollExportWorkspace(hrSession);
+
+    expect(bank).toMatchObject({
+      exportType: "bank_transfer",
+      format: "tw-bank-transfer-placeholder-v1",
+      recordCount: 5,
+    });
+    expect(accounting).toMatchObject({
+      exportType: "accounting_journal",
+      format: "accounting-journal-summary-v1",
+    });
+    expect(accounting.previewRows[0]).toMatchObject({
+      label: "6001 · Payroll cost custom",
+    });
+    expect(workspace.exports).toHaveLength(2);
+    expect(getAuditDemoState().logs[0]).toMatchObject({
+      action: "create",
+      entityType: "payroll_export",
+    });
+    expect(JSON.stringify(getAuditDemoState().logs[0].metadataJson)).not.toContain("61000");
+    expect(getAuditDemoState().logs[0].metadataJson).toMatchObject({
+      sensitiveValuesRedacted: true,
+      destinationFieldsIncluded: false,
+    });
+  });
+
+  it("uses verified token vault and customer bank format for bank package readiness", async () => {
+    await createPayrollRun(hrSession);
+    await resolvePayrollBlockers(hrSession);
+    await recalculatePayrollRun(hrSession);
+    await confirmPayrollRun(hrSession);
+    await lockPayrollRun(hrSession);
+    await updatePayrollPaymentSecuritySettings(hrSession, {
+      tokenVaultProvider: "aws_secrets_manager",
+      tokenVaultRef: "vault://customer/payroll-payment",
+      kmsKeyRef: "alias/customer-payroll-payment",
+      bankFileFormat: "customer_bank_csv",
+      bankFormatVersion: "v2",
+      bankFormatVerified: true,
+      verificationStatus: "verified",
+    });
+    for (const employeeId of [
+      "demo-hr-employee",
+      "demo-manager-employee",
+      "demo-employee-1",
+      "demo-employee-2",
+      "demo-employee-3",
+    ]) {
+      await savePaymentProfile(hrSession, {
+        employeeId,
+        bankCode: "004",
+        bankBranchCode: "0123",
+        accountName: `Employee ${employeeId}`,
+        accountNumber: `1234567890${employeeId.slice(-1)}`,
+        effectiveFrom: new Date("2026-06-01"),
+      });
+    }
+
+    const bank = await generatePayrollExport(hrSession, "bank_transfer");
+
+    expect(bank).toMatchObject({
+      exportType: "bank_transfer",
+      format: "customer_bank_csv-v2",
+    });
+    expect(bank.warnings).toContain("Payment token vault and customer_bank_csv v2 verification are configured.");
+  });
+
+  it("blocks managers from payroll export access", async () => {
+    await expect(getPayrollExportWorkspace(managerSession)).rejects.toThrow(/payroll:manage/);
+    await expect(generatePayrollExport(managerSession, "bank_transfer")).rejects.toThrow(/payroll:manage/);
+  });
+});
