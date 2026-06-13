@@ -8,6 +8,11 @@ const productionEnv = {
   HR_ONE_ENV: "production",
   DATABASE_URL: "postgresql://hrone:secret@db.customer.internal:5432/hrone",
   HR_ONE_APP_URL: "https://hr.customer.co",
+  HR_ONE_DEPLOYMENT_TARGET: "vercel",
+  VERCEL_PROJECT_ID: "prj_Ueh6m200Y21GRuTjXKWZxTWc6IQa",
+  HR_ONE_DATABASE_PROVIDER: "supabase_postgres",
+  NEXT_PUBLIC_SUPABASE_URL: "https://aruncclorusswpfnpgsn.supabase.co",
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_yScyXz-bOUu7W5geHggd4A_9FcGwU7M",
   HR_ONE_SESSION_SECRET: "session-secret-with-at-least-32-characters",
   HR_ONE_ENCRYPTION_KEY: "encryption-key-with-at-least-32-chars",
   HR_ONE_AUDIT_LOG_SIGNING_KEY: "audit-log-signing-key-with-32-chars",
@@ -61,6 +66,40 @@ describe("environment verification", () => {
     expect(report.checks.find((item) => item.name === "database url")).toMatchObject({ passed: false });
     expect(report.checks.find((item) => item.name === "public app url")).toMatchObject({ passed: false });
     expect(report.checks.find((item) => item.name === "HR_ONE_SESSION_SECRET")).toMatchObject({ passed: false });
+  });
+
+  it("requires Vercel and Supabase production bindings when selected", () => {
+    const report = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        VERCEL_PROJECT_ID: "customer-project",
+        NEXT_PUBLIC_SUPABASE_URL: "https://example.com",
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "anon-key",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+
+    expect(report.checks.find((item) => item.name === "deployment target")).toMatchObject({
+      passed: true,
+      detail: "vercel configured",
+    });
+    expect(report.checks.find((item) => item.name === "Vercel project binding")).toMatchObject({
+      passed: false,
+      detail: "invalid VERCEL_PROJECT_ID",
+    });
+    expect(report.checks.find((item) => item.name === "database provider")).toMatchObject({
+      passed: true,
+      detail: "supabase_postgres configured",
+    });
+    expect(report.checks.find((item) => item.name === "Supabase project url")).toMatchObject({
+      passed: false,
+      detail: "invalid NEXT_PUBLIC_SUPABASE_URL",
+    });
+    expect(report.checks.find((item) => item.name === "Supabase publishable key")).toMatchObject({
+      passed: false,
+      detail: "invalid NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+    });
   });
 
   it("blocks demo auth posture and missing token verification settings in production", () => {

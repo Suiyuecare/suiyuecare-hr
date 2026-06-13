@@ -21,6 +21,8 @@ const minimumRateLimitWindowSeconds = 10;
 const maximumRateLimitWindowSeconds = 3_600;
 const minimumRateLimitMaxRequests = 10;
 const maximumRateLimitMaxRequests = 10_000;
+const allowedDeploymentTargets = new Set(["vercel", "self_hosted", "other"]);
+const allowedDatabaseProviders = new Set(["supabase_postgres", "managed_postgres", "rds", "cloud_sql", "neon", "other"]);
 const allowedRateLimitProviders = new Set([
   "cloudflare",
   "edge",
@@ -57,6 +59,11 @@ function buildLocalChecks(env: Record<string, string | undefined>) {
 function buildProductionChecks(env: Record<string, string | undefined>, now: Date) {
   const databaseUrl = read(env, "DATABASE_URL");
   const appUrl = read(env, "HR_ONE_APP_URL") ?? read(env, "NEXT_PUBLIC_APP_URL");
+  const deploymentTarget = read(env, "HR_ONE_DEPLOYMENT_TARGET");
+  const databaseProvider = read(env, "HR_ONE_DATABASE_PROVIDER");
+  const vercelProjectId = read(env, "VERCEL_PROJECT_ID");
+  const supabaseUrl = read(env, "NEXT_PUBLIC_SUPABASE_URL");
+  const supabasePublishableKey = read(env, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
   const aiProvider = read(env, "HR_ONE_AI_PROVIDER");
   const aiEnabled = Boolean(aiProvider && aiProvider !== "disabled");
   const authMaxTokenAgeSeconds = readInteger(env, "HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS");
@@ -83,6 +90,53 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
       "public app url",
       isHttpsUrl(appUrl) && !hasWeakValue(appUrl),
       appUrl ? "HTTPS production URL configured" : "missing HR_ONE_APP_URL or NEXT_PUBLIC_APP_URL",
+    ),
+    check(
+      "deployment target",
+      Boolean(deploymentTarget && allowedDeploymentTargets.has(deploymentTarget)),
+      deploymentTarget
+        ? `${deploymentTarget} configured`
+        : "missing HR_ONE_DEPLOYMENT_TARGET",
+    ),
+    check(
+      "Vercel project binding",
+      deploymentTarget !== "vercel" || isVercelProjectId(vercelProjectId),
+      deploymentTarget === "vercel"
+        ? vercelProjectId
+          ? isVercelProjectId(vercelProjectId)
+            ? "Vercel project id configured"
+            : "invalid VERCEL_PROJECT_ID"
+          : "missing VERCEL_PROJECT_ID"
+        : "not required for this deployment target",
+    ),
+    check(
+      "database provider",
+      Boolean(databaseProvider && allowedDatabaseProviders.has(databaseProvider)),
+      databaseProvider
+        ? `${databaseProvider} configured`
+        : "missing HR_ONE_DATABASE_PROVIDER",
+    ),
+    check(
+      "Supabase project url",
+      databaseProvider !== "supabase_postgres" || isSupabaseProjectUrl(supabaseUrl),
+      databaseProvider === "supabase_postgres"
+        ? supabaseUrl
+          ? isSupabaseProjectUrl(supabaseUrl)
+            ? "Supabase project URL configured"
+            : "invalid NEXT_PUBLIC_SUPABASE_URL"
+          : "missing NEXT_PUBLIC_SUPABASE_URL"
+        : "not required for this database provider",
+    ),
+    check(
+      "Supabase publishable key",
+      databaseProvider !== "supabase_postgres" || isSupabasePublishableKey(supabasePublishableKey),
+      databaseProvider === "supabase_postgres"
+        ? supabasePublishableKey
+          ? isSupabasePublishableKey(supabasePublishableKey)
+            ? "publishable key configured"
+            : "invalid NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+          : "missing NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+        : "not required for this database provider",
     ),
     secretCheck(env, "HR_ONE_SESSION_SECRET"),
     secretCheck(env, "HR_ONE_ENCRYPTION_KEY"),
@@ -262,6 +316,24 @@ function isHttpsUrl(value: string | null) {
   } catch {
     return false;
   }
+}
+
+function isVercelProjectId(value: string | null) {
+  return Boolean(value && /^prj_[A-Za-z0-9]+$/.test(value));
+}
+
+function isSupabaseProjectUrl(value: string | null) {
+  if (!isHttpsUrl(value) || hasWeakValue(value)) return false;
+  try {
+    const host = new URL(value!).hostname;
+    return host.endsWith(".supabase.co");
+  } catch {
+    return false;
+  }
+}
+
+function isSupabasePublishableKey(value: string | null) {
+  return Boolean(value && value.startsWith("sb_publishable_") && value.length >= 32 && !hasWeakValue(value));
 }
 
 function isStrongSecret(value: string | null) {

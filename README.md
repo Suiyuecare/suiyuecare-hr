@@ -157,7 +157,19 @@ pnpm release:gate
 pnpm release:gate:production -- --tenant-slug=<customer-slug>
 ```
 
-11. Start the app:
+11. For Vercel + Supabase deployment, configure Vercel project `prj_Ueh6m200Y21GRuTjXKWZxTWc6IQa` with production environment variables:
+
+- `DATABASE_URL`: Supabase PostgreSQL connection string from the Supabase dashboard. Use a server-side secret only; do not expose the database password as a public variable.
+- `HR_ONE_DEPLOYMENT_TARGET=vercel`
+- `VERCEL_PROJECT_ID=prj_Ueh6m200Y21GRuTjXKWZxTWc6IQa`
+- `HR_ONE_DATABASE_PROVIDER=supabase_postgres`
+- `NEXT_PUBLIC_SUPABASE_URL=https://aruncclorusswpfnpgsn.supabase.co`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_yScyXz-bOUu7W5geHggd4A_9FcGwU7M`
+- All `HR_ONE_*` production secrets and vault references listed in `.env.example`.
+
+Then run `pnpm env:verify:production` in the deployment environment before running migrations and production tenant verification.
+
+12. Start the app:
 
 ```bash
 pnpm dev
@@ -240,8 +252,8 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `.github/workflows/e2e-smoke.yml` runs Playwright smoke tests on UI/server workflow changes and can be manually triggered before release.
 - `.github/workflows/production-release-gate.yml` is manual-only. Configure the `HR_ONE_PRODUCTION_DATABASE_URL` repository secret, then run it with the customer `tenant_slug` and optional `company_id`.
 - Production release verification requires these GitHub secrets: `HR_ONE_PRODUCTION_DATABASE_URL`, `HR_ONE_SESSION_SECRET`, `HR_ONE_ENCRYPTION_KEY`, `HR_ONE_AUDIT_LOG_SIGNING_KEY`, `HR_ONE_OBJECT_STORAGE_SECRET_REF`, `HR_ONE_RATE_LIMIT_SECRET_REF`, `HR_ONE_BACKUP_ENCRYPTION_KEY_REF`, and optionally `HR_ONE_AI_SECRET_REF` when an AI provider is enabled. If `HR_ONE_RATE_LIMIT_PROVIDER=external_http`, also configure `HR_ONE_RATE_LIMIT_HTTP_TOKEN`.
-- Production release verification requires these GitHub variables: `HR_ONE_APP_URL`, `HR_ONE_AUTH_PROVIDER`, `HR_ONE_AUTH_SESSION_SOURCE`, `HR_ONE_AUTH_ISSUER_URL`, `HR_ONE_AUTH_AUDIENCE`, `HR_ONE_AUTH_JWKS_URL`, `HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS`, `HR_ONE_AI_PROVIDER`, `HR_ONE_AI_PROMPT_STORAGE`, `HR_ONE_RATE_LIMIT_ENABLED`, `HR_ONE_RATE_LIMIT_PROVIDER`, `HR_ONE_RATE_LIMIT_WINDOW_SECONDS`, `HR_ONE_RATE_LIMIT_MAX_REQUESTS`, `HR_ONE_BACKUP_ENABLED`, `HR_ONE_BACKUP_RETENTION_DAYS`, and `HR_ONE_BACKUP_RESTORE_TESTED_AT`. If `HR_ONE_RATE_LIMIT_PROVIDER=external_http`, also configure `HR_ONE_RATE_LIMIT_HTTP_ENDPOINT`.
-- `pnpm env:verify:production` checks production environment posture without printing secret values. It blocks local/demo database URLs, non-HTTPS app/auth URLs, weak placeholder secrets, missing storage secret references, demo auth session sources, missing OIDC audience/token-age settings, enabled AI providers without vault references, raw AI prompt storage, disabled application rate limiting, missing or invalid rate limit posture, missing external HTTP rate limit endpoint/token when that provider is selected, disabled backups, short backup retention, missing backup encryption references, and stale restore drill evidence.
+- Production release verification requires these GitHub variables: `HR_ONE_APP_URL`, `HR_ONE_DEPLOYMENT_TARGET`, `VERCEL_PROJECT_ID`, `HR_ONE_DATABASE_PROVIDER`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `HR_ONE_AUTH_PROVIDER`, `HR_ONE_AUTH_SESSION_SOURCE`, `HR_ONE_AUTH_ISSUER_URL`, `HR_ONE_AUTH_AUDIENCE`, `HR_ONE_AUTH_JWKS_URL`, `HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS`, `HR_ONE_AI_PROVIDER`, `HR_ONE_AI_PROMPT_STORAGE`, `HR_ONE_RATE_LIMIT_ENABLED`, `HR_ONE_RATE_LIMIT_PROVIDER`, `HR_ONE_RATE_LIMIT_WINDOW_SECONDS`, `HR_ONE_RATE_LIMIT_MAX_REQUESTS`, `HR_ONE_BACKUP_ENABLED`, `HR_ONE_BACKUP_RETENTION_DAYS`, and `HR_ONE_BACKUP_RESTORE_TESTED_AT`. If `HR_ONE_RATE_LIMIT_PROVIDER=external_http`, also configure `HR_ONE_RATE_LIMIT_HTTP_ENDPOINT`.
+- `pnpm env:verify:production` checks production environment posture without printing secret values. It blocks local/demo database URLs, non-HTTPS app/auth URLs, missing/invalid Vercel project binding when Vercel is selected, missing/invalid Supabase project URL or publishable key when Supabase Postgres is selected, weak placeholder secrets, missing storage secret references, demo auth session sources, missing OIDC audience/token-age settings, enabled AI providers without vault references, raw AI prompt storage, disabled application rate limiting, missing or invalid rate limit posture, missing external HTTP rate limit endpoint/token when that provider is selected, disabled backups, short backup retention, missing backup encryption references, and stale restore drill evidence.
 - `pnpm release:gate:production` intentionally runs app quality checks with `DATABASE_URL` cleared so E2E uses demo fallback state; only the environment verification and final production tenant verification command use production deployment context.
 
 ## Security Guardrails
