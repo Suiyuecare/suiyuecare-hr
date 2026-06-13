@@ -208,7 +208,56 @@ describe("launch readiness", () => {
 
     expect(report.items.find((item) => item.id === "law_rules")).toMatchObject({
       status: "blocked",
-      detail: "3 active rule version(s); rule review status approved; 6/7 fixture(s) passed; sources 0/0 fresh, oldest missing.",
+      detail: "3 active rule version(s); rule review status approved; 6/7 fixture(s) passed; executable engine 0/0 check(s) passed; sources 0/0 fresh, oldest missing.",
+    });
+  });
+
+  it("blocks launch when the Taiwan rule engine executable checks fail", () => {
+    const report = buildLaunchReadinessReport({
+      databaseConfigured: true,
+      employeeCount: 5,
+      auditCount: 8,
+      activeRuleCount: 3,
+      laborConfig: defaultTaiwanLaborStandardsConfig,
+      laborRuleValidation: {
+        passed: true,
+        passedCount: 9,
+        fixtureCount: 9,
+      },
+      legalSourceFreshness: {
+        passed: true,
+        freshSourceCount: 12,
+        totalSourceCount: 12,
+        oldestCheckedAt: "2026-06-12",
+        maxAgeDays: 180,
+      },
+      ruleEngineReadiness: {
+        passed: false,
+        passedCount: 3,
+        checkCount: 4,
+        detail: "Failed executable rule-engine check(s): working-time violation.",
+      },
+      securitySettings: secureSettings,
+      fileStorageSettings: secureStorage,
+      notificationSettings,
+      privilegedSsoIdentityCoverage: {
+        total: 3,
+        linked: 3,
+      },
+      supportAccessGovernance: {
+        activeApprovedCount: 0,
+        activeUnapprovedCount: 0,
+        expiredStillApprovedCount: 0,
+      },
+      payrollPaymentSecurity: readyPaymentSecurity,
+      calendarReadiness: readyCalendar,
+      kpis: passingKpis,
+    });
+
+    expect(report.items.find((item) => item.id === "law_rules")).toMatchObject({
+      status: "blocked",
+      detail: "3 active rule version(s); rule review status approved; 9/9 fixture(s) passed; executable engine 3/4 check(s) passed; sources 12/12 fresh, oldest 2026-06-12.",
+      nextStep: expect.stringContaining("verify executable rule-engine checks"),
     });
   });
 
@@ -250,7 +299,7 @@ describe("launch readiness", () => {
 
     expect(report.items.find((item) => item.id === "law_rules")).toMatchObject({
       status: "blocked",
-      detail: "3 active rule version(s); rule review status approved; 7/7 fixture(s) passed; sources 11/12 fresh, oldest 2025-01-01.",
+      detail: "3 active rule version(s); rule review status approved; 7/7 fixture(s) passed; executable engine 0/0 check(s) passed; sources 11/12 fresh, oldest 2025-01-01.",
     });
   });
 

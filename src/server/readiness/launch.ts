@@ -13,6 +13,7 @@ import { getNotificationSettings } from "@/server/notifications/service";
 import { getPayrollPaymentSecurityReadiness } from "@/server/payroll/payment-security";
 import { getPrivacyWorkspace, type PrivacyReadiness } from "@/server/privacy/governance";
 import { getOperationalResilienceReadiness } from "@/server/readiness/operational-resilience";
+import { createTaiwanLaborRuleEngine } from "@/server/rules/interfaces";
 import type { TaiwanLaborStandardsConfig } from "@/server/rules/taiwan-labor-standards";
 import { getTaiwanLaborStandardsConfig } from "@/server/rules/settings";
 import {
@@ -113,6 +114,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
   );
   const laborRuleValidation = validateTaiwanLaborStandardsRuleSet(laborConfig);
   const legalSourceFreshness = evaluateLegalSourceFreshness(laborConfig.sources);
+  const ruleEngineReadiness = await evaluateTaiwanRuleEngineReadiness(laborConfig);
 
   return buildLaunchReadinessReport({
     databaseConfigured: Boolean(process.env.DATABASE_URL),
@@ -132,6 +134,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
       oldestCheckedAt: legalSourceFreshness.oldestCheckedAt,
       maxAgeDays: legalSourceFreshness.maxAgeDays,
     },
+    ruleEngineReadiness,
     securitySettings,
     fileStorageSettings,
     notificationSettings,
@@ -179,6 +182,12 @@ export function buildLaunchReadinessReport(input: {
     totalSourceCount: number;
     oldestCheckedAt: string | null;
     maxAgeDays: number;
+  };
+  ruleEngineReadiness?: {
+    passed: boolean;
+    passedCount: number;
+    checkCount: number;
+    detail: string;
   };
   securitySettings: CompanySecuritySettings;
   fileStorageSettings: FileStorageSettings;
@@ -235,6 +244,12 @@ export function buildLaunchReadinessReport(input: {
     totalSourceCount: 0,
     oldestCheckedAt: null,
     maxAgeDays: 180,
+  };
+  const ruleEngineReadiness = input.ruleEngineReadiness ?? {
+    passed: true,
+    passedCount: 0,
+    checkCount: 0,
+    detail: "Rule engine executable readiness not evaluated in this test context.",
   };
   const calendarReadiness = input.calendarReadiness ?? {
     ready: true,
@@ -492,11 +507,12 @@ export function buildLaunchReadinessReport(input: {
         input.laborConfig.changeControl.reviewStatus === "approved" &&
         !input.laborConfig.changeControl.requiresPayrollRecalculation &&
         laborRuleValidation.passed &&
-        legalSourceFreshness.passed
+        legalSourceFreshness.passed &&
+        ruleEngineReadiness.passed
         ? "ready"
         : "blocked",
-      detail: `${input.activeRuleCount} active rule version(s); rule review status ${input.laborConfig.changeControl.reviewStatus}; ${laborRuleValidation.passedCount}/${laborRuleValidation.fixtureCount} fixture(s) passed; sources ${legalSourceFreshness.freshSourceCount}/${legalSourceFreshness.totalSourceCount} fresh, oldest ${legalSourceFreshness.oldestCheckedAt ?? "missing"}.`,
-      nextStep: "Approve active Taiwan labor/payroll rule versions, pass validation fixtures, refresh official source review dates, and recalculate any payroll drafts flagged by change control.",
+      detail: `${input.activeRuleCount} active rule version(s); rule review status ${input.laborConfig.changeControl.reviewStatus}; ${laborRuleValidation.passedCount}/${laborRuleValidation.fixtureCount} fixture(s) passed; executable engine ${ruleEngineReadiness.passedCount}/${ruleEngineReadiness.checkCount} check(s) passed; sources ${legalSourceFreshness.freshSourceCount}/${legalSourceFreshness.totalSourceCount} fresh, oldest ${legalSourceFreshness.oldestCheckedAt ?? "missing"}.`,
+      nextStep: "Approve active Taiwan labor/payroll rule versions, pass validation fixtures, verify executable rule-engine checks, refresh official source review dates, and recalculate any payroll drafts flagged by change control.",
       actionLabel: "Review law rules",
       actionHref: "/settings#law-rules-setup",
     },
@@ -532,6 +548,60 @@ export function buildLaunchReadinessReport(input: {
     blockedCount,
     setupSteps: buildSetupSteps(items),
     items,
+  };
+}
+
+export async function evaluateTaiwanRuleEngineReadiness(config: TaiwanLaborStandardsConfig) {
+  const engine = createTaiwanLaborRuleEngine(config);
+  const context = {
+    tenantId: "readiness",
+    companyId: "readiness",
+    ruleVersionId: config.version,
+    effectiveAt: new Date(`${config.effectiveFrom}T00:00:00.000Z`),
+  };
+  const checks = await Promise.all([
+    engine.evaluate(
+      { ...context, ruleKey: "tw.minimum_wage" },
+      { hourlyWage: config.minimumHourlyWage - 1 },
+    ).then((result) => ({
+      name: "minimum wage violation",
+      passed: !result.passed && result.sourceIds.includes("tw-minimum-wage-2026"),
+    })),
+    engine.evaluate(
+      { ...context, ruleKey: "tw.working_time" },
+      {
+        regularMinutes: config.normalDailyMinutes,
+        overtimeMinutes: Math.max(1, config.maxDailyWorkMinutesIncludingOvertime - config.normalDailyMinutes + 1),
+        weeklyRegularMinutes: config.normalWeeklyMinutes,
+        monthlyOvertimeMinutes: config.maxMonthlyOvertimeMinutes + 1,
+      },
+    ).then((result) => ({
+      name: "working-time violation",
+      passed: !result.passed && result.sourceIds.includes("tw-lsa-article-30"),
+    })),
+    engine.evaluate(
+      { ...context, ruleKey: "tw.regular_day_overtime_pay" },
+      { hourlyWage: config.minimumHourlyWage, overtimeMinutes: 180 },
+    ).then((result) => ({
+      name: "regular-day overtime calculation",
+      passed: result.passed && typeof result.result.total === "number" && result.sourceIds.includes("tw-lsa-article-24"),
+    })),
+    engine.evaluate(
+      { ...context, ruleKey: "tw.annual_leave_entitlement" },
+      { serviceMonths: 36 },
+    ).then((result) => ({
+      name: "annual leave entitlement",
+      passed: result.passed && result.result.days === 14 && result.sourceIds.includes("tw-lsa-article-38"),
+    })),
+  ]);
+  const failed = checks.filter((check) => !check.passed);
+  return {
+    passed: failed.length === 0,
+    passedCount: checks.length - failed.length,
+    checkCount: checks.length,
+    detail: failed.length === 0
+      ? `${checks.length} executable rule-engine check(s) passed.`
+      : `Failed executable rule-engine check(s): ${failed.map((check) => check.name).join(", ")}.`,
   };
 }
 
