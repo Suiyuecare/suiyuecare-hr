@@ -73,6 +73,7 @@ async function main() {
   await prisma.leavePolicy.deleteMany();
   await prisma.companyCalendarReview.deleteMany();
   await prisma.attendanceException.deleteMany();
+  await prisma.attendancePeriodSignoff.deleteMany();
   await prisma.clockEvent.deleteMany();
   await prisma.attendanceRecord.deleteMany();
   await prisma.workSchedule.deleteMany();
@@ -853,6 +854,23 @@ async function main() {
       attendanceRecordId: exceptionRecord.id,
       exceptionType: "missing_clock_out",
       severity: "warning",
+    },
+  });
+
+  const signoffPeriodStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+  const signoffPeriodEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+  await prisma.attendancePeriodSignoff.create({
+    data: {
+      tenantId: tenant.id,
+      companyId: company.id,
+      employeeId: employeeOne.id,
+      periodStart: signoffPeriodStart,
+      periodEnd: signoffPeriodEnd,
+      recordCount: 1,
+      exceptionCount: 0,
+      summaryHash: hash(`${employeeOne.id}:${signoffPeriodStart.toISOString()}:attendance-signoff`),
+      source: "seed",
+      signedAt: new Date(),
     },
   });
 

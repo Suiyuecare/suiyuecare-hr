@@ -133,6 +133,7 @@ model Company {
   attendancePolicies AttendancePolicy[]
   worktimeAgreementSetting CompanyWorktimeAgreementSetting?
   attendanceRecords AttendanceRecord[]
+  attendancePeriodSignoffs AttendancePeriodSignoff[]
   clockEvents ClockEvent[]
   attendanceExceptions AttendanceException[]
   leavePolicies LeavePolicy[]
@@ -326,6 +327,7 @@ model Employee {
   auditLogs        AuditLog[]       @relation("ActorEmployeeAuditLogs")
   workSchedules    WorkSchedule[]
   attendanceRecords AttendanceRecord[]
+  attendancePeriodSignoffs AttendancePeriodSignoff[]
   clockEvents      ClockEvent[]
   attendanceExceptions AttendanceException[]
   leaveBalances    LeaveBalance[]
@@ -891,6 +893,28 @@ model AttendanceRecord {
 
   @@unique([employeeId, workDate])
   @@index([tenantId, companyId, workDate])
+}
+
+model AttendancePeriodSignoff {
+  id             String   @id @default(cuid())
+  tenantId       String
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  periodStart    DateTime
+  periodEnd      DateTime
+  recordCount    Int
+  exceptionCount Int
+  summaryHash    String
+  source         String   @default("employee_self_service")
+  signedAt       DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([employeeId, periodStart])
+  @@index([tenantId, companyId, periodStart])
+  @@index([tenantId, companyId, signedAt])
 }
 
 model ClockEvent {

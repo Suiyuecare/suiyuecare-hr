@@ -4,6 +4,7 @@ import { resetAuditEvidenceDemoState } from "@/server/audit/evidence-packages";
 import { resetAiDemoState } from "@/server/ai/demo-store";
 import { resetPolicyDocumentDemoState } from "@/server/ai/policy-docs";
 import { resetAttendancePolicyDemoState } from "@/server/attendance/policies";
+import { resetAttendanceSignoffDemoState } from "@/server/attendance/signoffs";
 import { resetWorktimeAgreementDemoState } from "@/server/attendance/worktime-agreements";
 import { resetWorktimeComplianceDemoState } from "@/server/attendance/worktime-compliance";
 import { resetCompanyCalendarDemoState } from "@/server/calendar/company-calendar";
@@ -70,6 +71,7 @@ export async function POST() {
     resetAiDemoState();
     resetPolicyDocumentDemoState();
     resetAttendancePolicyDemoState();
+    resetAttendanceSignoffDemoState();
     resetWorktimeAgreementDemoState();
     resetWorktimeComplianceDemoState();
     resetCompanyCalendarDemoState();

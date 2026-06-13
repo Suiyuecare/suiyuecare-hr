@@ -842,6 +842,27 @@ test("HR resolves attendance exceptions with redacted audit evidence", async ({ 
   await expect(page.getByText("rawEvidenceIncluded")).toBeVisible();
 });
 
+test("Employee signs monthly attendance and HR tracks coverage", async ({ page }) => {
+  await page.goto("/app/attendance");
+  await expect(page.getByRole("heading", { name: "Attendance Records" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Monthly sign-off" })).toBeVisible();
+  await page.getByRole("button", { name: "Sign off attendance" }).click();
+  await expect(page.getByText("Signed", { exact: true })).toBeVisible();
+  await expect(page.getByText("hash")).toBeVisible();
+
+  await page.getByLabel("Demo role").selectOption("hr_admin");
+  await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/hr/attendance-signoffs");
+  await expect(page.getByRole("heading", { name: "Attendance Sign-offs" })).toBeVisible();
+  await expect(page.getByText("60%")).toBeVisible();
+  await expect(page.getByText("張小安")).toBeVisible();
+
+  await page.goto("/settings/audit");
+  await expect(page.getByText("approve · attendance_period_signoff")).toBeVisible();
+  await expect(page.getByText("rawAttendanceRecordsIncluded")).toBeVisible();
+  await expect(page.getByText("09:02")).not.toBeVisible();
+});
+
 test("HR configures shift templates and generates schedules", async ({ page }) => {
   await page.goto("/app");
   await page.getByLabel("Demo role").selectOption("owner");

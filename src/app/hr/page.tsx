@@ -109,6 +109,9 @@ export default async function HrDashboardPage() {
               <a className="button" href="/hr/attendance-exceptions">
                 Exceptions
               </a>
+              <a className="button" href="/hr/attendance-signoffs">
+                Sign-offs
+              </a>
               <a className="button" href="/hr/worktime-compliance">
                 Worktime compliance
               </a>

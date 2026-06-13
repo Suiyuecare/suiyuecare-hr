@@ -2,10 +2,19 @@ import { DashboardLink } from "@/components/DashboardLink";
 import { EmptyState } from "@/components/EmptyState";
 import { getDemoSession } from "@/server/auth/demo-session";
 import { getEmployeeAttendanceRecordWorkspace } from "@/server/attendance/employee-records";
+import { getEmployeeAttendanceSignoffWorkspace } from "@/server/attendance/signoffs";
 
-export default async function EmployeeAttendancePage() {
+type SearchParams = Promise<{
+  error?: string;
+}>;
+
+export default async function EmployeeAttendancePage({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
   const session = await getDemoSession();
-  const workspace = await getEmployeeAttendanceRecordWorkspace(session);
+  const [workspace, signoffWorkspace] = await Promise.all([
+    getEmployeeAttendanceRecordWorkspace(session),
+    getEmployeeAttendanceSignoffWorkspace(session),
+  ]);
   const { policy, records } = workspace;
 
   return (
@@ -17,6 +26,13 @@ export default async function EmployeeAttendancePage() {
         </section>
 
         <section className="grid">
+          {params.error ? (
+            <div className="panel span-12 risk-box danger-box">
+              <strong>Unable to sign attendance</strong>
+              <p>{params.error}</p>
+            </div>
+          ) : null}
+
           <div className="panel span-12 today-card">
             <div>
               <span className="muted">Record access</span>
@@ -29,6 +45,48 @@ export default async function EmployeeAttendancePage() {
               {policy.employeeSelfServiceEnabled ? "Employee view" : "HR action needed"}
             </span>
           </div>
+
+          <section className="panel span-12">
+            <div className="section-heading">
+              <div>
+                <h2>Monthly sign-off</h2>
+                <p className="muted">
+                  {formatDate(signoffWorkspace.periodStart)} to {formatDate(signoffWorkspace.periodEnd)}
+                </p>
+              </div>
+              <span className={`badge ${signoffWorkspace.signoff ? "" : "warning"}`}>
+                {signoffWorkspace.signoff ? "Signed" : "Needs review"}
+              </span>
+            </div>
+            <div className="payroll-preview">
+              <div className="metric">
+                <span className="muted">Records</span>
+                <strong>{signoffWorkspace.recordCount}</strong>
+              </div>
+              <div className="metric">
+                <span className="muted">Exceptions</span>
+                <strong>{signoffWorkspace.exceptionCount}</strong>
+              </div>
+              <div className="metric">
+                <span className="muted">Open</span>
+                <strong>{signoffWorkspace.openExceptionCount}</strong>
+              </div>
+            </div>
+            {signoffWorkspace.signoff ? (
+              <p className="muted">
+                Signed {signoffWorkspace.signoff.signedAt.toLocaleDateString("zh-TW")} · hash{" "}
+                {signoffWorkspace.signoff.summaryHash.slice(0, 12)}
+              </p>
+            ) : (
+              <form action="/api/attendance/signoffs" method="post">
+                <input type="hidden" name="periodStart" value={formatDate(signoffWorkspace.periodStart)} />
+                <input type="hidden" name="periodEnd" value={formatDate(signoffWorkspace.periodEnd)} />
+                <button className="button primary" type="submit" disabled={signoffWorkspace.openExceptionCount > 0}>
+                  Sign off attendance
+                </button>
+              </form>
+            )}
+          </section>
 
           <section className="panel span-12">
             <div className="section-heading">
