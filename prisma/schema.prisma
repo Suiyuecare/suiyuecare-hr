@@ -112,6 +112,7 @@ model Company {
   employeeOffboardingTasks EmployeeOffboardingTask[]
   employeeDocuments EmployeeDocument[]
   employeeEmploymentTerms EmployeeEmploymentTerm[]
+  employeeLaborRosterProfiles EmployeeLaborRosterProfile[]
   privacySetting CompanyPrivacySetting?
   employeePrivacyConsents EmployeePrivacyConsent[]
   dataSubjectRequests DataSubjectRequest[]
@@ -350,6 +351,7 @@ model Employee {
   offboardingTasks EmployeeOffboardingTask[]
   documents        EmployeeDocument[]
   employmentTerms  EmployeeEmploymentTerm[]
+  laborRosterProfile EmployeeLaborRosterProfile?
   privacyConsents  EmployeePrivacyConsent[]
   dataSubjectRequests DataSubjectRequest[]
   workRuleAcknowledgements EmployeeWorkRuleAcknowledgement[]
@@ -479,6 +481,37 @@ model EmployeeEmploymentTerm {
   @@index([tenantId, companyId, status])
   @@index([tenantId, companyId, employeeId])
   @@index([tenantId, companyId, acknowledgedAt])
+}
+
+model EmployeeLaborRosterProfile {
+  id                         String   @id @default(cuid())
+  tenantId                   String
+  companyId                  String
+  company                    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId                 String   @unique
+  employee                   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  status                     String   @default("incomplete")
+  legalNameHash              String?
+  nationalIdHash             String?
+  birthDate                  DateTime?
+  gender                     String?
+  nationality                String?
+  registeredAddressHash      String?
+  emergencyContactHash       String?
+  educationSummary           String?
+  workExperienceSummary      String?
+  rosterSourceRef            String?
+  requiredFieldsJson         Json
+  missingFieldsJson          Json
+  verificationStatus         String   @default("unverified")
+  lastReviewedAt             DateTime?
+  reviewedByUserId           String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@index([tenantId, companyId, status])
+  @@index([tenantId, companyId, verificationStatus])
+  @@index([tenantId, companyId, employeeId])
 }
 
 model CompanyFileStorageSetting {

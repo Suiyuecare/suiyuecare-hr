@@ -80,6 +80,7 @@ async function main() {
   await prisma.ruleVersion.deleteMany();
   await prisma.lawRule.deleteMany();
   await prisma.employeeEmploymentTerm.deleteMany();
+  await prisma.employeeLaborRosterProfile.deleteMany();
   await prisma.employeeDocument.deleteMany();
   await prisma.employeeOffboardingTask.deleteMany();
   await prisma.employeeLifecycleEvent.deleteMany();
@@ -595,6 +596,45 @@ async function main() {
       acknowledgementHash: hash(`${employeeOne.id}:employment-terms:2026.01`),
       acknowledgedAt: new Date("2026-06-01T02:00:00.000Z"),
     },
+  });
+
+  await prisma.employeeLaborRosterProfile.createMany({
+    data: [hrEmployee, managerEmployee, employeeOne].map((employee, index) => {
+      const missingFields = index === 2 ? ["emergency_contact"] : [];
+      const verificationStatus = index === 2 ? "needs_review" : "verified";
+      return {
+        tenantId: tenant.id,
+        companyId: company.id,
+        employeeId: employee.id,
+        status: missingFields.length > 0 ? "incomplete" : "complete",
+        legalNameHash: hash(`${employee.id}:legal-name:${employee.displayName}`),
+        nationalIdHash: hash(`${employee.id}:national-id`),
+        birthDate: new Date(Date.UTC(1990 + index, 0, 1)),
+        gender: index === 1 ? "male" : "female",
+        nationality: "TW",
+        registeredAddressHash: hash(`${employee.id}:registered-address`),
+        emergencyContactHash: index === 2 ? null : hash(`${employee.id}:emergency-contact`),
+        educationSummary: "Highest education evidence reviewed.",
+        workExperienceSummary: "Prior work experience reviewed.",
+        rosterSourceRef: "demo://labor-roster/2026.01",
+        requiredFieldsJson: [
+          "legal_name",
+          "national_id",
+          "birth_date",
+          "gender",
+          "nationality",
+          "registered_address",
+          "emergency_contact",
+          "hire_date",
+          "job_title",
+          "department",
+        ],
+        missingFieldsJson: missingFields,
+        verificationStatus,
+        lastReviewedAt: verificationStatus === "verified" ? new Date("2026-06-01T00:00:00.000Z") : null,
+        reviewedByUserId: hrUser.id,
+      };
+    }),
   });
 
   await Promise.all(

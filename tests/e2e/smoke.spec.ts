@@ -702,6 +702,32 @@ test("HR publishes employee document metadata for employee self-service", async 
   await expect(page.getByText("create · employee_document")).toBeVisible();
 });
 
+test("HR completes labor roster evidence without exposing raw PII", async ({ page }) => {
+  await page.goto("/app");
+  await page.getByLabel("Demo role").selectOption("hr_admin");
+  await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/hr/labor-roster");
+
+  await expect(page.getByRole("heading", { name: "Labor Roster" })).toBeVisible();
+  await expect(page.getByText("Article 7 readiness")).toBeVisible();
+  await page.locator('select[name="employeeId"]').selectOption("demo-employee-1");
+  await page.getByLabel("Legal name").fill("張小安");
+  await page.getByLabel("National ID").fill("A123456789");
+  await page.getByLabel("Registered address").fill("台北市測試路一段一號");
+  await page.getByLabel("Emergency contact").fill("王小安 0912345678");
+  await page.getByRole("button", { name: "Save roster profile" }).click();
+
+  await expect(page.getByText("張小安 · complete")).toBeVisible();
+  await expect(page.getByText("Missing none").first()).toBeVisible();
+  await expect(page.getByText("ID hash").first()).toBeVisible();
+
+  await page.goto("/settings/audit");
+  await expect(page.getByText("update · employee_labor_roster_profile")).toBeVisible();
+  await expect(page.getByText("rawRosterPiiIncluded").first()).toBeVisible();
+  await expect(page.getByText("A123456789")).not.toBeVisible();
+  await expect(page.getByText("台北市測試路")).not.toBeVisible();
+});
+
 test("HR configures leave policies without engineering support", async ({ page }) => {
   await page.goto("/app");
   await page.getByLabel("Demo role").selectOption("hr_admin");

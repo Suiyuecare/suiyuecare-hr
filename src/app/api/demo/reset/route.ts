@@ -11,6 +11,7 @@ import { resetCompanyCalendarDemoState } from "@/server/calendar/company-calenda
 import { resetEmployeeDocumentDemoState } from "@/server/employees/documents";
 import { resetEmploymentTermsDemoState } from "@/server/employees/employment-terms";
 import { resetEmployeeImportDemoState } from "@/server/employees/imports";
+import { resetLaborRosterDemoState } from "@/server/employees/labor-roster";
 import { resetEmployeeLifecycleDemoState } from "@/server/employees/lifecycle";
 import { resetOffboardingDemoState } from "@/server/employees/offboarding";
 import { resetFileStorageDemoState } from "@/server/files/storage";
@@ -79,6 +80,7 @@ export async function POST() {
     resetEmployeeDocumentDemoState();
     resetEmploymentTermsDemoState();
     resetEmployeeImportDemoState();
+    resetLaborRosterDemoState();
     resetEmployeeLifecycleDemoState();
     resetOffboardingDemoState();
     resetFileStorageDemoState();
