@@ -14,6 +14,7 @@ import {
   defaultTaiwanLaborStandardsConfig,
   type TaiwanLaborStandardsConfig,
 } from "../src/server/rules/taiwan-labor-standards";
+import { evaluateTaiwanRuleEngineReadiness } from "../src/server/rules/interfaces";
 import { readRuleValidationSummary } from "../src/server/rules/validation";
 
 const prisma = new PrismaClient();
@@ -292,6 +293,7 @@ async function buildSnapshot(
     : defaultTaiwanLaborStandardsConfig;
   const ruleValidation = summarizeRuleValidation(activeRuleVersions.map((version) => version.definitionJson));
   const legalSourceFreshness = summarizeLegalSourceFreshness(activeRuleVersions.map((version) => version.definitionJson));
+  const ruleEngineReadiness = await evaluateTaiwanRuleEngineReadiness(laborConfig);
   const minimumWageCompliance = evaluateSalaryProfileMinimumWageCompliance(
     currentSalaryProfiles.map((profile) => ({
       employeeId: profile.employeeId,
@@ -434,6 +436,7 @@ async function buildSnapshot(
     auditEntityTypes: uniqueIds(auditEntityTypes.map((log) => log.entityType)),
     lawRulesHaveActiveVersion: lawRules.every((rule) => rule.versions.length >= 1),
     ruleValidation,
+    ruleEngineReadiness,
     legalSourceFreshness,
     laborRuleChangeControl: laborSettingsVersion ? readChangeControl(laborSettingsVersion.definitionJson) : null,
     securitySettings: securitySetting
@@ -592,6 +595,12 @@ function emptySnapshot(
       validatedVersionCount: 0,
       failedVersionCount: 0,
       fixtureCount: 0,
+    },
+    ruleEngineReadiness: {
+      passed: false,
+      passedCount: 0,
+      checkCount: 0,
+      detail: "No Taiwan labor rule settings were available for executable rule-engine checks.",
     },
     legalSourceFreshness: {
       activeVersionCount: 0,

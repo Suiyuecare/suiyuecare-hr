@@ -13,7 +13,7 @@ import { getNotificationSettings } from "@/server/notifications/service";
 import { getPayrollPaymentSecurityReadiness } from "@/server/payroll/payment-security";
 import { getPrivacyWorkspace, type PrivacyReadiness } from "@/server/privacy/governance";
 import { getOperationalResilienceReadiness } from "@/server/readiness/operational-resilience";
-import { createTaiwanLaborRuleEngine } from "@/server/rules/interfaces";
+import { evaluateTaiwanRuleEngineReadiness, type RuleEngineReadiness } from "@/server/rules/interfaces";
 import type { TaiwanLaborStandardsConfig } from "@/server/rules/taiwan-labor-standards";
 import { getTaiwanLaborStandardsConfig } from "@/server/rules/settings";
 import {
@@ -183,12 +183,7 @@ export function buildLaunchReadinessReport(input: {
     oldestCheckedAt: string | null;
     maxAgeDays: number;
   };
-  ruleEngineReadiness?: {
-    passed: boolean;
-    passedCount: number;
-    checkCount: number;
-    detail: string;
-  };
+  ruleEngineReadiness?: RuleEngineReadiness;
   securitySettings: CompanySecuritySettings;
   fileStorageSettings: FileStorageSettings;
   notificationSettings: NotificationChannelSettings;
@@ -548,60 +543,6 @@ export function buildLaunchReadinessReport(input: {
     blockedCount,
     setupSteps: buildSetupSteps(items),
     items,
-  };
-}
-
-export async function evaluateTaiwanRuleEngineReadiness(config: TaiwanLaborStandardsConfig) {
-  const engine = createTaiwanLaborRuleEngine(config);
-  const context = {
-    tenantId: "readiness",
-    companyId: "readiness",
-    ruleVersionId: config.version,
-    effectiveAt: new Date(`${config.effectiveFrom}T00:00:00.000Z`),
-  };
-  const checks = await Promise.all([
-    engine.evaluate(
-      { ...context, ruleKey: "tw.minimum_wage" },
-      { hourlyWage: config.minimumHourlyWage - 1 },
-    ).then((result) => ({
-      name: "minimum wage violation",
-      passed: !result.passed && result.sourceIds.includes("tw-minimum-wage-2026"),
-    })),
-    engine.evaluate(
-      { ...context, ruleKey: "tw.working_time" },
-      {
-        regularMinutes: config.normalDailyMinutes,
-        overtimeMinutes: Math.max(1, config.maxDailyWorkMinutesIncludingOvertime - config.normalDailyMinutes + 1),
-        weeklyRegularMinutes: config.normalWeeklyMinutes,
-        monthlyOvertimeMinutes: config.maxMonthlyOvertimeMinutes + 1,
-      },
-    ).then((result) => ({
-      name: "working-time violation",
-      passed: !result.passed && result.sourceIds.includes("tw-lsa-article-30"),
-    })),
-    engine.evaluate(
-      { ...context, ruleKey: "tw.regular_day_overtime_pay" },
-      { hourlyWage: config.minimumHourlyWage, overtimeMinutes: 180 },
-    ).then((result) => ({
-      name: "regular-day overtime calculation",
-      passed: result.passed && typeof result.result.total === "number" && result.sourceIds.includes("tw-lsa-article-24"),
-    })),
-    engine.evaluate(
-      { ...context, ruleKey: "tw.annual_leave_entitlement" },
-      { serviceMonths: 36 },
-    ).then((result) => ({
-      name: "annual leave entitlement",
-      passed: result.passed && result.result.days === 14 && result.sourceIds.includes("tw-lsa-article-38"),
-    })),
-  ]);
-  const failed = checks.filter((check) => !check.passed);
-  return {
-    passed: failed.length === 0,
-    passedCount: checks.length - failed.length,
-    checkCount: checks.length,
-    detail: failed.length === 0
-      ? `${checks.length} executable rule-engine check(s) passed.`
-      : `Failed executable rule-engine check(s): ${failed.map((check) => check.name).join(", ")}.`,
   };
 }
 

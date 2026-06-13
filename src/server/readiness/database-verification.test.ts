@@ -133,6 +133,12 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     failedVersionCount: 0,
     fixtureCount: 24,
   },
+  ruleEngineReadiness: {
+    passed: true,
+    passedCount: 4,
+    checkCount: 4,
+    detail: "4 executable rule-engine check(s) passed.",
+  },
   legalSourceFreshness: {
     activeVersionCount: 3,
     freshVersionCount: 3,
@@ -628,6 +634,26 @@ describe("database verification checks", () => {
     expect(checks.find((item) => item.name === "rule validation evidence")).toMatchObject({
       passed: false,
       detail: "2/3 active version(s) validated; 12 fixture(s) recorded",
+    });
+  });
+
+  it("requires executable Taiwan rule-engine checks before production verification passes", () => {
+    const checks = buildDatabaseVerificationChecks(
+      {
+        ...readySnapshot,
+        ruleEngineReadiness: {
+          passed: false,
+          passedCount: 3,
+          checkCount: 4,
+          detail: "Failed executable rule-engine check(s): working-time violation.",
+        },
+      },
+      "production",
+    );
+
+    expect(checks.find((item) => item.name === "executable rule engine")).toMatchObject({
+      passed: false,
+      detail: "3/4 executable rule-engine check(s) passed; Failed executable rule-engine check(s): working-time violation.",
     });
   });
 

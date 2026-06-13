@@ -7,6 +7,7 @@ import type { WorktimeAgreementReadinessReport } from "@/server/attendance/workt
 import type { MinimumWageComplianceReport } from "@/server/payroll/minimum-wage";
 import type { PayrollRecordkeepingReadinessReport } from "@/server/payroll/recordkeeping";
 import type { PayrollInsuranceGradeReadinessReport } from "@/server/payroll/insurance-grade-readiness";
+import type { RuleEngineReadiness } from "@/server/rules/interfaces";
 
 export type DatabaseVerificationMode = "demo" | "production";
 
@@ -100,6 +101,7 @@ export type DatabaseVerificationSnapshot = {
     failedVersionCount: number;
     fixtureCount: number;
   };
+  ruleEngineReadiness: RuleEngineReadiness;
   legalSourceFreshness: {
     activeVersionCount: number;
     freshVersionCount: number;
@@ -255,6 +257,13 @@ export function buildDatabaseVerificationChecks(
       snapshot.ruleValidation.validatedVersionCount === snapshot.ruleValidation.activeVersionCount &&
       snapshot.ruleValidation.failedVersionCount === 0,
     `${snapshot.ruleValidation.validatedVersionCount}/${snapshot.ruleValidation.activeVersionCount} active version(s) validated; ${snapshot.ruleValidation.fixtureCount} fixture(s) recorded`,
+  ));
+  checks.push(check(
+    "executable rule engine",
+    snapshot.ruleEngineReadiness.passed &&
+      snapshot.ruleEngineReadiness.checkCount > 0 &&
+      snapshot.ruleEngineReadiness.passedCount === snapshot.ruleEngineReadiness.checkCount,
+    `${snapshot.ruleEngineReadiness.passedCount}/${snapshot.ruleEngineReadiness.checkCount} executable rule-engine check(s) passed; ${snapshot.ruleEngineReadiness.detail}`,
   ));
   checks.push(check(
     "legal source freshness",
