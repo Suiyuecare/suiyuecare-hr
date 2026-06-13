@@ -78,6 +78,11 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     issueCount: 0,
     detail: "5 payroll compliance profile(s) checked; no under-insured wage override risk.",
   },
+  payrollRecordkeeping: {
+    ready: true,
+    missing: [],
+    detail: "1825 retention day(s); payslip enabled; calculation details enabled; labor inspection export enabled.",
+  },
   accessCoverage: {
     privilegedUserIds: ["user_owner", "user_hr", "user_manager"],
     externalIdentityUserIds: ["user_owner", "user_hr", "user_manager", "user_employee"],
@@ -362,6 +367,30 @@ describe("database verification checks", () => {
     });
     expect(checks.find((item) => item.name === "payroll insurance grade readiness")?.detail).not.toContain("56000");
     expect(checks.find((item) => item.name === "payroll insurance grade readiness")?.detail).not.toContain("80200");
+  });
+
+  it("blocks launch when payroll recordkeeping cannot prove wage roster retention and employee statements", () => {
+    const checks = buildDatabaseVerificationChecks(
+      {
+        ...readySnapshot,
+        payrollRecordkeeping: {
+          ready: false,
+          missing: [
+            "5-year wage roster retention",
+            "employee wage statement access",
+            "wage calculation details",
+            "labor inspection export readiness",
+          ],
+          detail: "365 retention day(s); payslip disabled; calculation details disabled; labor inspection export disabled.",
+        },
+      },
+      "production",
+    );
+
+    expect(checks.find((item) => item.name === "payroll recordkeeping")).toMatchObject({
+      passed: false,
+      detail: "365 retention day(s); payslip disabled; calculation details disabled; labor inspection export disabled.",
+    });
   });
 
   it("blocks launch when attendance records are not retained or visible to employees", () => {

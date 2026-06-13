@@ -4,6 +4,7 @@ import {
 } from "@/server/leave/statutory";
 import type { AttendanceRecordkeepingReadinessReport } from "@/server/attendance/policies";
 import type { MinimumWageComplianceReport } from "@/server/payroll/minimum-wage";
+import type { PayrollRecordkeepingReadinessReport } from "@/server/payroll/recordkeeping";
 import type { PayrollInsuranceGradeReadinessReport } from "@/server/payroll/insurance-grade-readiness";
 
 export type DatabaseVerificationMode = "demo" | "production";
@@ -72,6 +73,7 @@ export type DatabaseVerificationSnapshot = {
     PayrollInsuranceGradeReadinessReport,
     "ready" | "checkedCount" | "issueCount" | "detail"
   >;
+  payrollRecordkeeping: PayrollRecordkeepingReadinessReport;
   accessCoverage: {
     privilegedUserIds: string[];
     externalIdentityUserIds: string[];
@@ -273,6 +275,7 @@ export function buildDatabaseVerificationChecks(
       snapshot.insuranceGradeReadiness.ready,
     snapshot.insuranceGradeReadiness.detail,
   ));
+  checks.push(check("payroll recordkeeping", snapshot.payrollRecordkeeping.ready, snapshot.payrollRecordkeeping.detail));
   checks.push(check(
     "payment profile coverage",
     paymentCoverage.missingCount === 0,

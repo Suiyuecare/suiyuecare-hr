@@ -289,6 +289,17 @@ async function createFoundationSettings(
         updatedByUserId: ownerUserId,
       },
     }),
+    tx.companyPayrollRecordkeepingSetting.create({
+      data: {
+        tenantId,
+        companyId,
+        wageRosterRetentionDays: 365 * 5,
+        employeePayslipEnabled: true,
+        wageCalculationDetailsEnabled: true,
+        laborInspectionExportEnabled: true,
+        updatedByUserId: ownerUserId,
+      },
+    }),
     tx.attendancePolicy.create({
       data: {
         tenantId,

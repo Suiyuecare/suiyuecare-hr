@@ -137,6 +137,7 @@ model Company {
   paymentProfiles EmployeePaymentProfile[]
   payrollPaymentSecuritySetting CompanyPayrollPaymentSecuritySetting?
   payrollAccountingSettings CompanyPayrollAccountingSetting?
+  payrollRecordkeepingSetting CompanyPayrollRecordkeepingSetting?
   payrollRuns PayrollRun[]
   payrollItems PayrollItem[]
   payrollAdjustments PayrollAdjustment[]
@@ -1033,6 +1034,22 @@ model CompanyPayrollAccountingSetting {
   updatedByUserId                       String?
   createdAt                             DateTime @default(now())
   updatedAt                             DateTime @updatedAt
+
+  @@index([tenantId, companyId])
+}
+
+model CompanyPayrollRecordkeepingSetting {
+  id                            String   @id @default(cuid())
+  tenantId                      String
+  companyId                     String   @unique
+  company                       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  wageRosterRetentionDays       Int      @default(1825)
+  employeePayslipEnabled        Boolean  @default(true)
+  wageCalculationDetailsEnabled Boolean  @default(true)
+  laborInspectionExportEnabled  Boolean  @default(true)
+  updatedByUserId               String?
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
 
   @@index([tenantId, companyId])
 }

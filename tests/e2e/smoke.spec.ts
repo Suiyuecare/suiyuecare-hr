@@ -346,6 +346,15 @@ test("HR generates audited payroll export packages after lock", async ({ page })
   await page.getByRole("button", { name: "Save accounting mappings" }).click();
   await expect(page.getByText("6001 · Payroll cost custom").first()).toBeVisible();
   await page.goto("/hr");
+  await page.getByRole("link", { name: "Recordkeeping" }).click();
+  await expect(page.getByRole("heading", { name: "Payroll Recordkeeping" })).toBeVisible();
+  await page.getByLabel("Wage roster retention days").fill("1825");
+  await page.getByLabel("Employee wage statement access").check();
+  await page.getByLabel("Include wage calculation details").check();
+  await page.getByLabel("Labor inspection export ready").check();
+  await page.getByRole("button", { name: "Save recordkeeping settings" }).click();
+  await expect(page.getByText("Ready").first()).toBeVisible();
+  await page.goto("/hr");
   await page.getByRole("link", { name: "Payment security" }).click();
   await expect(page.getByRole("heading", { name: "Payment Security" })).toBeVisible();
   await page.getByLabel("Token vault provider").selectOption("aws_secrets_manager");
@@ -380,6 +389,7 @@ test("HR generates audited payroll export packages after lock", async ({ page })
 
   await page.goto("/settings/audit");
   await expect(page.getByRole("listitem").filter({ hasText: "update · payroll_accounting_settings" }).first()).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: "update · payroll_recordkeeping_settings" }).first()).toBeVisible();
   await expect(page.getByRole("listitem").filter({ hasText: "update · payroll_payment_security_settings" }).first()).toBeVisible();
   await expect(page.getByRole("listitem").filter({ hasText: "create · payroll_export" }).first()).toBeVisible();
   await expect(page.getByText("Raw values hidden")).toBeVisible();

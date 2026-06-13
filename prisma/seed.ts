@@ -42,6 +42,7 @@ async function main() {
   await prisma.annualLeaveSettlement.deleteMany();
   await prisma.payrollRun.deleteMany();
   await prisma.employeePaymentProfile.deleteMany();
+  await prisma.companyPayrollRecordkeepingSetting.deleteMany();
   await prisma.companyPayrollAccountingSetting.deleteMany();
   await prisma.payrollComplianceProfile.deleteMany();
   await prisma.salaryProfile.deleteMany();
@@ -126,6 +127,17 @@ async function main() {
       deductionCreditAccountName: "Payroll deductions payable",
       netPayableCreditAccountCode: "2220",
       netPayableCreditAccountName: "Salary payable",
+    },
+  });
+
+  await prisma.companyPayrollRecordkeepingSetting.create({
+    data: {
+      tenantId: tenant.id,
+      companyId: company.id,
+      wageRosterRetentionDays: 365 * 5,
+      employeePayslipEnabled: true,
+      wageCalculationDetailsEnabled: true,
+      laborInspectionExportEnabled: true,
     },
   });
 

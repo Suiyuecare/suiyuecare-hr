@@ -7,6 +7,7 @@ import {
 } from "../src/server/readiness/database-verification";
 import { evaluateSalaryProfileMinimumWageCompliance } from "../src/server/payroll/minimum-wage";
 import { evaluateAttendanceRecordkeepingReadiness } from "../src/server/attendance/policies";
+import { evaluatePayrollRecordkeepingReadiness } from "../src/server/payroll/recordkeeping";
 import { evaluatePayrollInsuranceGradeReadiness } from "../src/server/payroll/insurance-grade-readiness";
 import {
   defaultTaiwanLaborStandardsConfig,
@@ -62,6 +63,7 @@ async function buildSnapshot(
     fileStorageSetting,
     notificationSetting,
     payrollPaymentSecuritySetting,
+    payrollRecordkeepingSetting,
     operationalResilienceSetting,
     calendarReview,
     attendancePolicyCount,
@@ -103,6 +105,7 @@ async function buildSnapshot(
     prisma.companyFileStorageSetting.findUnique({ where: { companyId } }),
     prisma.companyNotificationSetting.findUnique({ where: { companyId } }),
     prisma.companyPayrollPaymentSecuritySetting.findUnique({ where: { companyId } }),
+    prisma.companyPayrollRecordkeepingSetting.findUnique({ where: { companyId } }),
     prisma.companyOperationalResilienceSetting.findUnique({ where: { companyId } }),
     prisma.companyCalendarReview.findFirst({
       where: { tenantId, companyId, calendarYear: new Date().getFullYear() },
@@ -338,6 +341,7 @@ async function buildSnapshot(
       issueCount: insuranceGradeReadiness.issueCount,
       detail: insuranceGradeReadiness.detail,
     },
+    payrollRecordkeeping: evaluatePayrollRecordkeepingReadiness(payrollRecordkeepingSetting),
     accessCoverage: {
       privilegedUserIds: uniqueIds(
         userRoles
@@ -464,6 +468,7 @@ function emptySnapshot(
       issueCount: 0,
       detail: "0 payroll compliance profile(s) checked; missing insurance grade verification.",
     },
+    payrollRecordkeeping: evaluatePayrollRecordkeepingReadiness(null),
     accessCoverage: {
       privilegedUserIds: [],
       externalIdentityUserIds: [],
