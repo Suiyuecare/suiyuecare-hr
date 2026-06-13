@@ -919,10 +919,15 @@ model AttendanceException {
   exceptionType      String
   severity           String           @default("warning")
   status             RequestStatus    @default(pending)
+  resolutionCode     String?
+  resolutionEvidenceHash String?
+  resolvedByUserId   String?
+  resolvedAt         DateTime?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
   @@index([tenantId, companyId, status])
+  @@index([tenantId, companyId, resolvedAt])
 }
 
 model LeavePolicy {

@@ -1,5 +1,6 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { writeAuditLog } from "@/server/audit/audit";
+import { listAttendanceExceptions } from "@/server/attendance/exceptions";
 import { getActiveAttendancePolicy } from "@/server/attendance/policies";
 import { hasPermission, roleKeys, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
@@ -11,7 +12,6 @@ import {
   decideDemoApproval,
   getDemoEmployeeWorkspace,
   getDemoFormTemplates,
-  getDemoHrExceptions,
   getDemoManagerInbox,
   submitDemoCustomForm,
   submitDemoLeave,
@@ -32,7 +32,6 @@ import type {
   EmployeeWorkspace,
   FormField,
   FormTemplateView,
-  HrExceptionView,
   ManagerInbox,
   NotificationView,
   PunchSource,
@@ -247,37 +246,7 @@ export async function createCustomFormSubmission(
 }
 
 export async function getHrAttendanceExceptions(session: SessionLike) {
-  if (!canUseDatabase(session)) {
-    return getDemoHrExceptions();
-  }
-
-  try {
-    const exceptions = await getDb().attendanceException.findMany({
-      where: {
-        tenantId: session.tenantId!,
-        companyId: session.companyId!,
-      },
-      include: {
-        employee: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return exceptions.map(
-      (exception): HrExceptionView => ({
-        id: exception.id,
-        employeeName: exception.employee.displayName,
-        exceptionType: exception.exceptionType,
-        severity: exception.severity,
-        status: exception.status,
-        createdAt: exception.createdAt,
-      }),
-    );
-  } catch {
-    return getDemoHrExceptions();
-  }
+  return listAttendanceExceptions(session);
 }
 
 export async function clockAttendance(

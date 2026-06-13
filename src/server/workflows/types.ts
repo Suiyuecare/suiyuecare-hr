@@ -133,5 +133,9 @@ export type HrExceptionView = {
   exceptionType: string;
   severity: string;
   status: RequestStatus;
+  suggestedResolution?: string;
+  autoResolvable?: boolean;
+  resolutionCode?: string | null;
+  resolvedAt?: Date | null;
   createdAt: Date;
 };

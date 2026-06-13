@@ -89,6 +89,10 @@ function initialState(): DemoState {
         exceptionType: "missing_clock_out",
         severity: "warning",
         status: "pending",
+        suggestedResolution: "Request employee punch correction before payroll close.",
+        autoResolvable: true,
+        resolutionCode: null,
+        resolvedAt: null,
         createdAt: atToday(10),
       },
     ],
@@ -221,6 +225,35 @@ export function submitDemoCustomForm(input: {
 
 export function getDemoHrExceptions() {
   return getDemoWorkflowState().exceptions;
+}
+
+export function resolveDemoHrException(input: {
+  exceptionId: string;
+  resolutionCode: string;
+}) {
+  const state = getDemoWorkflowState();
+  const exception = state.exceptions.find((item) => item.id === input.exceptionId);
+  if (!exception) throw new Error("Attendance exception not found.");
+  exception.status = "approved";
+  exception.resolutionCode = input.resolutionCode;
+  exception.resolvedAt = new Date();
+  state.auditCount += 1;
+  return exception;
+}
+
+export function resolveDemoSafeHrExceptions() {
+  const state = getDemoWorkflowState();
+  let resolvedCount = 0;
+  for (const exception of state.exceptions) {
+    if (exception.status === "pending" && exception.autoResolvable) {
+      exception.status = "approved";
+      exception.resolutionCode = "employee_self_correction_requested";
+      exception.resolvedAt = new Date();
+      resolvedCount += 1;
+    }
+  }
+  if (resolvedCount > 0) state.auditCount += 1;
+  return { resolvedCount };
 }
 
 export function clockDemo(source: PunchSource, direction: "in" | "out") {

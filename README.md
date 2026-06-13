@@ -59,6 +59,7 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 - Employer statutory payroll cost now separates labor insurance employer premium, NHI employer premium, occupational accident insurance, and labor pension contribution from employee net pay.
 - Income tax withholding uses a versioned annualized progressive estimate with 2026 eTax rate brackets and is flagged for HR review before payroll lock.
 - Payroll recordkeeping settings track 5-year wage roster retention, employee wage statement access, wage calculation details, and labor-inspection export readiness with audited changes.
+- Attendance Exception Center tracks monthly close queues, safe missing-punch resolution suggestions, HR-reviewed working-time risks, KPI resolution rate, and redacted audit evidence before payroll lock.
 - Worktime agreement settings track labor union/labor-management conference approval evidence, effective periods, local authority filing status, and audited readiness before extended monthly overtime limits are used.
 - Low-code HR form builder with text, number, date, select, file placeholder, checkbox, and textarea fields.
 - Workflow template steps for direct manager and HR review, with placeholders for visibility and conditional logic.
@@ -226,6 +227,7 @@ HR admins can open `/hr/annual-leave-settlements` from monthly close to prepare 
 HR admins can open `/hr/salary-profiles` from monthly close to maintain employee salary profiles. Managers cannot read or write salary profiles.
 HR admins can open `/hr/payment-profiles` from monthly close to maintain employee payment destinations. The app stores account hashes and last four digits only; production account tokens must live in the configured payment token vault.
 HR admins can open `/hr/payroll-recordkeeping` from monthly close to maintain wage roster retention, employee wage statement access, calculation-detail availability, and labor-inspection export readiness. Production verification requires at least 5-year wage roster retention and employee-accessible wage calculation details.
+HR admins can open `/hr/attendance-exceptions` to resolve missing-punch and working-time exceptions before payroll close. Warning-level missing-punch items receive safe suggestions that HR can confirm in bulk or one by one, while working-time risks remain manual HR/legal review items. Resolution evidence references and comments are hashed before audit storage so private employee notes or chat links do not appear in logs.
 HR admins can open `/hr/payroll-payment-security` to configure token-vault references, KMS references, customer bank file format, and verification evidence before bank upload readiness is considered production-ready.
 HR admins can open `/hr/payroll-adjustments` after payroll lock/release to request audited post-close allowances or deductions. Owners can approve or reject pending adjustments from `/manager/inbox` or the same adjustment page before payroll items or payslips change.
 HR admins can open `/hr/payroll-accounting` to map payroll export summaries to the company chart of accounts, then open `/hr/payroll-exports` after payroll lock/release to generate audited bank-transfer readiness and accounting-journal packages. Payment destinations are tracked with masked/hash data, and bank packages stay marked as readiness-only until the payment token vault and customer bank format are verified.
@@ -324,6 +326,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `src/server/security/rate-limit.ts`: application-level API rate limiter used by global middleware as a final abuse-protection boundary.
 - `src/server/kpis/hr-one.ts`: HR One winning KPI scorecard definitions and sale-readiness summary.
 - `src/server/telemetry/product.ts`: privacy-safe product telemetry service for KPI measurement with DB/demo fallback.
+- `src/server/attendance/exceptions.ts`: monthly attendance exception queue, safe resolution suggestions, KPI summary, redacted audit logs, and DB/demo fallback.
 - `src/server/privacy/governance.ts`: personal data notice settings, employee acknowledgements, data subject request workflow, privacy readiness, RBAC, audit logs, and DB/demo fallback.
 - `src/server/work-rules/service.ts`: company work rules/employee handbook versions, HR/legal review readiness, employee acknowledgement evidence, RBAC, audit logs, and DB/demo fallback.
 - `src/server/training/compliance.ts`: onboarding training controls, required course assignments, employee completion acknowledgements, readiness scoring, RBAC, audit logs, and DB/demo fallback.

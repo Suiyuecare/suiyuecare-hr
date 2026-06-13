@@ -106,6 +106,9 @@ export default async function HrDashboardPage() {
               <a className="button" href="/hr/attendance-policies">
                 Attendance policies
               </a>
+              <a className="button" href="/hr/attendance-exceptions">
+                Exceptions
+              </a>
               <a className="button" href="/hr/worktime-compliance">
                 Worktime compliance
               </a>
@@ -275,7 +278,15 @@ export default async function HrDashboardPage() {
         </section>
 
         <div className="panel span-8">
-          <h2>Attendance exceptions</h2>
+          <div className="section-heading">
+            <div>
+              <h2>Attendance exceptions</h2>
+              <p className="muted">Resolve blockers before payroll close.</p>
+            </div>
+            <a className="button" href="/hr/attendance-exceptions">
+              Open queue
+            </a>
+          </div>
           {exceptions.length === 0 ? (
             <p className="muted">No attendance exceptions.</p>
           ) : (

@@ -820,6 +820,28 @@ test("HR configures attendance policy and overtime warnings use it", async ({ pa
   await expect(page.getByText("create · worktime_compliance_scan")).toBeVisible();
 });
 
+test("HR resolves attendance exceptions with redacted audit evidence", async ({ page }) => {
+  await page.goto("/app");
+  await page.getByLabel("Demo role").selectOption("hr_admin");
+  await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/hr/attendance-exceptions");
+
+  await expect(page.getByRole("heading", { name: "Attendance Exceptions" })).toBeVisible();
+  await expect(page.getByText("missing_clock_out")).toBeVisible();
+  await expect(page.getByText("Request employee punch correction before payroll close.")).toBeVisible();
+  await page.getByLabel("Evidence for 李小真").fill("line://private-attendance-thread");
+  await page.getByLabel("Comment for 李小真").fill("Employee confirmed forgot mobile clock-out.");
+  await page.getByRole("button", { name: "Resolve" }).click();
+
+  await expect(page.getByText("resolved", { exact: true })).toBeVisible();
+  await expect(page.getByText("employee_self_correction_requested")).toBeVisible();
+  await page.goto("/settings/audit");
+  await expect(page.getByText("update · attendance_exception")).toBeVisible();
+  await expect(page.getByText("line://private-attendance-thread")).not.toBeVisible();
+  await expect(page.getByText("Employee confirmed forgot mobile clock-out.")).not.toBeVisible();
+  await expect(page.getByText("rawEvidenceIncluded")).toBeVisible();
+});
+
 test("HR configures shift templates and generates schedules", async ({ page }) => {
   await page.goto("/app");
   await page.getByLabel("Demo role").selectOption("owner");
