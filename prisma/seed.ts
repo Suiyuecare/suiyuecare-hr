@@ -34,6 +34,9 @@ type SeedTelemetryEvent = readonly [
 async function main() {
   await prisma.auditEvidencePackage.deleteMany();
   await prisma.auditLog.deleteMany();
+  await prisma.dataSubjectRequest.deleteMany();
+  await prisma.employeePrivacyConsent.deleteMany();
+  await prisma.companyPrivacySetting.deleteMany();
   await prisma.aiUsageLog.deleteMany();
   await prisma.companyPolicyDocument.deleteMany();
   await prisma.productTelemetryEvent.deleteMany();
@@ -116,6 +119,36 @@ async function main() {
       sessionTimeoutMinutes: 480,
       idleTimeoutMinutes: 60,
       allowedEmailDomainsJson: ["hrone.test"],
+    },
+  });
+
+  const privacyConsentBody =
+    "HR One processes employee personal data for employment administration, attendance, leave, payroll, benefits, legal compliance, audit evidence, and employee self-service. Sensitive HR decisions remain human-reviewed.";
+  const privacyPolicyHash = hash(JSON.stringify({
+    version: "2026.01",
+    title: "Employee personal data collection notice",
+    body: privacyConsentBody,
+    purpose: "Employment administration, attendance and leave management, payroll preparation, statutory compliance, internal audit, and employee service delivery.",
+    retentionYears: 7,
+  }));
+
+  await prisma.companyPrivacySetting.create({
+    data: {
+      tenantId: tenant.id,
+      companyId: company.id,
+      consentVersion: "2026.01",
+      consentTitle: "Employee personal data collection notice",
+      consentBody: privacyConsentBody,
+      collectionPurpose:
+        "Employment administration, attendance and leave management, payroll preparation, statutory compliance, internal audit, and employee service delivery.",
+      requiresEmployeeAcknowledgement: true,
+      dataRetentionYears: 7,
+      dataSubjectRequestResponseDays: 30,
+      deletionReviewRequired: true,
+      crossBorderTransferEnabled: false,
+      subprocessorsJson: [],
+      verificationStatus: "unverified",
+      lastReviewedAt: null,
     },
   });
 
@@ -369,6 +402,33 @@ async function main() {
       },
     }),
   ]);
+
+  await prisma.employeePrivacyConsent.createMany({
+    data: [
+      {
+        tenantId: tenant.id,
+        companyId: company.id,
+        employeeId: hrEmployee.id,
+        consentVersion: "2026.01",
+        consentTitle: "Employee personal data collection notice",
+        policyHash: privacyPolicyHash,
+        source: "seed",
+        acceptedByUserId: hrUser.id,
+        acceptedAt: new Date("2026-06-01T01:00:00.000Z"),
+      },
+      {
+        tenantId: tenant.id,
+        companyId: company.id,
+        employeeId: managerEmployee.id,
+        consentVersion: "2026.01",
+        consentTitle: "Employee personal data collection notice",
+        policyHash: privacyPolicyHash,
+        source: "seed",
+        acceptedByUserId: managerUser.id,
+        acceptedAt: new Date("2026-06-01T01:05:00.000Z"),
+      },
+    ],
+  });
 
   await Promise.all(
     [

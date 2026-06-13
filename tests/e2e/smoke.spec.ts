@@ -210,6 +210,35 @@ test("employee submits leave and manager approves from unified inbox", async ({ 
   await expect(page.getByText("approved").first()).toBeVisible();
 });
 
+test("employee privacy request is handled from Privacy Center", async ({ page }) => {
+  await page.goto("/app/privacy");
+  await expect(page.getByRole("heading", { name: "Privacy" })).toBeVisible();
+  await page.getByRole("button", { name: "Acknowledge notice" }).click();
+  await expect(page.getByText("Acknowledged").first()).toBeVisible();
+  await page.getByLabel("Request type").selectOption("correction");
+  await page.getByLabel("What should HR check?").fill("Please review my job title.");
+  await page.getByRole("button", { name: "Send request" }).click();
+  await expect(page.getByText("correction").first()).toBeVisible();
+  await expect(page.getByText("submitted").first()).toBeVisible();
+
+  await page.getByLabel("Demo role").selectOption("owner");
+  await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/settings/privacy");
+  await expect(page.getByRole("heading", { name: "Privacy Center" })).toBeVisible();
+  await expect(page.getByText("張小安 · correction")).toBeVisible();
+  const requestRow = page.getByRole("listitem").filter({ hasText: "張小安 · correction" });
+  await requestRow.getByLabel("Status for 張小安").selectOption("fulfilled");
+  await requestRow.getByLabel("Resolution for 張小安").fill("Profile review completed.");
+  await requestRow.getByRole("button", { name: "Update" }).click();
+  await expect(page.getByText("fulfilled").first()).toBeVisible();
+
+  await page.goto("/settings/audit");
+  await expect(page.getByText("create · employee_privacy_consent")).toBeVisible();
+  await expect(page.getByText("create · data_subject_request")).toBeVisible();
+  await expect(page.getByText("update · data_subject_request")).toBeVisible();
+  await expect(page.getByText("Please review my job title.")).not.toBeVisible();
+});
+
 test("employee submits overtime and punch correction for manager review", async ({ page }) => {
   await page.goto("/app");
   await page

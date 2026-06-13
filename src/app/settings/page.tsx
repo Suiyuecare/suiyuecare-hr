@@ -134,6 +134,12 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
               </a>
             </li>
             <li className="task">
+              <span>Privacy Center</span>
+              <a className="button" href="/settings/privacy">
+                Review
+              </a>
+            </li>
+            <li className="task">
               <span>Operational resilience</span>
               <a className="button" href="/settings/operational-resilience">
                 Review

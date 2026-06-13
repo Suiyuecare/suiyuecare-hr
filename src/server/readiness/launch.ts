@@ -8,6 +8,7 @@ import { getHrOneKpis, summarizeHrOneKpis, type HrOneKpi } from "@/server/kpis/h
 import type { NotificationChannelSettings } from "@/server/notifications/service";
 import { getNotificationSettings } from "@/server/notifications/service";
 import { getPayrollPaymentSecurityReadiness } from "@/server/payroll/payment-security";
+import { getPrivacyWorkspace, type PrivacyReadiness } from "@/server/privacy/governance";
 import { getOperationalResilienceReadiness } from "@/server/readiness/operational-resilience";
 import type { TaiwanLaborStandardsConfig } from "@/server/rules/taiwan-labor-standards";
 import { getTaiwanLaborStandardsConfig } from "@/server/rules/settings";
@@ -70,6 +71,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     accessWorkspace,
     supportAccessGovernance,
     payrollPaymentSecurity,
+    privacyWorkspace,
     operationalResilience,
     calendarWorkspace,
     kpis,
@@ -82,6 +84,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     getUserAccessWorkspace(session),
     getSupportAccessGovernance(session),
     getPayrollPaymentSecurityReadiness(session),
+    getPrivacyWorkspace(session),
     getOperationalResilienceReadiness(session),
     getCompanyCalendarWorkspace(session),
     getHrOneKpis(),
@@ -120,6 +123,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     },
     supportAccessGovernance,
     payrollPaymentSecurity,
+    privacyReadiness: privacyWorkspace.readiness,
     operationalResilience,
     calendarReadiness: calendarWorkspace.readiness,
     kpis,
@@ -160,6 +164,7 @@ export function buildLaunchReadinessReport(input: {
     ready: boolean;
     detail: string;
   };
+  privacyReadiness?: Pick<PrivacyReadiness, "ready" | "detail" | "missing">;
   operationalResilience?: {
     ready: boolean;
     detail: string;
@@ -197,6 +202,11 @@ export function buildLaunchReadinessReport(input: {
   const operationalResilience = input.operationalResilience ?? {
     ready: true,
     detail: "Operational resilience not evaluated in this test context.",
+  };
+  const privacyReadiness = input.privacyReadiness ?? {
+    ready: true,
+    detail: "Privacy readiness not evaluated in this test context.",
+    missing: [],
   };
   const items: LaunchReadinessItem[] = [
     {
@@ -285,6 +295,18 @@ export function buildLaunchReadinessReport(input: {
       nextStep: "Revoke expired grants and require customer-owner approval, scope, ticket, and expiry for every support session.",
       actionLabel: "Review support access",
       actionHref: "/settings/support-access",
+    },
+    {
+      id: "privacy",
+      area: "Compliance",
+      title: "Personal data governance",
+      status: privacyReadiness.ready ? "ready" : "blocked",
+      detail: privacyReadiness.detail,
+      nextStep: privacyReadiness.missing.length > 0
+        ? `Clear privacy gaps: ${privacyReadiness.missing.join(", ")}.`
+        : "Keep employee privacy notices, acknowledgements, and data subject requests current.",
+      actionLabel: "Open privacy",
+      actionHref: "/settings/privacy",
     },
     {
       id: "notifications",
@@ -383,8 +405,8 @@ function buildSetupSteps(items: LaunchReadinessItem[]): LaunchSetupStep[] {
     setupStep({
       step: 2,
       title: "Harden access controls",
-      itemIds: ["security", "sso_identities", "support_access"],
-      summary: "Configure SSO, MFA, password posture, session timeout, allowed domains, privileged SSO identity bindings, and support access governance.",
+      itemIds: ["security", "sso_identities", "support_access", "privacy"],
+      summary: "Configure SSO, MFA, password posture, session timeout, allowed domains, privileged SSO identity bindings, support access governance, and privacy controls.",
       actionLabel: "Configure access",
       actionHref: "/settings/access",
       items,

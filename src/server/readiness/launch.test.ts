@@ -324,6 +324,46 @@ describe("launch readiness", () => {
     });
   });
 
+  it("blocks launch when personal data governance is not ready", () => {
+    const report = buildLaunchReadinessReport({
+      databaseConfigured: true,
+      employeeCount: 5,
+      auditCount: 8,
+      activeRuleCount: 3,
+      laborConfig: defaultTaiwanLaborStandardsConfig,
+      securitySettings: secureSettings,
+      fileStorageSettings: secureStorage,
+      notificationSettings,
+      privilegedSsoIdentityCoverage: {
+        total: 3,
+        linked: 3,
+      },
+      supportAccessGovernance: {
+        activeApprovedCount: 0,
+        activeUnapprovedCount: 0,
+        expiredStillApprovedCount: 0,
+      },
+      payrollPaymentSecurity: readyPaymentSecurity,
+      privacyReadiness: {
+        ready: false,
+        detail: "2/5 current acknowledgement(s); 1 open request(s); 1 overdue; review unverified.",
+        missing: ["privacy notice legal/HR review", "overdue data subject requests"],
+      },
+      calendarReadiness: readyCalendar,
+      kpis: passingKpis,
+    });
+
+    expect(report.items.find((item) => item.id === "privacy")).toMatchObject({
+      status: "blocked",
+      actionHref: "/settings/privacy",
+      nextStep: "Clear privacy gaps: privacy notice legal/HR review, overdue data subject requests.",
+    });
+    expect(report.setupSteps[1]).toMatchObject({
+      status: "blocked",
+      actionHref: "/settings/privacy",
+    });
+  });
+
   it("blocks launch when payroll payment vault and bank format are not verified", () => {
     const report = buildLaunchReadinessReport({
       databaseConfigured: true,

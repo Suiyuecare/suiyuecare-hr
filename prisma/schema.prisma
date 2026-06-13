@@ -109,6 +109,9 @@ model Company {
   employees   Employee[]
   employeeLifecycleEvents EmployeeLifecycleEvent[]
   employeeDocuments EmployeeDocument[]
+  privacySetting CompanyPrivacySetting?
+  employeePrivacyConsents EmployeePrivacyConsent[]
+  dataSubjectRequests DataSubjectRequest[]
   securitySettings CompanySecuritySetting?
   fileStorageSettings CompanyFileStorageSetting?
   operationalResilienceSetting CompanyOperationalResilienceSetting?
@@ -304,6 +307,8 @@ model Employee {
   formSubmissions  FormSubmission[]
   lifecycleEvents  EmployeeLifecycleEvent[]
   documents        EmployeeDocument[]
+  privacyConsents  EmployeePrivacyConsent[]
+  dataSubjectRequests DataSubjectRequest[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -395,6 +400,75 @@ model CompanyFileStorageSetting {
   updatedAt                DateTime @updatedAt
 
   @@index([tenantId, companyId])
+}
+
+model CompanyPrivacySetting {
+  id                                String   @id @default(cuid())
+  tenantId                          String
+  companyId                         String   @unique
+  company                           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  consentVersion                    String   @default("2026.01")
+  consentTitle                      String
+  consentBody                       String
+  collectionPurpose                 String
+  requiresEmployeeAcknowledgement   Boolean  @default(true)
+  dataRetentionYears                Int      @default(7)
+  dataSubjectRequestResponseDays    Int      @default(30)
+  deletionReviewRequired            Boolean  @default(true)
+  crossBorderTransferEnabled        Boolean  @default(false)
+  subprocessorsJson                 Json
+  verificationStatus                String   @default("unverified")
+  lastReviewedAt                    DateTime?
+  updatedByUserId                   String?
+  createdAt                         DateTime @default(now())
+  updatedAt                         DateTime @updatedAt
+
+  @@index([tenantId, companyId])
+  @@index([tenantId, companyId, verificationStatus])
+}
+
+model EmployeePrivacyConsent {
+  id              String   @id @default(cuid())
+  tenantId        String
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId      String
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  consentVersion  String
+  consentTitle    String
+  policyHash      String
+  source          String   @default("self_service")
+  acceptedByUserId String?
+  acceptedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  @@unique([employeeId, consentVersion])
+  @@index([tenantId, companyId, consentVersion])
+  @@index([tenantId, companyId, employeeId])
+}
+
+model DataSubjectRequest {
+  id                String    @id @default(cuid())
+  tenantId          String
+  companyId         String
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId        String
+  employee          Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  requestType       String
+  status            String    @default("submitted")
+  summary           String
+  resolutionNote    String?
+  requestedByUserId String?
+  assignedToUserId  String?
+  dueAt             DateTime
+  completedAt       DateTime?
+  metadataJson      Json
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([tenantId, companyId, status])
+  @@index([tenantId, companyId, employeeId])
+  @@index([tenantId, companyId, dueAt])
 }
 
 model CompanyOperationalResilienceSetting {
