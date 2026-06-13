@@ -2,6 +2,7 @@ import {
   evaluateTaiwanStatutoryLeavePolicyCoverage,
   type StatutoryLeaveCategory,
 } from "@/server/leave/statutory";
+import type { AttendanceRecordkeepingReadinessReport } from "@/server/attendance/policies";
 import type { MinimumWageComplianceReport } from "@/server/payroll/minimum-wage";
 import type { PayrollInsuranceGradeReadinessReport } from "@/server/payroll/insurance-grade-readiness";
 
@@ -66,6 +67,7 @@ export type DatabaseVerificationSnapshot = {
     MinimumWageComplianceReport,
     "ready" | "checkedCount" | "monthlyViolationCount" | "hourlyViolationCount" | "detail"
   >;
+  attendanceRecordkeeping: AttendanceRecordkeepingReadinessReport;
   insuranceGradeReadiness: Pick<
     PayrollInsuranceGradeReadinessReport,
     "ready" | "checkedCount" | "issueCount" | "detail"
@@ -191,6 +193,7 @@ export function buildDatabaseVerificationChecks(
   ));
   checks.push(check("company security settings", Boolean(snapshot.securitySettings), snapshot.securitySettings ? "configured" : "missing"));
   checks.push(check("active attendance policy", snapshot.counts.attendancePolicies >= 1, `${snapshot.counts.attendancePolicies} active policy record(s)`));
+  checks.push(check("attendance recordkeeping", snapshot.attendanceRecordkeeping.ready, snapshot.attendanceRecordkeeping.detail));
   checks.push(check("active shift template", snapshot.counts.shiftTemplates >= 1, `${snapshot.counts.shiftTemplates} active template(s)`));
   checks.push(check("company calendar", snapshot.counts.calendarDays >= 1, `${snapshot.counts.calendarDays} configured day(s)`));
   checks.push(check(

@@ -6,6 +6,7 @@ import {
   type DatabaseVerificationSnapshot,
 } from "../src/server/readiness/database-verification";
 import { evaluateSalaryProfileMinimumWageCompliance } from "../src/server/payroll/minimum-wage";
+import { evaluateAttendanceRecordkeepingReadiness } from "../src/server/attendance/policies";
 import { evaluatePayrollInsuranceGradeReadiness } from "../src/server/payroll/insurance-grade-readiness";
 import {
   defaultTaiwanLaborStandardsConfig,
@@ -64,6 +65,7 @@ async function buildSnapshot(
     operationalResilienceSetting,
     calendarReview,
     attendancePolicyCount,
+    activeAttendancePolicy,
     shiftTemplateCount,
     calendarDayCount,
     lawRules,
@@ -107,6 +109,28 @@ async function buildSnapshot(
       orderBy: { updatedAt: "desc" },
     }),
     prisma.attendancePolicy.count({ where: { tenantId, companyId, status: "active" } }),
+    prisma.attendancePolicy.findFirst({
+      where: { tenantId, companyId, status: "active" },
+      orderBy: { effectiveFrom: "desc" },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        regularDailyMinutes: true,
+        overtimeWarningDailyMinutes: true,
+        clockInGraceMinutes: true,
+        clockOutGraceMinutes: true,
+        requireOvertimeApproval: true,
+        requirePunchCorrectionApproval: true,
+        allowMobilePunch: true,
+        attendanceRecordRetentionDays: true,
+        employeeSelfServiceEnabled: true,
+        employeeExportEnabled: true,
+        effectiveFrom: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }),
     prisma.shiftTemplate.count({ where: { tenantId, companyId, status: "active" } }),
     prisma.companyCalendarDay.count({ where: { tenantId, companyId } }),
     prisma.lawRule.findMany({
@@ -300,6 +324,14 @@ async function buildSnapshot(
       hourlyViolationCount: minimumWageCompliance.hourlyViolationCount,
       detail: minimumWageCompliance.detail,
     },
+    attendanceRecordkeeping: evaluateAttendanceRecordkeepingReadiness(
+      activeAttendancePolicy
+        ? {
+            ...activeAttendancePolicy,
+            status: activeAttendancePolicy.status === "inactive" ? "inactive" : "active",
+          }
+        : null,
+    ),
     insuranceGradeReadiness: {
       ready: insuranceGradeReadiness.ready,
       checkedCount: insuranceGradeReadiness.checkedCount,
@@ -425,6 +457,7 @@ function emptySnapshot(
       hourlyViolationCount: 0,
       detail: "0 salary profile(s) checked; missing configured Taiwan minimum wage verification.",
     },
+    attendanceRecordkeeping: evaluateAttendanceRecordkeepingReadiness(null),
     insuranceGradeReadiness: {
       ready: false,
       checkedCount: 0,

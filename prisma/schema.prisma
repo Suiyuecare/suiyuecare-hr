@@ -525,6 +525,9 @@ model AttendancePolicy {
   requireOvertimeApproval      Boolean  @default(true)
   requirePunchCorrectionApproval Boolean @default(true)
   allowMobilePunch             Boolean  @default(true)
+  attendanceRecordRetentionDays Int      @default(1825)
+  employeeSelfServiceEnabled    Boolean  @default(true)
+  employeeExportEnabled         Boolean  @default(true)
   effectiveFrom                DateTime
   createdByUserId              String?
   createdAt                    DateTime @default(now())

@@ -1,6 +1,10 @@
 import { EmptyState } from "@/components/EmptyState";
 import { getDemoSession } from "@/server/auth/demo-session";
-import { getAttendancePolicySettings } from "@/server/attendance/policies";
+import {
+  evaluateAttendanceRecordkeepingReadiness,
+  getAttendancePolicySettings,
+  minimumAttendanceRetentionDays,
+} from "@/server/attendance/policies";
 
 type SearchParams = Promise<{
   error?: string;
@@ -11,6 +15,7 @@ export default async function AttendancePoliciesPage({ searchParams }: { searchP
   const session = await getDemoSession();
   const policies = await getAttendancePolicySettings(session);
   const activePolicy = policies.find((policy) => policy.status === "active");
+  const recordkeeping = evaluateAttendanceRecordkeepingReadiness(activePolicy);
 
   return (
     <main className="page">
@@ -41,6 +46,27 @@ export default async function AttendancePoliciesPage({ searchParams }: { searchP
           <span className="muted">Overtime warning</span>
           <strong>{formatHours(activePolicy?.overtimeWarningDailyMinutes ?? 0)}</strong>
           <span className="badge warning">Risk card</span>
+        </div>
+        <div className="panel span-12 risk-box">
+          <div className="section-heading">
+            <div>
+              <h2>Attendance recordkeeping</h2>
+              <p className="muted">{recordkeeping.detail}</p>
+            </div>
+            <span className={`badge ${recordkeeping.ready ? "" : "danger"}`}>
+              {recordkeeping.ready ? "Ready" : "Action needed"}
+            </span>
+          </div>
+          {recordkeeping.missing.length ? (
+            <ul className="task-list compact">
+              {recordkeeping.missing.map((item) => (
+                <li className="task" key={item}>
+                  <span>{item}</span>
+                  <span className="badge danger">Required</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
 
         <section className="panel span-12">
@@ -118,6 +144,34 @@ export default async function AttendancePoliciesPage({ searchParams }: { searchP
                 Mobile punch allowed
               </label>
             </div>
+            <div className="section-heading compact-heading">
+              <div>
+                <h3>3. Recordkeeping</h3>
+              </div>
+              <span className="badge">Labor records</span>
+            </div>
+            <div className="field-grid">
+              <label>
+                Attendance record retention days
+                <input
+                  name="attendanceRecordRetentionDays"
+                  type="number"
+                  min={minimumAttendanceRetentionDays}
+                  step="1"
+                  defaultValue={activePolicy?.attendanceRecordRetentionDays ?? minimumAttendanceRetentionDays}
+                />
+              </label>
+            </div>
+            <div className="toggle-row">
+              <label>
+                <input name="employeeSelfServiceEnabled" type="checkbox" defaultChecked={activePolicy?.employeeSelfServiceEnabled ?? true} />
+                Employee self-service access
+              </label>
+              <label>
+                <input name="employeeExportEnabled" type="checkbox" defaultChecked={activePolicy?.employeeExportEnabled ?? true} />
+                Employee export access
+              </label>
+            </div>
 
             <button className="button primary" type="submit">
               Save attendance policy
@@ -139,6 +193,9 @@ export default async function AttendancePoliciesPage({ searchParams }: { searchP
                     </strong>
                     <small>
                       regular {formatHours(policy.regularDailyMinutes)} · warning {formatHours(policy.overtimeWarningDailyMinutes)} · effective {formatDate(policy.effectiveFrom)}
+                    </small>
+                    <small>
+                      retention {policy.attendanceRecordRetentionDays} days · employee access {policy.employeeSelfServiceEnabled ? "on" : "off"} · export {policy.employeeExportEnabled ? "on" : "off"}
                     </small>
                   </span>
                   <span className={`badge ${policy.status === "inactive" ? "warning" : ""}`}>

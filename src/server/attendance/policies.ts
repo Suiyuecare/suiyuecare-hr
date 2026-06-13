@@ -22,6 +22,9 @@ export type AttendancePolicyInput = {
   requireOvertimeApproval: boolean;
   requirePunchCorrectionApproval: boolean;
   allowMobilePunch: boolean;
+  attendanceRecordRetentionDays: number;
+  employeeSelfServiceEnabled: boolean;
+  employeeExportEnabled: boolean;
   effectiveFrom: Date;
 };
 
@@ -165,6 +168,9 @@ function saveDemoAttendancePolicySettings(
     requireOvertimeApproval: input.requireOvertimeApproval,
     requirePunchCorrectionApproval: input.requirePunchCorrectionApproval,
     allowMobilePunch: input.allowMobilePunch,
+    attendanceRecordRetentionDays: input.attendanceRecordRetentionDays,
+    employeeSelfServiceEnabled: input.employeeSelfServiceEnabled,
+    employeeExportEnabled: input.employeeExportEnabled,
     effectiveFrom: input.effectiveFrom,
     createdAt: existingIndex >= 0 ? state.policies[existingIndex].createdAt : now,
     updatedAt: now,
@@ -217,6 +223,9 @@ function normalizeAttendancePolicyInput(input: AttendancePolicyInput) {
     requireOvertimeApproval: Boolean(input.requireOvertimeApproval),
     requirePunchCorrectionApproval: Boolean(input.requirePunchCorrectionApproval),
     allowMobilePunch: Boolean(input.allowMobilePunch),
+    attendanceRecordRetentionDays: normalizeRetentionDays(input.attendanceRecordRetentionDays),
+    employeeSelfServiceEnabled: Boolean(input.employeeSelfServiceEnabled),
+    employeeExportEnabled: Boolean(input.employeeExportEnabled),
     effectiveFrom,
   };
 }
@@ -232,6 +241,9 @@ function dbPolicyData(input: ReturnType<typeof normalizeAttendancePolicyInput>) 
     requireOvertimeApproval: input.requireOvertimeApproval,
     requirePunchCorrectionApproval: input.requirePunchCorrectionApproval,
     allowMobilePunch: input.allowMobilePunch,
+    attendanceRecordRetentionDays: input.attendanceRecordRetentionDays,
+    employeeSelfServiceEnabled: input.employeeSelfServiceEnabled,
+    employeeExportEnabled: input.employeeExportEnabled,
     effectiveFrom: input.effectiveFrom,
   };
 }
@@ -247,6 +259,9 @@ function mapAttendancePolicy(row: {
   requireOvertimeApproval: boolean;
   requirePunchCorrectionApproval: boolean;
   allowMobilePunch: boolean;
+  attendanceRecordRetentionDays?: number;
+  employeeSelfServiceEnabled?: boolean;
+  employeeExportEnabled?: boolean;
   effectiveFrom: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -262,6 +277,9 @@ function mapAttendancePolicy(row: {
     requireOvertimeApproval: row.requireOvertimeApproval,
     requirePunchCorrectionApproval: row.requirePunchCorrectionApproval,
     allowMobilePunch: row.allowMobilePunch,
+    attendanceRecordRetentionDays: row.attendanceRecordRetentionDays ?? minimumAttendanceRetentionDays,
+    employeeSelfServiceEnabled: row.employeeSelfServiceEnabled ?? true,
+    employeeExportEnabled: row.employeeExportEnabled ?? true,
     effectiveFrom: row.effectiveFrom,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -281,9 +299,36 @@ function defaultAttendancePolicy(): AttendancePolicyView {
     requireOvertimeApproval: true,
     requirePunchCorrectionApproval: true,
     allowMobilePunch: true,
+    attendanceRecordRetentionDays: minimumAttendanceRetentionDays,
+    employeeSelfServiceEnabled: true,
+    employeeExportEnabled: true,
     effectiveFrom: new Date("2026-01-01T00:00:00+08:00"),
     createdAt: now,
     updatedAt: now,
+  };
+}
+
+export const minimumAttendanceRetentionDays = 365 * 5;
+
+export type AttendanceRecordkeepingReadinessReport = {
+  ready: boolean;
+  missing: string[];
+  detail: string;
+};
+
+export function evaluateAttendanceRecordkeepingReadiness(policy: AttendancePolicyView | null | undefined) {
+  const missing = [
+    !policy ? "active attendance policy" : null,
+    policy && policy.attendanceRecordRetentionDays < minimumAttendanceRetentionDays ? "5-year attendance record retention" : null,
+    policy && !policy.employeeSelfServiceEnabled ? "employee self-service attendance access" : null,
+    policy && !policy.employeeExportEnabled ? "employee attendance export access" : null,
+  ].filter((item): item is string => Boolean(item));
+  return {
+    ready: missing.length === 0,
+    missing,
+    detail: policy
+      ? `${policy.attendanceRecordRetentionDays} retention day(s); employee self-service ${policy.employeeSelfServiceEnabled ? "enabled" : "disabled"}; export ${policy.employeeExportEnabled ? "enabled" : "disabled"}.`
+      : "No active attendance policy configured.",
   };
 }
 
@@ -305,6 +350,12 @@ function normalizeNonNegativeInt(value: number, label: string) {
   if (!Number.isFinite(parsed) || parsed < 0) {
     throw new Error(`${label} must be zero or greater.`);
   }
+  return parsed;
+}
+
+function normalizeRetentionDays(value: number) {
+  const parsed = normalizeNonNegativeInt(value, "Attendance record retention days");
+  if (parsed <= 0) throw new Error("Attendance record retention days must be greater than zero.");
   return parsed;
 }
 

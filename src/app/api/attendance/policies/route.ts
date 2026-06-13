@@ -16,6 +16,9 @@ export async function POST(request: Request) {
       requireOvertimeApproval: formData.get("requireOvertimeApproval") === "on",
       requirePunchCorrectionApproval: formData.get("requirePunchCorrectionApproval") === "on",
       allowMobilePunch: formData.get("allowMobilePunch") === "on",
+      attendanceRecordRetentionDays: readNumber(formData.get("attendanceRecordRetentionDays")) ?? 0,
+      employeeSelfServiceEnabled: formData.get("employeeSelfServiceEnabled") === "on",
+      employeeExportEnabled: formData.get("employeeExportEnabled") === "on",
       effectiveFrom: parseDate(formData.get("effectiveFrom")),
     });
     return NextResponse.redirect(new URL("/hr/attendance-policies", request.url), 303);

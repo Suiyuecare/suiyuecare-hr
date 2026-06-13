@@ -11,6 +11,7 @@ export type Permission =
   | "employee:write"
   | "approval:read"
   | "approval:act"
+  | "attendance:read:self"
   | "attendance:write"
   | "leave:write"
   | "overtime:write"
@@ -34,6 +35,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "dashboard:manager",
     "dashboard:employee",
     "employee:read",
+    "attendance:read:self",
     "form:manage",
     "settings:read",
     "settings:write",
@@ -52,6 +54,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "employee:write",
     "approval:read",
     "approval:act",
+    "attendance:read:self",
     "attendance:write",
     "leave:write",
     "overtime:write",
@@ -71,6 +74,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "employee:read",
     "approval:read",
     "approval:act",
+    "attendance:read:self",
     "attendance:write",
     "leave:write",
     "overtime:write",
@@ -80,6 +84,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
   employee: [
     "dashboard:employee",
     "payslip:self",
+    "attendance:read:self",
     "attendance:write",
     "leave:write",
     "overtime:write",

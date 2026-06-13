@@ -52,6 +52,11 @@ test("demo roles can switch between distinct dashboards", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
   await expect(page.getByText("2.5 carried over first")).toBeVisible();
+  await page.getByRole("link", { name: "Time" }).click();
+  await expect(page.getByRole("heading", { name: "Attendance Records" })).toBeVisible();
+  await expect(page.getByText("Self-service enabled")).toBeVisible();
+  await expect(page.getByText("Retention 1825 days")).toBeVisible();
+  await page.goto("/app");
 
   await page.getByLabel("Demo role").selectOption("manager");
   await page.getByRole("button", { name: "Switch" }).click();
@@ -589,12 +594,20 @@ test("HR configures attendance policy and overtime warnings use it", async ({ pa
   await page.goto("/hr");
   await page.getByRole("link", { name: "Attendance policies" }).click();
   await expect(page.getByRole("heading", { name: "Attendance Policies" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Attendance recordkeeping" })).toBeVisible();
+  await expect(page.getByText("1825 retention day(s); employee self-service enabled; export enabled.")).toBeVisible();
 
   await page.getByLabel("Name").fill("Strict overtime warning");
   await page.getByLabel("Regular daily minutes").fill("480");
   await page.getByLabel("Overtime warning minutes").fill("540");
+  await page.getByLabel("Attendance record retention days").fill("1825");
   await page.getByRole("button", { name: "Save attendance policy" }).click();
   await expect(page.getByText("Strict overtime warning · active")).toBeVisible();
+  await expect(
+    page.getByRole("listitem")
+      .filter({ hasText: "Strict overtime warning · active" })
+      .getByText("retention 1825 days · employee access on · export on"),
+  ).toBeVisible();
 
   await page.getByLabel("Demo role").selectOption("employee");
   await page.getByRole("button", { name: "Switch" }).click();

@@ -3,7 +3,9 @@ import { getAuditDemoState, resetAuditDemoState } from "@/server/audit/demo-stor
 import { resetDemoWorkflowState } from "@/server/workflows/demo-store";
 import { createOvertimeRequest, getManagerInbox } from "@/server/workflows/service";
 import {
+  evaluateAttendanceRecordkeepingReadiness,
   getAttendancePolicySettings,
+  minimumAttendanceRetentionDays,
   resetAttendancePolicyDemoState,
   saveAttendancePolicySettings,
 } from "./policies";
@@ -50,6 +52,9 @@ describe("attendance policy settings", () => {
       requireOvertimeApproval: true,
       requirePunchCorrectionApproval: true,
       allowMobilePunch: true,
+      attendanceRecordRetentionDays: minimumAttendanceRetentionDays,
+      employeeSelfServiceEnabled: true,
+      employeeExportEnabled: true,
       effectiveFrom: new Date("2026-01-01T00:00:00+08:00"),
     });
 
@@ -78,6 +83,9 @@ describe("attendance policy settings", () => {
       requireOvertimeApproval: true,
       requirePunchCorrectionApproval: true,
       allowMobilePunch: true,
+      attendanceRecordRetentionDays: minimumAttendanceRetentionDays,
+      employeeSelfServiceEnabled: true,
+      employeeExportEnabled: true,
       effectiveFrom: new Date("2026-01-01T00:00:00+08:00"),
     });
 
@@ -104,8 +112,38 @@ describe("attendance policy settings", () => {
         requireOvertimeApproval: true,
         requirePunchCorrectionApproval: true,
         allowMobilePunch: true,
+        attendanceRecordRetentionDays: minimumAttendanceRetentionDays,
+        employeeSelfServiceEnabled: true,
+        employeeExportEnabled: true,
         effectiveFrom: new Date("2026-01-01T00:00:00+08:00"),
       }),
     ).rejects.toThrow(/settings:write/);
+  });
+
+  it("flags missing attendance recordkeeping controls before production launch", async () => {
+    const policy = await saveAttendancePolicySettings(ownerSession, {
+      name: "Incomplete recordkeeping",
+      status: "active",
+      regularDailyMinutes: 480,
+      overtimeWarningDailyMinutes: 600,
+      clockInGraceMinutes: 5,
+      clockOutGraceMinutes: 5,
+      requireOvertimeApproval: true,
+      requirePunchCorrectionApproval: true,
+      allowMobilePunch: true,
+      attendanceRecordRetentionDays: 365,
+      employeeSelfServiceEnabled: false,
+      employeeExportEnabled: false,
+      effectiveFrom: new Date("2026-01-01T00:00:00+08:00"),
+    });
+
+    expect(evaluateAttendanceRecordkeepingReadiness(policy)).toMatchObject({
+      ready: false,
+      missing: [
+        "5-year attendance record retention",
+        "employee self-service attendance access",
+        "employee attendance export access",
+      ],
+    });
   });
 });

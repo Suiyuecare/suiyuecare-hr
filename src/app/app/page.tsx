@@ -244,6 +244,7 @@ export default async function EmployeeHomePage() {
 
       <nav className="bottom-nav" aria-label="Employee mobile navigation">
         <DashboardLink href="/app" label="Home" />
+        <DashboardLink href="/app/attendance" label="Time" />
         <DashboardLink href="/app/documents" label="Docs" />
         <DashboardLink href="/app/payslip" label="Payslip" />
         <DashboardLink href="/manager/inbox" label="Inbox" />

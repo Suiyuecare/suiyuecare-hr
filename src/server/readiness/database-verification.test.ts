@@ -67,6 +67,11 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     hourlyViolationCount: 0,
     detail: "5 salary profile(s) checked; no configured Taiwan minimum wage violations.",
   },
+  attendanceRecordkeeping: {
+    ready: true,
+    missing: [],
+    detail: "1825 retention day(s); employee self-service enabled; export enabled.",
+  },
   insuranceGradeReadiness: {
     ready: true,
     checkedCount: 5,
@@ -357,6 +362,29 @@ describe("database verification checks", () => {
     });
     expect(checks.find((item) => item.name === "payroll insurance grade readiness")?.detail).not.toContain("56000");
     expect(checks.find((item) => item.name === "payroll insurance grade readiness")?.detail).not.toContain("80200");
+  });
+
+  it("blocks launch when attendance records are not retained or visible to employees", () => {
+    const checks = buildDatabaseVerificationChecks(
+      {
+        ...readySnapshot,
+        attendanceRecordkeeping: {
+          ready: false,
+          missing: [
+            "5-year attendance record retention",
+            "employee self-service attendance access",
+            "employee attendance export access",
+          ],
+          detail: "365 retention day(s); employee self-service disabled; export disabled.",
+        },
+      },
+      "production",
+    );
+
+    expect(checks.find((item) => item.name === "attendance recordkeeping")).toMatchObject({
+      passed: false,
+      detail: "365 retention day(s); employee self-service disabled; export disabled.",
+    });
   });
 
   it("requires production audit evidence for sensitive onboarding data, not only any audit log", () => {
