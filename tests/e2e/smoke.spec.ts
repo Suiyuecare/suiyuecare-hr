@@ -545,8 +545,13 @@ test("HR generates audited payroll export packages after lock", async ({ page })
   await expect(page.getByText("Statutory filing · hr-one-tw-statutory-filing").first()).toBeVisible();
   await expect(page.getByText("Labor insurance premium review").first()).toBeVisible();
   await expect(page.getByText("Income tax withholding review").first()).toBeVisible();
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Download manifest" }).first().click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toContain("manifest.csv");
 
   await page.goto("/settings/audit");
+  await expect(page.getByRole("listitem").filter({ hasText: "update · payroll_export" }).first()).toBeVisible();
   await expect(page.getByRole("listitem").filter({ hasText: "update · payroll_accounting_settings" }).first()).toBeVisible();
   await expect(page.getByRole("listitem").filter({ hasText: "update · payroll_recordkeeping_settings" }).first()).toBeVisible();
   await expect(page.getByRole("listitem").filter({ hasText: "update · payroll_payment_security_settings" }).first()).toBeVisible();

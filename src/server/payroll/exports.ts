@@ -33,6 +33,12 @@ export type PayrollExportView = {
   warnings: string[];
 };
 
+export type PayrollExportDownload = {
+  fileName: string;
+  contentType: "text/csv; charset=utf-8";
+  body: string;
+};
+
 type SessionLike = {
   role: RoleKey;
   tenantId?: string | null;
@@ -106,6 +112,22 @@ export async function generatePayrollExport(session: SessionLike, exportType: Pa
     }
   }
   return createDemoPayrollExport(session, run, exportType, paymentCoverage.configuredEmployeeIds, accountingSettings, paymentSecurity.settings);
+}
+
+export async function downloadPayrollExportPackage(session: SessionLike, exportId: string): Promise<PayrollExportDownload> {
+  assertPermission(session.role, "payroll:manage");
+  if (!exportId.trim()) {
+    throw new Error("Export package id is required.");
+  }
+
+  if (canUseDatabase(session)) {
+    try {
+      return await downloadDbPayrollExport(session, exportId);
+    } catch {
+      return downloadDemoPayrollExport(session, exportId);
+    }
+  }
+  return downloadDemoPayrollExport(session, exportId);
 }
 
 export function resetPayrollExportDemoState() {
@@ -229,6 +251,72 @@ async function createDbPayrollExport(
   } satisfies PayrollExportView;
 }
 
+async function downloadDbPayrollExport(session: DbPayrollExportSession, exportId: string) {
+  const db = getDb();
+  const record = await db.$transaction(async (tx) => {
+    const existing = await tx.payrollExport.findFirst({
+      where: {
+        id: exportId,
+        tenantId: session.tenantId,
+        companyId: session.companyId,
+      },
+      include: { payrollRun: true },
+    });
+    if (!existing) {
+      throw new Error("Payroll export package not found.");
+    }
+    const updated = await tx.payrollExport.update({
+      where: { id: existing.id },
+      data: {
+        status: "downloaded",
+        downloadedAt: new Date(),
+      },
+      include: { payrollRun: true },
+    });
+    await writeAuditLog(tx, {
+      tenantId: session.tenantId,
+      companyId: session.companyId,
+      actorUserId: session.user?.id,
+      actorEmployeeId: session.employee?.id,
+      action: "update",
+      entityType: "payroll_export",
+      entityId: updated.id,
+      before: {
+        status: existing.status,
+        downloadedAt: existing.downloadedAt,
+      },
+      after: {
+        status: updated.status,
+        downloadedAt: updated.downloadedAt,
+      },
+      metadata: {
+        payrollRunId: updated.payrollRunId,
+        exportType: updated.exportType,
+        format: updated.format,
+        contentHash: updated.contentHash,
+        downloadManifestOnly: true,
+        sensitiveValuesRedacted: true,
+      },
+    });
+    return updated;
+  });
+  return buildDownloadFromExportView({
+    id: record.id,
+    payrollRunId: record.payrollRunId,
+    periodLabel: formatPeriod(record.payrollRun.periodStart),
+    exportType: normalizeExportType(record.exportType),
+    format: record.format,
+    status: "downloaded",
+    fileName: record.fileName,
+    recordCount: record.recordCount,
+    contentHash: record.contentHash,
+    generatedAt: record.generatedAt,
+    downloadedAt: record.downloadedAt,
+    previewRows: readPreview(record.previewJson).previewRows,
+    warnings: readPreview(record.previewJson).warnings,
+  });
+}
+
 function createDemoPayrollExport(
   session: SessionLike,
   run: PayrollRunView,
@@ -280,6 +368,49 @@ function createDemoPayrollExport(
     },
   });
   return view;
+}
+
+function downloadDemoPayrollExport(session: SessionLike, exportId: string) {
+  const state = getDemoState();
+  const index = state.exports.findIndex((item) => item.id === exportId);
+  const existing = state.exports[index];
+  if (!existing) {
+    throw new Error("Payroll export package not found.");
+  }
+  const downloadedAt = new Date();
+  const updated: PayrollExportView = {
+    ...existing,
+    status: "downloaded",
+    downloadedAt,
+  };
+  state.exports[index] = updated;
+  writeDemoAuditLog({
+    tenantId: session.tenantId ?? "demo-tenant",
+    companyId: session.companyId ?? "demo-company",
+    actorUserId: session.user?.id,
+    actorEmployeeId: session.employee?.id,
+    actorName: session.user?.displayName ?? session.employee?.displayName,
+    action: "update",
+    entityType: "payroll_export",
+    entityId: updated.id,
+    before: {
+      status: existing.status,
+      downloadedAt: existing.downloadedAt,
+    },
+    after: {
+      status: updated.status,
+      downloadedAt,
+    },
+    metadata: {
+      payrollRunId: updated.payrollRunId,
+      exportType: updated.exportType,
+      format: updated.format,
+      contentHash: updated.contentHash,
+      downloadManifestOnly: true,
+      sensitiveValuesRedacted: true,
+    },
+  });
+  return buildDownloadFromExportView(updated);
 }
 
 function buildPayrollExportDraft(
@@ -585,6 +716,32 @@ function readPreview(value: Prisma.JsonValue) {
       : [],
     warnings: Array.isArray(record.warnings) ? record.warnings.map(String) : [],
   };
+}
+
+function buildDownloadFromExportView(item: PayrollExportView): PayrollExportDownload {
+  const rows = [
+    ["section", "label", "description", "amount_note"],
+    ["package", "type", item.exportType, ""],
+    ["package", "format", item.format, ""],
+    ["package", "period", item.periodLabel, ""],
+    ["package", "record_count", String(item.recordCount), ""],
+    ["package", "content_hash", item.contentHash, ""],
+    ...item.warnings.map((warning) => ["warning", warning, "", ""]),
+    ...item.previewRows.map((row) => ["preview", row.label, row.description, row.amountLabel]),
+  ];
+  return {
+    fileName: manifestFileName(item.fileName),
+    contentType: "text/csv; charset=utf-8",
+    body: rows.map((row) => row.map(csvCell).join(",")).join("\n"),
+  };
+}
+
+function manifestFileName(fileName: string) {
+  return fileName.replace(/\.csv$/i, "-manifest.csv");
+}
+
+function csvCell(value: string) {
+  return `"${value.replaceAll("\"", "\"\"")}"`;
 }
 
 function normalizeExportType(value: string): PayrollExportType {

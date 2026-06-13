@@ -8,6 +8,7 @@ import {
   resolvePayrollBlockers,
 } from "./service";
 import {
+  downloadPayrollExportPackage,
   generatePayrollExport,
   getPayrollExportWorkspace,
   resetPayrollExportDemoState,
@@ -92,14 +93,23 @@ describe("payroll exports", () => {
     expect(statutory.previewRows.map((row) => row.label)).toContain("Income tax withholding review");
     expect(statutory.warnings.join(" ")).toContain("does not submit to authorities");
     expect(workspace.exports).toHaveLength(3);
+    const download = await downloadPayrollExportPackage(hrSession, statutory.id);
+    expect(download.fileName).toBe("hr-one-tw-statutory-filing-2026-06-manifest.csv");
+    expect(download.body).toContain("content_hash");
+    expect(download.body).toContain("Labor insurance premium review");
+    expect(download.body).not.toContain("61000");
+    expect((await getPayrollExportWorkspace(hrSession)).exports[0]).toMatchObject({
+      id: statutory.id,
+      status: "downloaded",
+    });
     expect(getAuditDemoState().logs[0]).toMatchObject({
-      action: "create",
+      action: "update",
       entityType: "payroll_export",
     });
     expect(JSON.stringify(getAuditDemoState().logs[0].metadataJson)).not.toContain("61000");
     expect(getAuditDemoState().logs[0].metadataJson).toMatchObject({
       sensitiveValuesRedacted: true,
-      destinationFieldsIncluded: false,
+      downloadManifestOnly: true,
     });
   });
 
@@ -150,5 +160,6 @@ describe("payroll exports", () => {
     await expect(getPayrollExportWorkspace(managerSession)).rejects.toThrow(/payroll:manage/);
     await expect(generatePayrollExport(managerSession, "bank_transfer")).rejects.toThrow(/payroll:manage/);
     await expect(generatePayrollExport(managerSession, "statutory_filing")).rejects.toThrow(/payroll:manage/);
+    await expect(downloadPayrollExportPackage(managerSession, "export-1")).rejects.toThrow(/payroll:manage/);
   });
 });

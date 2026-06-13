@@ -127,7 +127,12 @@ export default async function PayrollExportsPage({ searchParams }: { searchParam
                         <small className="warning-text" key={warning}>{warning}</small>
                       ))}
                     </span>
-                    <span className="badge">{item.status}</span>
+                    <span className="stacked-actions">
+                      <span className="badge">{item.status}</span>
+                      <a className="button" href={`/api/payroll/exports/${item.id}/download`}>
+                        Download manifest
+                      </a>
+                    </span>
                   </li>
                 ))}
               </ul>
