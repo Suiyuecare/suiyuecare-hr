@@ -854,6 +854,28 @@ test("HR updates salary profiles with redacted audit trail", async ({ page }) =>
   await expect(page.getByText("Raw values hidden")).toBeVisible();
 });
 
+test("HR clears statutory insurance evidence with redacted audit trail", async ({ page }) => {
+  await page.goto("/app");
+  await page.getByLabel("Demo role").selectOption("hr_admin");
+  await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/hr/insurance");
+
+  await expect(page.getByRole("heading", { name: "Statutory Insurance" })).toBeVisible();
+  await expect(page.getByText("Insurance evidence gaps")).toBeVisible();
+  const employeeRow = page.getByRole("listitem").filter({ hasText: "E005 · 黃小宇" }).first();
+  await employeeRow.locator('select[name="insuranceType"]').selectOption("labor_insurance");
+  await employeeRow.locator('select[name="status"]').selectOption("enrolled");
+  await employeeRow.getByLabel("Effective date").fill("2026-06-13");
+  await employeeRow.getByLabel("Evidence reference").fill("portal://private-labor-case");
+  await employeeRow.getByRole("button", { name: "Save insurance evidence" }).click();
+
+  await expect(page.getByText("statutory insurance record(s) ready")).toBeVisible();
+  await page.goto("/settings/audit");
+  await expect(page.getByText("statutory_insurance_record")).toBeVisible();
+  await expect(page.getByText("portal://private-labor-case")).not.toBeVisible();
+  await expect(page.getByText("Raw values hidden")).toBeVisible();
+});
+
 test("Owner approves and revokes audited support access", async ({ page }) => {
   await page.goto("/app");
   await page.getByLabel("Demo role").selectOption("owner");

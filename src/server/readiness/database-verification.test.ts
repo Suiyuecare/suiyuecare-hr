@@ -29,6 +29,7 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     leaveBalances: 5,
     salaryProfiles: 5,
     payrollComplianceProfiles: 5,
+    statutoryInsuranceRecords: 25,
     paymentProfiles: 5,
     formTemplates: 1,
     workflowSteps: 1,
@@ -54,6 +55,7 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     salaryProfileEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
     payrollComplianceProfileEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
     paymentProfileEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
+    statutoryInsuranceReadyEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
   },
   leavePolicySettings: taiwanStatutoryLeaveRequirements.map((requirement) => ({
     code: requirement.recommendedCode,
@@ -306,6 +308,7 @@ describe("database verification checks", () => {
           salaryProfileEmployeeIds: ["emp_1", "emp_1", "emp_2", "emp_3", "emp_4"],
           payrollComplianceProfileEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
           paymentProfileEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
+          statutoryInsuranceReadyEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
         },
       },
       "production",
@@ -655,6 +658,28 @@ describe("database verification checks", () => {
     expect(checks.find((item) => item.name === "commercial subscription")).toMatchObject({
       passed: false,
       detail: "demo; trial; 6/5 seat(s); unverified",
+    });
+  });
+
+  it("requires statutory insurance evidence for every active employee", () => {
+    const checks = buildDatabaseVerificationChecks(
+      {
+        ...readySnapshot,
+        counts: {
+          ...readySnapshot.counts,
+          statutoryInsuranceRecords: 20,
+        },
+        profileCoverage: {
+          ...readySnapshot.profileCoverage,
+          statutoryInsuranceReadyEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4"],
+        },
+      },
+      "production",
+    );
+
+    expect(checks.find((item) => item.name === "statutory insurance enrollment evidence")).toMatchObject({
+      passed: false,
+      detail: "4/5 active employee(s) have ready statutory insurance evidence; 20 record(s)",
     });
   });
 

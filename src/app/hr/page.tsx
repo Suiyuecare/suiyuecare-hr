@@ -146,6 +146,9 @@ export default async function HrDashboardPage() {
               <a className="button" href="/hr/payroll-compliance">
                 Compliance profiles
               </a>
+              <a className="button" href="/hr/insurance">
+                Insurance
+              </a>
               <a className="button" href="/hr/payroll-recordkeeping">
                 Recordkeeping
               </a>

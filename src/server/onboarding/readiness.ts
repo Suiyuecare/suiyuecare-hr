@@ -4,6 +4,7 @@ import { getFallbackCompanyOverview } from "@/server/demo/fallback";
 import { getSalaryProfileWorkspace } from "@/server/payroll/salary-profiles";
 import { getPaymentProfileWorkspace } from "@/server/payroll/payment-profiles";
 import { listPayrollComplianceProfiles } from "@/server/payroll/compliance";
+import { getStatutoryInsuranceWorkspace, statutoryInsuranceTypes } from "@/server/insurance/statutory";
 import { getTaiwanLaborStandardsConfig, getActiveTaiwanLaborStandardsConfig } from "@/server/rules/settings";
 import type { TaiwanStatutoryOnboardingConfig } from "@/server/rules/taiwan-labor-standards";
 
@@ -41,6 +42,7 @@ export type OnboardingReadinessSnapshot = {
   salaryProfileEmployeeIds: string[];
   paymentProfileEmployeeIds: string[];
   payrollComplianceProfileEmployeeIds: string[];
+  statutoryInsuranceReadyEmployeeIds: string[];
   statutoryOnboarding: TaiwanStatutoryOnboardingConfig;
   activeEmployees: Array<{ id: string; employeeNo: string; displayName: string; hireDate: Date }>;
 };
@@ -68,7 +70,7 @@ export function buildOnboardingReadinessReport(
   const missingSalary = missingEmployees(snapshot, snapshot.salaryProfileEmployeeIds);
   const missingPayment = missingEmployees(snapshot, snapshot.paymentProfileEmployeeIds);
   const missingCompliance = missingEmployees(snapshot, snapshot.payrollComplianceProfileEmployeeIds);
-  const statutoryEnrollmentMissing = missingEmployees(snapshot, snapshot.payrollComplianceProfileEmployeeIds);
+  const statutoryEnrollmentMissing = missingEmployees(snapshot, snapshot.statutoryInsuranceReadyEmployeeIds);
   const checks: OnboardingCheck[] = [
     {
       id: "employees",
@@ -120,9 +122,9 @@ export function buildOnboardingReadinessReport(
       id: "statutory_insurance_enrollment",
       title: "Statutory insurance enrollment",
       status: statutoryEnrollmentMissing.length === 0 && activeEmployeeIds.size > 0 ? "ready" : "blocked",
-      detail: `${activeEmployeeIds.size - statutoryEnrollmentMissing.length}/${activeEmployeeIds.size} active employee(s) have payroll compliance data for labor/employment/occupational accident insurance enrollment; due days from hire ${snapshot.statutoryOnboarding.laborInsuranceEnrollmentDueDaysFromHire}/${snapshot.statutoryOnboarding.employmentInsuranceEnrollmentDueDaysFromHire}/${snapshot.statutoryOnboarding.occupationalAccidentInsuranceEnrollmentDueDaysFromHire}.`,
-      actionLabel: "Review compliance profiles",
-      actionHref: "/hr/payroll-compliance",
+      detail: `${activeEmployeeIds.size - statutoryEnrollmentMissing.length}/${activeEmployeeIds.size} active employee(s) have ready labor/employment/occupational accident/NHI/labor pension evidence; due days from hire ${snapshot.statutoryOnboarding.laborInsuranceEnrollmentDueDaysFromHire}/${snapshot.statutoryOnboarding.employmentInsuranceEnrollmentDueDaysFromHire}/${snapshot.statutoryOnboarding.occupationalAccidentInsuranceEnrollmentDueDaysFromHire}.`,
+      actionLabel: "Review insurance",
+      actionHref: "/hr/insurance",
       missingEmployees: statutoryEnrollmentMissing,
     },
     {
@@ -174,6 +176,7 @@ async function buildDbSnapshot(session: SessionLike): Promise<OnboardingReadines
     salaryProfiles,
     paymentProfiles,
     complianceProfiles,
+    insuranceWorkspace,
   ] = await Promise.all([
     getTaiwanLaborStandardsConfig({
       ...session,
@@ -203,6 +206,7 @@ async function buildDbSnapshot(session: SessionLike): Promise<OnboardingReadines
       where: { tenantId: session.tenantId!, companyId: session.companyId!, effectiveTo: null },
       select: { employeeId: true },
     }),
+    getStatutoryInsuranceWorkspace(session),
   ]);
   return {
     employeeCount: employees.length,
@@ -221,13 +225,14 @@ async function buildDbSnapshot(session: SessionLike): Promise<OnboardingReadines
     salaryProfileEmployeeIds: salaryProfiles.map((profile) => profile.employeeId),
     paymentProfileEmployeeIds: paymentProfiles.map((profile) => profile.employeeId),
     payrollComplianceProfileEmployeeIds: complianceProfiles.map((profile) => profile.employeeId),
+    statutoryInsuranceReadyEmployeeIds: readyInsuranceEmployeeIds(insuranceWorkspace.records),
     activeEmployees: employees.map(toEmployeeRef),
   };
 }
 
 async function buildDemoSnapshot(session: SessionLike): Promise<OnboardingReadinessSnapshot> {
   const overview = getFallbackCompanyOverview();
-  const [salaryWorkspace, paymentWorkspace, complianceRows] = await Promise.all([
+  const [salaryWorkspace, paymentWorkspace, complianceRows, insuranceWorkspace] = await Promise.all([
     getSalaryProfileWorkspace({
       role: "hr_admin",
       tenantId: session.tenantId ?? "demo-tenant",
@@ -243,6 +248,13 @@ async function buildDemoSnapshot(session: SessionLike): Promise<OnboardingReadin
       employee: session.employee,
     }),
     listPayrollComplianceProfiles({
+      role: "hr_admin",
+      tenantId: session.tenantId ?? "demo-tenant",
+      companyId: session.companyId ?? "demo-company",
+      user: session.user,
+      employee: session.employee,
+    }),
+    getStatutoryInsuranceWorkspace({
       role: "hr_admin",
       tenantId: session.tenantId ?? "demo-tenant",
       companyId: session.companyId ?? "demo-company",
@@ -269,6 +281,7 @@ async function buildDemoSnapshot(session: SessionLike): Promise<OnboardingReadin
       .filter((profile) => profile.status === "active" && !profile.effectiveTo)
       .map((profile) => profile.employeeId),
     payrollComplianceProfileEmployeeIds: complianceRows.map((row) => row.employeeId),
+    statutoryInsuranceReadyEmployeeIds: readyInsuranceEmployeeIds(insuranceWorkspace.records),
     activeEmployees: overview.company.employees.map(toEmployeeRef),
   };
 }
@@ -295,6 +308,21 @@ function toEmployeeRef(employee: { id: string; employeeNo: string; displayName: 
 
 function uniqueEmployees(employees: Array<{ id: string; employeeNo: string; displayName: string }>) {
   return Array.from(new Map(employees.map((employee) => [employee.id, employee])).values());
+}
+
+function readyInsuranceEmployeeIds(records: Array<{ employeeId: string; status: string; overdue: boolean }>) {
+  const byEmployee = new Map<string, Array<{ status: string; overdue: boolean }>>();
+  for (const record of records) {
+    const group = byEmployee.get(record.employeeId) ?? [];
+    group.push(record);
+    byEmployee.set(record.employeeId, group);
+  }
+  return Array.from(byEmployee.entries()).flatMap(([employeeId, employeeRecords]) =>
+    employeeRecords.length >= statutoryInsuranceTypes.length &&
+      employeeRecords.every((record) => record.status !== "pending" && !record.overdue)
+      ? [employeeId]
+      : [],
+  );
 }
 
 function canUseDatabase(session: SessionLike) {

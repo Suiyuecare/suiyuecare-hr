@@ -34,6 +34,7 @@ export type DatabaseVerificationSnapshot = {
     leaveBalances: number;
     salaryProfiles: number;
     payrollComplianceProfiles: number;
+    statutoryInsuranceRecords: number;
     paymentProfiles: number;
     formTemplates: number;
     workflowSteps: number;
@@ -59,6 +60,7 @@ export type DatabaseVerificationSnapshot = {
     salaryProfileEmployeeIds: string[];
     payrollComplianceProfileEmployeeIds: string[];
     paymentProfileEmployeeIds: string[];
+    statutoryInsuranceReadyEmployeeIds: string[];
   };
   leavePolicySettings: Array<{
     code: string;
@@ -291,6 +293,15 @@ export function buildDatabaseVerificationChecks(
       snapshot.insuranceGradeReadiness.checkedCount >= complianceCoverage.totalCount &&
       snapshot.insuranceGradeReadiness.ready,
     snapshot.insuranceGradeReadiness.detail,
+  ));
+  const statutoryInsuranceCoverage = profileCoverage(
+    snapshot.profileCoverage.activeEmployeeIds,
+    snapshot.profileCoverage.statutoryInsuranceReadyEmployeeIds,
+  );
+  checks.push(check(
+    "statutory insurance enrollment evidence",
+    statutoryInsuranceCoverage.missingCount === 0,
+    `${statutoryInsuranceCoverage.configuredCount}/${statutoryInsuranceCoverage.totalCount} active employee(s) have ready statutory insurance evidence; ${snapshot.counts.statutoryInsuranceRecords} record(s)`,
   ));
   checks.push(check("payroll recordkeeping", snapshot.payrollRecordkeeping.ready, snapshot.payrollRecordkeeping.detail));
   checks.push(check(

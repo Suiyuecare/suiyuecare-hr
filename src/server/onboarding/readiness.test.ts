@@ -30,6 +30,7 @@ const readySnapshot: OnboardingReadinessSnapshot = {
   salaryProfileEmployeeIds: employees.map((employee) => employee.id),
   paymentProfileEmployeeIds: employees.map((employee) => employee.id),
   payrollComplianceProfileEmployeeIds: employees.map((employee) => employee.id),
+  statutoryInsuranceReadyEmployeeIds: employees.map((employee) => employee.id),
   activeEmployees: employees,
 };
 
@@ -40,6 +41,7 @@ describe("onboarding readiness", () => {
       salaryProfileEmployeeIds: ["emp_1"],
       paymentProfileEmployeeIds: ["emp_1", "emp_2"],
       payrollComplianceProfileEmployeeIds: ["emp_1", "emp_2"],
+      statutoryInsuranceReadyEmployeeIds: ["emp_1", "emp_2"],
     });
 
     expect(report.readyForProductionVerify).toBe(false);
@@ -56,6 +58,7 @@ describe("onboarding readiness", () => {
     });
     expect(report.checks.find((check) => check.id === "statutory_insurance_enrollment")).toMatchObject({
       status: "blocked",
+      actionHref: "/hr/insurance",
       missingEmployees: [{ id: "emp_3", employeeNo: "E003", displayName: "Employee" }],
     });
   });

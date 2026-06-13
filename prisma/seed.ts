@@ -58,6 +58,7 @@ async function main() {
   await prisma.companyPayrollAccountingSetting.deleteMany();
   await prisma.payrollComplianceProfile.deleteMany();
   await prisma.salaryProfile.deleteMany();
+  await prisma.statutoryInsuranceRecord.deleteMany();
   await prisma.approvalEvent.deleteMany();
   await prisma.approvalTask.deleteMany();
   await prisma.formSubmission.deleteMany();
@@ -887,6 +888,36 @@ async function main() {
       nonResidentWithholdingRate: nonResidentWithholdingRate === null ? null : Number(nonResidentWithholdingRate),
       effectiveFrom: new Date("2026-01-01T00:00:00.000Z"),
     })),
+  });
+
+  const statutoryInsuranceTypes = [
+    "labor_insurance",
+    "employment_insurance",
+    "occupational_accident_insurance",
+    "national_health_insurance",
+    "labor_pension",
+  ];
+  const seededEmployees = [hrEmployee, managerEmployee, employeeOne, employeeTwo, employeeThree];
+  await prisma.statutoryInsuranceRecord.createMany({
+    data: seededEmployees.flatMap((employee) =>
+      statutoryInsuranceTypes.map((insuranceType) => {
+        const pending = employee.id === employeeThree.id &&
+          (insuranceType === "labor_insurance" || insuranceType === "employment_insurance");
+        const evidenceRef = pending ? null : `portal://${employee.employeeNo}/${insuranceType}`;
+        return {
+          tenantId: tenant.id,
+          companyId: company.id,
+          employeeId: employee.id,
+          insuranceType,
+          status: pending ? "pending" : "enrolled",
+          dueDate: employee.hireDate,
+          enrolledAt: pending ? null : employee.hireDate,
+          evidenceRef,
+          evidenceHash: evidenceRef ? hash(evidenceRef) : null,
+          updatedByUserId: hrUser.id,
+        };
+      }),
+    ),
   });
 
   const equipmentForm = await prisma.formTemplate.create({

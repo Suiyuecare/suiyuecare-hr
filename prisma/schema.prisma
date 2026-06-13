@@ -145,6 +145,7 @@ model Company {
   notificationDeliveries NotificationDelivery[]
   salaryProfiles SalaryProfile[]
   payrollComplianceProfiles PayrollComplianceProfile[]
+  statutoryInsuranceRecords StatutoryInsuranceRecord[]
   paymentProfiles EmployeePaymentProfile[]
   payrollPaymentSecuritySetting CompanyPayrollPaymentSecuritySetting?
   payrollAccountingSettings CompanyPayrollAccountingSetting?
@@ -333,6 +334,7 @@ model Employee {
   approvalEvents   ApprovalEvent[]  @relation("ApprovalActor")
   salaryProfiles   SalaryProfile[]
   payrollComplianceProfiles PayrollComplianceProfile[]
+  statutoryInsuranceRecords StatutoryInsuranceRecord[]
   paymentProfiles  EmployeePaymentProfile[]
   payrollItems     PayrollItem[]
   payrollAdjustments PayrollAdjustment[]
@@ -1247,6 +1249,32 @@ model PayrollComplianceProfile {
 
   @@index([tenantId, companyId, employeeId])
   @@index([tenantId, companyId, taxResidency])
+}
+
+model StatutoryInsuranceRecord {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  companyId          String
+  company            Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId         String
+  employee           Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  insuranceType      String
+  status             String   @default("pending")
+  dueDate            DateTime
+  enrolledAt         DateTime?
+  withdrawnAt        DateTime?
+  evidenceRef        String?
+  evidenceHash       String?
+  exemptionReason    String?
+  notesHash          String?
+  updatedByUserId    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([companyId, employeeId, insuranceType])
+  @@index([tenantId, companyId, status])
+  @@index([tenantId, companyId, dueDate])
+  @@index([tenantId, companyId, employeeId])
 }
 
 model EmployeePaymentProfile {

@@ -17,6 +17,13 @@ import {
 import { readRuleValidationSummary } from "../src/server/rules/validation";
 
 const prisma = new PrismaClient();
+const statutoryInsuranceTypes = [
+  "labor_insurance",
+  "employment_insurance",
+  "occupational_accident_insurance",
+  "national_health_insurance",
+  "labor_pension",
+];
 
 type CliOptions = {
   mode: DatabaseVerificationMode;
@@ -79,6 +86,7 @@ async function buildSnapshot(
     leaveBalanceCount,
     salaryProfileCount,
     payrollComplianceProfileCount,
+    statutoryInsuranceRecordCount,
     paymentProfileCount,
     formTemplateCount,
     workflowStepCount,
@@ -90,6 +98,7 @@ async function buildSnapshot(
     currentSalaryProfiles,
     currentPayrollComplianceProfiles,
     currentPaymentProfiles,
+    statutoryInsuranceRecords,
     leavePolicySettings,
     externalIdentities,
     auditEntityTypes,
@@ -155,6 +164,7 @@ async function buildSnapshot(
     prisma.leaveBalance.count({ where: { tenantId, companyId } }),
     prisma.salaryProfile.count({ where: { tenantId, companyId } }),
     prisma.payrollComplianceProfile.count({ where: { tenantId, companyId } }),
+    prisma.statutoryInsuranceRecord.count({ where: { tenantId, companyId } }),
     prisma.employeePaymentProfile.count({ where: { tenantId, companyId } }),
     prisma.formTemplate.count({ where: { tenantId, companyId } }),
     prisma.workflowTemplateStep.count({ where: { tenantId, companyId } }),
@@ -182,6 +192,10 @@ async function buildSnapshot(
     prisma.employeePaymentProfile.findMany({
       where: { tenantId, companyId, status: "active", effectiveTo: null },
       select: { employeeId: true },
+    }),
+    prisma.statutoryInsuranceRecord.findMany({
+      where: { tenantId, companyId },
+      select: { employeeId: true, status: true, dueDate: true, insuranceType: true },
     }),
     prisma.leavePolicy.findMany({
       where: { tenantId, companyId },
@@ -275,6 +289,7 @@ async function buildSnapshot(
       leaveBalances: leaveBalanceCount,
       salaryProfiles: salaryProfileCount,
       payrollComplianceProfiles: payrollComplianceProfileCount,
+      statutoryInsuranceRecords: statutoryInsuranceRecordCount,
       paymentProfiles: paymentProfileCount,
       formTemplates: formTemplateCount,
       workflowSteps: workflowStepCount,
@@ -323,6 +338,7 @@ async function buildSnapshot(
       salaryProfileEmployeeIds: uniqueIds(currentSalaryProfiles.map((profile) => profile.employeeId)),
       payrollComplianceProfileEmployeeIds: uniqueIds(currentPayrollComplianceProfiles.map((profile) => profile.employeeId)),
       paymentProfileEmployeeIds: uniqueIds(currentPaymentProfiles.map((profile) => profile.employeeId)),
+      statutoryInsuranceReadyEmployeeIds: statutoryInsuranceReadyEmployeeIds(statutoryInsuranceRecords),
     },
     leavePolicySettings: leavePolicySettings.map((policy) => ({
       code: policy.code,
@@ -467,6 +483,7 @@ function emptySnapshot(
       leaveBalances: 0,
       salaryProfiles: 0,
       payrollComplianceProfiles: 0,
+      statutoryInsuranceRecords: 0,
       paymentProfiles: 0,
       formTemplates: 0,
       workflowSteps: 0,
@@ -481,6 +498,7 @@ function emptySnapshot(
       salaryProfileEmployeeIds: [],
       payrollComplianceProfileEmployeeIds: [],
       paymentProfileEmployeeIds: [],
+      statutoryInsuranceReadyEmployeeIds: [],
     },
     leavePolicySettings: [],
     minimumWageCompliance: {
@@ -665,6 +683,23 @@ function readSourceFreshnessSummary(value: unknown) {
 
 function uniqueIds(values: string[]) {
   return Array.from(new Set(values));
+}
+
+function statutoryInsuranceReadyEmployeeIds(
+  records: Array<{ employeeId: string; status: string; dueDate: Date; insuranceType: string }>,
+) {
+  const byEmployee = new Map<string, Array<{ status: string; dueDate: Date; insuranceType: string }>>();
+  for (const record of records) {
+    const group = byEmployee.get(record.employeeId) ?? [];
+    group.push(record);
+    byEmployee.set(record.employeeId, group);
+  }
+  return Array.from(byEmployee.entries()).flatMap(([employeeId, employeeRecords]) => {
+    const typeSet = new Set(employeeRecords.map((record) => record.insuranceType));
+    const allTypesReady = statutoryInsuranceTypes.every((type) => typeSet.has(type));
+    const noPendingOrOverdue = employeeRecords.every((record) => record.status !== "pending");
+    return allTypesReady && noPendingOrOverdue ? [employeeId] : [];
+  });
 }
 
 function decimalToNumber(value: unknown) {
