@@ -40,6 +40,20 @@ export async function POST(request: Request) {
           formData.get("laborStandardsSeveranceMultiplierPerServiceYear"),
         ),
       },
+      statutoryOnboarding: {
+        laborInsuranceEnrollmentDueDaysFromHire: parseNumber(
+          formData.get("laborInsuranceEnrollmentDueDaysFromHire"),
+        ),
+        employmentInsuranceEnrollmentDueDaysFromHire: parseNumber(
+          formData.get("employmentInsuranceEnrollmentDueDaysFromHire"),
+        ),
+        occupationalAccidentInsuranceEnrollmentDueDaysFromHire: parseNumber(
+          formData.get("occupationalAccidentInsuranceEnrollmentDueDaysFromHire"),
+        ),
+        insuranceWithdrawalDueDaysFromTermination: parseNumber(
+          formData.get("insuranceWithdrawalDueDaysFromTermination"),
+        ),
+      },
       statutoryPayroll: {
         laborInsuranceEmployeeRate: parsePercent(formData.get("laborInsuranceEmployeeRate")),
         laborInsuranceEmployerShare: parsePercent(formData.get("laborInsuranceEmployerShare")),

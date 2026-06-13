@@ -5,9 +5,9 @@ import {
 } from "@/server/onboarding/readiness";
 
 const employees = [
-  { id: "emp_1", employeeNo: "E001", displayName: "HR Admin" },
-  { id: "emp_2", employeeNo: "E002", displayName: "Manager" },
-  { id: "emp_3", employeeNo: "E003", displayName: "Employee" },
+  { id: "emp_1", employeeNo: "E001", displayName: "HR Admin", hireDate: new Date("2026-01-01T00:00:00.000Z") },
+  { id: "emp_2", employeeNo: "E002", displayName: "Manager", hireDate: new Date("2026-01-01T00:00:00.000Z") },
+  { id: "emp_3", employeeNo: "E003", displayName: "Employee", hireDate: new Date("2026-01-01T00:00:00.000Z") },
 ];
 
 const readySnapshot: OnboardingReadinessSnapshot = {
@@ -21,6 +21,12 @@ const readySnapshot: OnboardingReadinessSnapshot = {
   leavePolicyCount: 1,
   companyCalendarDayCount: 1,
   activeRuleVersionCount: 3,
+  statutoryOnboarding: {
+    laborInsuranceEnrollmentDueDaysFromHire: 0,
+    employmentInsuranceEnrollmentDueDaysFromHire: 0,
+    occupationalAccidentInsuranceEnrollmentDueDaysFromHire: 0,
+    insuranceWithdrawalDueDaysFromTermination: 0,
+  },
   salaryProfileEmployeeIds: employees.map((employee) => employee.id),
   paymentProfileEmployeeIds: employees.map((employee) => employee.id),
   payrollComplianceProfileEmployeeIds: employees.map((employee) => employee.id),
@@ -45,6 +51,10 @@ describe("onboarding readiness", () => {
       ],
     });
     expect(report.checks.find((check) => check.id === "payment_profiles")).toMatchObject({
+      status: "blocked",
+      missingEmployees: [{ id: "emp_3", employeeNo: "E003", displayName: "Employee" }],
+    });
+    expect(report.checks.find((check) => check.id === "statutory_insurance_enrollment")).toMatchObject({
       status: "blocked",
       missingEmployees: [{ id: "emp_3", employeeNo: "E003", displayName: "Employee" }],
     });

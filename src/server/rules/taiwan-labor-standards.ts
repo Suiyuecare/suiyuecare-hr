@@ -50,6 +50,7 @@ export type TaiwanLaborStandardsConfig = {
   requiredRegularLeaveDaysPerCycle: number;
   requiredRestDaysPerCycle: number;
   terminationCompliance: TaiwanTerminationComplianceConfig;
+  statutoryOnboarding: TaiwanStatutoryOnboardingConfig;
   annualLeaveTiers: Array<{
     serviceMonthsFrom: number;
     serviceMonthsTo: number | null;
@@ -69,6 +70,13 @@ export type TaiwanTerminationComplianceConfig = {
   laborPensionSeveranceMultiplierPerServiceYear: number;
   laborPensionSeveranceMaxAverageWageMonths: number;
   laborStandardsSeveranceMultiplierPerServiceYear: number;
+};
+
+export type TaiwanStatutoryOnboardingConfig = {
+  laborInsuranceEnrollmentDueDaysFromHire: number;
+  employmentInsuranceEnrollmentDueDaysFromHire: number;
+  occupationalAccidentInsuranceEnrollmentDueDaysFromHire: number;
+  insuranceWithdrawalDueDaysFromTermination: number;
 };
 
 export type RuleChangeControl = {
@@ -206,6 +214,12 @@ export const defaultTaiwanLaborStandardsConfig: TaiwanLaborStandardsConfig = {
     laborPensionSeveranceMaxAverageWageMonths: 6,
     laborStandardsSeveranceMultiplierPerServiceYear: 1,
   },
+  statutoryOnboarding: {
+    laborInsuranceEnrollmentDueDaysFromHire: 0,
+    employmentInsuranceEnrollmentDueDaysFromHire: 0,
+    occupationalAccidentInsuranceEnrollmentDueDaysFromHire: 0,
+    insuranceWithdrawalDueDaysFromTermination: 0,
+  },
   annualLeaveTiers: [
     { serviceMonthsFrom: 6, serviceMonthsTo: 12, days: 3 },
     { serviceMonthsFrom: 12, serviceMonthsTo: 24, days: 7 },
@@ -321,6 +335,12 @@ export const defaultTaiwanLaborStandardsConfig: TaiwanLaborStandardsConfig = {
       id: "tw-labor-pension-act-article-12",
       title: "Labor Pension Act Article 12 severance pay",
       url: "https://law.moj.gov.tw/ENG/LawClass/LawAll.aspx?pcode=N0030020",
+      checkedAt: "2026-06-13",
+    },
+    {
+      id: "tw-labor-insurance-enrollment",
+      title: "Bureau of Labor Insurance enrollment and withdrawal timing",
+      url: "https://www.bli.gov.tw/en/0013141.html",
       checkedAt: "2026-06-13",
     },
   ],

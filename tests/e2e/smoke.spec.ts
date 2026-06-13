@@ -87,6 +87,7 @@ test("demo roles can switch between distinct dashboards", async ({ page }) => {
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "Taiwan labor rule setup" })).toBeVisible();
   await page.getByLabel("Minimum hourly wage").fill("200");
+  await page.getByLabel("Employment insurance enrollment due days from hire").fill("1");
   await page.getByRole("button", { name: "Save rule settings" }).click();
   await expect(page.getByText("company-1").first()).toBeVisible();
   await page.getByLabel("Require employee MFA").check();

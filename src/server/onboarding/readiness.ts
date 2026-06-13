@@ -4,6 +4,8 @@ import { getFallbackCompanyOverview } from "@/server/demo/fallback";
 import { getSalaryProfileWorkspace } from "@/server/payroll/salary-profiles";
 import { getPaymentProfileWorkspace } from "@/server/payroll/payment-profiles";
 import { listPayrollComplianceProfiles } from "@/server/payroll/compliance";
+import { getTaiwanLaborStandardsConfig, getActiveTaiwanLaborStandardsConfig } from "@/server/rules/settings";
+import type { TaiwanStatutoryOnboardingConfig } from "@/server/rules/taiwan-labor-standards";
 
 type SessionLike = {
   role: RoleKey;
@@ -39,7 +41,8 @@ export type OnboardingReadinessSnapshot = {
   salaryProfileEmployeeIds: string[];
   paymentProfileEmployeeIds: string[];
   payrollComplianceProfileEmployeeIds: string[];
-  activeEmployees: Array<{ id: string; employeeNo: string; displayName: string }>;
+  statutoryOnboarding: TaiwanStatutoryOnboardingConfig;
+  activeEmployees: Array<{ id: string; employeeNo: string; displayName: string; hireDate: Date }>;
 };
 
 export type OnboardingReadinessReport = {
@@ -65,6 +68,7 @@ export function buildOnboardingReadinessReport(
   const missingSalary = missingEmployees(snapshot, snapshot.salaryProfileEmployeeIds);
   const missingPayment = missingEmployees(snapshot, snapshot.paymentProfileEmployeeIds);
   const missingCompliance = missingEmployees(snapshot, snapshot.payrollComplianceProfileEmployeeIds);
+  const statutoryEnrollmentMissing = missingEmployees(snapshot, snapshot.payrollComplianceProfileEmployeeIds);
   const checks: OnboardingCheck[] = [
     {
       id: "employees",
@@ -113,6 +117,15 @@ export function buildOnboardingReadinessReport(
       missingEmployees: missingCompliance,
     },
     {
+      id: "statutory_insurance_enrollment",
+      title: "Statutory insurance enrollment",
+      status: statutoryEnrollmentMissing.length === 0 && activeEmployeeIds.size > 0 ? "ready" : "blocked",
+      detail: `${activeEmployeeIds.size - statutoryEnrollmentMissing.length}/${activeEmployeeIds.size} active employee(s) have payroll compliance data for labor/employment/occupational accident insurance enrollment; due days from hire ${snapshot.statutoryOnboarding.laborInsuranceEnrollmentDueDaysFromHire}/${snapshot.statutoryOnboarding.employmentInsuranceEnrollmentDueDaysFromHire}/${snapshot.statutoryOnboarding.occupationalAccidentInsuranceEnrollmentDueDaysFromHire}.`,
+      actionLabel: "Review compliance profiles",
+      actionHref: "/hr/payroll-compliance",
+      missingEmployees: statutoryEnrollmentMissing,
+    },
+    {
       id: "time_setup",
       title: "Time and leave setup",
       status: snapshot.activeAttendancePolicyCount >= 1 &&
@@ -150,6 +163,7 @@ export function buildOnboardingReadinessReport(
 async function buildDbSnapshot(session: SessionLike): Promise<OnboardingReadinessSnapshot> {
   const db = getDb();
   const [
+    laborConfig,
     employees,
     departmentCount,
     attendancePolicyCount,
@@ -161,6 +175,11 @@ async function buildDbSnapshot(session: SessionLike): Promise<OnboardingReadines
     paymentProfiles,
     complianceProfiles,
   ] = await Promise.all([
+    getTaiwanLaborStandardsConfig({
+      ...session,
+      tenantId: session.tenantId ?? null,
+      companyId: session.companyId ?? null,
+    }),
     db.employee.findMany({
       where: { tenantId: session.tenantId!, companyId: session.companyId!, employmentStatus: "active" },
       include: { directReports: true },
@@ -198,6 +217,7 @@ async function buildDbSnapshot(session: SessionLike): Promise<OnboardingReadines
     leavePolicyCount,
     companyCalendarDayCount: calendarDayCount,
     activeRuleVersionCount,
+    statutoryOnboarding: laborConfig.statutoryOnboarding,
     salaryProfileEmployeeIds: salaryProfiles.map((profile) => profile.employeeId),
     paymentProfileEmployeeIds: paymentProfiles.map((profile) => profile.employeeId),
     payrollComplianceProfileEmployeeIds: complianceProfiles.map((profile) => profile.employeeId),
@@ -243,6 +263,7 @@ async function buildDemoSnapshot(session: SessionLike): Promise<OnboardingReadin
     leavePolicyCount: 1,
     companyCalendarDayCount: 1,
     activeRuleVersionCount: overview.activeRuleCount,
+    statutoryOnboarding: getActiveTaiwanLaborStandardsConfig().statutoryOnboarding,
     salaryProfileEmployeeIds: salaryWorkspace.profiles.filter((profile) => !profile.effectiveTo).map((profile) => profile.employeeId),
     paymentProfileEmployeeIds: paymentWorkspace.profiles
       .filter((profile) => profile.status === "active" && !profile.effectiveTo)
@@ -263,11 +284,12 @@ function missingEmployees(
   });
 }
 
-function toEmployeeRef(employee: { id: string; employeeNo: string; displayName: string }) {
+function toEmployeeRef(employee: { id: string; employeeNo: string; displayName: string; hireDate?: Date }) {
   return {
     id: employee.id,
     employeeNo: employee.employeeNo,
     displayName: employee.displayName,
+    hireDate: employee.hireDate ?? new Date(),
   };
 }
 

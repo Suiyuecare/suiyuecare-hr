@@ -600,6 +600,58 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
 
             <div className="section-heading compact-heading">
               <div>
+                <h3>Statutory onboarding</h3>
+                <p className="muted">
+                  HR onboarding readiness uses these due-day settings for labor insurance, employment insurance, occupational accident insurance, and withdrawal follow-up.
+                </p>
+              </div>
+              <span className="badge warning">BLI timing</span>
+            </div>
+            <div className="field-grid">
+              <label>
+                Labor insurance enrollment due days from hire
+                <input
+                  name="laborInsuranceEnrollmentDueDaysFromHire"
+                  type="number"
+                  min="0"
+                  step="1"
+                  defaultValue={laborConfig.statutoryOnboarding.laborInsuranceEnrollmentDueDaysFromHire}
+                />
+              </label>
+              <label>
+                Employment insurance enrollment due days from hire
+                <input
+                  name="employmentInsuranceEnrollmentDueDaysFromHire"
+                  type="number"
+                  min="0"
+                  step="1"
+                  defaultValue={laborConfig.statutoryOnboarding.employmentInsuranceEnrollmentDueDaysFromHire}
+                />
+              </label>
+              <label>
+                Occupational accident insurance enrollment due days from hire
+                <input
+                  name="occupationalAccidentInsuranceEnrollmentDueDaysFromHire"
+                  type="number"
+                  min="0"
+                  step="1"
+                  defaultValue={laborConfig.statutoryOnboarding.occupationalAccidentInsuranceEnrollmentDueDaysFromHire}
+                />
+              </label>
+              <label>
+                Insurance withdrawal due days from termination
+                <input
+                  name="insuranceWithdrawalDueDaysFromTermination"
+                  type="number"
+                  min="0"
+                  step="1"
+                  defaultValue={laborConfig.statutoryOnboarding.insuranceWithdrawalDueDaysFromTermination}
+                />
+              </label>
+            </div>
+
+            <div className="section-heading compact-heading">
+              <div>
                 <h3>Termination compliance</h3>
                 <p className="muted">
                   HR lifecycle termination checks use these versioned notice and severance settings as a review aid.

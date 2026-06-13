@@ -55,6 +55,12 @@ describe("rule settings", () => {
         laborPensionSeveranceMaxAverageWageMonths: 6.5,
         laborStandardsSeveranceMultiplierPerServiceYear: 1.1,
       },
+      statutoryOnboarding: {
+        laborInsuranceEnrollmentDueDaysFromHire: 0,
+        employmentInsuranceEnrollmentDueDaysFromHire: 1,
+        occupationalAccidentInsuranceEnrollmentDueDaysFromHire: 0,
+        insuranceWithdrawalDueDaysFromTermination: 0,
+      },
       statutoryPayroll: {
         nationalHealthInsuranceRate: 0.052,
         nationalHealthInsuranceEmployerShare: 0.61,
@@ -94,6 +100,12 @@ describe("rule settings", () => {
     expect(updated.terminationCompliance.laborPensionSeveranceMultiplierPerServiceYear).toBe(0.55);
     expect(updated.terminationCompliance.laborPensionSeveranceMaxAverageWageMonths).toBe(6.5);
     expect(updated.terminationCompliance.laborStandardsSeveranceMultiplierPerServiceYear).toBe(1.1);
+    expect(updated.statutoryOnboarding).toMatchObject({
+      laborInsuranceEnrollmentDueDaysFromHire: 0,
+      employmentInsuranceEnrollmentDueDaysFromHire: 1,
+      occupationalAccidentInsuranceEnrollmentDueDaysFromHire: 0,
+      insuranceWithdrawalDueDaysFromTermination: 0,
+    });
     expect(updated.statutoryPayroll.nationalHealthInsuranceRate).toBe(0.052);
     expect(updated.statutoryPayroll.nationalHealthInsuranceEmployerShare).toBe(0.61);
     expect(updated.statutoryPayroll.nationalHealthInsuranceAverageDependentCount).toBe(0.58);

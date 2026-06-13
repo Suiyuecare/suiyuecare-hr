@@ -54,6 +54,7 @@ type TaiwanLaborSettingsInput = Partial<Pick<
 >> & {
   changeControl?: Partial<RuleChangeControl>;
   terminationCompliance?: Partial<TaiwanLaborStandardsConfig["terminationCompliance"]>;
+  statutoryOnboarding?: Partial<TaiwanLaborStandardsConfig["statutoryOnboarding"]>;
   statutoryPayroll?: Omit<Partial<TaiwanStatutoryPayrollConfig>, "incomeTaxWithholding"> & {
     incomeTaxWithholding?: Partial<TaiwanStatutoryPayrollConfig["incomeTaxWithholding"]>;
   };
@@ -284,7 +285,23 @@ function readTaiwanLaborConfig(value: Prisma.JsonValue): TaiwanLaborStandardsCon
     const record = value as Record<string, unknown>;
     const config = record.taiwanLaborStandards ?? record;
     if (isTaiwanLaborStandardsConfig(config)) {
-      return config;
+      return {
+        ...defaultTaiwanLaborStandardsConfig,
+        ...config,
+        statutoryOnboarding: {
+          ...defaultTaiwanLaborStandardsConfig.statutoryOnboarding,
+          ...config.statutoryOnboarding,
+        },
+        statutoryPayroll: {
+          ...defaultTaiwanLaborStandardsConfig.statutoryPayroll,
+          ...config.statutoryPayroll,
+          incomeTaxWithholding: {
+            ...defaultTaiwanLaborStandardsConfig.statutoryPayroll.incomeTaxWithholding,
+            ...config.statutoryPayroll.incomeTaxWithholding,
+          },
+        },
+        sources: Array.isArray(config.sources) ? config.sources : defaultTaiwanLaborStandardsConfig.sources,
+      };
     }
   }
   return getActiveTaiwanLaborStandardsConfig();
@@ -322,6 +339,7 @@ function normalizeRuleSettings(input: TaiwanLaborSettingsInput, base: TaiwanLabo
     ),
     requiredRestDaysPerCycle: nonNegativeInteger(input.requiredRestDaysPerCycle, base.requiredRestDaysPerCycle),
     terminationCompliance: normalizeTerminationCompliance(input.terminationCompliance, base.terminationCompliance),
+    statutoryOnboarding: normalizeStatutoryOnboarding(input.statutoryOnboarding, base.statutoryOnboarding),
     statutoryPayroll: {
       ...base.statutoryPayroll,
       laborInsuranceEmployeeRate: positiveRate(
@@ -419,6 +437,30 @@ function normalizeRuleSettings(input: TaiwanLaborSettingsInput, base: TaiwanLabo
         base.statutoryPayroll.laborPensionContributionGrades,
       ),
     },
+  };
+}
+
+function normalizeStatutoryOnboarding(
+  input: TaiwanLaborSettingsInput["statutoryOnboarding"],
+  base: TaiwanLaborStandardsConfig["statutoryOnboarding"],
+) {
+  return {
+    laborInsuranceEnrollmentDueDaysFromHire: nonNegativeInteger(
+      input?.laborInsuranceEnrollmentDueDaysFromHire,
+      base.laborInsuranceEnrollmentDueDaysFromHire,
+    ),
+    employmentInsuranceEnrollmentDueDaysFromHire: nonNegativeInteger(
+      input?.employmentInsuranceEnrollmentDueDaysFromHire,
+      base.employmentInsuranceEnrollmentDueDaysFromHire,
+    ),
+    occupationalAccidentInsuranceEnrollmentDueDaysFromHire: nonNegativeInteger(
+      input?.occupationalAccidentInsuranceEnrollmentDueDaysFromHire,
+      base.occupationalAccidentInsuranceEnrollmentDueDaysFromHire,
+    ),
+    insuranceWithdrawalDueDaysFromTermination: nonNegativeInteger(
+      input?.insuranceWithdrawalDueDaysFromTermination,
+      base.insuranceWithdrawalDueDaysFromTermination,
+    ),
   };
 }
 
@@ -554,6 +596,7 @@ function getChangedFields(input: ReturnType<typeof normalizeRuleSettings>) {
     "requiredRegularLeaveDaysPerCycle",
     "requiredRestDaysPerCycle",
     ...Object.keys(input.terminationCompliance).map((key) => `terminationCompliance.${key}`),
+    ...Object.keys(input.statutoryOnboarding).map((key) => `statutoryOnboarding.${key}`),
     ...Object.keys(input.statutoryPayroll).map((key) => `statutoryPayroll.${key}`),
   ];
 }
@@ -568,6 +611,7 @@ function isTaiwanLaborStandardsConfig(value: unknown): value is TaiwanLaborStand
     typeof record.minimumHourlyWage === "number" &&
     typeof record.payrollStandardMonthlyHours === "number" &&
     typeof record.terminationCompliance === "object" &&
+    (record.statutoryOnboarding === undefined || typeof record.statutoryOnboarding === "object") &&
     typeof record.statutoryPayroll === "object" &&
     Array.isArray(record.sources)
   );

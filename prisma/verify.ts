@@ -549,6 +549,10 @@ function readTaiwanLaborConfig(value: unknown): TaiwanLaborStandardsConfig {
             ...defaultTaiwanLaborStandardsConfig.statutoryPayroll,
             ...(config.statutoryPayroll ?? {}),
           },
+          statutoryOnboarding: {
+            ...defaultTaiwanLaborStandardsConfig.statutoryOnboarding,
+            ...(config.statutoryOnboarding ?? {}),
+          },
           sources: Array.isArray(config.sources) ? config.sources : defaultTaiwanLaborStandardsConfig.sources,
         };
       }
