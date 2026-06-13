@@ -413,6 +413,15 @@ input:disabled {
   background: #f1f4ef;
 }
 
+input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0;
+  accent-color: var(--primary);
+}
+
 fieldset {
   display: grid;
   gap: 12px;

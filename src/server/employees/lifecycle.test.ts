@@ -73,6 +73,12 @@ describe("employee lifecycle", () => {
       terminationReasonCategory: "layoff",
       pensionScheme: "labor_pension_new",
       averageMonthlyWage: 60_000,
+      finalPayPrepared: true,
+      unusedLeaveSettlementPrepared: true,
+      insuranceWithdrawalPrepared: true,
+      accessRevocationPrepared: true,
+      documentRetentionPrepared: true,
+      employeeCertificatePrepared: true,
     });
     const auditLog = getAuditDemoState().logs[0];
 
@@ -85,15 +91,50 @@ describe("employee lifecycle", () => {
       requiresHumanReview: true,
     });
     expect(event?.terminationCompliance?.severancePayEstimate).toBeGreaterThan(0);
+    expect(event?.terminationOffboarding).toMatchObject({
+      ready: true,
+      missing: [],
+      finalPayPrepared: true,
+      insuranceWithdrawalPrepared: true,
+    });
     expect(auditLog).toMatchObject({
       action: "update",
       entityType: "employee_lifecycle_event",
         metadataJson: expect.objectContaining({
         terminationComplianceCaptured: true,
         terminationRequiresHumanReview: true,
+        terminationOffboardingReady: true,
+        terminationOffboardingMissingCount: 0,
         sensitiveValuesRedacted: true,
       }),
     });
     expect(JSON.stringify(auditLog.metadataJson)).not.toContain("60000");
+  });
+
+  it("flags incomplete termination offboarding before HR closes employment", async () => {
+    const event = await recordLifecycleEvent(hrSession, {
+      employeeId: "demo-employee-3",
+      eventType: "termination",
+      effectiveDate: new Date("2026-07-01T00:00:00.000Z"),
+      reason: "Contract ended and HR is preparing offboarding.",
+      terminationReasonCategory: "contract_end",
+      pensionScheme: "labor_pension_new",
+      finalPayPrepared: true,
+      accessRevocationPrepared: true,
+    });
+
+    expect(event?.terminationOffboarding).toMatchObject({
+      ready: false,
+      missing: [
+        "unused annual leave settlement review",
+        "statutory insurance withdrawal preparation",
+        "employee record retention plan",
+        "employment certificate request readiness",
+      ],
+    });
+    expect(getAuditDemoState().logs[0]?.metadataJson).toMatchObject({
+      terminationOffboardingReady: false,
+      terminationOffboardingMissingCount: 4,
+    });
   });
 });

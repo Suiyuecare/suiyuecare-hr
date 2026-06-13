@@ -113,6 +113,32 @@ export default async function EmployeeLifecyclePage({ searchParams }: { searchPa
                 <input name="averageMonthlyWage" type="number" min="0" step="1" placeholder="Required for layoff estimate" />
               </label>
             </div>
+            <div className="toggle-row">
+              <label>
+                <input name="finalPayPrepared" type="checkbox" />
+                Final wage review prepared
+              </label>
+              <label>
+                <input name="unusedLeaveSettlementPrepared" type="checkbox" />
+                Unused leave settlement prepared
+              </label>
+              <label>
+                <input name="insuranceWithdrawalPrepared" type="checkbox" />
+                Statutory insurance withdrawal prepared
+              </label>
+              <label>
+                <input name="accessRevocationPrepared" type="checkbox" />
+                Access revocation plan prepared
+              </label>
+              <label>
+                <input name="documentRetentionPrepared" type="checkbox" />
+                Records retention prepared
+              </label>
+              <label>
+                <input name="employeeCertificatePrepared" type="checkbox" />
+                Employment certificate readiness checked
+              </label>
+            </div>
             <label>
               Reason
               <textarea name="reason" placeholder="Record the HR-approved reason or reference." required />
@@ -166,9 +192,20 @@ export default async function EmployeeLifecyclePage({ searchParams }: { searchPa
                         {" "}· human review required
                       </small>
                     ) : null}
+                    {event.terminationOffboarding ? (
+                      <small>
+                        Offboarding {event.terminationOffboarding.ready ? "ready" : "needs review"} · insurance withdrawal due{" "}
+                        {formatDate(event.terminationOffboarding.dueDate)}
+                        {event.terminationOffboarding.missing.length
+                          ? ` · missing ${event.terminationOffboarding.missing.join(", ")}`
+                          : ""}
+                      </small>
+                    ) : null}
                   </span>
-                  <span className={`badge ${event.nextStatus === "on_leave" ? "warning" : ""}`}>
-                    {event.nextStatus ? statusLabel(event.nextStatus) : eventTypeLabel(event.eventType)}
+                  <span className={`badge ${eventBadgeClass(event)}`}>
+                    {event.terminationOffboarding
+                      ? event.terminationOffboarding.ready ? "Offboarding ready" : "Offboarding review"
+                      : event.nextStatus ? statusLabel(event.nextStatus) : eventTypeLabel(event.eventType)}
                   </span>
                 </li>
               ))}
@@ -212,6 +249,12 @@ function statusLabel(status: string) {
     default:
       return "Active";
   }
+}
+
+function eventBadgeClass(event: { nextStatus: string | null; terminationOffboarding?: { ready: boolean } | null }) {
+  if (event.terminationOffboarding && !event.terminationOffboarding.ready) return "warning";
+  if (event.nextStatus === "on_leave") return "warning";
+  return "";
 }
 
 function formatDate(date: Date) {

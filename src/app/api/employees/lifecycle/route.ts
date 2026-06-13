@@ -17,6 +17,12 @@ export async function POST(request: Request) {
       terminationReasonCategory: readTerminationReasonCategory(formData.get("terminationReasonCategory")),
       pensionScheme: readPensionScheme(formData.get("pensionScheme")),
       averageMonthlyWage: parseOptionalNumber(formData.get("averageMonthlyWage")),
+      finalPayPrepared: formData.get("finalPayPrepared") === "on",
+      unusedLeaveSettlementPrepared: formData.get("unusedLeaveSettlementPrepared") === "on",
+      insuranceWithdrawalPrepared: formData.get("insuranceWithdrawalPrepared") === "on",
+      accessRevocationPrepared: formData.get("accessRevocationPrepared") === "on",
+      documentRetentionPrepared: formData.get("documentRetentionPrepared") === "on",
+      employeeCertificatePrepared: formData.get("employeeCertificatePrepared") === "on",
     });
     return NextResponse.redirect(new URL("/hr/employee-lifecycle", request.url), 303);
   } catch (error) {

@@ -35,6 +35,26 @@ export type LifecycleEventInput = {
   terminationReasonCategory?: TerminationReasonCategory | null;
   pensionScheme?: PensionScheme | null;
   averageMonthlyWage?: number | null;
+  finalPayPrepared?: boolean;
+  unusedLeaveSettlementPrepared?: boolean;
+  insuranceWithdrawalPrepared?: boolean;
+  accessRevocationPrepared?: boolean;
+  documentRetentionPrepared?: boolean;
+  employeeCertificatePrepared?: boolean;
+};
+
+export type TerminationOffboardingChecklist = {
+  ready: boolean;
+  missing: string[];
+  detail: string;
+  dueDate: Date;
+  finalPayPrepared: boolean;
+  unusedLeaveSettlementPrepared: boolean;
+  insuranceWithdrawalPrepared: boolean;
+  accessRevocationPrepared: boolean;
+  documentRetentionPrepared: boolean;
+  employeeCertificatePrepared: boolean;
+  sourceIds: string[];
 };
 
 export type LifecycleEventRow = {
@@ -52,6 +72,7 @@ export type LifecycleEventRow = {
   previousStatus: EmploymentStatus | null;
   nextStatus: EmploymentStatus | null;
   terminationCompliance: TerminationComplianceSnapshot | null;
+  terminationOffboarding: TerminationOffboardingChecklist | null;
   createdAt: Date;
 };
 
@@ -212,6 +233,13 @@ async function recordDbLifecycleEvent(
         }),
       })
     : null;
+  const terminationOffboarding = input.eventType === "termination"
+    ? buildTerminationOffboardingChecklist(input, await getTaiwanLaborStandardsConfig({
+        ...session,
+        tenantId: session.tenantId ?? null,
+        companyId: session.companyId ?? null,
+      }))
+    : null;
 
   return db.$transaction(async (tx) => {
     const updatedEmployee = await tx.employee.update({
@@ -240,6 +268,7 @@ async function recordDbLifecycleEvent(
           source: "employee_lifecycle_page",
           effectiveDate: input.effectiveDate.toISOString().slice(0, 10),
           terminationCompliance,
+          terminationOffboarding,
         } satisfies Prisma.InputJsonValue,
         createdByUserId: session.user?.id,
       },
@@ -271,6 +300,8 @@ async function recordDbLifecycleEvent(
         effectiveDate: input.effectiveDate.toISOString().slice(0, 10),
         terminationComplianceCaptured: Boolean(terminationCompliance),
         terminationRequiresHumanReview: terminationCompliance?.requiresHumanReview ?? false,
+        terminationOffboardingReady: terminationOffboarding?.ready ?? null,
+        terminationOffboardingMissingCount: terminationOffboarding?.missing.length ?? 0,
         sensitiveValuesRedacted: true,
       },
     });
@@ -303,6 +334,9 @@ function recordDemoLifecycleEvent(
         config: getActiveTaiwanLaborStandardsConfig(),
       })
     : null;
+  const terminationOffboarding = input.eventType === "termination"
+    ? buildTerminationOffboardingChecklist(input, getActiveTaiwanLaborStandardsConfig())
+    : null;
   const event: LifecycleEventRow = {
     id: crypto.randomUUID(),
     employeeId: employee.id,
@@ -318,6 +352,7 @@ function recordDemoLifecycleEvent(
     previousStatus: employee.employmentStatus,
     nextStatus,
     terminationCompliance,
+    terminationOffboarding,
     createdAt: new Date(),
   };
   employee.departmentId = nextDepartmentId;
@@ -352,6 +387,8 @@ function recordDemoLifecycleEvent(
       effectiveDate: input.effectiveDate.toISOString().slice(0, 10),
       terminationComplianceCaptured: Boolean(terminationCompliance),
       terminationRequiresHumanReview: terminationCompliance?.requiresHumanReview ?? false,
+      terminationOffboardingReady: terminationOffboarding?.ready ?? null,
+      terminationOffboardingMissingCount: terminationOffboarding?.missing.length ?? 0,
       sensitiveValuesRedacted: true,
     },
   });
@@ -393,7 +430,46 @@ function mapDbEvent(
     previousStatus: event.previousStatus,
     nextStatus: event.nextStatus,
     terminationCompliance: readTerminationCompliance(event.metadataJson),
+    terminationOffboarding: readTerminationOffboarding(event.metadataJson),
     createdAt: event.createdAt,
+  };
+}
+
+function buildTerminationOffboardingChecklist(
+  input: ReturnType<typeof normalizeInput>,
+  config: Awaited<ReturnType<typeof getTaiwanLaborStandardsConfig>>,
+): TerminationOffboardingChecklist {
+  const checklist = {
+    finalPayPrepared: input.finalPayPrepared,
+    unusedLeaveSettlementPrepared: input.unusedLeaveSettlementPrepared,
+    insuranceWithdrawalPrepared: input.insuranceWithdrawalPrepared,
+    accessRevocationPrepared: input.accessRevocationPrepared,
+    documentRetentionPrepared: input.documentRetentionPrepared,
+    employeeCertificatePrepared: input.employeeCertificatePrepared,
+  };
+  const missing = [
+    !checklist.finalPayPrepared ? "final wage and payable item review" : null,
+    !checklist.unusedLeaveSettlementPrepared ? "unused annual leave settlement review" : null,
+    !checklist.insuranceWithdrawalPrepared ? "statutory insurance withdrawal preparation" : null,
+    !checklist.accessRevocationPrepared ? "system access revocation plan" : null,
+    !checklist.documentRetentionPrepared ? "employee record retention plan" : null,
+    !checklist.employeeCertificatePrepared ? "employment certificate request readiness" : null,
+  ].filter((item): item is string => Boolean(item));
+  const dueDate = addDays(
+    input.effectiveDate,
+    config.statutoryOnboarding.insuranceWithdrawalDueDaysFromTermination,
+  );
+  return {
+    ...checklist,
+    ready: missing.length === 0,
+    missing,
+    dueDate,
+    detail: missing.length
+      ? `${missing.length} offboarding item(s) still need HR review before termination close.`
+      : "Termination offboarding checklist is ready for HR confirmation.",
+    sourceIds: config.sources
+      .filter((source) => source.id === "tw-lsa-article-16-17" || source.id === "tw-labor-pension-act-article-12")
+      .map((source) => source.id),
   };
 }
 
@@ -424,6 +500,12 @@ function normalizeInput(input: LifecycleEventInput) {
     terminationReasonCategory: normalizeTerminationReasonCategory(input.terminationReasonCategory),
     pensionScheme: normalizePensionScheme(input.pensionScheme),
     averageMonthlyWage: normalizeOptionalMoney(input.averageMonthlyWage),
+    finalPayPrepared: Boolean(input.finalPayPrepared),
+    unusedLeaveSettlementPrepared: Boolean(input.unusedLeaveSettlementPrepared),
+    insuranceWithdrawalPrepared: Boolean(input.insuranceWithdrawalPrepared),
+    accessRevocationPrepared: Boolean(input.accessRevocationPrepared),
+    documentRetentionPrepared: Boolean(input.documentRetentionPrepared),
+    employeeCertificatePrepared: Boolean(input.employeeCertificatePrepared),
   };
 }
 
@@ -474,6 +556,26 @@ function readTerminationCompliance(value: unknown): TerminationComplianceSnapsho
   return compliance as TerminationComplianceSnapshot;
 }
 
+function readTerminationOffboarding(value: unknown): TerminationOffboardingChecklist | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const offboarding = (value as Record<string, unknown>).terminationOffboarding;
+  if (!offboarding || typeof offboarding !== "object" || Array.isArray(offboarding)) return null;
+  const record = offboarding as Record<string, unknown>;
+  return {
+    ready: record.ready === true,
+    missing: Array.isArray(record.missing) ? record.missing.filter((item): item is string => typeof item === "string") : [],
+    detail: typeof record.detail === "string" ? record.detail : "Termination offboarding checklist status is unavailable.",
+    dueDate: readDate(record.dueDate),
+    finalPayPrepared: record.finalPayPrepared === true,
+    unusedLeaveSettlementPrepared: record.unusedLeaveSettlementPrepared === true,
+    insuranceWithdrawalPrepared: record.insuranceWithdrawalPrepared === true,
+    accessRevocationPrepared: record.accessRevocationPrepared === true,
+    documentRetentionPrepared: record.documentRetentionPrepared === true,
+    employeeCertificatePrepared: record.employeeCertificatePrepared === true,
+    sourceIds: Array.isArray(record.sourceIds) ? record.sourceIds.filter((item): item is string => typeof item === "string") : [],
+  };
+}
+
 function demoHireDate(employeeId: string) {
   const dates: Record<string, string> = {
     "demo-hr-employee": "2023-03-01T00:00:00.000Z",
@@ -490,6 +592,21 @@ function startOfDate(date: Date) {
   const value = new Date(date);
   value.setUTCHours(0, 0, 0, 0);
   return value;
+}
+
+function addDays(date: Date, days: number) {
+  const value = new Date(date);
+  value.setUTCDate(value.getUTCDate() + days);
+  return startOfDate(value);
+}
+
+function readDate(value: unknown) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return new Date("1970-01-01T00:00:00.000Z");
 }
 
 function canUseDatabase(

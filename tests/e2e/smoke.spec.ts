@@ -470,11 +470,18 @@ test("HR records employee lifecycle changes with audit trail", async ({ page }) 
   await page.getByLabel("Termination reason").selectOption("layoff");
   await page.getByLabel("Pension scheme").selectOption("labor_pension_new");
   await page.getByLabel("Average monthly wage").fill("60000");
+  await page.getByLabel("Final wage review prepared").check();
+  await page.getByLabel("Unused leave settlement prepared").check();
+  await page.getByLabel("Statutory insurance withdrawal prepared").check();
+  await page.getByLabel("Access revocation plan prepared").check();
+  await page.getByLabel("Records retention prepared").check();
+  await page.getByLabel("Employment certificate readiness checked").check();
   await page.getByRole("textbox", { name: "Reason" }).fill("Business unit restructuring approved by HR.");
   await page.getByRole("button", { name: "Record lifecycle event" }).click();
 
   await expect(page.getByText("李小真 · Termination")).toBeVisible();
   await expect(page.getByText(/Notice 20 day\(s\).*human review required/)).toBeVisible();
+  await expect(page.getByText(/Offboarding ready.*insurance withdrawal due/)).toBeVisible();
 
   await page.goto("/settings/audit");
   await expect(page.getByText("update · employee_lifecycle_event").first()).toBeVisible();
