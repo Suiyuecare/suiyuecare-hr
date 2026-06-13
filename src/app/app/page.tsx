@@ -208,6 +208,30 @@ export default async function EmployeeHomePage() {
             )}
           </section>
 
+          <section className="panel span-12" aria-labelledby="employee-compliance">
+            <div className="section-heading">
+              <div>
+                <h2 id="employee-compliance">My HR tasks</h2>
+                <p className="muted">Finish required acknowledgements and onboarding tasks from your phone.</p>
+              </div>
+              <span className="badge">Mobile</span>
+            </div>
+            <div className="inline-actions">
+              <a className="button" href="/app/work-rules">
+                Work rules
+              </a>
+              <a className="button" href="/app/training">
+                Training
+              </a>
+              <a className="button" href="/app/privacy">
+                Privacy
+              </a>
+              <a className="button" href="/app/documents">
+                Documents
+              </a>
+            </div>
+          </section>
+
           <section className="panel span-12" id="requests">
             <h2>Request status</h2>
             {workspace.requests.length === 0 ? (

@@ -23,6 +23,7 @@ import { getCompanySecuritySettings, hasSsoMetadata } from "@/server/settings/se
 import { getSubscriptionWorkspace, type SubscriptionReadiness } from "@/server/subscriptions/service";
 import { getSupportAccessGovernance } from "@/server/support/access";
 import { getTrainingWorkspace, type TrainingReadiness } from "@/server/training/compliance";
+import { getWorkRulesWorkspace, type WorkRuleReadiness } from "@/server/work-rules/service";
 
 type SessionLike = {
   role: RoleKey;
@@ -82,6 +83,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     calendarWorkspace,
     subscriptionWorkspace,
     offboardingWorkspace,
+    workRulesWorkspace,
     kpis,
   ] = await Promise.all([
     getCompanyOverview(),
@@ -99,6 +101,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     getCompanyCalendarWorkspace(session),
     getSubscriptionWorkspace(session),
     getOffboardingWorkspace(session),
+    getWorkRulesWorkspace(session),
     getHrOneKpis(),
   ]);
 
@@ -142,6 +145,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     calendarReadiness: calendarWorkspace.readiness,
     subscriptionReadiness: subscriptionWorkspace.readiness,
     offboardingReadiness: offboardingWorkspace.readiness,
+    workRuleReadiness: workRulesWorkspace.readiness,
     kpis,
   });
 }
@@ -190,6 +194,7 @@ export function buildLaunchReadinessReport(input: {
   calendarReadiness?: Pick<CompanyCalendarReadiness, "ready" | "calendarYear" | "detail">;
   subscriptionReadiness?: Pick<SubscriptionReadiness, "ready" | "detail" | "missing">;
   offboardingReadiness?: Pick<OffboardingReadiness, "ready" | "detail" | "missing">;
+  workRuleReadiness?: Pick<WorkRuleReadiness, "ready" | "detail" | "missing">;
   kpis: HrOneKpi[];
 }): LaunchReadinessReport {
   const kpiSummary = summarizeHrOneKpis(input.kpis);
@@ -246,6 +251,11 @@ export function buildLaunchReadinessReport(input: {
   const offboardingReadiness = input.offboardingReadiness ?? {
     ready: true,
     detail: "Offboarding readiness not evaluated in this test context.",
+    missing: [],
+  };
+  const workRuleReadiness = input.workRuleReadiness ?? {
+    ready: true,
+    detail: "Work rules readiness not evaluated in this test context.",
     missing: [],
   };
   const items: LaunchReadinessItem[] = [
@@ -371,6 +381,18 @@ export function buildLaunchReadinessReport(input: {
         : "Keep termination final wage, unused leave, insurance withdrawal, access revocation, record retention, and certificate tasks complete.",
       actionLabel: "Open offboarding",
       actionHref: "/hr/offboarding",
+    },
+    {
+      id: "work_rules",
+      area: "Compliance",
+      title: "Work rules acknowledgement",
+      status: workRuleReadiness.ready ? "ready" : "blocked",
+      detail: workRuleReadiness.detail,
+      nextStep: workRuleReadiness.missing.length > 0
+        ? `Clear work rules gaps: ${workRuleReadiness.missing.join(", ")}.`
+        : "Keep company work rules approved, active, versioned, and acknowledged by employees.",
+      actionLabel: "Open work rules",
+      actionHref: "/hr/work-rules",
     },
     {
       id: "training",
@@ -511,8 +533,8 @@ function buildSetupSteps(items: LaunchReadinessItem[]): LaunchSetupStep[] {
     setupStep({
       step: 4,
       title: "Approve compliance controls",
-      itemIds: ["calendar", "law_rules", "training", "offboarding", "incidents", "audit"],
-      summary: "Review Taiwan annual calendars, rule versions, onboarding training, termination offboarding, workplace incident response, and sensitive mutation audit evidence.",
+      itemIds: ["calendar", "law_rules", "work_rules", "training", "offboarding", "incidents", "audit"],
+      summary: "Review Taiwan annual calendars, rule versions, company work rules, onboarding training, termination offboarding, workplace incident response, and sensitive mutation audit evidence.",
       actionLabel: "Review compliance",
       actionHref: "/settings#law-rules-setup",
       items,

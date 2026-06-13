@@ -40,6 +40,8 @@ async function main() {
   await prisma.employeeTrainingAssignment.deleteMany();
   await prisma.trainingCourse.deleteMany();
   await prisma.companyTrainingSetting.deleteMany();
+  await prisma.employeeWorkRuleAcknowledgement.deleteMany();
+  await prisma.companyWorkRule.deleteMany();
   await prisma.workplaceIncident.deleteMany();
   await prisma.companyIncidentSetting.deleteMany();
   await prisma.aiUsageLog.deleteMany();
@@ -528,6 +530,40 @@ async function main() {
         assignedByUserId: hrUser.id,
       },
     ],
+  });
+
+  const workRule = await prisma.companyWorkRule.create({
+    data: {
+      tenantId: tenant.id,
+      companyId: company.id,
+      title: "Employee handbook and work rules",
+      category: "Company rules",
+      summary:
+        "Covers attendance, leave, overtime approval, payroll close evidence, information security, and respectful workplace expectations.",
+      version: "2026.01",
+      status: "active",
+      reviewStatus: "approved",
+      sourceRef: "demo://work-rules/employee-handbook-2026",
+      contentHash: hash("demo-work-rules-2026.01"),
+      acknowledgementRequired: true,
+      effectiveFrom: new Date("2026-06-01T00:00:00.000Z"),
+      publishedAt: new Date("2026-06-01T00:00:00.000Z"),
+      createdByUserId: hrUser.id,
+      updatedByUserId: hrUser.id,
+    },
+  });
+
+  await prisma.employeeWorkRuleAcknowledgement.createMany({
+    data: [hrEmployee, managerEmployee, employeeOne, employeeTwo, employeeThree].map((employee, index) => ({
+      tenantId: tenant.id,
+      companyId: company.id,
+      employeeId: employee.id,
+      workRuleId: workRule.id,
+      version: workRule.version,
+      acknowledgementHash: hash(`${employee.id}:${workRule.id}:${workRule.version}`),
+      source: "seed",
+      acknowledgedAt: new Date(Date.UTC(2026, 5, 1, 1, index)),
+    })),
   });
 
   await Promise.all(

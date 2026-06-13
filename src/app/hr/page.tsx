@@ -68,6 +68,9 @@ export default async function HrDashboardPage() {
               <a className="button" href="/hr/documents">
                 Documents
               </a>
+              <a className="button" href="/hr/work-rules">
+                Work rules
+              </a>
               <a className="button" href="/hr/training">
                 Training
               </a>

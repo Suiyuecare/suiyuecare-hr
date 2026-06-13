@@ -39,6 +39,8 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     telemetryEvents: 4,
     terminationLifecycleEvents: 0,
     offboardingReadyTasks: 0,
+    activeWorkRules: 1,
+    workRuleAcknowledgements: 5,
   },
   calendarReview: {
     calendarYear: 2026,
@@ -203,6 +205,10 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     activeApprovedCount: 0,
     activeUnapprovedCount: 0,
     expiredStillApprovedCount: 0,
+  },
+  workRuleAcknowledgementCoverage: {
+    activeEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
+    acknowledgedEmployeeIds: ["emp_1", "emp_2", "emp_3", "emp_4", "emp_5"],
   },
 };
 

@@ -947,3 +947,26 @@ test("HR requests payroll adjustment and owner approves from unified inbox", asy
   await expect(page.getByText("Payroll adjustment").first()).toBeVisible();
   await expect(page.getByText("approved").first()).toBeVisible();
 });
+
+test("Employee acknowledges work rules and HR sees audit evidence", async ({ page }) => {
+  await page.goto("/app/work-rules");
+  await expect(page.getByRole("heading", { name: "Work Rules" })).toBeVisible();
+  await expect(page.getByText("Need acknowledgement")).toBeVisible();
+  await expect(page.getByText("Action needed")).toBeVisible();
+
+  await page.getByRole("button", { name: "Acknowledge" }).click();
+  await expect(page.getByText("acknowledged", { exact: true })).toBeVisible();
+  await expect(page.getByText("Action needed")).not.toBeVisible();
+
+  await page.getByLabel("Demo role").selectOption("hr_admin");
+  await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/hr/work-rules");
+  await expect(page.getByRole("heading", { name: "Work Rules" })).toBeVisible();
+  await expect(page.getByText("3/5 acknowledgement")).toBeVisible();
+  await expect(page.getByText("張小安")).toBeVisible();
+
+  await page.goto("/settings/audit");
+  await expect(page.getByText("employee_work_rule_acknowledgement")).toBeVisible();
+  await expect(page.getByText("rawWorkRuleContentIncluded")).toBeVisible();
+  await expect(page.getByText("Employee handbook and work rules 2026.01")).not.toBeVisible();
+});

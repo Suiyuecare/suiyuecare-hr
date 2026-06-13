@@ -96,6 +96,8 @@ async function buildSnapshot(
     telemetryCount,
     terminationLifecycleEventCount,
     offboardingReadyTaskCount,
+    activeWorkRuleCount,
+    workRuleAcknowledgementCount,
     activeEmployees,
     currentSalaryProfiles,
     currentPayrollComplianceProfiles,
@@ -104,6 +106,7 @@ async function buildSnapshot(
     leavePolicySettings,
     externalIdentities,
     auditEntityTypes,
+    workRuleAcknowledgements,
     activeApprovedSupportGrantCount,
     activeUnapprovedSupportGrantCount,
     expiredStillApprovedSupportGrantCount,
@@ -182,6 +185,16 @@ async function buildSnapshot(
         status: { in: ["completed", "waived"] },
       },
     }),
+    prisma.companyWorkRule.count({
+      where: {
+        tenantId,
+        companyId,
+        status: "active",
+        reviewStatus: "approved",
+        acknowledgementRequired: true,
+      },
+    }),
+    prisma.employeeWorkRuleAcknowledgement.count({ where: { tenantId, companyId } }),
     prisma.employee.findMany({
       where: { tenantId, companyId, employmentStatus: "active" },
       select: { id: true },
@@ -224,6 +237,18 @@ async function buildSnapshot(
     prisma.auditLog.findMany({
       where: { tenantId, companyId },
       select: { entityType: true },
+    }),
+    prisma.employeeWorkRuleAcknowledgement.findMany({
+      where: {
+        tenantId,
+        companyId,
+        workRule: {
+          status: "active",
+          reviewStatus: "approved",
+          acknowledgementRequired: true,
+        },
+      },
+      select: { employeeId: true },
     }),
     prisma.supportAccessGrant.count({
       where: {
@@ -309,6 +334,8 @@ async function buildSnapshot(
       telemetryEvents: telemetryCount,
       terminationLifecycleEvents: terminationLifecycleEventCount,
       offboardingReadyTasks: offboardingReadyTaskCount,
+      activeWorkRules: activeWorkRuleCount,
+      workRuleAcknowledgements: workRuleAcknowledgementCount,
     },
     calendarReview: calendarReview
       ? {
@@ -472,6 +499,10 @@ async function buildSnapshot(
       activeUnapprovedCount: activeUnapprovedSupportGrantCount,
       expiredStillApprovedCount: expiredStillApprovedSupportGrantCount,
     },
+    workRuleAcknowledgementCoverage: {
+      activeEmployeeIds: activeEmployees.map((employee) => employee.id),
+      acknowledgedEmployeeIds: uniqueIds(workRuleAcknowledgements.map((acknowledgement) => acknowledgement.employeeId)),
+    },
   };
 }
 
@@ -505,6 +536,8 @@ function emptySnapshot(
       telemetryEvents: 0,
       terminationLifecycleEvents: 0,
       offboardingReadyTasks: 0,
+      activeWorkRules: 0,
+      workRuleAcknowledgements: 0,
     },
     calendarReview: null,
     profileCoverage: {
@@ -564,6 +597,10 @@ function emptySnapshot(
       activeApprovedCount: 0,
       activeUnapprovedCount: 0,
       expiredStillApprovedCount: 0,
+    },
+    workRuleAcknowledgementCoverage: {
+      activeEmployeeIds: [],
+      acknowledgedEmployeeIds: [],
     },
   };
 }

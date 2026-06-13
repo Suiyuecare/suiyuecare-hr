@@ -44,6 +44,8 @@ export type DatabaseVerificationSnapshot = {
     telemetryEvents: number;
     terminationLifecycleEvents: number;
     offboardingReadyTasks: number;
+    activeWorkRules: number;
+    workRuleAcknowledgements: number;
   };
   calendarReview: {
     calendarYear: number;
@@ -171,6 +173,10 @@ export type DatabaseVerificationSnapshot = {
     activeApprovedCount: number;
     activeUnapprovedCount: number;
     expiredStillApprovedCount: number;
+  };
+  workRuleAcknowledgementCoverage: {
+    activeEmployeeIds: string[];
+    acknowledgedEmployeeIds: string[];
   };
 };
 
@@ -320,6 +326,15 @@ export function buildDatabaseVerificationChecks(
     "approved policy sources",
     snapshot.counts.approvedPolicyDocuments >= 1,
     `${snapshot.counts.approvedPolicyDocuments}/${snapshot.counts.policyDocuments} approved source(s)`,
+  ));
+  const workRuleCoverage = profileCoverage(
+    snapshot.workRuleAcknowledgementCoverage.activeEmployeeIds,
+    snapshot.workRuleAcknowledgementCoverage.acknowledgedEmployeeIds,
+  );
+  checks.push(check(
+    "work rules acknowledgement coverage",
+    snapshot.counts.activeWorkRules >= 1 && workRuleCoverage.missingCount === 0,
+    `${snapshot.counts.activeWorkRules} active required work rule(s); ${workRuleCoverage.configuredCount}/${workRuleCoverage.totalCount} active employee(s) acknowledged`,
   ));
   checks.push(check("audit baseline", snapshot.counts.auditLogs >= 1, `${snapshot.counts.auditLogs} audit event(s)`));
   checks.push(check("product telemetry baseline", snapshot.counts.telemetryEvents >= 1, `${snapshot.counts.telemetryEvents} telemetry event(s)`));

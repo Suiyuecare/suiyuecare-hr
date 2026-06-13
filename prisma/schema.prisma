@@ -114,6 +114,8 @@ model Company {
   privacySetting CompanyPrivacySetting?
   employeePrivacyConsents EmployeePrivacyConsent[]
   dataSubjectRequests DataSubjectRequest[]
+  workRules CompanyWorkRule[]
+  workRuleAcknowledgements EmployeeWorkRuleAcknowledgement[]
   trainingSetting CompanyTrainingSetting?
   trainingCourses TrainingCourse[]
   trainingAssignments EmployeeTrainingAssignment[]
@@ -346,6 +348,7 @@ model Employee {
   documents        EmployeeDocument[]
   privacyConsents  EmployeePrivacyConsent[]
   dataSubjectRequests DataSubjectRequest[]
+  workRuleAcknowledgements EmployeeWorkRuleAcknowledgement[]
   trainingAssignments EmployeeTrainingAssignment[]
   workplaceIncidents WorkplaceIncident[]
   createdAt        DateTime         @default(now())
@@ -600,6 +603,53 @@ model EmployeeTrainingAssignment {
   @@index([tenantId, companyId, status])
   @@index([tenantId, companyId, employeeId])
   @@index([tenantId, companyId, dueAt])
+}
+
+model CompanyWorkRule {
+  id                         String   @id @default(cuid())
+  tenantId                   String
+  companyId                  String
+  company                    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  title                      String
+  category                   String
+  summary                    String
+  version                    String
+  status                     String   @default("draft")
+  reviewStatus               String   @default("pending_review")
+  sourceRef                  String?
+  contentHash                String
+  acknowledgementRequired    Boolean  @default(true)
+  effectiveFrom              DateTime
+  publishedAt                DateTime?
+  createdByUserId            String?
+  updatedByUserId            String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  acknowledgements           EmployeeWorkRuleAcknowledgement[]
+
+  @@index([tenantId, companyId, status])
+  @@index([tenantId, companyId, reviewStatus])
+  @@index([tenantId, companyId, acknowledgementRequired])
+}
+
+model EmployeeWorkRuleAcknowledgement {
+  id                 String          @id @default(cuid())
+  tenantId           String
+  companyId          String
+  company            Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId         String
+  employee           Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  workRuleId         String
+  workRule           CompanyWorkRule @relation(fields: [workRuleId], references: [id], onDelete: Cascade)
+  version            String
+  acknowledgementHash String
+  source             String          @default("employee_self_service")
+  acknowledgedAt     DateTime        @default(now())
+  createdAt          DateTime        @default(now())
+
+  @@unique([employeeId, workRuleId])
+  @@index([tenantId, companyId, employeeId])
+  @@index([tenantId, companyId, workRuleId])
 }
 
 model CompanyIncidentSetting {
