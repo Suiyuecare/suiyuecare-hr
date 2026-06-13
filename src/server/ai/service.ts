@@ -60,33 +60,33 @@ export async function draftFormFromPrompt(
   const sanitizedPrompt = stripUnnecessaryPii(prompt);
   assertSafeAiUse({ category: "form_generator", prompt: sanitizedPrompt });
   const title = inferFormTitle(sanitizedPrompt);
+  const hrCondition = inferHrReviewCondition(sanitizedPrompt);
+  const fields = inferFormFields(sanitizedPrompt);
   const draft: AiFormDraft = {
     label: "AI draft",
     title,
     description: `Drafted from HR request: ${shorten(sanitizedPrompt, 96)}`,
     category: inferCategory(sanitizedPrompt),
-    fields: [
-      { id: "primary", label: inferPrimaryField(sanitizedPrompt), type: "text", required: true },
-      { id: "needed_by", label: "Needed by", type: "date", required: false },
-      { id: "notes", label: "Notes", type: "textarea", required: false },
-    ],
+    fields,
     workflowSteps: [
       {
         id: "draft-step-manager",
         order: 1,
         label: "Manager review",
         approverType: "direct_manager",
-        conditionPlaceholder: "Conditional step placeholder",
+        conditionPlaceholder: null,
+        condition: null,
       },
       {
         id: "draft-step-hr",
         order: 2,
-        label: "HR review",
+        label: hrCondition ? "HR review when condition matches" : "HR review",
         approverType: "hr_admin",
-        conditionPlaceholder: "Conditional step placeholder",
+        conditionPlaceholder: null,
+        condition: hrCondition,
       },
     ],
-    safetyNote: "AI drafted this form. HR must review and confirm before saving.",
+    safetyNote: "AI drafted this form and workflow proposal. HR must review and confirm before saving.",
     outputHash: "",
   };
   const outputHash = await auditAiUsage({
@@ -145,7 +145,7 @@ export async function summarizeApprovalRequest(
     summary: `${request.employeeName} submitted ${request.title}. ${shorten(request.detail, 120)}`,
     verify: [
       request.riskSummary,
-      "Check dates, balance, attached metadata placeholders, and current approval step.",
+      "Check dates, balances, attachment evidence metadata, and the current approval step.",
       "Make the final approve or reject decision yourself.",
     ],
     outputHash: "",
@@ -175,6 +175,45 @@ function inferPrimaryField(prompt: string) {
   if (/training|course|learning|訓練|課程/.test(prompt.toLowerCase())) return "Training course";
   if (/equipment|laptop|badge|設備|識別證/.test(prompt.toLowerCase())) return "Requested item";
   return "Request detail";
+}
+
+function inferFormFields(prompt: string): AiFormDraft["fields"] {
+  const lower = prompt.toLowerCase();
+  const primaryType = /type|category|種類|類型/.test(lower) ? "select" : "text";
+  const primaryOptions = primaryType === "select" ? ["Standard", "Other"] : undefined;
+  const notesVisibility = primaryType === "select"
+    ? { type: "field_equals" as const, fieldId: "primary", expectedValue: "Other" }
+    : null;
+
+  return [
+    {
+      id: "primary",
+      label: inferPrimaryField(prompt),
+      type: primaryType,
+      required: true,
+      options: primaryOptions,
+    },
+    { id: "needed_by", label: "Needed by", type: "date", required: false },
+    {
+      id: "notes",
+      label: "Notes",
+      type: "textarea",
+      required: false,
+      visibilityRule: notesVisibility,
+    },
+  ];
+}
+
+function inferHrReviewCondition(prompt: string) {
+  const lower = prompt.toLowerCase();
+  if (/external|certification|vendor|outside|外部|證照|廠商/.test(lower)) {
+    return {
+      type: "field_equals" as const,
+      fieldId: "primary",
+      expectedValue: "External certification",
+    };
+  }
+  return null;
 }
 
 function findDefaultPayrollItem(items: PayrollItemView[] | undefined) {

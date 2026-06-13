@@ -108,8 +108,31 @@ function ResultCard({
                 <small>
                   {field.type} · {field.required ? "required" : "optional"}
                 </small>
+                {field.visibilityRule ? (
+                  <small>
+                    Shows when {field.visibilityRule.fieldId} equals {field.visibilityRule.expectedValue}
+                  </small>
+                ) : null}
               </span>
               <span className="badge">{field.id}</span>
+            </li>
+          ))}
+        </ul>
+        <ul className="task-list">
+          {result.workflowSteps.map((step) => (
+            <li className="task" key={step.id}>
+              <span>
+                <strong>{step.label}</strong>
+                <small>{step.approverType.replaceAll("_", " ")}</small>
+                {step.condition ? (
+                  <small>
+                    Runs when {step.condition.fieldId} equals {step.condition.expectedValue}
+                  </small>
+                ) : (
+                  <small>Always included</small>
+                )}
+              </span>
+              <span className="badge">Step {step.order}</span>
             </li>
           ))}
         </ul>
@@ -157,8 +180,19 @@ function FormDraftConfirmation({ draft }: { draft: AiFormDraft }) {
         <input type="hidden" name="category" value={draft.category} />
         <input type="hidden" name="fieldLabel" value={draft.fields[0]?.label ?? "Request detail"} />
         <input type="hidden" name="fieldType" value={draft.fields[0]?.type ?? "text"} />
+        <input type="hidden" name="options" value={(draft.fields[0]?.options ?? []).join(", ")} />
         <input type="hidden" name="required" value="on" />
         <input type="hidden" name="includeHr" value="on" />
+        <input
+          type="hidden"
+          name="notesVisibleWhenPrimaryEquals"
+          value={draft.fields.find((field) => field.id === "notes")?.visibilityRule?.expectedValue ?? ""}
+        />
+        <input
+          type="hidden"
+          name="hrConditionValue"
+          value={draft.workflowSteps.find((step) => step.approverType === "hr_admin")?.condition?.expectedValue ?? ""}
+        />
         <button className="button primary" type="submit">
           HR confirm and save
         </button>

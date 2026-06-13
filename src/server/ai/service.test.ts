@@ -11,6 +11,7 @@ import {
   answerPolicyQuestion,
   draftFormFromPrompt,
   explainPayrollException,
+  summarizeApprovalRequest,
 } from "./service";
 import type { AiSessionLike } from "./types";
 
@@ -77,6 +78,42 @@ describe("AI Copilot safety", () => {
     await expect(
       draftFormFromPrompt(hrSession, "Decide which employee should be fired after performance review."),
     ).rejects.toThrow(/human-only workflow/);
+  });
+
+  it("drafts confirmable form workflow conditions without placeholders", async () => {
+    const draft = await draftFormFromPrompt(
+      hrSession,
+      "Create an external certification training request form with conditional HR review.",
+    );
+
+    expect(JSON.stringify(draft)).not.toContain("placeholder");
+    expect(draft.workflowSteps.find((step) => step.approverType === "hr_admin")).toMatchObject({
+      condition: {
+        type: "field_equals",
+        fieldId: "primary",
+        expectedValue: "External certification",
+      },
+    });
+    expect(draft.workflowSteps[0].condition).toBeNull();
+  });
+
+  it("summarizes approvals using attachment evidence metadata language", async () => {
+    const summary = await summarizeApprovalRequest(hrSession, {
+      id: "request-1",
+      type: "leave",
+      employeeId: "employee-1",
+      employeeName: "張小安",
+      managerId: "manager-1",
+      status: "pending",
+      title: "Annual leave",
+      detail: "2026-06-14 09:00 - 2026-06-14 18:00",
+      riskSummary: "1 attachment reference · pending scan",
+      createdAt: new Date(),
+      timeline: [],
+    });
+
+    expect(summary.verify.join(" ")).toContain("attachment evidence metadata");
+    expect(summary.verify.join(" ")).not.toContain("placeholder");
   });
 
   it("prevents employee role from explaining payroll exceptions", async () => {
