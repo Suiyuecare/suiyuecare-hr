@@ -12,7 +12,7 @@ export default async function PayrollExportsPage({ searchParams }: { searchParam
     <main className="page">
       <section className="page-header">
         <h1>Payroll Exports</h1>
-        <p>Generate audited export packages for bank transfer readiness and accounting close.</p>
+        <p>Generate audited export packages for bank transfer readiness, accounting close, and Taiwan statutory filing review.</p>
       </section>
 
       {error ? (
@@ -101,6 +101,12 @@ export default async function PayrollExportsPage({ searchParams }: { searchParam
                   Generate accounting package
                 </button>
               </form>
+              <form action="/api/payroll/exports" method="post">
+                <input type="hidden" name="exportType" value="statutory_filing" />
+                <button className="button" type="submit" disabled={!workspace.canGenerate}>
+                  Generate statutory filing draft
+                </button>
+              </form>
             </div>
           </section>
 
@@ -150,8 +156,10 @@ export default async function PayrollExportsPage({ searchParams }: { searchParam
   );
 }
 
-function exportTypeLabel(type: "bank_transfer" | "accounting_journal") {
-  return type === "accounting_journal" ? "Accounting journal" : "Bank transfer";
+function exportTypeLabel(type: "bank_transfer" | "accounting_journal" | "statutory_filing") {
+  if (type === "accounting_journal") return "Accounting journal";
+  if (type === "statutory_filing") return "Statutory filing";
+  return "Bank transfer";
 }
 
 function formatPeriod(date: Date) {

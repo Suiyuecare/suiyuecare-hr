@@ -11,7 +11,7 @@ import { getPayrollPaymentSecurityReadiness, type PayrollPaymentSecuritySettings
 import { getPayrollDashboard } from "./service";
 import type { PayrollItemView, PayrollRunView } from "./types";
 
-export type PayrollExportType = "bank_transfer" | "accounting_journal";
+export type PayrollExportType = "bank_transfer" | "accounting_journal" | "statutory_filing";
 
 export type PayrollExportView = {
   id: string;
@@ -318,6 +318,26 @@ function buildPayrollExportDraft(
     });
   }
 
+  if (exportType === "statutory_filing") {
+    const records = buildStatutoryFilingRecords(run);
+    return buildDraft({
+      run,
+      exportType,
+      format: "tw-statutory-filing-review-v1",
+      fileName: `hr-one-tw-statutory-filing-${formatPeriod(run.periodStart)}.csv`,
+      records,
+      previewRows: records.map((record) => ({
+        label: record.report,
+        description: `${record.authority} · ${record.itemCount} payroll item(s) · ${record.sourceCodes}`,
+        amountLabel: "Amount stored only in secure payroll calculation",
+      })),
+      warnings: [
+        "Review with HR/accounting before government filing; HR One prepares an audited draft but does not submit to authorities.",
+        "Employee-level salary and national ID values are excluded from this package.",
+      ],
+    });
+  }
+
   const records = buildAccountingRecords(run, accountingSettings);
   return buildDraft({
     run,
@@ -465,6 +485,54 @@ function buildAccountingRecords(run: PayrollRunView, settings: PayrollAccounting
   ].filter((record) => record.amount > 0);
 }
 
+function buildStatutoryFilingRecords(run: PayrollRunView) {
+  const definitions = [
+    {
+      report: "Labor insurance premium review",
+      authority: "Bureau of Labor Insurance",
+      codes: ["tw_labor_insurance_employee", "tw_labor_insurance_employer"],
+    },
+    {
+      report: "National Health Insurance premium review",
+      authority: "National Health Insurance Administration",
+      codes: ["tw_nhi_employee", "tw_nhi_employer"],
+    },
+    {
+      report: "Occupational accident insurance review",
+      authority: "Bureau of Labor Insurance",
+      codes: ["tw_occupational_accident_insurance_employer"],
+    },
+    {
+      report: "Labor pension contribution review",
+      authority: "Bureau of Labor Insurance",
+      codes: ["tw_labor_pension_employer"],
+    },
+    {
+      report: "Income tax withholding review",
+      authority: "Ministry of Finance",
+      codes: ["tw_income_tax_withholding"],
+    },
+    {
+      report: "NHI supplementary premium review",
+      authority: "National Health Insurance Administration",
+      codes: ["tw_nhi_supplementary_employee"],
+    },
+  ];
+  return definitions.flatMap((definition) => {
+    const items = run.items.filter((item) => definition.codes.includes(item.code));
+    if (items.length === 0) return [];
+    return {
+      report: definition.report,
+      authority: definition.authority,
+      amount: sumItemsByCode(items, definition.codes),
+      itemCount: items.length,
+      employeeCount: new Set(items.map((item) => item.employeeId)).size,
+      sourceCodes: definition.codes.join(","),
+      ruleVersions: [...new Set(items.map((item) => item.ruleVersionId).filter(Boolean))].join(",") || "n/a",
+    };
+  });
+}
+
 function groupItemsByEmployee(items: PayrollItemView[]) {
   const groups = new Map<string, PayrollItemView[]>();
   for (const item of items) {
@@ -492,6 +560,12 @@ function readRecordAmount(record: Record<string, unknown>) {
       : 0;
 }
 
+function sumItemsByCode(items: PayrollItemView[], codes: string[]) {
+  return items
+    .filter((item) => codes.includes(item.code))
+    .reduce((total, item) => total + item.amount, 0);
+}
+
 function readPreview(value: Prisma.JsonValue) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return { previewRows: [], warnings: [] };
@@ -514,7 +588,8 @@ function readPreview(value: Prisma.JsonValue) {
 }
 
 function normalizeExportType(value: string): PayrollExportType {
-  return value === "accounting_journal" ? "accounting_journal" : "bank_transfer";
+  if (value === "accounting_journal" || value === "statutory_filing") return value;
+  return "bank_transfer";
 }
 
 function formatPeriod(date: Date) {

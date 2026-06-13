@@ -19,5 +19,6 @@ export async function POST(request: Request) {
 }
 
 function readExportType(value: FormDataEntryValue | null): PayrollExportType {
+  if (value === "statutory_filing") return "statutory_filing";
   return value === "accounting_journal" ? "accounting_journal" : "bank_transfer";
 }

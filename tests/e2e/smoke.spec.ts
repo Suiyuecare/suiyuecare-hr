@@ -541,6 +541,10 @@ test("HR generates audited payroll export packages after lock", async ({ page })
   await page.getByRole("button", { name: "Generate accounting package" }).click();
   await expect(page.getByText("Accounting journal · hr-one-accounting-journal").first()).toBeVisible();
   await expect(page.getByText("6001 · Payroll cost custom").first()).toBeVisible();
+  await page.getByRole("button", { name: "Generate statutory filing draft" }).click();
+  await expect(page.getByText("Statutory filing · hr-one-tw-statutory-filing").first()).toBeVisible();
+  await expect(page.getByText("Labor insurance premium review").first()).toBeVisible();
+  await expect(page.getByText("Income tax withholding review").first()).toBeVisible();
 
   await page.goto("/settings/audit");
   await expect(page.getByRole("listitem").filter({ hasText: "update · payroll_accounting_settings" }).first()).toBeVisible();

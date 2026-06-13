@@ -52,7 +52,7 @@ describe("payroll exports", () => {
     resetAuditDemoState();
   });
 
-  it("generates audited bank and accounting packages only after payroll lock", async () => {
+  it("generates audited bank, accounting, and statutory filing packages only after payroll lock", async () => {
     await createPayrollRun(hrSession);
 
     await expect(generatePayrollExport(hrSession, "bank_transfer")).rejects.toThrow(/locked or released/);
@@ -68,6 +68,7 @@ describe("payroll exports", () => {
 
     const bank = await generatePayrollExport(hrSession, "bank_transfer");
     const accounting = await generatePayrollExport(hrSession, "accounting_journal");
+    const statutory = await generatePayrollExport(hrSession, "statutory_filing");
     const workspace = await getPayrollExportWorkspace(hrSession);
 
     expect(bank).toMatchObject({
@@ -82,7 +83,15 @@ describe("payroll exports", () => {
     expect(accounting.previewRows[0]).toMatchObject({
       label: "6001 · Payroll cost custom",
     });
-    expect(workspace.exports).toHaveLength(2);
+    expect(statutory).toMatchObject({
+      exportType: "statutory_filing",
+      format: "tw-statutory-filing-review-v1",
+      recordCount: 5,
+    });
+    expect(statutory.previewRows.map((row) => row.label)).toContain("Labor insurance premium review");
+    expect(statutory.previewRows.map((row) => row.label)).toContain("Income tax withholding review");
+    expect(statutory.warnings.join(" ")).toContain("does not submit to authorities");
+    expect(workspace.exports).toHaveLength(3);
     expect(getAuditDemoState().logs[0]).toMatchObject({
       action: "create",
       entityType: "payroll_export",
@@ -140,5 +149,6 @@ describe("payroll exports", () => {
   it("blocks managers from payroll export access", async () => {
     await expect(getPayrollExportWorkspace(managerSession)).rejects.toThrow(/payroll:manage/);
     await expect(generatePayrollExport(managerSession, "bank_transfer")).rejects.toThrow(/payroll:manage/);
+    await expect(generatePayrollExport(managerSession, "statutory_filing")).rejects.toThrow(/payroll:manage/);
   });
 });
