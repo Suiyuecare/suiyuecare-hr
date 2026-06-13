@@ -35,6 +35,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "dashboard:manager",
     "dashboard:employee",
     "employee:read",
+    "employee:write",
     "attendance:read:self",
     "form:manage",
     "settings:read",

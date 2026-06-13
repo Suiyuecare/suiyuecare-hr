@@ -2,6 +2,7 @@ import { writeAuditLog } from "@/server/audit/audit";
 import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
+import { getWorktimeAgreementReadiness } from "./worktime-agreements";
 import {
   defaultTaiwanLaborStandardsConfig,
   validateRestDayCycle,
@@ -32,6 +33,8 @@ export type WorktimeComplianceWorkspace = {
   periodEnd: Date;
   risks: WorktimeComplianceRisk[];
   auditCount: number;
+  agreementReady: boolean;
+  agreementDetail: string;
 };
 
 type DemoState = {
@@ -50,8 +53,8 @@ export async function getWorktimeComplianceWorkspace(
   const period = normalizePeriod(input?.periodStart, input?.periodEnd);
   if (canUseDatabase(session)) {
     try {
-      const [risks, auditCount] = await Promise.all([
-        scanDbWorktimeRisks(session, period.periodStart, period.periodEnd),
+      const [agreement, auditCount] = await Promise.all([
+        getWorktimeAgreementReadiness(session),
         getDb().auditLog.count({
           where: {
             tenantId: session.tenantId!,
@@ -60,12 +63,20 @@ export async function getWorktimeComplianceWorkspace(
           },
         }),
       ]);
-      return { ...period, risks, auditCount };
+      const risks = await scanDbWorktimeRisks(session, period.periodStart, period.periodEnd, agreement.ready);
+      return {
+        ...period,
+        risks,
+        auditCount,
+        agreementReady: agreement.ready,
+        agreementDetail: agreement.detail,
+      };
     } catch {
       return getDemoWorkspace(period.periodStart, period.periodEnd);
     }
   }
-  return getDemoWorkspace(period.periodStart, period.periodEnd);
+  const agreement = await getWorktimeAgreementReadiness(session);
+  return getDemoWorkspace(period.periodStart, period.periodEnd, agreement.ready, agreement.detail);
 }
 
 export async function createWorktimeComplianceExceptions(
@@ -88,7 +99,12 @@ export function resetWorktimeComplianceDemoState() {
   globalForWorktimeCompliance.hrOneWorktimeComplianceDemoState = { auditCount: 0 };
 }
 
-async function scanDbWorktimeRisks(session: SessionLike, periodStart: Date, periodEnd: Date) {
+async function scanDbWorktimeRisks(
+  session: SessionLike,
+  periodStart: Date,
+  periodEnd: Date,
+  agreementReady: boolean,
+) {
   const [employees, laborConfig] = await Promise.all([
     getDb().employee.findMany({
       where: {
@@ -148,7 +164,7 @@ async function scanDbWorktimeRisks(session: SessionLike, periodStart: Date, peri
       weeklyRegularMinutes: 0,
       monthlyOvertimeMinutes: approvedOvertimeMinutes,
       threeMonthOvertimeMinutes: approvedOvertimeMinutes,
-      laborManagementAgreement: false,
+      laborManagementAgreement: agreementReady,
       config: laborConfig,
     });
     const monthlyRisks = monthly.issues.map((issue) => ({
@@ -168,7 +184,8 @@ async function createDbWorktimeComplianceExceptions(
   periodStart: Date,
   periodEnd: Date,
 ) {
-  const risks = await scanDbWorktimeRisks(session, periodStart, periodEnd);
+  const agreement = await getWorktimeAgreementReadiness(session);
+  const risks = await scanDbWorktimeRisks(session, periodStart, periodEnd, agreement.ready);
   await getDb().$transaction(async (tx) => {
     for (const risk of risks) {
       await tx.attendanceException.create({
@@ -205,12 +222,19 @@ async function createDbWorktimeComplianceExceptions(
   return risks;
 }
 
-function getDemoWorkspace(periodStart: Date, periodEnd: Date): WorktimeComplianceWorkspace {
+function getDemoWorkspace(
+  periodStart: Date,
+  periodEnd: Date,
+  agreementReady = false,
+  agreementDetail = "Demo agreement evidence is not configured.",
+): WorktimeComplianceWorkspace {
   return {
     periodStart,
     periodEnd,
-    risks: demoRisks(defaultTaiwanLaborStandardsConfig),
+    risks: demoRisks(defaultTaiwanLaborStandardsConfig, agreementReady),
     auditCount: getDemoState().auditCount,
+    agreementReady,
+    agreementDetail,
   };
 }
 
@@ -245,7 +269,7 @@ function createDemoWorktimeComplianceExceptions(
   return risks;
 }
 
-function demoRisks(config: TaiwanLaborStandardsConfig): WorktimeComplianceRisk[] {
+function demoRisks(config: TaiwanLaborStandardsConfig, agreementReady = false): WorktimeComplianceRisk[] {
   const daily = validateWorkingTime({
     regularMinutes: 8 * 60,
     overtimeMinutes: 5 * 60,
@@ -257,6 +281,7 @@ function demoRisks(config: TaiwanLaborStandardsConfig): WorktimeComplianceRisk[]
     overtimeMinutes: 0,
     weeklyRegularMinutes: 40 * 60,
     monthlyOvertimeMinutes: 47 * 60,
+    laborManagementAgreement: agreementReady,
     config,
   });
   const rest = validateRestDayCycle({

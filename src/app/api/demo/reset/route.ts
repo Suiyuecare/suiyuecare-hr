@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { resetAuditDemoState } from "@/server/audit/demo-store";
 import { resetAiDemoState } from "@/server/ai/demo-store";
 import { resetAttendancePolicyDemoState } from "@/server/attendance/policies";
+import { resetWorktimeAgreementDemoState } from "@/server/attendance/worktime-agreements";
 import { resetWorktimeComplianceDemoState } from "@/server/attendance/worktime-compliance";
 import { resetCompanyCalendarDemoState } from "@/server/calendar/company-calendar";
 import { resetEmployeeDocumentDemoState } from "@/server/employees/documents";
@@ -58,6 +59,7 @@ export async function POST() {
     resetSalaryProfileDemoState();
     resetAiDemoState();
     resetAttendancePolicyDemoState();
+    resetWorktimeAgreementDemoState();
     resetWorktimeComplianceDemoState();
     resetCompanyCalendarDemoState();
     resetEmployeeDocumentDemoState();

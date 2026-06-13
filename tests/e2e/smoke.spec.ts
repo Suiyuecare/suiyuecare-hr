@@ -633,11 +633,25 @@ test("HR configures attendance policy and overtime warnings use it", async ({ pa
 
   await page.getByLabel("Demo role").selectOption("hr_admin");
   await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/hr/worktime-agreements");
+  await expect(page.getByRole("heading", { name: "Worktime Agreements" })).toBeVisible();
+  await page.getByLabel("Approval type").selectOption("labor_management_conference");
+  await page.getByLabel("Verification status").selectOption("verified");
+  await page.getByLabel("Evidence reference").fill("meeting://2026-06");
+  await page.getByLabel("Effective from").fill("2026-01-01");
+  await page.getByLabel("Effective to").fill("2026-12-31");
+  await page.getByLabel("Monthly overtime limit hours").fill("54");
+  await page.getByLabel("Three-month overtime limit hours").fill("138");
+  await page.getByLabel("Approval evidence is on file").check();
+  await page.getByRole("button", { name: "Save worktime agreement" }).click();
+  await expect(page.getByText("Ready").first()).toBeVisible();
   await page.goto("/hr/worktime-compliance?periodStart=2026-06-01&periodEnd=2026-06-30");
   await expect(page.getByRole("heading", { name: "Worktime Compliance" })).toBeVisible();
+  await expect(page.getByText("Extended overtime rules enabled")).toBeVisible();
   await expect(page.getByText("Daily work including overtime exceeds configured 12 hours.")).toBeVisible();
   await page.getByRole("button", { name: "Create exceptions" }).click();
   await page.goto("/settings/audit");
+  await expect(page.getByText("update · worktime_agreement_settings")).toBeVisible();
   await expect(page.getByText("create · worktime_compliance_scan")).toBeVisible();
 });
 

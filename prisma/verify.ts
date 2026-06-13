@@ -7,6 +7,7 @@ import {
 } from "../src/server/readiness/database-verification";
 import { evaluateSalaryProfileMinimumWageCompliance } from "../src/server/payroll/minimum-wage";
 import { evaluateAttendanceRecordkeepingReadiness } from "../src/server/attendance/policies";
+import { evaluateWorktimeAgreementReadiness } from "../src/server/attendance/worktime-agreements";
 import { evaluatePayrollRecordkeepingReadiness } from "../src/server/payroll/recordkeeping";
 import { evaluatePayrollInsuranceGradeReadiness } from "../src/server/payroll/insurance-grade-readiness";
 import {
@@ -63,6 +64,7 @@ async function buildSnapshot(
     fileStorageSetting,
     notificationSetting,
     payrollPaymentSecuritySetting,
+    worktimeAgreementSetting,
     payrollRecordkeepingSetting,
     operationalResilienceSetting,
     calendarReview,
@@ -105,6 +107,7 @@ async function buildSnapshot(
     prisma.companyFileStorageSetting.findUnique({ where: { companyId } }),
     prisma.companyNotificationSetting.findUnique({ where: { companyId } }),
     prisma.companyPayrollPaymentSecuritySetting.findUnique({ where: { companyId } }),
+    prisma.companyWorktimeAgreementSetting.findUnique({ where: { companyId } }),
     prisma.companyPayrollRecordkeepingSetting.findUnique({ where: { companyId } }),
     prisma.companyOperationalResilienceSetting.findUnique({ where: { companyId } }),
     prisma.companyCalendarReview.findFirst({
@@ -335,6 +338,7 @@ async function buildSnapshot(
           }
         : null,
     ),
+    worktimeAgreement: evaluateWorktimeAgreementReadiness(worktimeAgreementSetting),
     insuranceGradeReadiness: {
       ready: insuranceGradeReadiness.ready,
       checkedCount: insuranceGradeReadiness.checkedCount,
@@ -462,6 +466,7 @@ function emptySnapshot(
       detail: "0 salary profile(s) checked; missing configured Taiwan minimum wage verification.",
     },
     attendanceRecordkeeping: evaluateAttendanceRecordkeepingReadiness(null),
+    worktimeAgreement: evaluateWorktimeAgreementReadiness(null),
     insuranceGradeReadiness: {
       ready: false,
       checkedCount: 0,

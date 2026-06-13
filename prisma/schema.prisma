@@ -118,6 +118,7 @@ model Company {
   calendarDays CompanyCalendarDay[]
   calendarReviews CompanyCalendarReview[]
   attendancePolicies AttendancePolicy[]
+  worktimeAgreementSetting CompanyWorktimeAgreementSetting?
   attendanceRecords AttendanceRecord[]
   clockEvents ClockEvent[]
   attendanceExceptions AttendanceException[]
@@ -536,6 +537,29 @@ model AttendancePolicy {
 
   @@index([tenantId, companyId, status])
   @@index([tenantId, companyId, effectiveFrom])
+}
+
+model CompanyWorktimeAgreementSetting {
+  id                             String   @id @default(cuid())
+  tenantId                       String
+  companyId                      String   @unique
+  company                        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  approvalType                   String   @default("labor_management_conference")
+  approvalOnFile                 Boolean  @default(false)
+  evidenceRef                    String?
+  effectiveFrom                  DateTime?
+  effectiveTo                    DateTime?
+  monthlyOvertimeLimitMinutes    Int      @default(2760)
+  threeMonthOvertimeLimitMinutes Int      @default(8280)
+  localAuthorityReportRequired   Boolean  @default(false)
+  localAuthorityReportFiled      Boolean  @default(false)
+  verificationStatus             String   @default("unverified")
+  verificationNote               String?
+  updatedByUserId                String?
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+
+  @@index([tenantId, companyId])
 }
 
 model AttendanceRecord {

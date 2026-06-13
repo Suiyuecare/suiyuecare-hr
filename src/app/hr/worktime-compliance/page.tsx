@@ -52,6 +52,21 @@ export default async function WorktimeCompliancePage({ searchParams }: { searchP
         <section className="panel span-12">
           <div className="section-heading">
             <div>
+              <h2>Agreement readiness</h2>
+              <p className="muted">{workspace.agreementDetail}</p>
+            </div>
+            <a className="button" href="/hr/worktime-agreements">
+              Review agreement
+            </a>
+          </div>
+          <span className={`badge ${workspace.agreementReady ? "" : "danger"}`}>
+            {workspace.agreementReady ? "Extended overtime rules enabled" : "Base overtime checks only"}
+          </span>
+        </section>
+
+        <section className="panel span-12">
+          <div className="section-heading">
+            <div>
               <h2>Monthly scan</h2>
               <p className="muted">Creates attendance exceptions only after HR review.</p>
             </div>

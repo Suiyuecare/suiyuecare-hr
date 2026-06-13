@@ -94,6 +94,9 @@ export default async function HrDashboardPage() {
               <a className="button" href="/hr/worktime-compliance">
                 Worktime compliance
               </a>
+              <a className="button" href="/hr/worktime-agreements">
+                Worktime agreements
+              </a>
               <a className="button" href="/hr/calendar">
                 Company calendar
               </a>

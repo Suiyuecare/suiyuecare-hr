@@ -42,6 +42,7 @@ async function main() {
   await prisma.annualLeaveSettlement.deleteMany();
   await prisma.payrollRun.deleteMany();
   await prisma.employeePaymentProfile.deleteMany();
+  await prisma.companyWorktimeAgreementSetting.deleteMany();
   await prisma.companyPayrollRecordkeepingSetting.deleteMany();
   await prisma.companyPayrollAccountingSetting.deleteMany();
   await prisma.payrollComplianceProfile.deleteMany();
@@ -527,6 +528,25 @@ async function main() {
       employeeExportEnabled: true,
       effectiveFrom: new Date("2026-01-01T00:00:00.000Z"),
       createdByUserId: hrUser.id,
+    },
+  });
+
+  await prisma.companyWorktimeAgreementSetting.create({
+    data: {
+      tenantId: tenant.id,
+      companyId: company.id,
+      approvalType: "labor_management_conference",
+      approvalOnFile: true,
+      evidenceRef: "demo://labor-management-conference/2026",
+      effectiveFrom: new Date("2026-01-01T00:00:00.000Z"),
+      effectiveTo: new Date("2026-12-31T00:00:00.000Z"),
+      monthlyOvertimeLimitMinutes: 54 * 60,
+      threeMonthOvertimeLimitMinutes: 138 * 60,
+      localAuthorityReportRequired: false,
+      localAuthorityReportFiled: false,
+      verificationStatus: "verified",
+      verificationNote: "Demo evidence only. Replace with the company's own approval record before production.",
+      updatedByUserId: hrUser.id,
     },
   });
 

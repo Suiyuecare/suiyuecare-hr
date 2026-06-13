@@ -72,6 +72,24 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     missing: [],
     detail: "1825 retention day(s); employee self-service enabled; export enabled.",
   },
+  worktimeAgreement: {
+    ready: true,
+    missing: [],
+    detail: "labor-management conference approval; approval evidence on file; verified; monthly 54h; 3-month 138h",
+    settings: {
+      approvalType: "labor_management_conference",
+      approvalOnFile: true,
+      evidenceRef: "meeting://2026-06",
+      effectiveFrom: new Date("2026-01-01T00:00:00.000Z"),
+      effectiveTo: new Date("2026-12-31T00:00:00.000Z"),
+      monthlyOvertimeLimitMinutes: 54 * 60,
+      threeMonthOvertimeLimitMinutes: 138 * 60,
+      localAuthorityReportRequired: false,
+      localAuthorityReportFiled: false,
+      verificationStatus: "verified",
+      verificationNote: null,
+    },
+  },
   insuranceGradeReadiness: {
     ready: true,
     checkedCount: 5,
@@ -413,6 +431,26 @@ describe("database verification checks", () => {
     expect(checks.find((item) => item.name === "attendance recordkeeping")).toMatchObject({
       passed: false,
       detail: "365 retention day(s); employee self-service disabled; export disabled.",
+    });
+  });
+
+  it("blocks launch when worktime agreement evidence is missing", () => {
+    const checks = buildDatabaseVerificationChecks(
+      {
+        ...readySnapshot,
+        worktimeAgreement: {
+          ...readySnapshot.worktimeAgreement,
+          ready: false,
+          missing: ["labor union or labor-management conference approval evidence", "HR verification"],
+          detail: "labor-management conference approval; approval evidence missing; unverified; monthly 46h; 3-month 138h",
+        },
+      },
+      "production",
+    );
+
+    expect(checks.find((item) => item.name === "worktime agreement evidence")).toMatchObject({
+      passed: false,
+      detail: "labor-management conference approval; approval evidence missing; unverified; monthly 46h; 3-month 138h",
     });
   });
 

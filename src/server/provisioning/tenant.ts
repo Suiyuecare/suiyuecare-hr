@@ -300,6 +300,24 @@ async function createFoundationSettings(
         updatedByUserId: ownerUserId,
       },
     }),
+    tx.companyWorktimeAgreementSetting.create({
+      data: {
+        tenantId,
+        companyId,
+        approvalType: "labor_management_conference",
+        approvalOnFile: false,
+        evidenceRef: null,
+        effectiveFrom: null,
+        effectiveTo: null,
+        monthlyOvertimeLimitMinutes: 46 * 60,
+        threeMonthOvertimeLimitMinutes: 138 * 60,
+        localAuthorityReportRequired: false,
+        localAuthorityReportFiled: false,
+        verificationStatus: "unverified",
+        verificationNote: "Upload approval evidence and verify the effective period before extended overtime is used.",
+        updatedByUserId: ownerUserId,
+      },
+    }),
     tx.attendancePolicy.create({
       data: {
         tenantId,

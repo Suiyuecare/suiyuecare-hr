@@ -10,6 +10,10 @@ describe("RBAC", () => {
     expect(hasPermission("hr_admin", "employee:write")).toBe(true);
   });
 
+  it("allows owners to configure employee and compliance operations", () => {
+    expect(hasPermission("owner", "employee:write")).toBe(true);
+  });
+
   it("normalizes unknown demo roles to employee", () => {
     expect(normalizeRole("not-a-role")).toBe("employee");
   });

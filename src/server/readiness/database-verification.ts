@@ -3,6 +3,7 @@ import {
   type StatutoryLeaveCategory,
 } from "@/server/leave/statutory";
 import type { AttendanceRecordkeepingReadinessReport } from "@/server/attendance/policies";
+import type { WorktimeAgreementReadinessReport } from "@/server/attendance/worktime-agreements";
 import type { MinimumWageComplianceReport } from "@/server/payroll/minimum-wage";
 import type { PayrollRecordkeepingReadinessReport } from "@/server/payroll/recordkeeping";
 import type { PayrollInsuranceGradeReadinessReport } from "@/server/payroll/insurance-grade-readiness";
@@ -69,6 +70,7 @@ export type DatabaseVerificationSnapshot = {
     "ready" | "checkedCount" | "monthlyViolationCount" | "hourlyViolationCount" | "detail"
   >;
   attendanceRecordkeeping: AttendanceRecordkeepingReadinessReport;
+  worktimeAgreement: WorktimeAgreementReadinessReport;
   insuranceGradeReadiness: Pick<
     PayrollInsuranceGradeReadinessReport,
     "ready" | "checkedCount" | "issueCount" | "detail"
@@ -400,6 +402,7 @@ function buildProductionChecks(snapshot: DatabaseVerificationSnapshot): Database
         ? `requires recalculation: ${snapshot.laborRuleChangeControl.requiresPayrollRecalculation}`
         : "missing change control",
     ),
+    check("worktime agreement evidence", snapshot.worktimeAgreement.ready, snapshot.worktimeAgreement.detail),
     check(
       "payroll payment security",
       payrollPaymentSecurityReady,
