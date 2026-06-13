@@ -367,7 +367,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `src/server/leave/annual-leave-expiry.ts`: annual leave expiry risk scanner and audited reminder service with DB/demo fallback.
 - `src/server/leave/annual-leave-settlements.ts`: HR-reviewed unused annual leave settlement drafts for payroll close with audit logs and DB/demo fallback.
 - `src/server/scheduling/shift-templates.ts`: shift template and daily schedule generation service with RBAC, audit logs, and DB/demo fallback.
-- `src/server/rules/interfaces.ts`: rule-engine placeholder.
+- `src/server/rules/interfaces.ts`: typed rule registry engine for versioned Taiwan labor checks and payroll/leave calculations.
 - `src/server/rules/taiwan-labor-standards.ts`: Taiwan labor standards v1 calculation helpers, work-time/rest-day/holiday validations, and official source references.
 - `src/server/rules/settings.ts`: Taiwan labor rule setting read/update service with DB-backed `rule_versions` and demo fallback.
 - `src/server/rules/validation.ts`: deterministic Taiwan labor rule fixture validation and legal-source freshness checks used by settings, provisioning, seed data, launch readiness, and production database verification.
