@@ -15,8 +15,8 @@ describe("Taiwan labor rule validation", () => {
     expect(summary).toMatchObject({
       passed: true,
       failedCount: 0,
-      fixtureCount: 7,
-      fixtureSetVersion: "tw-labor-fixtures-2026.06-v1",
+      fixtureCount: 8,
+      fixtureSetVersion: "tw-labor-fixtures-2026.06-v2",
     });
     expect(summary.fixtures.map((fixture) => fixture.id)).toEqual([
       "tw_minimum_wage_boundary",
@@ -26,6 +26,7 @@ describe("Taiwan labor rule validation", () => {
       "tw_rest_cycle",
       "tw_annual_leave_tiers",
       "tw_termination_notice_severance",
+      "tw_nhi_supplementary_bonus_premium",
     ]);
   });
 

@@ -217,6 +217,46 @@ describe("payroll calculation", () => {
     });
   });
 
+  it("calculates NHI supplementary premium for configured bonus allowance items", () => {
+    const customLaborConfig = structuredClone(defaultTaiwanLaborStandardsConfig);
+    customLaborConfig.statutoryPayroll.healthInsuranceSalaryGrades = [
+      { level: 1, insuredSalary: 60000, salaryFrom: 0, salaryTo: null },
+    ];
+
+    const result = calculateEmployeePayroll({
+      salaryProfile: {
+        employeeId: "emp_1",
+        employeeName: "Demo Employee",
+        baseSalary: 60000,
+        recurringAllowances: [
+          { code: "meal", name: "Meal allowance", amount: 2000 },
+          { code: "bonus_project", name: "Project bonus", amount: 300000 },
+        ],
+        recurringDeductions: [],
+        effectiveFrom: new Date("2026-01-01T00:00:00.000Z"),
+      },
+      approvedOvertimeMinutes: 0,
+      rule: {
+        overtimeMultiplier: 4 / 3,
+        standardMonthlyHours: 240,
+        ruleVersionId: "rule_1",
+        taiwanLaborStandards: customLaborConfig,
+      },
+    });
+
+    expect(result.items.find((item) => item.code === "tw_nhi_supplementary_employee")).toMatchObject({
+      kind: "deduction",
+      amount: 1266,
+      metadata: expect.objectContaining({
+        bonusAmount: 300000,
+        thresholdAmount: 240000,
+        chargeableAmount: 60000,
+        rate: 0.0211,
+        requiresReview: true,
+      }),
+    });
+  });
+
   it("uses non-resident withholding rate from employee compliance profile", () => {
     const result = calculateEmployeePayroll({
       salaryProfile: {

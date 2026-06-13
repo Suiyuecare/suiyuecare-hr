@@ -59,6 +59,9 @@ describe("rule settings", () => {
         nationalHealthInsuranceRate: 0.052,
         nationalHealthInsuranceEmployerShare: 0.61,
         nationalHealthInsuranceAverageDependentCount: 0.58,
+        nationalHealthInsuranceSupplementaryPremiumEnabled: true,
+        nationalHealthInsuranceSupplementaryPremiumRate: 0.022,
+        nationalHealthInsuranceSupplementaryBonusThresholdMultiplier: 3.5,
         occupationalAccidentIndustryRate: 0.0025,
         laborPensionEmployerContributionRate: 0.065,
         incomeTaxWithholding: {
@@ -94,6 +97,9 @@ describe("rule settings", () => {
     expect(updated.statutoryPayroll.nationalHealthInsuranceRate).toBe(0.052);
     expect(updated.statutoryPayroll.nationalHealthInsuranceEmployerShare).toBe(0.61);
     expect(updated.statutoryPayroll.nationalHealthInsuranceAverageDependentCount).toBe(0.58);
+    expect(updated.statutoryPayroll.nationalHealthInsuranceSupplementaryPremiumEnabled).toBe(true);
+    expect(updated.statutoryPayroll.nationalHealthInsuranceSupplementaryPremiumRate).toBe(0.022);
+    expect(updated.statutoryPayroll.nationalHealthInsuranceSupplementaryBonusThresholdMultiplier).toBe(3.5);
     expect(updated.statutoryPayroll.occupationalAccidentIndustryRate).toBe(0.0025);
     expect(updated.statutoryPayroll.laborPensionEmployerContributionRate).toBe(0.065);
     expect(updated.statutoryPayroll.incomeTaxWithholding.annualSalarySpecialDeductionAmount).toBe(280000);
@@ -107,7 +113,7 @@ describe("rule settings", () => {
         metadata: expect.objectContaining({
           validationSummary: expect.objectContaining({
             passed: true,
-            fixtureCount: 7,
+            fixtureCount: 8,
             failedCount: 0,
           }),
         }),

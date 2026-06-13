@@ -62,8 +62,10 @@ export function calculateEmployeePayroll(input: EmployeePayrollInput) {
   const annualLeavePayoutTotal = roundMoney(
     annualLeavePayouts.reduce((total, payout) => total + payout.amount, 0),
   );
+  const supplementaryNhiBonusAmount = sumSupplementaryNhiBonusItems(profile.recurringAllowances);
   const statutory = calculateTaiwanStatutoryPayroll({
     monthlyWage: profile.baseSalary + allowanceTotal + annualLeavePayoutTotal,
+    bonusAmount: supplementaryNhiBonusAmount,
     dependents: input.complianceProfile?.dependentCount ?? input.dependentCount,
     taxResidency: input.complianceProfile?.taxResidency,
     laborInsuranceMonthlyWage: input.complianceProfile?.laborInsuranceMonthlyWage,
@@ -309,6 +311,14 @@ export function closeChecklist(input: {
 
 function sumItems(items: MoneyItem[]) {
   return roundMoney(items.reduce((total, item) => total + item.amount, 0));
+}
+
+function sumSupplementaryNhiBonusItems(items: MoneyItem[]) {
+  return roundMoney(
+    items
+      .filter((item) => item.code === "bonus" || item.code.startsWith("bonus_"))
+      .reduce((total, item) => total + item.amount, 0),
+  );
 }
 
 export function roundMoney(value: number) {

@@ -352,6 +352,17 @@ function normalizeRuleSettings(input: TaiwanLaborSettingsInput, base: TaiwanLabo
         input.statutoryPayroll?.nationalHealthInsuranceDependentLimit,
         base.statutoryPayroll.nationalHealthInsuranceDependentLimit,
       ),
+      nationalHealthInsuranceSupplementaryPremiumEnabled:
+        input.statutoryPayroll?.nationalHealthInsuranceSupplementaryPremiumEnabled ??
+        base.statutoryPayroll.nationalHealthInsuranceSupplementaryPremiumEnabled,
+      nationalHealthInsuranceSupplementaryPremiumRate: nonNegativeRate(
+        input.statutoryPayroll?.nationalHealthInsuranceSupplementaryPremiumRate,
+        base.statutoryPayroll.nationalHealthInsuranceSupplementaryPremiumRate,
+      ),
+      nationalHealthInsuranceSupplementaryBonusThresholdMultiplier: positiveNumber(
+        input.statutoryPayroll?.nationalHealthInsuranceSupplementaryBonusThresholdMultiplier,
+        base.statutoryPayroll.nationalHealthInsuranceSupplementaryBonusThresholdMultiplier,
+      ),
       occupationalAccidentIndustryRate: nonNegativeRate(
         input.statutoryPayroll?.occupationalAccidentIndustryRate,
         base.statutoryPayroll.occupationalAccidentIndustryRate,

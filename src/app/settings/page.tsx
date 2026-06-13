@@ -755,6 +755,27 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
                 />
               </label>
               <label>
+                NHI supplementary premium rate (%)
+                <input
+                  name="nationalHealthInsuranceSupplementaryPremiumRate"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.001"
+                  defaultValue={formatPercentInput(laborConfig.statutoryPayroll.nationalHealthInsuranceSupplementaryPremiumRate)}
+                />
+              </label>
+              <label>
+                NHI bonus threshold multiplier
+                <input
+                  name="nationalHealthInsuranceSupplementaryBonusThresholdMultiplier"
+                  type="number"
+                  min="1"
+                  step="0.1"
+                  defaultValue={laborConfig.statutoryPayroll.nationalHealthInsuranceSupplementaryBonusThresholdMultiplier}
+                />
+              </label>
+              <label>
                 Occupational accident industry rate (%)
                 <input
                   name="occupationalAccidentIndustryRate"
@@ -797,6 +818,16 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
                   step="0.01"
                   defaultValue={formatPercentInput(laborConfig.statutoryPayroll.incomeTaxWithholdingRate)}
                 />
+              </label>
+            </div>
+            <div className="toggle-row">
+              <label>
+                <input
+                  name="nationalHealthInsuranceSupplementaryPremiumEnabled"
+                  type="checkbox"
+                  defaultChecked={laborConfig.statutoryPayroll.nationalHealthInsuranceSupplementaryPremiumEnabled}
+                />
+                Calculate NHI supplementary premium for bonus items
               </label>
             </div>
             <div className="section-heading compact-heading">

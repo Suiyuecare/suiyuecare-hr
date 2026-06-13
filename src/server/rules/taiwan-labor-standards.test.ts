@@ -3,6 +3,7 @@ import {
   calculateAnnualLeaveEntitlement,
   calculateHolidayWorkPay,
   calculateIncomeTaxWithholding,
+  calculateNationalHealthInsuranceSupplementaryPremium,
   calculateRegularDayOvertimePay,
   calculateRestDayOvertimePay,
   calculateTaiwanStatutoryPayroll,
@@ -151,10 +152,27 @@ describe("Taiwan labor standards v1", () => {
     ]);
     expect(result.sources.map((source) => source.id)).toEqual([
       "tw-nhi-premium-2026",
+      "tw-nhi-supplementary-premium-2026",
       "tw-labor-insurance-grades-2026",
       "tw-occupational-accident-insurance-2026",
       "tw-income-tax-brackets-2026",
     ]);
+  });
+
+  it("calculates NHI supplementary premium only above the configured bonus threshold", () => {
+    const result = calculateNationalHealthInsuranceSupplementaryPremium({
+      insuredSalary: 60000,
+      bonusAmount: 300000,
+    });
+
+    expect(result).toMatchObject({
+      amount: 1266,
+      thresholdAmount: 240000,
+      chargeableAmount: 60000,
+      rate: 0.0211,
+      requiresReview: true,
+    });
+    expect(result.sources[0].id).toBe("tw-nhi-supplementary-premium-2026");
   });
 
   it("estimates resident income tax withholding with 2026 progressive brackets", () => {

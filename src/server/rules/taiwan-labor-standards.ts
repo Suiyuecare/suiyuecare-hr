@@ -88,6 +88,9 @@ export type TaiwanStatutoryPayrollConfig = {
   nationalHealthInsuranceEmployerShare: number;
   nationalHealthInsuranceAverageDependentCount: number;
   nationalHealthInsuranceDependentLimit: number;
+  nationalHealthInsuranceSupplementaryPremiumEnabled: boolean;
+  nationalHealthInsuranceSupplementaryPremiumRate: number;
+  nationalHealthInsuranceSupplementaryBonusThresholdMultiplier: number;
   occupationalAccidentIndustryRate: number;
   occupationalAccidentCommuteRate: number;
   laborPensionEmployerContributionRate: number;
@@ -134,6 +137,9 @@ export const defaultTaiwanLaborStandardsConfig: TaiwanLaborStandardsConfig = {
     nationalHealthInsuranceEmployerShare: 0.6,
     nationalHealthInsuranceAverageDependentCount: 0.56,
     nationalHealthInsuranceDependentLimit: 3,
+    nationalHealthInsuranceSupplementaryPremiumEnabled: true,
+    nationalHealthInsuranceSupplementaryPremiumRate: 0.0211,
+    nationalHealthInsuranceSupplementaryBonusThresholdMultiplier: 4,
     occupationalAccidentIndustryRate: 0.0021,
     occupationalAccidentCommuteRate: 0.0007,
     laborPensionEmployerContributionRate: 0.06,
@@ -280,6 +286,12 @@ export const defaultTaiwanLaborStandardsConfig: TaiwanLaborStandardsConfig = {
       title: "National Health Insurance premium calculation examples",
       url: "https://www.nhi.gov.tw/ch/cp-3277-6c895-2588-1.html",
       checkedAt: "2026-06-12",
+    },
+    {
+      id: "tw-nhi-supplementary-premium-2026",
+      title: "National Health Insurance supplementary premium",
+      url: "https://www.nhi.gov.tw/en/cp-225-fda97-8-2.html",
+      checkedAt: "2026-06-13",
     },
     {
       id: "tw-labor-insurance-grades-2026",
@@ -540,6 +552,7 @@ export function validateRestDayCycle(input: {
 
 export function calculateTaiwanStatutoryPayroll(input: {
   monthlyWage: number;
+  bonusAmount?: number;
   dependents?: number;
   taxResidency?: "resident" | "non_resident";
   laborInsuranceMonthlyWage?: number | null;
@@ -599,6 +612,11 @@ export function calculateTaiwanStatutoryPayroll(input: {
     laborInsuranceGrade.insuredSalary *
       (settings.occupationalAccidentIndustryRate + settings.occupationalAccidentCommuteRate),
   );
+  const supplementaryPremium = calculateNationalHealthInsuranceSupplementaryPremium({
+    bonusAmount: input.bonusAmount ?? 0,
+    insuredSalary: healthInsuranceGrade.insuredSalary,
+    config,
+  });
 
   return {
     employeeDeductions: [
@@ -628,6 +646,19 @@ export function calculateTaiwanStatutoryPayroll(input: {
           bracketRate: incomeTaxWithholding.bracket?.rate ?? null,
           progressiveDifference: incomeTaxWithholding.bracket?.progressiveDifference ?? null,
           requiresReview: incomeTaxWithholding.requiresReview,
+        },
+      },
+      {
+        code: "tw_nhi_supplementary_employee",
+        name: "National health insurance supplementary premium",
+        amount: supplementaryPremium.amount,
+        metadata: {
+          bonusAmount: supplementaryPremium.bonusAmount,
+          chargeableAmount: supplementaryPremium.chargeableAmount,
+          thresholdAmount: supplementaryPremium.thresholdAmount,
+          insuredSalary: supplementaryPremium.insuredSalary,
+          rate: supplementaryPremium.rate,
+          requiresReview: supplementaryPremium.requiresReview,
         },
       },
     ].filter((item) => item.amount > 0),
@@ -669,11 +700,41 @@ export function calculateTaiwanStatutoryPayroll(input: {
     sources: config.sources.filter((source) =>
       [
         "tw-nhi-premium-2026",
+        "tw-nhi-supplementary-premium-2026",
         "tw-labor-insurance-grades-2026",
         "tw-occupational-accident-insurance-2026",
         "tw-income-tax-brackets-2026",
       ].includes(source.id),
     ),
+  };
+}
+
+export function calculateNationalHealthInsuranceSupplementaryPremium(input: {
+  bonusAmount: number;
+  insuredSalary: number;
+  config?: TaiwanLaborStandardsConfig;
+}) {
+  const config = input.config ?? defaultTaiwanLaborStandardsConfig;
+  const settings = config.statutoryPayroll;
+  const bonusAmount = Math.max(0, input.bonusAmount);
+  const insuredSalary = Math.max(0, input.insuredSalary);
+  const thresholdAmount = roundMoney(
+    insuredSalary * settings.nationalHealthInsuranceSupplementaryBonusThresholdMultiplier,
+  );
+  const chargeableAmount = settings.nationalHealthInsuranceSupplementaryPremiumEnabled
+    ? Math.max(0, bonusAmount - thresholdAmount)
+    : 0;
+  const amount = roundMoney(chargeableAmount * settings.nationalHealthInsuranceSupplementaryPremiumRate);
+  return {
+    amount,
+    bonusAmount,
+    chargeableAmount,
+    thresholdAmount,
+    insuredSalary,
+    rate: settings.nationalHealthInsuranceSupplementaryPremiumRate,
+    thresholdMultiplier: settings.nationalHealthInsuranceSupplementaryBonusThresholdMultiplier,
+    requiresReview: amount > 0,
+    sources: config.sources.filter((source) => source.id === "tw-nhi-supplementary-premium-2026"),
   };
 }
 

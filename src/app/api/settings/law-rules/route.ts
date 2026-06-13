@@ -50,6 +50,14 @@ export async function POST(request: Request) {
           formData.get("nationalHealthInsuranceAverageDependentCount"),
         ),
         nationalHealthInsuranceDependentLimit: parseNumber(formData.get("nationalHealthInsuranceDependentLimit")),
+        nationalHealthInsuranceSupplementaryPremiumEnabled:
+          formData.get("nationalHealthInsuranceSupplementaryPremiumEnabled") === "on",
+        nationalHealthInsuranceSupplementaryPremiumRate: parsePercent(
+          formData.get("nationalHealthInsuranceSupplementaryPremiumRate"),
+        ),
+        nationalHealthInsuranceSupplementaryBonusThresholdMultiplier: parseNumber(
+          formData.get("nationalHealthInsuranceSupplementaryBonusThresholdMultiplier"),
+        ),
         occupationalAccidentIndustryRate: parsePercent(formData.get("occupationalAccidentIndustryRate")),
         occupationalAccidentCommuteRate: parsePercent(formData.get("occupationalAccidentCommuteRate")),
         laborPensionEmployerContributionRate: parsePercent(formData.get("laborPensionEmployerContributionRate")),

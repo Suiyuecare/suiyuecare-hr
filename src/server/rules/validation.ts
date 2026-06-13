@@ -1,6 +1,7 @@
 import {
   calculateAnnualLeaveEntitlement,
   calculateHolidayWorkPay,
+  calculateNationalHealthInsuranceSupplementaryPremium,
   calculateRegularDayOvertimePay,
   calculateRestDayOvertimePay,
   validateMinimumWage,
@@ -14,7 +15,7 @@ import { calculateTerminationCompliance } from "@/server/employees/termination-c
 export type RuleValidationFixture = {
   id: string;
   name: string;
-  category: "minimum_wage" | "overtime" | "working_time" | "leave" | "termination";
+  category: "minimum_wage" | "overtime" | "working_time" | "leave" | "termination" | "payroll";
   passed: boolean;
   detail: string;
   sourceIds: string[];
@@ -31,7 +32,7 @@ export type RuleValidationSummary = {
   fixtures: RuleValidationFixture[];
 };
 
-export const taiwanLaborFixtureSetVersion = "tw-labor-fixtures-2026.06-v1";
+export const taiwanLaborFixtureSetVersion = "tw-labor-fixtures-2026.06-v2";
 export const defaultLegalSourceMaxAgeDays = 180;
 
 export type LegalSourceFreshnessSummary = {
@@ -59,6 +60,7 @@ export function validateTaiwanLaborStandardsRuleSet(
     validateRestCycle(config),
     validateAnnualLeaveTiers(config),
     validateTerminationCompliance(config),
+    validateSupplementaryNhiPremium(config),
   ];
   const failedCount = fixtures.filter((fixture) => !fixture.passed).length;
   return {
@@ -348,6 +350,28 @@ function validateTerminationCompliance(config: TaiwanLaborStandardsConfig): Rule
     detail: passed
       ? `${result.requiredAdvanceNoticeDays} notice day(s); ${result.severancePayMonths} average-wage month(s).`
       : "Termination notice or severance validation failed.",
+    sourceIds: sourceIds(result.sources),
+  };
+}
+
+function validateSupplementaryNhiPremium(config: TaiwanLaborStandardsConfig): RuleValidationFixture {
+  const insuredSalary = 60_000;
+  const bonusAmount = insuredSalary * config.statutoryPayroll.nationalHealthInsuranceSupplementaryBonusThresholdMultiplier + 10_000;
+  const result = calculateNationalHealthInsuranceSupplementaryPremium({
+    insuredSalary,
+    bonusAmount,
+    config,
+  });
+  const expected = Math.round(10_000 * config.statutoryPayroll.nationalHealthInsuranceSupplementaryPremiumRate);
+  const passed = result.amount === expected && result.chargeableAmount === 10_000;
+  return {
+    id: "tw_nhi_supplementary_bonus_premium",
+    name: "NHI supplementary premium applies only to bonus amount above configured threshold",
+    category: "payroll",
+    passed,
+    detail: passed
+      ? `Bonus excess 10000 produces supplementary premium ${expected}.`
+      : `Expected ${expected}, got ${result.amount}.`,
     sourceIds: sourceIds(result.sources),
   };
 }
