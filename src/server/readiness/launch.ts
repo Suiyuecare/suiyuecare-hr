@@ -2,6 +2,7 @@ import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { getUserAccessWorkspace } from "@/server/auth/access-management";
 import { getCompanyCalendarWorkspace, type CompanyCalendarReadiness } from "@/server/calendar/company-calendar";
 import { getCompanyOverview } from "@/server/dashboard/queries";
+import { getOffboardingWorkspace, type OffboardingReadiness } from "@/server/employees/offboarding";
 import type { FileStorageSettings } from "@/server/files/storage";
 import { getFileStorageSettings, isProductionStorageVerified } from "@/server/files/storage";
 import { getIncidentWorkspace, type IncidentReadiness } from "@/server/incidents/workplace";
@@ -80,6 +81,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     operationalResilience,
     calendarWorkspace,
     subscriptionWorkspace,
+    offboardingWorkspace,
     kpis,
   ] = await Promise.all([
     getCompanyOverview(),
@@ -96,6 +98,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     getOperationalResilienceReadiness(session),
     getCompanyCalendarWorkspace(session),
     getSubscriptionWorkspace(session),
+    getOffboardingWorkspace(session),
     getHrOneKpis(),
   ]);
 
@@ -138,6 +141,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     operationalResilience,
     calendarReadiness: calendarWorkspace.readiness,
     subscriptionReadiness: subscriptionWorkspace.readiness,
+    offboardingReadiness: offboardingWorkspace.readiness,
     kpis,
   });
 }
@@ -185,6 +189,7 @@ export function buildLaunchReadinessReport(input: {
   };
   calendarReadiness?: Pick<CompanyCalendarReadiness, "ready" | "calendarYear" | "detail">;
   subscriptionReadiness?: Pick<SubscriptionReadiness, "ready" | "detail" | "missing">;
+  offboardingReadiness?: Pick<OffboardingReadiness, "ready" | "detail" | "missing">;
   kpis: HrOneKpi[];
 }): LaunchReadinessReport {
   const kpiSummary = summarizeHrOneKpis(input.kpis);
@@ -236,6 +241,11 @@ export function buildLaunchReadinessReport(input: {
   const subscriptionReadiness = input.subscriptionReadiness ?? {
     ready: true,
     detail: "Commercial subscription readiness not evaluated in this test context.",
+    missing: [],
+  };
+  const offboardingReadiness = input.offboardingReadiness ?? {
+    ready: true,
+    detail: "Offboarding readiness not evaluated in this test context.",
     missing: [],
   };
   const items: LaunchReadinessItem[] = [
@@ -349,6 +359,18 @@ export function buildLaunchReadinessReport(input: {
         : "Keep employee privacy notices, acknowledgements, and data subject requests current.",
       actionLabel: "Open privacy",
       actionHref: "/settings/privacy",
+    },
+    {
+      id: "offboarding",
+      area: "Compliance",
+      title: "Termination offboarding",
+      status: offboardingReadiness.ready ? "ready" : "blocked",
+      detail: offboardingReadiness.detail,
+      nextStep: offboardingReadiness.missing.length > 0
+        ? `Clear offboarding gaps: ${offboardingReadiness.missing.join(", ")}.`
+        : "Keep termination final wage, unused leave, insurance withdrawal, access revocation, record retention, and certificate tasks complete.",
+      actionLabel: "Open offboarding",
+      actionHref: "/hr/offboarding",
     },
     {
       id: "training",
@@ -489,8 +511,8 @@ function buildSetupSteps(items: LaunchReadinessItem[]): LaunchSetupStep[] {
     setupStep({
       step: 4,
       title: "Approve compliance controls",
-      itemIds: ["calendar", "law_rules", "training", "incidents", "audit"],
-      summary: "Review Taiwan annual calendars, rule versions, onboarding training, workplace incident response, and sensitive mutation audit evidence.",
+      itemIds: ["calendar", "law_rules", "training", "offboarding", "incidents", "audit"],
+      summary: "Review Taiwan annual calendars, rule versions, onboarding training, termination offboarding, workplace incident response, and sensitive mutation audit evidence.",
       actionLabel: "Review compliance",
       actionHref: "/settings#law-rules-setup",
       items,

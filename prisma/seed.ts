@@ -77,6 +77,7 @@ async function main() {
   await prisma.ruleVersion.deleteMany();
   await prisma.lawRule.deleteMany();
   await prisma.employeeDocument.deleteMany();
+  await prisma.employeeOffboardingTask.deleteMany();
   await prisma.employeeLifecycleEvent.deleteMany();
   await prisma.userRole.deleteMany();
   await prisma.userExternalIdentity.deleteMany();

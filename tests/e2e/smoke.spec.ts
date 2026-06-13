@@ -628,8 +628,21 @@ test("HR records employee lifecycle changes with audit trail", async ({ page }) 
   await expect(page.getByText(/Notice 20 day\(s\).*human review required/)).toBeVisible();
   await expect(page.getByText(/Offboarding ready.*insurance withdrawal due/)).toBeVisible();
 
+  await page.goto("/hr/offboarding");
+  await expect(page.getByRole("heading", { name: "Offboarding", exact: true })).toBeVisible();
+  await expect(page.getByText("李小真")).toBeVisible();
+  const offboardingRow = page.getByRole("listitem").filter({ hasText: "E004 · 李小真" }).first();
+  await offboardingRow.locator('select[name="taskType"]').selectOption("employment_certificate");
+  await offboardingRow.locator('select[name="status"]').selectOption("completed");
+  await offboardingRow.getByLabel("Completed at").fill("2026-08-01");
+  await offboardingRow.getByLabel("Evidence reference").fill("certificate://private-offboarding-ref");
+  await offboardingRow.getByRole("button", { name: "Save offboarding task" }).click();
+  await expect(page.getByText("No open offboarding blockers")).toBeVisible();
+
   await page.goto("/settings/audit");
+  await expect(page.getByText("employee_offboarding_task")).toBeVisible();
   await expect(page.getByText("update · employee_lifecycle_event").first()).toBeVisible();
+  await expect(page.getByText("certificate://private-offboarding-ref")).not.toBeVisible();
   await expect(page.getByText("Raw values hidden")).toBeVisible();
 });
 

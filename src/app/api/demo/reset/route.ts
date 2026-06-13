@@ -10,6 +10,7 @@ import { resetCompanyCalendarDemoState } from "@/server/calendar/company-calenda
 import { resetEmployeeDocumentDemoState } from "@/server/employees/documents";
 import { resetEmployeeImportDemoState } from "@/server/employees/imports";
 import { resetEmployeeLifecycleDemoState } from "@/server/employees/lifecycle";
+import { resetOffboardingDemoState } from "@/server/employees/offboarding";
 import { resetFileStorageDemoState } from "@/server/files/storage";
 import { resetStatutoryInsuranceDemoState } from "@/server/insurance/statutory";
 import { resetIncidentDemoState } from "@/server/incidents/workplace";
@@ -74,6 +75,7 @@ export async function POST() {
     resetEmployeeDocumentDemoState();
     resetEmployeeImportDemoState();
     resetEmployeeLifecycleDemoState();
+    resetOffboardingDemoState();
     resetFileStorageDemoState();
     resetStatutoryInsuranceDemoState();
     resetIncidentDemoState();

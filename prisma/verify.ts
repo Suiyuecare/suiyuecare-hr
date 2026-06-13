@@ -94,6 +94,8 @@ async function buildSnapshot(
     approvedPolicyDocumentCount,
     auditCount,
     telemetryCount,
+    terminationLifecycleEventCount,
+    offboardingReadyTaskCount,
     activeEmployees,
     currentSalaryProfiles,
     currentPayrollComplianceProfiles,
@@ -172,6 +174,14 @@ async function buildSnapshot(
     prisma.companyPolicyDocument.count({ where: { tenantId, companyId, status: "approved" } }),
     prisma.auditLog.count({ where: { tenantId, companyId } }),
     prisma.productTelemetryEvent.count({ where: { tenantId, companyId } }),
+    prisma.employeeLifecycleEvent.count({ where: { tenantId, companyId, eventType: "termination" } }),
+    prisma.employeeOffboardingTask.count({
+      where: {
+        tenantId,
+        companyId,
+        status: { in: ["completed", "waived"] },
+      },
+    }),
     prisma.employee.findMany({
       where: { tenantId, companyId, employmentStatus: "active" },
       select: { id: true },
@@ -297,6 +307,8 @@ async function buildSnapshot(
       approvedPolicyDocuments: approvedPolicyDocumentCount,
       auditLogs: auditCount,
       telemetryEvents: telemetryCount,
+      terminationLifecycleEvents: terminationLifecycleEventCount,
+      offboardingReadyTasks: offboardingReadyTaskCount,
     },
     calendarReview: calendarReview
       ? {
@@ -491,6 +503,8 @@ function emptySnapshot(
       approvedPolicyDocuments: 0,
       auditLogs: 0,
       telemetryEvents: 0,
+      terminationLifecycleEvents: 0,
+      offboardingReadyTasks: 0,
     },
     calendarReview: null,
     profileCoverage: {

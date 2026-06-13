@@ -37,6 +37,8 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     approvedPolicyDocuments: 4,
     auditLogs: 8,
     telemetryEvents: 4,
+    terminationLifecycleEvents: 0,
+    offboardingReadyTasks: 0,
   },
   calendarReview: {
     calendarYear: 2026,
@@ -680,6 +682,25 @@ describe("database verification checks", () => {
     expect(checks.find((item) => item.name === "statutory insurance enrollment evidence")).toMatchObject({
       passed: false,
       detail: "4/5 active employee(s) have ready statutory insurance evidence; 20 record(s)",
+    });
+  });
+
+  it("requires completed or waived offboarding tasks for termination events", () => {
+    const checks = buildDatabaseVerificationChecks(
+      {
+        ...readySnapshot,
+        counts: {
+          ...readySnapshot.counts,
+          terminationLifecycleEvents: 1,
+          offboardingReadyTasks: 4,
+        },
+      },
+      "production",
+    );
+
+    expect(checks.find((item) => item.name === "termination offboarding task coverage")).toMatchObject({
+      passed: false,
+      detail: "4/6 required offboarding task(s) completed or waived for 1 termination event(s)",
     });
   });
 

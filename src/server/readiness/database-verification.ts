@@ -42,6 +42,8 @@ export type DatabaseVerificationSnapshot = {
     approvedPolicyDocuments: number;
     auditLogs: number;
     telemetryEvents: number;
+    terminationLifecycleEvents: number;
+    offboardingReadyTasks: number;
   };
   calendarReview: {
     calendarYear: number;
@@ -321,6 +323,12 @@ export function buildDatabaseVerificationChecks(
   ));
   checks.push(check("audit baseline", snapshot.counts.auditLogs >= 1, `${snapshot.counts.auditLogs} audit event(s)`));
   checks.push(check("product telemetry baseline", snapshot.counts.telemetryEvents >= 1, `${snapshot.counts.telemetryEvents} telemetry event(s)`));
+  const requiredOffboardingTasks = snapshot.counts.terminationLifecycleEvents * 6;
+  checks.push(check(
+    "termination offboarding task coverage",
+    snapshot.counts.offboardingReadyTasks >= requiredOffboardingTasks,
+    `${snapshot.counts.offboardingReadyTasks}/${requiredOffboardingTasks} required offboarding task(s) completed or waived for ${snapshot.counts.terminationLifecycleEvents} termination event(s)`,
+  ));
 
   if (mode === "production") {
     checks.push(...buildProductionChecks(snapshot));

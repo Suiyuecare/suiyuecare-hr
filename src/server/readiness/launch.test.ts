@@ -404,6 +404,46 @@ describe("launch readiness", () => {
     });
   });
 
+  it("blocks launch when termination offboarding tasks remain open", () => {
+    const report = buildLaunchReadinessReport({
+      databaseConfigured: true,
+      employeeCount: 5,
+      auditCount: 8,
+      activeRuleCount: 3,
+      laborConfig: defaultTaiwanLaborStandardsConfig,
+      securitySettings: secureSettings,
+      fileStorageSettings: secureStorage,
+      notificationSettings,
+      privilegedSsoIdentityCoverage: {
+        total: 3,
+        linked: 3,
+      },
+      supportAccessGovernance: {
+        activeApprovedCount: 0,
+        activeUnapprovedCount: 0,
+        expiredStillApprovedCount: 0,
+      },
+      payrollPaymentSecurity: readyPaymentSecurity,
+      offboardingReadiness: {
+        ready: false,
+        detail: "4/6 offboarding task(s) ready; 2 pending; 1 overdue.",
+        missing: ["2 pending offboarding task(s)", "1 overdue offboarding task(s)"],
+      },
+      calendarReadiness: readyCalendar,
+      kpis: passingKpis,
+    });
+
+    expect(report.items.find((item) => item.id === "offboarding")).toMatchObject({
+      status: "blocked",
+      actionHref: "/hr/offboarding",
+      nextStep: "Clear offboarding gaps: 2 pending offboarding task(s), 1 overdue offboarding task(s).",
+    });
+    expect(report.setupSteps[3]).toMatchObject({
+      status: "blocked",
+      actionHref: "/hr/offboarding",
+    });
+  });
+
   it("blocks launch when workplace incident response is not ready", () => {
     const report = buildLaunchReadinessReport({
       databaseConfigured: true,
