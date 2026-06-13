@@ -27,7 +27,7 @@ import {
   settleLeaveUnits,
   type ApprovalAction,
 } from "./rules";
-import { findNextWorkflowStep, getStepLabel } from "./workflow-engine";
+import { findNextWorkflowStep, getStepLabel, readWorkflowCondition, stepConditionMatches } from "./workflow-engine";
 import type {
   EmployeeWorkspace,
   FormField,
@@ -123,6 +123,7 @@ export async function createFormTemplate(
     category: string;
     fields: FormField[];
     workflowStepTypes: Array<"direct_manager" | "hr_admin">;
+    hrCondition?: { fieldId: string; expectedValue: string } | null;
   },
 ) {
   if (session.role !== "hr_admin" && session.role !== "owner") {
@@ -152,7 +153,7 @@ export async function createFormTemplate(
           formTemplateId: template.id,
           stepOrder: index + 1,
           approverType: step,
-          conditionJson: { placeholder: true },
+          conditionJson: buildStepConditionJson(step, input.hrCondition),
         })),
       });
       await writeAuditLog(tx, {
@@ -166,6 +167,7 @@ export async function createFormTemplate(
         after: template,
         metadata: {
           workflowSteps: input.workflowStepTypes,
+          hrCondition: input.hrCondition ?? null,
         },
       });
     });
@@ -203,7 +205,9 @@ export async function createCustomFormSubmission(
       if (missing) {
         throw new Error(`${missing.label} is required.`);
       }
-      const firstStep = template.workflowSteps[0];
+      const firstStep = template.workflowSteps.find((step) =>
+        stepConditionMatches(step.conditionJson, input.values),
+      );
       if (!firstStep) {
         throw new Error("Form workflow must have at least one review step.");
       }
@@ -718,6 +722,7 @@ async function decideCustomFormApproval(
   const nextStep = findNextWorkflowStep({
     steps: submission.formTemplate.workflowSteps,
     currentStepOrder: submission.currentStepOrder,
+    values: submission.valuesJson as Record<string, string>,
   });
 
   if (!nextStep) {
@@ -1146,6 +1151,7 @@ async function mapTaskToWorkflow(
       ),
       riskSummary: task.riskSummary,
       currentStepLabel: currentStep ? getStepLabel(currentStep) : `Step ${request.currentStepOrder}`,
+      formTemplateId: request.formTemplateId,
       values: request.valuesJson as Record<string, string>,
       createdAt: request.createdAt,
       timeline,
@@ -1399,8 +1405,23 @@ function mapFormTemplate(template: {
                 ? "specific_user"
                 : "direct_manager",
       approverRef: step.approverRef,
-      conditionPlaceholder: "Conditional step placeholder",
+      conditionPlaceholder: null,
+      condition: readWorkflowCondition(step.conditionJson),
     })),
+  };
+}
+
+function buildStepConditionJson(
+  step: "direct_manager" | "hr_admin",
+  hrCondition?: { fieldId: string; expectedValue: string } | null,
+) {
+  if (step !== "hr_admin" || !hrCondition?.fieldId.trim() || !hrCondition.expectedValue.trim()) {
+    return Prisma.JsonNull;
+  }
+  return {
+    type: "field_equals",
+    fieldId: hrCondition.fieldId.trim(),
+    expectedValue: hrCondition.expectedValue.trim(),
   };
 }
 

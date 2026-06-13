@@ -38,6 +38,13 @@ export type WorkflowStepTemplate = {
   approverType: WorkflowApproverType;
   approverRef?: string | null;
   conditionPlaceholder?: string | null;
+  condition?: WorkflowStepCondition | null;
+};
+
+export type WorkflowStepCondition = {
+  type: "field_equals";
+  fieldId: string;
+  expectedValue: string;
 };
 
 export type FormTemplateView = {
@@ -71,6 +78,7 @@ export type WorkflowRequest = {
   riskSummary: string;
   currentStepLabel?: string;
   createdAt: Date;
+  formTemplateId?: string;
   values?: Record<string, string>;
   units?: number;
   minutes?: number;

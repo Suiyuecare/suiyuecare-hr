@@ -37,6 +37,10 @@ export async function POST(request: Request) {
       },
     ],
     workflowStepTypes,
+    hrCondition:
+      workflowStepTypes.includes("hr_admin") && parseOptionalText(formData.get("hrConditionValue"))
+        ? { fieldId: "primary", expectedValue: parseOptionalText(formData.get("hrConditionValue"))! }
+        : null,
   });
 
   return NextResponse.redirect(new URL("/hr/forms", request.url), 303);
@@ -44,6 +48,10 @@ export async function POST(request: Request) {
 
 function parseText(value: FormDataEntryValue | null, fallback: string) {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function parseOptionalText(value: FormDataEntryValue | null) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 function parseFieldType(value: FormDataEntryValue | null): FormFieldType {

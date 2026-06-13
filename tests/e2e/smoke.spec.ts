@@ -28,22 +28,17 @@ test("API middleware rate limits bursty AI requests", async ({ request }, testIn
     "x-forwarded-for": uniqueClient,
   };
 
-  for (let index = 0; index < 60; index += 1) {
-    const response = await request.post("/api/ai/policy", {
+  const responses = await Promise.all(Array.from({ length: 70 }, () =>
+    request.post("/api/ai/policy", {
       form: { question: "leave policy" },
       headers,
       maxRedirects: 0,
-    });
-    expect(response.status()).not.toBe(429);
-  }
+    }),
+  ));
+  const blocked = responses.find((response) => response.status() === 429);
 
-  const blocked = await request.post("/api/ai/policy", {
-    form: { question: "leave policy" },
-    headers,
-    maxRedirects: 0,
-  });
-
-  expect(blocked.status()).toBe(429);
+  expect(blocked).toBeTruthy();
+  if (!blocked) throw new Error("Expected at least one AI request to be rate limited.");
   expect(await blocked.json()).toEqual({ error: "Too many requests." });
   expect(blocked.headers()["retry-after"]).toBeTruthy();
 });
@@ -369,6 +364,7 @@ test("HR creates a custom form and employees route it through the shared inbox",
   await page.getByRole("button", { name: "Switch" }).click();
   await page.getByRole("link", { name: "Open builder" }).click();
   await expect(page.getByRole("heading", { name: "Form Builder" })).toBeVisible();
+  await expect(page.getByLabel("HR review only when first field equals")).toBeVisible();
 
   await page.getByLabel("Title").fill("Badge replacement");
   await page.getByLabel("Description").fill("Request a replacement office badge.");

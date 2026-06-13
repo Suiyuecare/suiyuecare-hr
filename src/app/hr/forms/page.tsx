@@ -71,7 +71,11 @@ export default async function HrFormsPage() {
               <input name="includeHr" type="checkbox" defaultChecked />
               HR review after manager
             </label>
-            <p className="muted">Conditional step placeholder is saved with each step.</p>
+            <label>
+              HR review only when first field equals
+              <input name="hrConditionValue" placeholder="Leave blank to always include HR" />
+            </label>
+            <p className="muted">Use this for forms where only certain answers need HR review.</p>
           </fieldset>
 
           <button className="button primary" type="submit">
@@ -89,6 +93,9 @@ export default async function HrFormsPage() {
                   <small>
                     {template.category} · {template.workflowSteps.length} review step(s)
                   </small>
+                  {template.workflowSteps.some((step) => step.condition) ? (
+                    <small>Conditional HR review enabled</small>
+                  ) : null}
                 </span>
                 <span className="badge">{template.status}</span>
               </li>

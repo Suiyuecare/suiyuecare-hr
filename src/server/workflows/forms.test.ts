@@ -55,4 +55,63 @@ describe("custom form workflow", () => {
     });
     expect(employeeWorkspace.notifications[0].body).toContain("林人資");
   });
+
+  it("skips conditional HR review when the submitted field value does not match", () => {
+    const template = createDemoFormTemplate({
+      title: "Training request",
+      description: "Request external training approval.",
+      category: "Learning",
+      fields: [{ id: "primary", label: "Training type", type: "select", required: true }],
+      workflowStepTypes: ["direct_manager", "hr_admin"],
+      hrCondition: { fieldId: "primary", expectedValue: "External certification" },
+    });
+
+    submitDemoCustomForm({
+      templateId: template.id,
+      values: { primary: "Internal course" },
+    });
+
+    const managerInbox = getDemoManagerInbox("manager", "demo-manager-employee");
+    decideDemoApproval({
+      requestId: managerInbox.pending[0].id,
+      action: "approve",
+      comment: "Approved by manager",
+    });
+
+    expect(getDemoManagerInbox("hr_admin", "demo-hr-employee").pending).toHaveLength(0);
+    expect(getDemoEmployeeWorkspace().requests[0]).toMatchObject({
+      title: "Training request",
+      status: "approved",
+    });
+  });
+
+  it("routes conditional HR review when the submitted field value matches", () => {
+    const template = createDemoFormTemplate({
+      title: "Training request",
+      description: "Request external training approval.",
+      category: "Learning",
+      fields: [{ id: "primary", label: "Training type", type: "select", required: true }],
+      workflowStepTypes: ["direct_manager", "hr_admin"],
+      hrCondition: { fieldId: "primary", expectedValue: "External certification" },
+    });
+
+    submitDemoCustomForm({
+      templateId: template.id,
+      values: { primary: "External certification" },
+    });
+
+    const managerInbox = getDemoManagerInbox("manager", "demo-manager-employee");
+    decideDemoApproval({
+      requestId: managerInbox.pending[0].id,
+      action: "approve",
+      comment: "Approved by manager",
+    });
+
+    const hrInbox = getDemoManagerInbox("hr_admin", "demo-hr-employee");
+    expect(hrInbox.pending).toHaveLength(1);
+    expect(hrInbox.pending[0]).toMatchObject({
+      currentStepLabel: "HR review",
+      status: "pending",
+    });
+  });
 });

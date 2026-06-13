@@ -22,6 +22,7 @@ import type {
   TimelineItem,
   WorkflowRequest,
 } from "./types";
+import { readWorkflowCondition, stepConditionMatches } from "./workflow-engine";
 
 type DemoNotification = NotificationView & {
   recipientRole: "employee" | "manager" | "hr_admin" | "owner";
@@ -171,6 +172,7 @@ export function createDemoFormTemplate(input: {
   category: string;
   fields: FormField[];
   workflowStepTypes: Array<"direct_manager" | "hr_admin">;
+  hrCondition?: { fieldId: string; expectedValue: string } | null;
 }) {
   const state = getDemoWorkflowState();
   const template: FormTemplateView = {
@@ -181,13 +183,7 @@ export function createDemoFormTemplate(input: {
     fields: input.fields,
     visibilityRulesPlaceholder: "Visibility rules placeholder",
     status: "active",
-    workflowSteps: input.workflowStepTypes.map((step, index) => ({
-      id: crypto.randomUUID(),
-      order: index + 1,
-      label: step === "hr_admin" ? "HR review" : "Manager review",
-      approverType: step,
-      conditionPlaceholder: "Conditional step placeholder",
-    })),
+    workflowSteps: input.workflowStepTypes.map((step, index) => buildWorkflowStep(step, index + 1, input.hrCondition)),
   };
   state.formTemplates.unshift(template);
   state.auditCount += 1;
@@ -207,7 +203,7 @@ export function submitDemoCustomForm(input: {
   if (missing) {
     throw new Error(`${missing.label} is required.`);
   }
-  const firstStep = template.workflowSteps[0] ?? managerStep();
+  const firstStep = template.workflowSteps.find((step) => stepConditionMatches(step.condition ?? null, input.values)) ?? managerStep();
   const request = createRequest({
     type: "custom_form",
     title: template.title,
@@ -215,6 +211,7 @@ export function submitDemoCustomForm(input: {
     riskSummary: `${template.category} form · ${template.fields.length} field(s) · low-code submission.`,
     currentStepLabel: firstStep.label,
     managerId: approverIdForStep(firstStep),
+    formTemplateId: template.id,
     values: input.values,
   });
   request.timeline.push(timeline("submitted", "張小安", template.title));
@@ -413,6 +410,7 @@ function createRequest(input: {
   currentStepLabel?: string;
   managerId?: string;
   values?: Record<string, string>;
+  formTemplateId?: string;
   units?: number;
   minutes?: number;
   workDate?: Date;
@@ -428,6 +426,7 @@ function createRequest(input: {
     riskSummary: input.riskSummary,
     currentStepLabel: input.currentStepLabel ?? "Manager review",
     managerId: input.managerId ?? "demo-manager-employee",
+    formTemplateId: input.formTemplateId,
     values: input.values,
     units: input.units,
     minutes: input.minutes,
@@ -460,7 +459,8 @@ function managerStep() {
     order: 1,
     label: "Manager review",
     approverType: "direct_manager" as const,
-    conditionPlaceholder: "Conditional step placeholder",
+    conditionPlaceholder: null,
+    condition: null,
   };
 }
 
@@ -470,15 +470,37 @@ function hrStep() {
     order: 2,
     label: "HR review",
     approverType: "hr_admin" as const,
-    conditionPlaceholder: "Conditional step placeholder",
+    conditionPlaceholder: null,
+    condition: null,
   };
 }
 
 function nextCustomFormStep(request: WorkflowRequest) {
-  if (request.currentStepLabel === "Manager review") {
-    return hrStep();
-  }
-  return null;
+  const state = getDemoWorkflowState();
+  const template = state.formTemplates.find((item) => item.id === request.formTemplateId);
+  if (!template) return null;
+  const currentOrder = template.workflowSteps.find((step) => step.label === request.currentStepLabel)?.order ?? 1;
+  return [...template.workflowSteps]
+    .sort((a, b) => a.order - b.order)
+    .find((step) => step.order > currentOrder && stepConditionMatches(step.condition ?? null, request.values ?? {})) ?? null;
+}
+
+function buildWorkflowStep(
+  step: "direct_manager" | "hr_admin",
+  order: number,
+  hrCondition?: { fieldId: string; expectedValue: string } | null,
+) {
+  const condition = step === "hr_admin" && hrCondition?.fieldId && hrCondition.expectedValue
+    ? { type: "field_equals" as const, fieldId: hrCondition.fieldId, expectedValue: hrCondition.expectedValue }
+    : null;
+  return {
+    id: crypto.randomUUID(),
+    order,
+    label: step === "hr_admin" ? "HR review" : "Manager review",
+    approverType: step,
+    conditionPlaceholder: null,
+    condition: readWorkflowCondition(condition),
+  };
 }
 
 function approverIdForStep(step: { approverType: string }) {
