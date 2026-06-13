@@ -565,10 +565,16 @@ async function createStarterHrForm(tx: Prisma.TransactionClient, tenantId: strin
       category: "employee_profile",
       fieldsJson: [
         { id: "change_type", label: "Change type", type: "select", required: true, options: ["Contact", "Emergency contact", "Other"] },
-        { id: "details", label: "Details", type: "textarea", required: true },
+        {
+          id: "details",
+          label: "Details",
+          type: "textarea",
+          required: true,
+          visibilityRule: { type: "field_equals", fieldId: "change_type", expectedValue: "Other" },
+        },
         { id: "effective_date", label: "Effective date", type: "date", required: true },
       ],
-      visibilityRulesJson: { placeholder: true },
+      visibilityRulesJson: [{ type: "field_equals", fieldId: "change_type", expectedValue: "Other" }],
       status: "active",
     },
   });
@@ -580,7 +586,7 @@ async function createStarterHrForm(tx: Prisma.TransactionClient, tenantId: strin
       stepOrder: 1,
       approverType: "hr_admin",
       approverRef: null,
-      conditionJson: { placeholder: false },
+      conditionJson: Prisma.JsonNull,
     },
   });
 }

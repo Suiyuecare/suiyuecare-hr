@@ -114,4 +114,46 @@ describe("custom form workflow", () => {
       status: "pending",
     });
   });
+
+  it("applies visibility rules before required-field validation and summaries", () => {
+    const template = createDemoFormTemplate({
+      title: "Information change",
+      description: "Request profile updates.",
+      category: "Employee profile",
+      fields: [
+        {
+          id: "change_type",
+          label: "Change type",
+          type: "select",
+          required: true,
+          options: ["Contact", "Other"],
+        },
+        {
+          id: "details",
+          label: "Details",
+          type: "textarea",
+          required: true,
+          visibilityRule: { type: "field_equals", fieldId: "change_type", expectedValue: "Other" },
+        },
+      ],
+      workflowStepTypes: ["direct_manager"],
+    });
+
+    submitDemoCustomForm({
+      templateId: template.id,
+      values: { change_type: "Contact" },
+    });
+
+    expect(getDemoManagerInbox("manager", "demo-manager-employee").pending[0]).toMatchObject({
+      detail: "Change type: Contact",
+      riskSummary: "Employee profile form · 1/2 visible field(s) · low-code submission.",
+    });
+
+    expect(() =>
+      submitDemoCustomForm({
+        templateId: template.id,
+        values: { change_type: "Other" },
+      }),
+    ).toThrow("Details is required.");
+  });
 });

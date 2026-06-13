@@ -22,6 +22,13 @@ export type FormField = {
   type: FormFieldType;
   required: boolean;
   options?: string[];
+  visibilityRule?: FormVisibilityRule | null;
+};
+
+export type FormVisibilityRule = {
+  type: "field_equals";
+  fieldId: string;
+  expectedValue: string;
 };
 
 export type AttachmentMetadata = {
@@ -61,7 +68,8 @@ export type FormTemplateView = {
   description: string;
   category: string;
   fields: FormField[];
-  visibilityRulesPlaceholder: string;
+  visibilityRules: FormVisibilityRule[];
+  visibilitySummary: string;
   status: "active" | "inactive";
   workflowSteps: WorkflowStepTemplate[];
 };

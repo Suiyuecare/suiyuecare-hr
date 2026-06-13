@@ -1057,10 +1057,7 @@ async function main() {
         { id: "needed_by", label: "Needed by", type: "date", required: true },
         { id: "reason", label: "Reason", type: "textarea", required: true },
       ],
-      visibilityRulesJson: {
-        placeholder: true,
-        description: "Future field visibility conditions live here.",
-      },
+      visibilityRulesJson: [],
     },
   });
 
@@ -1072,7 +1069,7 @@ async function main() {
         formTemplateId: equipmentForm.id,
         stepOrder: 1,
         approverType: "direct_manager",
-        conditionJson: { placeholder: true },
+        conditionJson: Prisma.JsonNull,
       },
       {
         tenantId: tenant.id,
@@ -1080,7 +1077,7 @@ async function main() {
         formTemplateId: equipmentForm.id,
         stepOrder: 2,
         approverType: "hr_admin",
-        conditionJson: { placeholder: true },
+        conditionJson: Prisma.JsonNull,
       },
     ],
   });

@@ -1,7 +1,8 @@
 import { DashboardLink } from "@/components/DashboardLink";
+import { CustomFormCard } from "@/components/CustomFormCard";
 import { getDemoSession } from "@/server/auth/demo-session";
 import { getEmployeeWorkspace } from "@/server/workflows/service";
-import type { FormField, FormTemplateView, WorkflowRequest } from "@/server/workflows/types";
+import type { WorkflowRequest } from "@/server/workflows/types";
 
 export default async function EmployeeHomePage() {
   const session = await getDemoSession();
@@ -209,7 +210,7 @@ export default async function EmployeeHomePage() {
             ) : (
               <div className="form-stack">
                 {workspace.formTemplates.map((template) => (
-                  <CustomForm key={template.id} template={template} today={today} />
+                  <CustomFormCard key={template.id} template={template} today={today} />
                 ))}
               </div>
             )}
@@ -313,109 +314,6 @@ function RequestItem({ request }: { request: WorkflowRequest }) {
         {request.status}
       </span>
     </li>
-  );
-}
-
-function CustomForm({ template, today }: { template: FormTemplateView; today: string }) {
-  return (
-    <form
-      action="/api/forms/submissions"
-      method="post"
-      className="mini-form"
-      aria-label={`Submit ${template.title}`}
-    >
-      <input type="hidden" name="templateId" value={template.id} />
-      <div>
-        <h3>{template.title}</h3>
-        <p className="muted">{template.description}</p>
-      </div>
-      <div className="field-grid">
-        {template.fields.map((field) => (
-          <FormFieldInput key={field.id} field={field} today={today} />
-        ))}
-      </div>
-      <button className="button primary" type="submit">
-        Submit form
-      </button>
-    </form>
-  );
-}
-
-function FormFieldInput({ field, today }: { field: FormField; today: string }) {
-  const commonProps = {
-    name: field.id,
-    required: field.required,
-  };
-
-  if (field.type === "textarea") {
-    return (
-      <label>
-        {field.label}
-        <textarea {...commonProps} placeholder={field.label} />
-      </label>
-    );
-  }
-
-  if (field.type === "select") {
-    return (
-      <label>
-        {field.label}
-        <select {...commonProps} defaultValue="">
-          <option value="" disabled>
-            Select
-          </option>
-          {(field.options ?? []).map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </label>
-    );
-  }
-
-  if (field.type === "checkbox") {
-    return (
-      <label className="check-row">
-        <input name={field.id} type="checkbox" value="yes" />
-        {field.label}
-      </label>
-    );
-  }
-
-  if (field.type === "file") {
-    return (
-      <>
-        <label>
-          {field.label}
-          <input
-            name={`${field.id}__FileName`}
-            placeholder="File name"
-            required={field.required}
-          />
-        </label>
-        <label>
-          Storage ref
-          <input name={`${field.id}__StorageKey`} placeholder="Optional object key" />
-          <input type="hidden" name={`${field.id}__MimeType`} value="application/pdf" />
-          <input type="hidden" name={`${field.id}__ScanStatus`} value="pending" />
-          <input type="hidden" name={`${field.id}__FileSizeBytes`} value="0" />
-          <input type="hidden" name={field.id} value="Attachment evidence provided" />
-        </label>
-      </>
-    );
-  }
-
-  return (
-    <label>
-      {field.label}
-      <input
-        {...commonProps}
-        type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
-        defaultValue={field.type === "date" ? today : undefined}
-        placeholder={field.label}
-      />
-    </label>
   );
 }
 

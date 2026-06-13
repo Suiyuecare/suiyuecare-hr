@@ -58,11 +58,23 @@ export default async function HrFormsPage() {
               <input name="required" type="checkbox" defaultChecked />
               Required
             </label>
-            <p className="muted">Visibility rules placeholder is included for future conditions.</p>
           </fieldset>
 
           <fieldset>
-            <legend>3. Review flow</legend>
+            <legend>3. Field visibility</legend>
+            <label>
+              Show Notes only when first field equals
+              <input name="notesVisibleWhenPrimaryEquals" placeholder="Leave blank to always show Notes" />
+            </label>
+            <label className="check-row">
+              <input name="notesRequired" type="checkbox" />
+              Require Notes when visible
+            </label>
+            <p className="muted">Use this to keep employee forms short unless a specific answer needs more detail.</p>
+          </fieldset>
+
+          <fieldset>
+            <legend>4. Review flow</legend>
             <label className="check-row">
               <input type="checkbox" checked readOnly />
               Direct manager review
@@ -93,6 +105,7 @@ export default async function HrFormsPage() {
                   <small>
                     {template.category} · {template.workflowSteps.length} review step(s)
                   </small>
+                  <small>{template.visibilitySummary}</small>
                   {template.workflowSteps.some((step) => step.condition) ? (
                     <small>Conditional HR review enabled</small>
                   ) : null}

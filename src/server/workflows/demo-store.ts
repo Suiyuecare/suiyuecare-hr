@@ -22,6 +22,11 @@ import type {
   TimelineItem,
   WorkflowRequest,
 } from "./types";
+import {
+  summarizeVisibilityRules,
+  visibleFormFields,
+  visibilityRulesFromFields,
+} from "./form-visibility";
 import { readWorkflowCondition, stepConditionMatches } from "./workflow-engine";
 
 type DemoNotification = NotificationView & {
@@ -181,7 +186,8 @@ export function createDemoFormTemplate(input: {
     description: input.description,
     category: input.category,
     fields: input.fields,
-    visibilityRulesPlaceholder: "Visibility rules placeholder",
+    visibilityRules: visibilityRulesFromFields(input.fields),
+    visibilitySummary: summarizeVisibilityRules(input.fields),
     status: "active",
     workflowSteps: input.workflowStepTypes.map((step, index) => buildWorkflowStep(step, index + 1, input.hrCondition)),
   };
@@ -199,7 +205,8 @@ export function submitDemoCustomForm(input: {
   if (!template || template.status !== "active") {
     throw new Error("Form template is not active.");
   }
-  const missing = template.fields.find((field) => field.required && !input.values[field.id]);
+  const visibleFields = visibleFormFields(template.fields, input.values);
+  const missing = visibleFields.find((field) => field.required && !input.values[field.id]);
   if (missing) {
     throw new Error(`${missing.label} is required.`);
   }
@@ -207,8 +214,8 @@ export function submitDemoCustomForm(input: {
   const request = createRequest({
     type: "custom_form",
     title: template.title,
-    detail: summarizeValues(template.fields, input.values),
-    riskSummary: `${template.category} form · ${template.fields.length} field(s) · low-code submission.`,
+    detail: summarizeValues(visibleFields, input.values),
+    riskSummary: `${template.category} form · ${visibleFields.length}/${template.fields.length} visible field(s) · low-code submission.`,
     currentStepLabel: firstStep.label,
     managerId: approverIdForStep(firstStep),
     formTemplateId: template.id,
@@ -442,7 +449,8 @@ function defaultFormTemplate(): FormTemplateView {
     title: "Equipment request",
     description: "Request work equipment or accessories.",
     category: "Employee service",
-    visibilityRulesPlaceholder: "Visibility rules placeholder",
+    visibilityRules: [],
+    visibilitySummary: "All fields are always shown.",
     status: "active",
     fields: [
       { id: "item", label: "Requested item", type: "text", required: true },

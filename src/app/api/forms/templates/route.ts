@@ -33,7 +33,14 @@ export async function POST(request: Request) {
         id: "notes",
         label: "Notes",
         type: "textarea",
-        required: false,
+        required: formData.get("notesRequired") === "on",
+        visibilityRule: parseOptionalText(formData.get("notesVisibleWhenPrimaryEquals"))
+          ? {
+              type: "field_equals",
+              fieldId: "primary",
+              expectedValue: parseOptionalText(formData.get("notesVisibleWhenPrimaryEquals"))!,
+            }
+          : null,
       },
     ],
     workflowStepTypes,

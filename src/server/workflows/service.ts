@@ -15,6 +15,12 @@ import {
   type AttachmentInput,
 } from "./attachments";
 import {
+  readFormVisibilityRules,
+  summarizeVisibilityRules,
+  visibilityRulesFromFields,
+  visibleFormFields,
+} from "./form-visibility";
+import {
   clockDemo,
   createDemoFormTemplate,
   decideDemoApproval,
@@ -149,10 +155,7 @@ export async function createFormTemplate(
           description: input.description,
           category: input.category,
           fieldsJson: input.fields,
-          visibilityRulesJson: {
-            placeholder: true,
-            description: "Future field visibility conditions live here.",
-          },
+          visibilityRulesJson: visibilityRulesFromFields(input.fields),
         },
       });
       await tx.workflowTemplateStep.createMany({
@@ -177,6 +180,7 @@ export async function createFormTemplate(
         metadata: {
           workflowSteps: input.workflowStepTypes,
           hrCondition: input.hrCondition ?? null,
+          visibilityRuleCount: visibilityRulesFromFields(input.fields).length,
         },
       });
     });
@@ -214,12 +218,13 @@ export async function createCustomFormSubmission(
         },
       });
       const fields = template.fieldsJson as FormField[];
-      const missing = fields.find((field) => field.required && !input.values[field.id]);
+      const visibleFields = visibleFormFields(fields, input.values);
+      const missing = visibleFields.find((field) => field.required && !input.values[field.id]);
       if (missing) {
         throw new Error(`${missing.label} is required.`);
       }
       const attachments = flattenFormAttachments(
-        fields,
+        visibleFields,
         Object.fromEntries(
           Object.entries(input.attachments ?? {}).map(([fieldId, items]) => [
             fieldId,
@@ -256,7 +261,7 @@ export async function createCustomFormSubmission(
         actorEmployeeId: employee.id,
         action: "submitted",
         comment: template.title,
-        riskSummary: `${template.category} form · ${fields.length} field(s) · ${summarizeAttachmentsForDisplay(attachments)}.`,
+        riskSummary: `${template.category} form · ${visibleFields.length}/${fields.length} visible field(s) · ${summarizeAttachmentsForDisplay(attachments)}.`,
       });
       await notify(
         tx,
@@ -1430,7 +1435,8 @@ function mapFormTemplate(template: {
     description: template.description,
     category: template.category,
     fields: template.fieldsJson as FormField[],
-    visibilityRulesPlaceholder: "Visibility rules placeholder",
+    visibilityRules: readFormVisibilityRules(template.visibilityRulesJson),
+    visibilitySummary: summarizeVisibilityRules(template.fieldsJson as FormField[]),
     status: template.status === "inactive" ? "inactive" : "active",
     workflowSteps: template.workflowSteps.map((step) => ({
       id: step.id,
@@ -1468,7 +1474,7 @@ function buildStepConditionJson(
 }
 
 function summarizeFormValues(fields: FormField[], values: Record<string, string>) {
-  return fields
+  return visibleFormFields(fields, values)
     .slice(0, 3)
     .map((field) => `${field.label}: ${values[field.id] ?? "-"}`)
     .join(" · ");
