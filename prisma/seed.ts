@@ -37,6 +37,9 @@ async function main() {
   await prisma.dataSubjectRequest.deleteMany();
   await prisma.employeePrivacyConsent.deleteMany();
   await prisma.companyPrivacySetting.deleteMany();
+  await prisma.employeeTrainingAssignment.deleteMany();
+  await prisma.trainingCourse.deleteMany();
+  await prisma.companyTrainingSetting.deleteMany();
   await prisma.aiUsageLog.deleteMany();
   await prisma.companyPolicyDocument.deleteMany();
   await prisma.productTelemetryEvent.deleteMany();
@@ -147,6 +150,19 @@ async function main() {
       deletionReviewRequired: true,
       crossBorderTransferEnabled: false,
       subprocessorsJson: [],
+      verificationStatus: "unverified",
+      lastReviewedAt: null,
+    },
+  });
+
+  await prisma.companyTrainingSetting.create({
+    data: {
+      tenantId: tenant.id,
+      companyId: company.id,
+      onboardingTrainingRequired: true,
+      targetCompletionDays: 7,
+      maxFirstWeekMinutes: 10,
+      autoAssignNewHires: true,
       verificationStatus: "unverified",
       lastReviewedAt: null,
     },
@@ -426,6 +442,49 @@ async function main() {
         source: "seed",
         acceptedByUserId: managerUser.id,
         acceptedAt: new Date("2026-06-01T01:05:00.000Z"),
+      },
+    ],
+  });
+
+  const trainingCourse = await prisma.trainingCourse.create({
+    data: {
+      tenantId: tenant.id,
+      companyId: company.id,
+      title: "HR One basics and data safety",
+      category: "Onboarding",
+      description:
+        "A short guided walkthrough for clocking in, requesting leave, checking payslips, and protecting personal data.",
+      version: "2026.01",
+      status: "active",
+      requiredForOnboarding: true,
+      estimatedMinutes: 8,
+      sourceRef: "demo://training/hr-one-basics",
+      publishedAt: new Date("2026-06-01T00:00:00.000Z"),
+      createdByUserId: hrUser.id,
+    },
+  });
+
+  await prisma.employeeTrainingAssignment.createMany({
+    data: [
+      {
+        tenantId: tenant.id,
+        companyId: company.id,
+        employeeId: hrEmployee.id,
+        courseId: trainingCourse.id,
+        status: "completed",
+        dueAt: new Date("2026-06-08T00:00:00.000Z"),
+        completedAt: new Date("2026-06-02T00:00:00.000Z"),
+        acknowledgementHash: hash(`${hrEmployee.id}:${trainingCourse.id}:2026.01`),
+        assignedByUserId: hrUser.id,
+      },
+      {
+        tenantId: tenant.id,
+        companyId: company.id,
+        employeeId: managerEmployee.id,
+        courseId: trainingCourse.id,
+        status: "assigned",
+        dueAt: new Date("2026-06-08T00:00:00.000Z"),
+        assignedByUserId: hrUser.id,
       },
     ],
   });

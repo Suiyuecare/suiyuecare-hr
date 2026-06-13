@@ -42,6 +42,7 @@ import { resetRuleSettingsDemoState } from "@/server/rules/settings";
 import { resetShiftTemplateDemoState } from "@/server/scheduling/shift-templates";
 import { resetSecuritySettingsDemoState } from "@/server/settings/security";
 import { resetSupportAccessDemoState } from "@/server/support/access";
+import { resetTrainingDemoState } from "@/server/training/compliance";
 import { resetDemoWorkflowState } from "@/server/workflows/demo-store";
 import { resetProductTelemetryDemoState } from "@/server/telemetry/product";
 
@@ -80,6 +81,7 @@ export async function POST() {
     resetSecuritySettingsDemoState();
     resetSupportAccessDemoState();
     resetShiftTemplateDemoState();
+    resetTrainingDemoState();
     resetProductTelemetryDemoState();
     resetAuditEvidenceDemoState();
     resetAuditDemoState();

@@ -112,6 +112,9 @@ model Company {
   privacySetting CompanyPrivacySetting?
   employeePrivacyConsents EmployeePrivacyConsent[]
   dataSubjectRequests DataSubjectRequest[]
+  trainingSetting CompanyTrainingSetting?
+  trainingCourses TrainingCourse[]
+  trainingAssignments EmployeeTrainingAssignment[]
   securitySettings CompanySecuritySetting?
   fileStorageSettings CompanyFileStorageSetting?
   operationalResilienceSetting CompanyOperationalResilienceSetting?
@@ -309,6 +312,7 @@ model Employee {
   documents        EmployeeDocument[]
   privacyConsents  EmployeePrivacyConsent[]
   dataSubjectRequests DataSubjectRequest[]
+  trainingAssignments EmployeeTrainingAssignment[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -466,6 +470,71 @@ model DataSubjectRequest {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  @@index([tenantId, companyId, status])
+  @@index([tenantId, companyId, employeeId])
+  @@index([tenantId, companyId, dueAt])
+}
+
+model CompanyTrainingSetting {
+  id                         String   @id @default(cuid())
+  tenantId                   String
+  companyId                  String   @unique
+  company                    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  onboardingTrainingRequired Boolean  @default(true)
+  targetCompletionDays       Int      @default(7)
+  maxFirstWeekMinutes        Int      @default(10)
+  autoAssignNewHires         Boolean  @default(true)
+  verificationStatus         String   @default("unverified")
+  lastReviewedAt             DateTime?
+  updatedByUserId            String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@index([tenantId, companyId])
+  @@index([tenantId, companyId, verificationStatus])
+}
+
+model TrainingCourse {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  companyId             String
+  company               Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  title                 String
+  category              String
+  description           String
+  version               String   @default("v1")
+  status                String   @default("active")
+  requiredForOnboarding Boolean  @default(true)
+  estimatedMinutes      Int      @default(5)
+  sourceRef             String?
+  publishedAt           DateTime?
+  createdByUserId       String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  assignments           EmployeeTrainingAssignment[]
+
+  @@index([tenantId, companyId, status])
+  @@index([tenantId, companyId, requiredForOnboarding])
+}
+
+model EmployeeTrainingAssignment {
+  id                 String         @id @default(cuid())
+  tenantId           String
+  companyId          String
+  company            Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId         String
+  employee           Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  courseId           String
+  course             TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  status             String         @default("assigned")
+  dueAt              DateTime
+  completedAt        DateTime?
+  acknowledgementHash String?
+  assignedByUserId   String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@unique([employeeId, courseId])
   @@index([tenantId, companyId, status])
   @@index([tenantId, companyId, employeeId])
   @@index([tenantId, companyId, dueAt])

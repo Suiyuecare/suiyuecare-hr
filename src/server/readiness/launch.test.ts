@@ -364,6 +364,46 @@ describe("launch readiness", () => {
     });
   });
 
+  it("blocks launch when onboarding training evidence is not ready", () => {
+    const report = buildLaunchReadinessReport({
+      databaseConfigured: true,
+      employeeCount: 5,
+      auditCount: 8,
+      activeRuleCount: 3,
+      laborConfig: defaultTaiwanLaborStandardsConfig,
+      securitySettings: secureSettings,
+      fileStorageSettings: secureStorage,
+      notificationSettings,
+      privilegedSsoIdentityCoverage: {
+        total: 3,
+        linked: 3,
+      },
+      supportAccessGovernance: {
+        activeApprovedCount: 0,
+        activeUnapprovedCount: 0,
+        expiredStillApprovedCount: 0,
+      },
+      payrollPaymentSecurity: readyPaymentSecurity,
+      trainingReadiness: {
+        ready: false,
+        detail: "1 required course(s); 20 minute(s); 2/5 assignment(s); 0 completed; 1 overdue; review unverified.",
+        missing: ["training plan HR/legal review", "first-week training under KPI target"],
+      },
+      calendarReadiness: readyCalendar,
+      kpis: passingKpis,
+    });
+
+    expect(report.items.find((item) => item.id === "training")).toMatchObject({
+      status: "blocked",
+      actionHref: "/hr/training",
+      nextStep: "Clear training gaps: training plan HR/legal review, first-week training under KPI target.",
+    });
+    expect(report.setupSteps[3]).toMatchObject({
+      status: "blocked",
+      actionHref: "/hr/training",
+    });
+  });
+
   it("blocks launch when payroll payment vault and bank format are not verified", () => {
     const report = buildLaunchReadinessReport({
       databaseConfigured: true,

@@ -239,6 +239,34 @@ test("employee privacy request is handled from Privacy Center", async ({ page })
   await expect(page.getByText("Please review my job title.")).not.toBeVisible();
 });
 
+test("HR assigns onboarding training and employee completes it", async ({ page }) => {
+  await page.goto("/app");
+  await page.getByLabel("Demo role").selectOption("hr_admin");
+  await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/hr/training");
+  await expect(page.getByRole("heading", { name: "Training Center" })).toBeVisible();
+  await page.getByLabel("Verification status").selectOption("verified");
+  await page.getByRole("button", { name: "Save training controls" }).click();
+  await expect(page.getByText("verified").first()).toBeVisible();
+  await page.getByRole("button", { name: "Assign required training" }).click();
+  await expect(page.getByText("張小安 · HR One basics and data safety")).toBeVisible();
+
+  await page.getByLabel("Demo role").selectOption("employee");
+  await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/app/training");
+  await expect(page.getByRole("heading", { name: "Training" })).toBeVisible();
+  await expect(page.getByText("HR One basics and data safety")).toBeVisible();
+  await page.getByRole("button", { name: "Mark done" }).click();
+  await expect(page.getByText("completed").first()).toBeVisible();
+
+  await page.getByLabel("Demo role").selectOption("owner");
+  await page.getByRole("button", { name: "Switch" }).click();
+  await page.goto("/settings/audit");
+  await expect(page.getByText("update · training_settings")).toBeVisible();
+  await expect(page.getByText("create · training_assignment_batch")).toBeVisible();
+  await expect(page.getByText("approve · employee_training_assignment")).toBeVisible();
+});
+
 test("employee submits overtime and punch correction for manager review", async ({ page }) => {
   await page.goto("/app");
   await page

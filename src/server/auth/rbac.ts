@@ -22,6 +22,8 @@ export type Permission =
   | "audit:read"
   | "privacy:manage"
   | "privacy:self"
+  | "training:manage"
+  | "training:self"
   | "payroll:manage"
   | "payroll_adjustment:approve"
   | "payslip:self"
@@ -45,6 +47,8 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "audit:read",
     "privacy:manage",
     "privacy:self",
+    "training:manage",
+    "training:self",
     "payroll:manage",
     "payroll_adjustment:approve",
     "ai:policy",
@@ -69,6 +73,8 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "audit:read",
     "privacy:manage",
     "privacy:self",
+    "training:manage",
+    "training:self",
     "payroll:manage",
     "ai:policy",
     "ai:form_builder",
@@ -87,6 +93,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "overtime:write",
     "form:submit",
     "privacy:self",
+    "training:self",
     "ai:approval_summary",
   ],
   employee: [
@@ -98,6 +105,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "overtime:write",
     "form:submit",
     "privacy:self",
+    "training:self",
   ],
 };
 

@@ -19,6 +19,7 @@ import {
 import type { CompanySecuritySettings } from "@/server/settings/security";
 import { getCompanySecuritySettings, hasSsoMetadata } from "@/server/settings/security";
 import { getSupportAccessGovernance } from "@/server/support/access";
+import { getTrainingWorkspace, type TrainingReadiness } from "@/server/training/compliance";
 
 type SessionLike = {
   role: RoleKey;
@@ -72,6 +73,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     supportAccessGovernance,
     payrollPaymentSecurity,
     privacyWorkspace,
+    trainingWorkspace,
     operationalResilience,
     calendarWorkspace,
     kpis,
@@ -85,6 +87,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     getSupportAccessGovernance(session),
     getPayrollPaymentSecurityReadiness(session),
     getPrivacyWorkspace(session),
+    getTrainingWorkspace(session),
     getOperationalResilienceReadiness(session),
     getCompanyCalendarWorkspace(session),
     getHrOneKpis(),
@@ -124,6 +127,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     supportAccessGovernance,
     payrollPaymentSecurity,
     privacyReadiness: privacyWorkspace.readiness,
+    trainingReadiness: trainingWorkspace.readiness,
     operationalResilience,
     calendarReadiness: calendarWorkspace.readiness,
     kpis,
@@ -165,6 +169,7 @@ export function buildLaunchReadinessReport(input: {
     detail: string;
   };
   privacyReadiness?: Pick<PrivacyReadiness, "ready" | "detail" | "missing">;
+  trainingReadiness?: Pick<TrainingReadiness, "ready" | "detail" | "missing">;
   operationalResilience?: {
     ready: boolean;
     detail: string;
@@ -206,6 +211,11 @@ export function buildLaunchReadinessReport(input: {
   const privacyReadiness = input.privacyReadiness ?? {
     ready: true,
     detail: "Privacy readiness not evaluated in this test context.",
+    missing: [],
+  };
+  const trainingReadiness = input.trainingReadiness ?? {
+    ready: true,
+    detail: "Training readiness not evaluated in this test context.",
     missing: [],
   };
   const items: LaunchReadinessItem[] = [
@@ -307,6 +317,18 @@ export function buildLaunchReadinessReport(input: {
         : "Keep employee privacy notices, acknowledgements, and data subject requests current.",
       actionLabel: "Open privacy",
       actionHref: "/settings/privacy",
+    },
+    {
+      id: "training",
+      area: "Compliance",
+      title: "Onboarding training evidence",
+      status: trainingReadiness.ready ? "ready" : "blocked",
+      detail: trainingReadiness.detail,
+      nextStep: trainingReadiness.missing.length > 0
+        ? `Clear training gaps: ${trainingReadiness.missing.join(", ")}.`
+        : "Keep onboarding training short, assigned, reviewed, and auditable.",
+      actionLabel: "Open training",
+      actionHref: "/hr/training",
     },
     {
       id: "notifications",
@@ -423,9 +445,9 @@ function buildSetupSteps(items: LaunchReadinessItem[]): LaunchSetupStep[] {
     setupStep({
       step: 4,
       title: "Approve compliance controls",
-      itemIds: ["calendar", "law_rules", "audit"],
-      summary: "Review Taiwan annual calendars and rule versions, then confirm sensitive mutation audit evidence.",
-      actionLabel: "Review calendar",
+      itemIds: ["calendar", "law_rules", "training", "audit"],
+      summary: "Review Taiwan annual calendars, rule versions, onboarding training evidence, and sensitive mutation audit evidence.",
+      actionLabel: "Review compliance",
       actionHref: "/settings#law-rules-setup",
       items,
     }),
