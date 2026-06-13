@@ -600,6 +600,78 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
 
             <div className="section-heading compact-heading">
               <div>
+                <h3>Termination compliance</h3>
+                <p className="muted">
+                  HR lifecycle termination checks use these versioned notice and severance settings as a review aid.
+                </p>
+              </div>
+              <span className="badge warning">Human review</span>
+            </div>
+            <div className="field-grid">
+              <label>
+                Advance notice tiers
+                <textarea
+                  name="terminationAdvanceNoticeTiersCsv"
+                  rows={4}
+                  defaultValue={formatAdvanceNoticeTiersCsv(laborConfig.terminationCompliance.advanceNoticeTiers)}
+                />
+              </label>
+              <label>
+                Labor Pension Act severance multiplier per service year
+                <input
+                  name="laborPensionSeveranceMultiplierPerServiceYear"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  defaultValue={laborConfig.terminationCompliance.laborPensionSeveranceMultiplierPerServiceYear}
+                />
+              </label>
+              <label>
+                Labor Pension Act severance max average-wage months
+                <input
+                  name="laborPensionSeveranceMaxAverageWageMonths"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  defaultValue={laborConfig.terminationCompliance.laborPensionSeveranceMaxAverageWageMonths}
+                />
+              </label>
+              <label>
+                Labor Standards Act severance multiplier per service year
+                <input
+                  name="laborStandardsSeveranceMultiplierPerServiceYear"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  defaultValue={laborConfig.terminationCompliance.laborStandardsSeveranceMultiplierPerServiceYear}
+                />
+              </label>
+            </div>
+            <ul className="task-list">
+              <li className="task">
+                <span>
+                  <strong>Advance notice</strong>
+                  <small>
+                    {laborConfig.terminationCompliance.advanceNoticeTiers.map((tier) =>
+                      `${tier.serviceMonthsFrom}+ month(s): ${tier.noticeDays} day(s)`,
+                    ).join(" · ")}
+                  </small>
+                </span>
+                <span className="badge">Article 16</span>
+              </li>
+              <li className="task">
+                <span>
+                  <strong>Severance review basis</strong>
+                  <small>
+                    New pension system x{laborConfig.terminationCompliance.laborPensionSeveranceMultiplierPerServiceYear}/year capped at {laborConfig.terminationCompliance.laborPensionSeveranceMaxAverageWageMonths} month(s); old system x{laborConfig.terminationCompliance.laborStandardsSeveranceMultiplierPerServiceYear}/year.
+                  </small>
+                </span>
+                <span className="badge">Article 17 / LPA 12</span>
+              </li>
+            </ul>
+
+            <div className="section-heading compact-heading">
+              <div>
                 <h3>Statutory payroll settings</h3>
                 <p className="muted">
                   Keep rates versioned here. Payroll uses these records instead of hidden constants.
@@ -910,6 +982,18 @@ function formatTaxBracketsCsv(
       bracket.taxableIncomeTo ?? "",
       Number((bracket.rate * 100).toFixed(4)),
       bracket.progressiveDifference,
+    ].join(","))
+    .join("\n");
+}
+
+function formatAdvanceNoticeTiersCsv(
+  tiers: Array<{ serviceMonthsFrom: number; serviceMonthsTo: number | null; noticeDays: number }>,
+) {
+  return tiers
+    .map((tier) => [
+      tier.serviceMonthsFrom,
+      tier.serviceMonthsTo ?? "",
+      tier.noticeDays,
     ].join(","))
     .join("\n");
 }

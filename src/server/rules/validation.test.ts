@@ -15,7 +15,7 @@ describe("Taiwan labor rule validation", () => {
     expect(summary).toMatchObject({
       passed: true,
       failedCount: 0,
-      fixtureCount: 6,
+      fixtureCount: 7,
       fixtureSetVersion: "tw-labor-fixtures-2026.06-v1",
     });
     expect(summary.fixtures.map((fixture) => fixture.id)).toEqual([
@@ -25,6 +25,7 @@ describe("Taiwan labor rule validation", () => {
       "tw_working_time_limits",
       "tw_rest_cycle",
       "tw_annual_leave_tiers",
+      "tw_termination_notice_severance",
     ]);
   });
 

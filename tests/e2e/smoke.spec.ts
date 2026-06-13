@@ -436,15 +436,27 @@ test("HR records employee lifecycle changes with audit trail", async ({ page }) 
   await page.getByLabel("Employee").selectOption("demo-employee-2");
   await page.getByLabel("Event type").selectOption("leave");
   await page.getByLabel("Effective date").fill("2026-07-01");
-  await page.getByLabel("Reason").fill("Approved parental leave");
+  await page.getByRole("textbox", { name: "Reason" }).fill("Approved parental leave");
   await page.getByRole("button", { name: "Record lifecycle event" }).click();
 
   await expect(page.getByText("李小真 · Leave of absence")).toBeVisible();
   await expect(page.getByText("Approved parental leave")).toBeVisible();
   await expect(page.getByRole("listitem").filter({ hasText: "李小真 · E004" }).filter({ hasText: "On leave" })).toBeVisible();
 
+  await page.getByLabel("Employee").selectOption("demo-employee-2");
+  await page.getByLabel("Event type").selectOption("termination");
+  await page.getByLabel("Effective date").fill("2026-08-01");
+  await page.getByLabel("Termination reason").selectOption("layoff");
+  await page.getByLabel("Pension scheme").selectOption("labor_pension_new");
+  await page.getByLabel("Average monthly wage").fill("60000");
+  await page.getByRole("textbox", { name: "Reason" }).fill("Business unit restructuring approved by HR.");
+  await page.getByRole("button", { name: "Record lifecycle event" }).click();
+
+  await expect(page.getByText("李小真 · Termination")).toBeVisible();
+  await expect(page.getByText(/Notice 20 day\(s\).*human review required/)).toBeVisible();
+
   await page.goto("/settings/audit");
-  await expect(page.getByText("update · employee_lifecycle_event")).toBeVisible();
+  await expect(page.getByText("update · employee_lifecycle_event").first()).toBeVisible();
   await expect(page.getByText("Raw values hidden")).toBeVisible();
 });
 

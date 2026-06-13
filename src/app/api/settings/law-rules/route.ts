@@ -28,6 +28,18 @@ export async function POST(request: Request) {
       restDayCycleDays: parseNumber(formData.get("restDayCycleDays")),
       requiredRegularLeaveDaysPerCycle: parseNumber(formData.get("requiredRegularLeaveDaysPerCycle")),
       requiredRestDaysPerCycle: parseNumber(formData.get("requiredRestDaysPerCycle")),
+      terminationCompliance: {
+        advanceNoticeTiers: parseAdvanceNoticeTiersCsv(formData.get("terminationAdvanceNoticeTiersCsv")),
+        laborPensionSeveranceMultiplierPerServiceYear: parseNumber(
+          formData.get("laborPensionSeveranceMultiplierPerServiceYear"),
+        ),
+        laborPensionSeveranceMaxAverageWageMonths: parseNumber(
+          formData.get("laborPensionSeveranceMaxAverageWageMonths"),
+        ),
+        laborStandardsSeveranceMultiplierPerServiceYear: parseNumber(
+          formData.get("laborStandardsSeveranceMultiplierPerServiceYear"),
+        ),
+      },
       statutoryPayroll: {
         laborInsuranceEmployeeRate: parsePercent(formData.get("laborInsuranceEmployeeRate")),
         laborInsuranceEmployerShare: parsePercent(formData.get("laborInsuranceEmployerShare")),
@@ -86,6 +98,30 @@ function parseHoursToMinutes(value: FormDataEntryValue | null) {
   const parsed = parseNumber(value);
   if (parsed === undefined) return undefined;
   return Math.round(parsed * 60);
+}
+
+function parseAdvanceNoticeTiersCsv(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const tiers = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [serviceMonthsFrom, serviceMonthsTo, noticeDays] = line.split(",").map((part) => part.trim());
+      return {
+        serviceMonthsFrom: Number(serviceMonthsFrom),
+        serviceMonthsTo: serviceMonthsTo ? Number(serviceMonthsTo) : null,
+        noticeDays: Number(noticeDays),
+      };
+    })
+    .filter((tier) => (
+      Number.isInteger(tier.serviceMonthsFrom) &&
+      tier.serviceMonthsFrom >= 0 &&
+      (tier.serviceMonthsTo === null || (Number.isInteger(tier.serviceMonthsTo) && tier.serviceMonthsTo > tier.serviceMonthsFrom)) &&
+      Number.isInteger(tier.noticeDays) &&
+      tier.noticeDays >= 0
+    ));
+  return tiers.length > 0 ? tiers : undefined;
 }
 
 function parseSalaryGradesCsv(value: FormDataEntryValue | null) {

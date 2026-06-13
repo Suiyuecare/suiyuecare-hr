@@ -49,6 +49,7 @@ export type TaiwanLaborStandardsConfig = {
   restDayCycleDays: number;
   requiredRegularLeaveDaysPerCycle: number;
   requiredRestDaysPerCycle: number;
+  terminationCompliance: TaiwanTerminationComplianceConfig;
   annualLeaveTiers: Array<{
     serviceMonthsFrom: number;
     serviceMonthsTo: number | null;
@@ -57,6 +58,17 @@ export type TaiwanLaborStandardsConfig = {
     maxDays?: number;
   }>;
   sources: LegalSource[];
+};
+
+export type TaiwanTerminationComplianceConfig = {
+  advanceNoticeTiers: Array<{
+    serviceMonthsFrom: number;
+    serviceMonthsTo: number | null;
+    noticeDays: number;
+  }>;
+  laborPensionSeveranceMultiplierPerServiceYear: number;
+  laborPensionSeveranceMaxAverageWageMonths: number;
+  laborStandardsSeveranceMultiplierPerServiceYear: number;
 };
 
 export type RuleChangeControl = {
@@ -178,6 +190,16 @@ export const defaultTaiwanLaborStandardsConfig: TaiwanLaborStandardsConfig = {
   restDayCycleDays: 7,
   requiredRegularLeaveDaysPerCycle: 1,
   requiredRestDaysPerCycle: 1,
+  terminationCompliance: {
+    advanceNoticeTiers: [
+      { serviceMonthsFrom: 3, serviceMonthsTo: 12, noticeDays: 10 },
+      { serviceMonthsFrom: 12, serviceMonthsTo: 36, noticeDays: 20 },
+      { serviceMonthsFrom: 36, serviceMonthsTo: null, noticeDays: 30 },
+    ],
+    laborPensionSeveranceMultiplierPerServiceYear: 0.5,
+    laborPensionSeveranceMaxAverageWageMonths: 6,
+    laborStandardsSeveranceMultiplierPerServiceYear: 1,
+  },
   annualLeaveTiers: [
     { serviceMonthsFrom: 6, serviceMonthsTo: 12, days: 3 },
     { serviceMonthsFrom: 12, serviceMonthsTo: 24, days: 7 },
@@ -276,6 +298,18 @@ export const defaultTaiwanLaborStandardsConfig: TaiwanLaborStandardsConfig = {
       title: "eTax Portal 2026 progressive income tax rate",
       url: "https://www.etax.nat.gov.tw/etwmain/en/announcement/alien-individual-income-tax/progressive-tax-rate",
       checkedAt: "2026-06-12",
+    },
+    {
+      id: "tw-lsa-article-16-17",
+      title: "Labor Standards Act Article 16 and 17 termination notice and severance",
+      url: "https://law.moj.gov.tw/ENG/LawClass/LawAll.aspx?pcode=N0030001",
+      checkedAt: "2026-06-13",
+    },
+    {
+      id: "tw-labor-pension-act-article-12",
+      title: "Labor Pension Act Article 12 severance pay",
+      url: "https://law.moj.gov.tw/ENG/LawClass/LawAll.aspx?pcode=N0030020",
+      checkedAt: "2026-06-13",
     },
   ],
 };

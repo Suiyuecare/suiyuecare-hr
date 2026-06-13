@@ -4,6 +4,16 @@ import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
 import { getFallbackCompanyOverview } from "@/server/demo/fallback";
+import {
+  getActiveTaiwanLaborStandardsConfig,
+  getTaiwanLaborStandardsConfig,
+} from "@/server/rules/settings";
+import {
+  calculateTerminationCompliance,
+  type PensionScheme,
+  type TerminationComplianceSnapshot,
+  type TerminationReasonCategory,
+} from "./termination-compliance";
 
 export type LifecycleEventType = "transfer" | "promotion" | "leave" | "return" | "termination";
 
@@ -22,6 +32,9 @@ export type LifecycleEventInput = {
   reason: string;
   nextDepartmentId?: string | null;
   nextJobTitle?: string | null;
+  terminationReasonCategory?: TerminationReasonCategory | null;
+  pensionScheme?: PensionScheme | null;
+  averageMonthlyWage?: number | null;
 };
 
 export type LifecycleEventRow = {
@@ -38,6 +51,7 @@ export type LifecycleEventRow = {
   nextJobTitle: string | null;
   previousStatus: EmploymentStatus | null;
   nextStatus: EmploymentStatus | null;
+  terminationCompliance: TerminationComplianceSnapshot | null;
   createdAt: Date;
 };
 
@@ -48,6 +62,7 @@ export type EmployeeLifecycleWorkspace = {
     displayName: string;
     jobTitle: string;
     employmentStatus: EmploymentStatus;
+    hireDate: Date;
     departmentId: string | null;
   }>;
   departments: Array<{
@@ -80,6 +95,7 @@ type DbLifecycleEventRecord = {
   nextJobTitle: string | null;
   previousStatus: EmploymentStatus | null;
   nextStatus: EmploymentStatus | null;
+  metadataJson: unknown;
   createdAt: Date;
 };
 
@@ -115,6 +131,7 @@ export async function getEmployeeLifecycleWorkspace(session: SessionLike): Promi
           displayName: employee.displayName,
           jobTitle: employee.jobTitle,
           employmentStatus: employee.employmentStatus,
+          hireDate: employee.hireDate,
           departmentId: employee.departmentId,
         })),
         departments: departments.map((department) => ({
@@ -153,6 +170,7 @@ export function resetEmployeeLifecycleDemoState() {
       displayName: employee.displayName,
       jobTitle: employee.jobTitle,
       employmentStatus: "active",
+      hireDate: demoHireDate(employee.id),
       departmentId: employee.department?.id ?? null,
     })),
     departments: overview.company.departments.map((department) => ({
@@ -180,6 +198,20 @@ async function recordDbLifecycleEvent(
   const nextDepartmentId = await validateDepartment(session, input.nextDepartmentId);
   const nextStatus = statusForEvent(input.eventType);
   const nextJobTitle = input.nextJobTitle ?? employee.jobTitle;
+  const terminationCompliance = input.eventType === "termination"
+    ? calculateTerminationCompliance({
+        hireDate: employee.hireDate,
+        effectiveDate: input.effectiveDate,
+        reasonCategory: input.terminationReasonCategory,
+        pensionScheme: input.pensionScheme,
+        averageMonthlyWage: input.averageMonthlyWage,
+        config: await getTaiwanLaborStandardsConfig({
+          ...session,
+          tenantId: session.tenantId ?? null,
+          companyId: session.companyId ?? null,
+        }),
+      })
+    : null;
 
   return db.$transaction(async (tx) => {
     const updatedEmployee = await tx.employee.update({
@@ -207,6 +239,7 @@ async function recordDbLifecycleEvent(
         metadataJson: {
           source: "employee_lifecycle_page",
           effectiveDate: input.effectiveDate.toISOString().slice(0, 10),
+          terminationCompliance,
         } satisfies Prisma.InputJsonValue,
         createdByUserId: session.user?.id,
       },
@@ -236,6 +269,9 @@ async function recordDbLifecycleEvent(
         employeeId: employee.id,
         eventType: input.eventType,
         effectiveDate: input.effectiveDate.toISOString().slice(0, 10),
+        terminationComplianceCaptured: Boolean(terminationCompliance),
+        terminationRequiresHumanReview: terminationCompliance?.requiresHumanReview ?? false,
+        sensitiveValuesRedacted: true,
       },
     });
     const workspace = await getEmployeeLifecycleWorkspace(session);
@@ -257,6 +293,16 @@ function recordDemoLifecycleEvent(
   const previousDepartment = state.departments.find((item) => item.id === employee.departmentId) ?? null;
   const nextStatus = statusForEvent(input.eventType) ?? employee.employmentStatus;
   const nextJobTitle = input.nextJobTitle ?? employee.jobTitle;
+  const terminationCompliance = input.eventType === "termination"
+    ? calculateTerminationCompliance({
+        hireDate: employee.hireDate,
+        effectiveDate: input.effectiveDate,
+        reasonCategory: input.terminationReasonCategory,
+        pensionScheme: input.pensionScheme,
+        averageMonthlyWage: input.averageMonthlyWage,
+        config: getActiveTaiwanLaborStandardsConfig(),
+      })
+    : null;
   const event: LifecycleEventRow = {
     id: crypto.randomUUID(),
     employeeId: employee.id,
@@ -271,6 +317,7 @@ function recordDemoLifecycleEvent(
     nextJobTitle,
     previousStatus: employee.employmentStatus,
     nextStatus,
+    terminationCompliance,
     createdAt: new Date(),
   };
   employee.departmentId = nextDepartmentId;
@@ -303,6 +350,9 @@ function recordDemoLifecycleEvent(
       employeeId: employee.id,
       eventType: event.eventType,
       effectiveDate: input.effectiveDate.toISOString().slice(0, 10),
+      terminationComplianceCaptured: Boolean(terminationCompliance),
+      terminationRequiresHumanReview: terminationCompliance?.requiresHumanReview ?? false,
+      sensitiveValuesRedacted: true,
     },
   });
   return event;
@@ -342,6 +392,7 @@ function mapDbEvent(
     nextJobTitle: event.nextJobTitle,
     previousStatus: event.previousStatus,
     nextStatus: event.nextStatus,
+    terminationCompliance: readTerminationCompliance(event.metadataJson),
     createdAt: event.createdAt,
   };
 }
@@ -370,6 +421,9 @@ function normalizeInput(input: LifecycleEventInput) {
     reason,
     nextDepartmentId: input.nextDepartmentId?.trim() || null,
     nextJobTitle: input.nextJobTitle?.trim() || null,
+    terminationReasonCategory: normalizeTerminationReasonCategory(input.terminationReasonCategory),
+    pensionScheme: normalizePensionScheme(input.pensionScheme),
+    averageMonthlyWage: normalizeOptionalMoney(input.averageMonthlyWage),
   };
 }
 
@@ -386,6 +440,51 @@ function statusForEvent(eventType: LifecycleEventType): EmploymentStatus | null 
   if (eventType === "return") return "active";
   return null;
 }
+
+function normalizeTerminationReasonCategory(value?: TerminationReasonCategory | null): TerminationReasonCategory {
+  if (
+    value === "resignation" ||
+    value === "layoff" ||
+    value === "misconduct" ||
+    value === "retirement" ||
+    value === "contract_end" ||
+    value === "other"
+  ) {
+    return value;
+  }
+  return "other";
+}
+
+function normalizePensionScheme(value?: PensionScheme | null): PensionScheme {
+  if (value === "labor_standards_old") return "labor_standards_old";
+  return "labor_pension_new";
+}
+
+function normalizeOptionalMoney(value?: number | null) {
+  if (value === undefined || value === null || Number(value) === 0) return null;
+  const parsed = Math.round(Number(value));
+  if (!Number.isFinite(parsed) || parsed < 0) throw new Error("Average monthly wage must be zero or greater.");
+  return parsed;
+}
+
+function readTerminationCompliance(value: unknown): TerminationComplianceSnapshot | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const compliance = (value as Record<string, unknown>).terminationCompliance;
+  if (!compliance || typeof compliance !== "object" || Array.isArray(compliance)) return null;
+  return compliance as TerminationComplianceSnapshot;
+}
+
+function demoHireDate(employeeId: string) {
+  const dates: Record<string, string> = {
+    "demo-hr-employee": "2023-03-01T00:00:00.000Z",
+    "demo-manager-employee": "2022-08-15T00:00:00.000Z",
+    "demo-employee-1": "2024-01-10T00:00:00.000Z",
+    "demo-employee-2": "2024-02-01T00:00:00.000Z",
+    "demo-employee-3": "2024-05-20T00:00:00.000Z",
+  };
+  return new Date(dates[employeeId] ?? "2024-01-01T00:00:00.000Z");
+}
+
 
 function startOfDate(date: Date) {
   const value = new Date(date);

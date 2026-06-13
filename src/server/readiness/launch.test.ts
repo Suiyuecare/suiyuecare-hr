@@ -152,8 +152,8 @@ describe("launch readiness", () => {
       laborConfig,
       laborRuleValidation: {
         passed: true,
-        passedCount: 6,
-        fixtureCount: 6,
+        passedCount: 7,
+        fixtureCount: 7,
       },
       securitySettings: secureSettings,
       fileStorageSettings: secureStorage,
@@ -186,8 +186,8 @@ describe("launch readiness", () => {
       laborConfig: defaultTaiwanLaborStandardsConfig,
       laborRuleValidation: {
         passed: false,
-        passedCount: 5,
-        fixtureCount: 6,
+        passedCount: 6,
+        fixtureCount: 7,
       },
       securitySettings: secureSettings,
       fileStorageSettings: secureStorage,
@@ -208,7 +208,7 @@ describe("launch readiness", () => {
 
     expect(report.items.find((item) => item.id === "law_rules")).toMatchObject({
       status: "blocked",
-      detail: "3 active rule version(s); rule review status approved; 5/6 fixture(s) passed; sources 0/0 fresh, oldest missing.",
+      detail: "3 active rule version(s); rule review status approved; 6/7 fixture(s) passed; sources 0/0 fresh, oldest missing.",
     });
   });
 
@@ -221,8 +221,8 @@ describe("launch readiness", () => {
       laborConfig: defaultTaiwanLaborStandardsConfig,
       laborRuleValidation: {
         passed: true,
-        passedCount: 6,
-        fixtureCount: 6,
+        passedCount: 7,
+        fixtureCount: 7,
       },
       legalSourceFreshness: {
         passed: false,
@@ -250,7 +250,7 @@ describe("launch readiness", () => {
 
     expect(report.items.find((item) => item.id === "law_rules")).toMatchObject({
       status: "blocked",
-      detail: "3 active rule version(s); rule review status approved; 6/6 fixture(s) passed; sources 11/12 fresh, oldest 2025-01-01.",
+      detail: "3 active rule version(s); rule review status approved; 7/7 fixture(s) passed; sources 11/12 fresh, oldest 2025-01-01.",
     });
   });
 

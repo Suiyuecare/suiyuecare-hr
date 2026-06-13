@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireTenantSession } from "@/server/auth/guards";
 import { recordLifecycleEvent, type LifecycleEventType } from "@/server/employees/lifecycle";
+import type { PensionScheme, TerminationReasonCategory } from "@/server/employees/termination-compliance";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -13,6 +14,9 @@ export async function POST(request: Request) {
       reason: readString(formData.get("reason")),
       nextDepartmentId: readOptionalString(formData.get("nextDepartmentId")),
       nextJobTitle: readOptionalString(formData.get("nextJobTitle")),
+      terminationReasonCategory: readTerminationReasonCategory(formData.get("terminationReasonCategory")),
+      pensionScheme: readPensionScheme(formData.get("pensionScheme")),
+      averageMonthlyWage: parseOptionalNumber(formData.get("averageMonthlyWage")),
     });
     return NextResponse.redirect(new URL("/hr/employee-lifecycle", request.url), 303);
   } catch (error) {
@@ -39,6 +43,32 @@ function readEventType(value: FormDataEntryValue | null): LifecycleEventType {
     return text;
   }
   return "transfer";
+}
+
+function readTerminationReasonCategory(value: FormDataEntryValue | null): TerminationReasonCategory {
+  const text = readString(value);
+  if (
+    text === "resignation" ||
+    text === "layoff" ||
+    text === "misconduct" ||
+    text === "retirement" ||
+    text === "contract_end" ||
+    text === "other"
+  ) {
+    return text;
+  }
+  return "other";
+}
+
+function readPensionScheme(value: FormDataEntryValue | null): PensionScheme {
+  return readString(value) === "labor_standards_old" ? "labor_standards_old" : "labor_pension_new";
+}
+
+function parseOptionalNumber(value: FormDataEntryValue | null) {
+  const text = readString(value);
+  if (!text) return null;
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function parseDate(value: FormDataEntryValue | null) {

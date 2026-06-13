@@ -50,6 +50,11 @@ describe("rule settings", () => {
       restDayCycleDays: 7,
       requiredRegularLeaveDaysPerCycle: 1,
       requiredRestDaysPerCycle: 1,
+      terminationCompliance: {
+        laborPensionSeveranceMultiplierPerServiceYear: 0.55,
+        laborPensionSeveranceMaxAverageWageMonths: 6.5,
+        laborStandardsSeveranceMultiplierPerServiceYear: 1.1,
+      },
       statutoryPayroll: {
         nationalHealthInsuranceRate: 0.052,
         nationalHealthInsuranceEmployerShare: 0.61,
@@ -83,6 +88,9 @@ describe("rule settings", () => {
     expect(updated.restDayCycleDays).toBe(7);
     expect(updated.requiredRegularLeaveDaysPerCycle).toBe(1);
     expect(updated.requiredRestDaysPerCycle).toBe(1);
+    expect(updated.terminationCompliance.laborPensionSeveranceMultiplierPerServiceYear).toBe(0.55);
+    expect(updated.terminationCompliance.laborPensionSeveranceMaxAverageWageMonths).toBe(6.5);
+    expect(updated.terminationCompliance.laborStandardsSeveranceMultiplierPerServiceYear).toBe(1.1);
     expect(updated.statutoryPayroll.nationalHealthInsuranceRate).toBe(0.052);
     expect(updated.statutoryPayroll.nationalHealthInsuranceEmployerShare).toBe(0.61);
     expect(updated.statutoryPayroll.nationalHealthInsuranceAverageDependentCount).toBe(0.58);
@@ -99,7 +107,7 @@ describe("rule settings", () => {
         metadata: expect.objectContaining({
           validationSummary: expect.objectContaining({
             passed: true,
-            fixtureCount: 6,
+            fixtureCount: 7,
             failedCount: 0,
           }),
         }),

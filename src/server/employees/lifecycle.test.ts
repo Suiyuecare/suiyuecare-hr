@@ -63,4 +63,37 @@ describe("employee lifecycle", () => {
       }),
     ).rejects.toThrow(/employee:write/);
   });
+
+  it("captures Taiwan termination compliance snapshot with redacted audit metadata", async () => {
+    const event = await recordLifecycleEvent(hrSession, {
+      employeeId: "demo-employee-2",
+      eventType: "termination",
+      effectiveDate: new Date("2026-07-01T00:00:00.000Z"),
+      reason: "Business unit restructuring approved by HR.",
+      terminationReasonCategory: "layoff",
+      pensionScheme: "labor_pension_new",
+      averageMonthlyWage: 60_000,
+    });
+    const auditLog = getAuditDemoState().logs[0];
+
+    expect(event?.terminationCompliance).toMatchObject({
+      appliesStatutorySeverance: true,
+      reasonCategory: "layoff",
+      pensionScheme: "labor_pension_new",
+      requiredAdvanceNoticeDays: 20,
+      averageMonthlyWageProvided: true,
+      requiresHumanReview: true,
+    });
+    expect(event?.terminationCompliance?.severancePayEstimate).toBeGreaterThan(0);
+    expect(auditLog).toMatchObject({
+      action: "update",
+      entityType: "employee_lifecycle_event",
+        metadataJson: expect.objectContaining({
+        terminationComplianceCaptured: true,
+        terminationRequiresHumanReview: true,
+        sensitiveValuesRedacted: true,
+      }),
+    });
+    expect(JSON.stringify(auditLog.metadataJson)).not.toContain("60000");
+  });
 });

@@ -89,6 +89,30 @@ export default async function EmployeeLifecyclePage({ searchParams }: { searchPa
               New job title
               <input name="nextJobTitle" placeholder="Leave blank to keep current title" />
             </label>
+            <div className="field-grid">
+              <label>
+                Termination reason
+                <select name="terminationReasonCategory" defaultValue="layoff">
+                  <option value="layoff">Layoff / redundancy</option>
+                  <option value="resignation">Resignation</option>
+                  <option value="retirement">Retirement</option>
+                  <option value="contract_end">Contract end</option>
+                  <option value="misconduct">Misconduct</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label>
+                Pension scheme
+                <select name="pensionScheme" defaultValue="labor_pension_new">
+                  <option value="labor_pension_new">Labor Pension Act</option>
+                  <option value="labor_standards_old">Labor Standards Act</option>
+                </select>
+              </label>
+              <label>
+                Average monthly wage
+                <input name="averageMonthlyWage" type="number" min="0" step="1" placeholder="Required for layoff estimate" />
+              </label>
+            </div>
             <label>
               Reason
               <textarea name="reason" placeholder="Record the HR-approved reason or reference." required />
@@ -106,7 +130,7 @@ export default async function EmployeeLifecyclePage({ searchParams }: { searchPa
               <li className="task" key={employee.id}>
                 <span>
                   <strong>{employee.displayName} · {employee.employeeNo}</strong>
-                  <small>{employee.jobTitle}</small>
+                  <small>{employee.jobTitle} · hired {formatDate(employee.hireDate)}</small>
                 </span>
                 <span className={`badge ${employee.employmentStatus === "on_leave" ? "warning" : ""}`}>
                   {statusLabel(employee.employmentStatus)}
@@ -133,6 +157,15 @@ export default async function EmployeeLifecyclePage({ searchParams }: { searchPa
                       {event.previousJobTitle ?? "n/a"} → {event.nextJobTitle ?? "n/a"}
                       {event.nextDepartmentName ? ` · ${event.nextDepartmentName}` : ""}
                     </small>
+                    {event.terminationCompliance ? (
+                      <small>
+                        Notice {event.terminationCompliance.requiredAdvanceNoticeDays} day(s) · severance{" "}
+                        {event.terminationCompliance.severancePayEstimate === null
+                          ? "needs wage input"
+                          : formatMoney(event.terminationCompliance.severancePayEstimate)}
+                        {" "}· human review required
+                      </small>
+                    ) : null}
                   </span>
                   <span className={`badge ${event.nextStatus === "on_leave" ? "warning" : ""}`}>
                     {event.nextStatus ? statusLabel(event.nextStatus) : eventTypeLabel(event.eventType)}
@@ -145,6 +178,14 @@ export default async function EmployeeLifecyclePage({ searchParams }: { searchPa
       </section>
     </main>
   );
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("zh-TW", {
+    style: "currency",
+    currency: "TWD",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 function eventTypeLabel(type: string) {

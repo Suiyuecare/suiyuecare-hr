@@ -86,7 +86,7 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     activeVersionCount: 3,
     validatedVersionCount: 3,
     failedVersionCount: 0,
-    fixtureCount: 18,
+    fixtureCount: 21,
   },
   legalSourceFreshness: {
     activeVersionCount: 3,

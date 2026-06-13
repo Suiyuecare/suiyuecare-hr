@@ -9,11 +9,12 @@ import {
   type LegalSource,
   type TaiwanLaborStandardsConfig,
 } from "./taiwan-labor-standards";
+import { calculateTerminationCompliance } from "@/server/employees/termination-compliance";
 
 export type RuleValidationFixture = {
   id: string;
   name: string;
-  category: "minimum_wage" | "overtime" | "working_time" | "leave";
+  category: "minimum_wage" | "overtime" | "working_time" | "leave" | "termination";
   passed: boolean;
   detail: string;
   sourceIds: string[];
@@ -57,6 +58,7 @@ export function validateTaiwanLaborStandardsRuleSet(
     validateWorkingTimeLimits(config),
     validateRestCycle(config),
     validateAnnualLeaveTiers(config),
+    validateTerminationCompliance(config),
   ];
   const failedCount = fixtures.filter((fixture) => !fixture.passed).length;
   return {
@@ -310,12 +312,63 @@ function validateAnnualLeaveTiers(config: TaiwanLaborStandardsConfig): RuleValid
   };
 }
 
+function validateTerminationCompliance(config: TaiwanLaborStandardsConfig): RuleValidationFixture {
+  const hireDate = new Date("2024-01-01T00:00:00.000Z");
+  const effectiveDate = new Date("2026-01-01T00:00:00.000Z");
+  const result = calculateTerminationCompliance({
+    hireDate,
+    effectiveDate,
+    reasonCategory: "layoff",
+    pensionScheme: "labor_pension_new",
+    averageMonthlyWage: 60_000,
+    config,
+  });
+  const expectedMonths = Math.min(
+    config.terminationCompliance.laborPensionSeveranceMaxAverageWageMonths,
+    result.serviceYears * config.terminationCompliance.laborPensionSeveranceMultiplierPerServiceYear,
+  );
+  const passed =
+    result.appliesStatutorySeverance &&
+    result.requiredAdvanceNoticeDays >= 20 &&
+    result.severancePayMonths === roundDecimal(expectedMonths, 4) &&
+    result.severancePayEstimate === roundMoney(
+      60_000 *
+        Math.min(
+          config.terminationCompliance.laborPensionSeveranceMaxAverageWageMonths,
+          (differenceInDays(hireDate, effectiveDate) / 365) *
+            config.terminationCompliance.laborPensionSeveranceMultiplierPerServiceYear,
+        ),
+    ) &&
+    result.requiresHumanReview;
+  return {
+    id: "tw_termination_notice_severance",
+    name: "Termination compliance calculates notice and severance review basis",
+    category: "termination",
+    passed,
+    detail: passed
+      ? `${result.requiredAdvanceNoticeDays} notice day(s); ${result.severancePayMonths} average-wage month(s).`
+      : "Termination notice or severance validation failed.",
+    sourceIds: sourceIds(result.sources),
+  };
+}
+
 function sourceIds(sources: Array<{ id: string }>) {
   return Array.from(new Set(sources.map((source) => source.id)));
 }
 
 function roundMoney(value: number) {
   return Math.round(value);
+}
+
+function roundDecimal(value: number, digits: number) {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
+}
+
+function differenceInDays(start: Date, end: Date) {
+  const startUtc = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
+  const endUtc = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
+  return Math.floor((endUtc - startUtc) / 86_400_000);
 }
 
 function parseIsoDateOnly(value: string) {

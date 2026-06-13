@@ -53,6 +53,7 @@ type TaiwanLaborSettingsInput = Partial<Pick<
   | "requiredRestDaysPerCycle"
 >> & {
   changeControl?: Partial<RuleChangeControl>;
+  terminationCompliance?: Partial<TaiwanLaborStandardsConfig["terminationCompliance"]>;
   statutoryPayroll?: Omit<Partial<TaiwanStatutoryPayrollConfig>, "incomeTaxWithholding"> & {
     incomeTaxWithholding?: Partial<TaiwanStatutoryPayrollConfig["incomeTaxWithholding"]>;
   };
@@ -320,6 +321,7 @@ function normalizeRuleSettings(input: TaiwanLaborSettingsInput, base: TaiwanLabo
       base.requiredRegularLeaveDaysPerCycle,
     ),
     requiredRestDaysPerCycle: nonNegativeInteger(input.requiredRestDaysPerCycle, base.requiredRestDaysPerCycle),
+    terminationCompliance: normalizeTerminationCompliance(input.terminationCompliance, base.terminationCompliance),
     statutoryPayroll: {
       ...base.statutoryPayroll,
       laborInsuranceEmployeeRate: positiveRate(
@@ -406,6 +408,37 @@ function normalizeRuleSettings(input: TaiwanLaborSettingsInput, base: TaiwanLabo
         base.statutoryPayroll.laborPensionContributionGrades,
       ),
     },
+  };
+}
+
+function normalizeTerminationCompliance(
+  input: TaiwanLaborSettingsInput["terminationCompliance"],
+  base: TaiwanLaborStandardsConfig["terminationCompliance"],
+) {
+  const advanceNoticeTiers = Array.isArray(input?.advanceNoticeTiers) && input.advanceNoticeTiers.length > 0
+    ? input.advanceNoticeTiers
+        .map((tier) => ({
+          serviceMonthsFrom: nonNegativeInteger(tier.serviceMonthsFrom, 0),
+          serviceMonthsTo: tier.serviceMonthsTo === null ? null : nonNegativeInteger(tier.serviceMonthsTo, 0),
+          noticeDays: nonNegativeInteger(tier.noticeDays, 0),
+        }))
+        .sort((a, b) => a.serviceMonthsFrom - b.serviceMonthsFrom)
+    : base.advanceNoticeTiers;
+
+  return {
+    advanceNoticeTiers,
+    laborPensionSeveranceMultiplierPerServiceYear: positiveNumber(
+      input?.laborPensionSeveranceMultiplierPerServiceYear,
+      base.laborPensionSeveranceMultiplierPerServiceYear,
+    ),
+    laborPensionSeveranceMaxAverageWageMonths: positiveNumber(
+      input?.laborPensionSeveranceMaxAverageWageMonths,
+      base.laborPensionSeveranceMaxAverageWageMonths,
+    ),
+    laborStandardsSeveranceMultiplierPerServiceYear: positiveNumber(
+      input?.laborStandardsSeveranceMultiplierPerServiceYear,
+      base.laborStandardsSeveranceMultiplierPerServiceYear,
+    ),
   };
 }
 
@@ -509,6 +542,7 @@ function getChangedFields(input: ReturnType<typeof normalizeRuleSettings>) {
     "restDayCycleDays",
     "requiredRegularLeaveDaysPerCycle",
     "requiredRestDaysPerCycle",
+    ...Object.keys(input.terminationCompliance).map((key) => `terminationCompliance.${key}`),
     ...Object.keys(input.statutoryPayroll).map((key) => `statutoryPayroll.${key}`),
   ];
 }
@@ -522,6 +556,7 @@ function isTaiwanLaborStandardsConfig(value: unknown): value is TaiwanLaborStand
     typeof record.minimumMonthlyWage === "number" &&
     typeof record.minimumHourlyWage === "number" &&
     typeof record.payrollStandardMonthlyHours === "number" &&
+    typeof record.terminationCompliance === "object" &&
     typeof record.statutoryPayroll === "object" &&
     Array.isArray(record.sources)
   );
