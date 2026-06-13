@@ -6,6 +6,7 @@ import {
   type DatabaseVerificationSnapshot,
 } from "../src/server/readiness/database-verification";
 import { evaluateSalaryProfileMinimumWageCompliance } from "../src/server/payroll/minimum-wage";
+import { evaluatePayrollInsuranceGradeReadiness } from "../src/server/payroll/insurance-grade-readiness";
 import {
   defaultTaiwanLaborStandardsConfig,
   type TaiwanLaborStandardsConfig,
@@ -131,11 +132,16 @@ async function buildSnapshot(
     }),
     prisma.salaryProfile.findMany({
       where: { tenantId, companyId, effectiveTo: null },
-      select: { employeeId: true, baseSalary: true, hourlyWage: true },
+      select: { employeeId: true, baseSalary: true, hourlyWage: true, recurringAllowances: true },
     }),
     prisma.payrollComplianceProfile.findMany({
       where: { tenantId, companyId, effectiveTo: null },
-      select: { employeeId: true },
+      select: {
+        employeeId: true,
+        laborInsuranceMonthlyWage: true,
+        healthInsuranceMonthlyWage: true,
+        laborPensionMonthlyWage: true,
+      },
     }),
     prisma.employeePaymentProfile.findMany({
       where: { tenantId, companyId, status: "active", effectiveTo: null },
@@ -197,6 +203,23 @@ async function buildSnapshot(
       baseSalary: decimalToNumber(profile.baseSalary),
       hourlyWage: decimalToNullableNumber(profile.hourlyWage),
     })),
+    laborConfig,
+  );
+  const currentComplianceByEmployee = new Map(
+    currentPayrollComplianceProfiles.map((profile) => [profile.employeeId, profile]),
+  );
+  const insuranceGradeReadiness = evaluatePayrollInsuranceGradeReadiness(
+    currentSalaryProfiles.map((profile) => {
+      const complianceProfile = currentComplianceByEmployee.get(profile.employeeId);
+      return {
+        employeeId: profile.employeeId,
+        baseSalary: decimalToNumber(profile.baseSalary),
+        recurringAllowances: readMoneyItems(profile.recurringAllowances),
+        laborInsuranceMonthlyWage: decimalToNullableNumber(complianceProfile?.laborInsuranceMonthlyWage),
+        healthInsuranceMonthlyWage: decimalToNullableNumber(complianceProfile?.healthInsuranceMonthlyWage),
+        laborPensionMonthlyWage: decimalToNullableNumber(complianceProfile?.laborPensionMonthlyWage),
+      };
+    }),
     laborConfig,
   );
   return {
@@ -276,6 +299,12 @@ async function buildSnapshot(
       monthlyViolationCount: minimumWageCompliance.monthlyViolationCount,
       hourlyViolationCount: minimumWageCompliance.hourlyViolationCount,
       detail: minimumWageCompliance.detail,
+    },
+    insuranceGradeReadiness: {
+      ready: insuranceGradeReadiness.ready,
+      checkedCount: insuranceGradeReadiness.checkedCount,
+      issueCount: insuranceGradeReadiness.issueCount,
+      detail: insuranceGradeReadiness.detail,
     },
     accessCoverage: {
       privilegedUserIds: uniqueIds(
@@ -395,6 +424,12 @@ function emptySnapshot(
       monthlyViolationCount: 0,
       hourlyViolationCount: 0,
       detail: "0 salary profile(s) checked; missing configured Taiwan minimum wage verification.",
+    },
+    insuranceGradeReadiness: {
+      ready: false,
+      checkedCount: 0,
+      issueCount: 0,
+      detail: "0 payroll compliance profile(s) checked; missing insurance grade verification.",
     },
     accessCoverage: {
       privilegedUserIds: [],
@@ -571,6 +606,21 @@ function decimalToNullableNumber(value: unknown) {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function readMoneyItems(value: unknown): Array<{ code: string; name: string; amount: number }> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const record = item as Record<string, unknown>;
+    const amount = Number(record.amount);
+    if (!Number.isFinite(amount)) return [];
+    return {
+      code: String(record.code ?? "item"),
+      name: String(record.name ?? "Item"),
+      amount,
+    };
+  });
 }
 
 function calendarYearRange(calendarYear: number) {

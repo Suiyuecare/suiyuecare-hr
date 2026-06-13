@@ -3,6 +3,7 @@ import {
   type StatutoryLeaveCategory,
 } from "@/server/leave/statutory";
 import type { MinimumWageComplianceReport } from "@/server/payroll/minimum-wage";
+import type { PayrollInsuranceGradeReadinessReport } from "@/server/payroll/insurance-grade-readiness";
 
 export type DatabaseVerificationMode = "demo" | "production";
 
@@ -64,6 +65,10 @@ export type DatabaseVerificationSnapshot = {
   minimumWageCompliance: Pick<
     MinimumWageComplianceReport,
     "ready" | "checkedCount" | "monthlyViolationCount" | "hourlyViolationCount" | "detail"
+  >;
+  insuranceGradeReadiness: Pick<
+    PayrollInsuranceGradeReadinessReport,
+    "ready" | "checkedCount" | "issueCount" | "detail"
   >;
   accessCoverage: {
     privilegedUserIds: string[];
@@ -257,6 +262,13 @@ export function buildDatabaseVerificationChecks(
     "payroll compliance profile coverage",
     complianceCoverage.missingCount === 0,
     `${complianceCoverage.configuredCount}/${complianceCoverage.totalCount} active employee(s) covered; ${snapshot.counts.payrollComplianceProfiles} profile record(s)`,
+  ));
+  checks.push(check(
+    "payroll insurance grade readiness",
+    complianceCoverage.missingCount === 0 &&
+      snapshot.insuranceGradeReadiness.checkedCount >= complianceCoverage.totalCount &&
+      snapshot.insuranceGradeReadiness.ready,
+    snapshot.insuranceGradeReadiness.detail,
   ));
   checks.push(check(
     "payment profile coverage",

@@ -67,6 +67,12 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     hourlyViolationCount: 0,
     detail: "5 salary profile(s) checked; no configured Taiwan minimum wage violations.",
   },
+  insuranceGradeReadiness: {
+    ready: true,
+    checkedCount: 5,
+    issueCount: 0,
+    detail: "5 payroll compliance profile(s) checked; no under-insured wage override risk.",
+  },
   accessCoverage: {
     privilegedUserIds: ["user_owner", "user_hr", "user_manager"],
     externalIdentityUserIds: ["user_owner", "user_hr", "user_manager", "user_employee"],
@@ -329,6 +335,28 @@ describe("database verification checks", () => {
       passed: false,
       detail: "missing hr_admin, manager",
     });
+  });
+
+  it("blocks launch when payroll compliance overrides understate insurance salary grades", () => {
+    const checks = buildDatabaseVerificationChecks(
+      {
+        ...readySnapshot,
+        insuranceGradeReadiness: {
+          ready: false,
+          checkedCount: 5,
+          issueCount: 2,
+          detail: "5 payroll compliance profile(s) checked; 2 under-insured wage override risk(s).",
+        },
+      },
+      "production",
+    );
+
+    expect(checks.find((item) => item.name === "payroll insurance grade readiness")).toMatchObject({
+      passed: false,
+      detail: "5 payroll compliance profile(s) checked; 2 under-insured wage override risk(s).",
+    });
+    expect(checks.find((item) => item.name === "payroll insurance grade readiness")?.detail).not.toContain("56000");
+    expect(checks.find((item) => item.name === "payroll insurance grade readiness")?.detail).not.toContain("80200");
   });
 
   it("requires production audit evidence for sensitive onboarding data, not only any audit log", () => {

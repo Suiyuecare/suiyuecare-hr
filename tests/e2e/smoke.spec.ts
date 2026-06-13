@@ -301,6 +301,11 @@ test("HR closes payroll and employee views released payslip", async ({ page }) =
   await expect(page.getByRole("heading", { name: "Annual Leave Settlement" })).toBeVisible();
   await page.getByRole("button", { name: "Prepare settlements" }).click();
   await expect(page.getByText("張小安 · 2.5 day(s)")).toBeVisible();
+  await page.goto("/hr/payroll-compliance");
+  await expect(page.getByRole("heading", { name: "Payroll Compliance" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Insurance grade readiness" })).toBeVisible();
+  await expect(page.getByText("no under-insured wage override risk")).toBeVisible();
+  await expect(page.getByText("Labor insurance wage").first()).toBeVisible();
   await page.goto("/hr");
   await page.getByRole("button", { name: "Calculate draft" }).click();
   await expect(page.getByText("calculated").first()).toBeVisible();

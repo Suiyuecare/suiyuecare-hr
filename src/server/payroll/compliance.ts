@@ -2,6 +2,11 @@ import { writeAuditLog } from "@/server/audit/audit";
 import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
+import { getTaiwanLaborStandardsConfig } from "@/server/rules/settings";
+import {
+  evaluatePayrollInsuranceGradeReadiness,
+  type PayrollInsuranceGradeReadinessReport,
+} from "./insurance-grade-readiness";
 import type { PayrollComplianceProfileView } from "./types";
 
 type SessionLike = {
@@ -17,6 +22,10 @@ type EmployeeComplianceRow = {
   employeeNo: string;
   employeeName: string;
   jobTitle: string;
+  salaryProfile: {
+    baseSalary: number;
+    recurringAllowances: Array<{ code: string; name: string; amount: number }>;
+  } | null;
   profile: PayrollComplianceProfileView;
 };
 
@@ -50,6 +59,10 @@ export async function listPayrollComplianceProfiles(session: SessionLike) {
           employmentStatus: "active",
         },
         include: {
+          salaryProfiles: {
+            orderBy: { effectiveFrom: "desc" },
+            take: 1,
+          },
           payrollComplianceProfiles: {
             orderBy: { effectiveFrom: "desc" },
             take: 1,
@@ -65,6 +78,12 @@ export async function listPayrollComplianceProfiles(session: SessionLike) {
           employeeNo: employee.employeeNo,
           employeeName: employee.displayName,
           jobTitle: employee.jobTitle,
+          salaryProfile: employee.salaryProfiles[0]
+            ? {
+                baseSalary: decimalToNumber(employee.salaryProfiles[0].baseSalary) ?? 0,
+                recurringAllowances: readMoneyItems(employee.salaryProfiles[0].recurringAllowances),
+              }
+            : null,
           profile: profile
             ? mapDbProfile(profile)
             : defaultProfile(employee.id),
@@ -76,6 +95,35 @@ export async function listPayrollComplianceProfiles(session: SessionLike) {
   }
 
   return getPayrollComplianceDemoRows();
+}
+
+export async function getPayrollInsuranceGradeReadiness(
+  session: SessionLike,
+  rows?: EmployeeComplianceRow[],
+): Promise<PayrollInsuranceGradeReadinessReport> {
+  const [workspaceRows, laborConfig] = await Promise.all([
+    rows ? Promise.resolve(rows) : listPayrollComplianceProfiles(session),
+    getTaiwanLaborStandardsConfig(session),
+  ]);
+  return evaluatePayrollInsuranceGradeReadiness(
+    workspaceRows.flatMap((row) =>
+      row.salaryProfile
+        ? [
+            {
+              employeeId: row.employeeId,
+              employeeNo: row.employeeNo,
+              employeeName: row.employeeName,
+              baseSalary: row.salaryProfile.baseSalary,
+              recurringAllowances: row.salaryProfile.recurringAllowances,
+              laborInsuranceMonthlyWage: row.profile.laborInsuranceMonthlyWage,
+              healthInsuranceMonthlyWage: row.profile.healthInsuranceMonthlyWage,
+              laborPensionMonthlyWage: row.profile.laborPensionMonthlyWage,
+            },
+          ]
+        : [],
+    ),
+    laborConfig,
+  );
 }
 
 export async function updatePayrollComplianceProfile(
@@ -129,7 +177,7 @@ function getPayrollComplianceDemoRows() {
       rows: [
         demoRow("demo-hr-employee", "E001", "林人資", "HR Admin", "resident", 0),
         demoRow("demo-manager-employee", "E002", "陳主管", "Engineering Manager", "resident", 2, {
-          healthInsuranceMonthlyWage: 80200,
+          healthInsuranceMonthlyWage: 83900,
         }),
         demoRow("demo-employee-1", "E003", "張小安", "Frontend Engineer", "resident", 1),
         demoRow("demo-employee-2", "E004", "李小真", "Product Designer", "resident", 0),
@@ -276,6 +324,7 @@ function demoRow(
     employeeNo,
     employeeName,
     jobTitle,
+    salaryProfile: demoSalaryProfile(employeeId),
     profile: {
       ...defaultProfile(employeeId),
       taxResidency,
@@ -287,6 +336,17 @@ function demoRow(
   };
 }
 
+function demoSalaryProfile(employeeId: string) {
+  const profiles: Record<string, { baseSalary: number; recurringAllowances: Array<{ code: string; name: string; amount: number }> }> = {
+    "demo-hr-employee": { baseSalary: 62000, recurringAllowances: [{ code: "meal", name: "Meal allowance", amount: 2500 }] },
+    "demo-manager-employee": { baseSalary: 78000, recurringAllowances: [{ code: "meal", name: "Meal allowance", amount: 3000 }] },
+    "demo-employee-1": { baseSalary: 56000, recurringAllowances: [{ code: "meal", name: "Meal allowance", amount: 2000 }] },
+    "demo-employee-2": { baseSalary: 54000, recurringAllowances: [{ code: "meal", name: "Meal allowance", amount: 2000 }] },
+    "demo-employee-3": { baseSalary: 58000, recurringAllowances: [{ code: "meal", name: "Meal allowance", amount: 2000 }] },
+  };
+  return profiles[employeeId] ?? null;
+}
+
 function decimalToNumber(value: unknown) {
   if (value === null || value === undefined) return null;
   if (typeof value === "number") return value;
@@ -295,6 +355,21 @@ function decimalToNumber(value: unknown) {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function readMoneyItems(value: unknown): Array<{ code: string; name: string; amount: number }> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const record = item as Record<string, unknown>;
+    const amount = Number(record.amount);
+    if (!Number.isFinite(amount)) return [];
+    return {
+      code: String(record.code ?? "item"),
+      name: String(record.name ?? "Item"),
+      amount,
+    };
+  });
 }
 
 function positiveOrNull(value: number | null | undefined) {

@@ -1,7 +1,10 @@
 import { EmptyState } from "@/components/EmptyState";
 import { getDemoSession } from "@/server/auth/demo-session";
 import { getCompanyOverview } from "@/server/dashboard/queries";
-import { listPayrollComplianceProfiles } from "@/server/payroll/compliance";
+import {
+  getPayrollInsuranceGradeReadiness,
+  listPayrollComplianceProfiles,
+} from "@/server/payroll/compliance";
 
 type SearchParams = Promise<{
   error?: string;
@@ -14,6 +17,7 @@ export default async function PayrollCompliancePage({ searchParams }: { searchPa
     getCompanyOverview(),
     listPayrollComplianceProfiles(session),
   ]);
+  const insuranceReadiness = await getPayrollInsuranceGradeReadiness(session, rows);
 
   if (!overview) {
     return (
@@ -61,6 +65,32 @@ export default async function PayrollCompliancePage({ searchParams }: { searchPa
           <strong>100%</strong>
           <span className="badge">Sensitive updates</span>
         </div>
+        <div className="panel span-12 risk-box">
+          <div className="section-heading">
+            <div>
+              <h2>Insurance grade readiness</h2>
+              <p className="muted">{insuranceReadiness.detail}</p>
+            </div>
+            <span className={`badge ${insuranceReadiness.ready ? "" : "danger"}`}>
+              {insuranceReadiness.ready ? "Ready" : "Action needed"}
+            </span>
+          </div>
+          {insuranceReadiness.issues.length ? (
+            <ul className="task-list compact">
+              {insuranceReadiness.issues.slice(0, 5).map((issue) => (
+                <li className="task" key={`${issue.employeeId}-${issue.kind}`}>
+                  <span>
+                    <strong>
+                      {issue.employeeNo} · {issue.employeeName}
+                    </strong>
+                    <small>{issue.message}</small>
+                  </span>
+                  <span className="badge danger">Min {formatMoney(issue.recommendedInsuredSalary)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
 
         <section className="panel span-12">
           <div className="section-heading">
@@ -76,7 +106,7 @@ export default async function PayrollCompliancePage({ searchParams }: { searchPa
           <ul className="task-list">
             {rows.map((row) => (
               <li className="task payroll-compliance-task" key={row.employeeId}>
-                <div className="employee-profile-heading">
+                  <div className="employee-profile-heading">
                   <span>
                     <strong>
                       {row.employeeNo} · {row.employeeName}
@@ -88,7 +118,25 @@ export default async function PayrollCompliancePage({ searchParams }: { searchPa
                   <span className={`badge ${row.profile.taxResidency === "non_resident" ? "warning" : ""}`}>
                     {row.profile.taxResidency === "non_resident" ? "Non-resident" : "Resident"}
                   </span>
-                </div>
+                  </div>
+                <ul className="task-list compact">
+                  {insuranceReadiness.recommendations
+                    .find((item) => item.employeeId === row.employeeId)
+                    ?.items.map((item) => (
+                      <li className="task" key={item.kind}>
+                        <span>
+                          <strong>{insuranceKindLabel(item.kind)}</strong>
+                          <small>
+                            recommended level {item.recommendedLevel} · {formatMoney(item.recommendedInsuredSalary)}
+                            {item.overrideMonthlyWage ? ` · override ${formatMoney(item.overrideMonthlyWage)}` : " · rule grade"}
+                          </small>
+                        </span>
+                        <span className={`badge ${item.ready ? "" : "danger"}`}>
+                          {item.ready ? "Ready" : "Review"}
+                        </span>
+                      </li>
+                    ))}
+                </ul>
                 <form action="/api/payroll/compliance/update" method="post" className="mini-form compact-form">
                   <input type="hidden" name="employeeId" value={row.employeeId} />
                   <div className="field-grid">
@@ -168,6 +216,20 @@ export default async function PayrollCompliancePage({ searchParams }: { searchPa
 
 function methodLabel(method: string) {
   return method === "non_resident_flat" ? "Non-resident flat withholding" : "Annualized progressive estimate";
+}
+
+function insuranceKindLabel(kind: string) {
+  if (kind === "health_insurance") return "NHI insured wage";
+  if (kind === "labor_pension") return "Labor pension wage";
+  return "Labor insurance wage";
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("zh-TW", {
+    style: "currency",
+    currency: "TWD",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 function formatDate(value: Date) {

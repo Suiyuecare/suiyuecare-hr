@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { getAuditDemoState, resetAuditDemoState } from "@/server/audit/demo-store";
 import {
+  getPayrollInsuranceGradeReadiness,
   listPayrollComplianceProfiles,
   resetPayrollComplianceDemoState,
   updatePayrollComplianceProfile,
@@ -50,6 +51,27 @@ describe("payroll compliance profiles", () => {
       entityType: "payroll_compliance_profile",
       entityId: "demo-employee-1",
     });
+  });
+
+  it("flags under-insured payroll compliance overrides for HR review", async () => {
+    let readiness = await getPayrollInsuranceGradeReadiness(hrSession);
+    expect(readiness.ready).toBe(true);
+
+    await updatePayrollComplianceProfile(hrSession, {
+      employeeId: "demo-employee-1",
+      taxResidency: "resident",
+      dependentCount: 1,
+      laborInsuranceMonthlyWage: 30000,
+      incomeTaxWithholdingMethod: "annualized_progressive",
+    });
+
+    readiness = await getPayrollInsuranceGradeReadiness(hrSession);
+    expect(readiness.ready).toBe(false);
+    expect(readiness.issues[0]).toMatchObject({
+      employeeId: "demo-employee-1",
+      kind: "labor_insurance",
+    });
+    expect(readiness.detail).not.toContain("56000");
   });
 
   it("blocks managers from editing payroll compliance settings", async () => {
