@@ -1,15 +1,22 @@
 import { EmptyState } from "@/components/EmptyState";
 import { getDemoSession } from "@/server/auth/demo-session";
 import { getCompanyOverview } from "@/server/dashboard/queries";
+import { getOnboardingReadinessReport } from "@/server/onboarding/readiness";
 import { getPayrollDashboard } from "@/server/payroll/service";
 import { getHrAttendanceExceptions } from "@/server/workflows/service";
 
 export default async function HrDashboardPage() {
   const [session, overview] = await Promise.all([getDemoSession(), getCompanyOverview()]);
-  const [exceptions, payroll] = await Promise.all([
+  const [exceptions, payroll, onboardingReadiness] = await Promise.all([
     getHrAttendanceExceptions(session),
     getPayrollDashboard(session),
+    getOnboardingReadinessReport(session),
   ]);
+  const nextActions = buildNextActions({
+    attendanceExceptionCount: exceptions.filter((item) => item.status === "pending").length,
+    onboardingReadiness,
+    payroll,
+  });
 
   if (!overview) {
     return (
@@ -45,6 +52,36 @@ export default async function HrDashboardPage() {
           <strong>{overview.activeRuleCount}</strong>
           <span className="badge">Versioned</span>
         </div>
+
+        <section className="panel span-12 command-panel">
+          <div className="section-heading">
+            <div>
+              <h2>Next Actions</h2>
+              <p className="muted">The shortest path to payroll close and customer launch readiness.</p>
+            </div>
+            <span className={`badge ${nextActions.some((action) => action.tone === "danger") ? "danger" : nextActions.some((action) => action.tone === "warning") ? "warning" : ""}`}>
+              {nextActions.filter((action) => action.tone !== "ready").length} open
+            </span>
+          </div>
+          <ul className="task-list next-action-list">
+            {nextActions.map((action) => (
+              <li className="task next-action" key={action.id}>
+                <span>
+                  <strong>{action.title}</strong>
+                  <small>{action.detail}</small>
+                </span>
+                <span className="inline-actions">
+                  <a className={`button ${action.primary ? "primary" : ""}`} href={action.href}>
+                    {action.label}
+                  </a>
+                  <span className={`badge ${action.tone === "danger" ? "danger" : action.tone === "warning" ? "warning" : ""}`}>
+                    {action.status}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
 
         <section className="panel span-12">
           <div className="section-heading">
@@ -329,6 +366,81 @@ export default async function HrDashboardPage() {
       </section>
     </main>
   );
+}
+
+type NextAction = {
+  id: string;
+  title: string;
+  detail: string;
+  href: string;
+  label: string;
+  status: string;
+  tone: "ready" | "warning" | "danger";
+  primary?: boolean;
+};
+
+function buildNextActions(input: {
+  attendanceExceptionCount: number;
+  onboardingReadiness: Awaited<ReturnType<typeof getOnboardingReadinessReport>>;
+  payroll: Awaited<ReturnType<typeof getPayrollDashboard>>;
+}): NextAction[] {
+  const actions: NextAction[] = [];
+  const onboardingBlocker = input.onboardingReadiness.checks.find((check) => check.status === "blocked");
+  const blockedPayrollStep = input.payroll.checklist.steps.find((step) => step.status === "blocked");
+
+  if (onboardingBlocker) {
+    actions.push({
+      id: "onboarding",
+      title: onboardingBlocker.title,
+      detail: onboardingBlocker.detail,
+      href: onboardingBlocker.actionHref,
+      label: onboardingBlocker.actionLabel,
+      status: "Blocked",
+      tone: "danger",
+      primary: true,
+    });
+  }
+
+  if (input.attendanceExceptionCount > 0) {
+    actions.push({
+      id: "attendance",
+      title: "Clear attendance exceptions",
+      detail: `${input.attendanceExceptionCount} pending exception(s) can affect payroll close.`,
+      href: "/hr/attendance-exceptions",
+      label: "Open queue",
+      status: "Before payroll",
+      tone: "warning",
+      primary: actions.length === 0,
+    });
+  }
+
+  if (blockedPayrollStep) {
+    actions.push({
+      id: "payroll",
+      title: blockedPayrollStep.title,
+      detail: blockedPayrollStep.detail,
+      href: "/hr",
+      label: "Review close",
+      status: "Close step",
+      tone: "warning",
+      primary: actions.length === 0,
+    });
+  }
+
+  if (actions.length === 0) {
+    return [{
+      id: "ready",
+      title: "Ready for controlled launch review",
+      detail: "No HR-owned onboarding, attendance, or payroll blockers are currently open.",
+      href: "/settings/readiness",
+      label: "Open launch gate",
+      status: "Ready",
+      tone: "ready",
+      primary: true,
+    }];
+  }
+
+  return actions.slice(0, 3);
 }
 
 function formatMoney(value: number) {

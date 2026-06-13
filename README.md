@@ -8,6 +8,7 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 
 - Employee clock in/out with punch source.
 - Daily Today Card with shift, punch status, leave balance, and pending requests.
+- HR command center with Next Actions that prioritizes onboarding, attendance, payroll close, and launch-readiness handoff before showing functional menus.
 - HR employee CSV import wizard with preview validation, department-code mapping, confirmation step, RBAC, and audit logs.
 - HR onboarding readiness workspace that turns customer setup gaps into missing employee, manager, labor roster, salary, payment, payroll compliance, statutory insurance enrollment, time setup, and Taiwan rule action lists before production verification.
 - HR payroll profile CSV import wizard for salary, payment, and payroll compliance profiles with preview validation, per-profile audit logs, and a redacted batch import audit log.

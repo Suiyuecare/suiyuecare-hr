@@ -246,6 +246,24 @@ textarea {
   color: var(--warning);
 }
 
+.command-panel {
+  background: linear-gradient(180deg, #ffffff 0%, #f6fbf8 100%);
+}
+
+.next-action-list {
+  gap: 12px;
+}
+
+.next-action {
+  border-color: #cfe3dc;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.next-action .inline-actions {
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

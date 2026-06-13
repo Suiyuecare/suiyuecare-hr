@@ -68,6 +68,7 @@ test("demo roles can switch between distinct dashboards", async ({ page }) => {
   await page.getByLabel("Demo role").selectOption("hr_admin");
   await page.getByRole("button", { name: "Switch" }).click();
   await expect(page.getByRole("heading", { name: "Monthly Close" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Next Actions" })).toBeVisible();
   await page.getByRole("link", { name: "KPIs" }).click();
   await expect(page.getByRole("heading", { name: "Winning KPIs" })).toBeVisible();
   await expect(page.getByText("Not yet")).toBeVisible();
@@ -449,7 +450,7 @@ test("HR closes payroll and employee views released payslip", async ({ page }) =
 
   await page.getByRole("button", { name: "Create run" }).click();
   await expect(page.getByText("blocked").first()).toBeVisible();
-  await expect(page.getByText("Missing punches must be resolved.")).toBeVisible();
+  await expect(page.locator("small").filter({ hasText: "Missing punches must be resolved." })).toBeVisible();
 
   await page.getByRole("button", { name: "Mark blockers reviewed" }).click();
   await page.goto("/hr/annual-leave-settlements");
