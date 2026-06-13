@@ -5,6 +5,8 @@ import { stableHash } from "@/server/audit/redaction";
 import { assertPermission } from "@/server/auth/rbac";
 import type { RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
+import { getTaiwanLaborStandardsConfig } from "@/server/rules/settings";
+import type { TaiwanLaborStandardsConfig } from "@/server/rules/taiwan-labor-standards";
 import { getPayrollAccountingSettings, type PayrollAccountingSettings } from "./accounting-settings";
 import { getPaymentProfileCoverage } from "./payment-profiles";
 import { getPayrollPaymentSecurityReadiness, type PayrollPaymentSecuritySettings } from "./payment-security";
@@ -103,15 +105,46 @@ export async function generatePayrollExport(session: SessionLike, exportType: Pa
   const paymentCoverage = await getPaymentProfileCoverage(session, payrollEmployeeIds(run));
   const paymentSecurity = await getPayrollPaymentSecurityReadiness(session);
   const accountingSettings = await getPayrollAccountingSettings(session);
+  const laborConfig = await getTaiwanLaborStandardsConfig({
+    role: session.role,
+    tenantId: session.tenantId ?? null,
+    companyId: session.companyId ?? null,
+    user: session.user,
+    employee: session.employee,
+  });
 
   if (canUseDatabase(session)) {
     try {
-      return await createDbPayrollExport(session, run, exportType, paymentCoverage.configuredEmployeeIds, accountingSettings, paymentSecurity.settings);
+      return await createDbPayrollExport(
+        session,
+        run,
+        exportType,
+        paymentCoverage.configuredEmployeeIds,
+        accountingSettings,
+        paymentSecurity.settings,
+        laborConfig,
+      );
     } catch {
-      return createDemoPayrollExport(session, run, exportType, paymentCoverage.configuredEmployeeIds, accountingSettings, paymentSecurity.settings);
+      return createDemoPayrollExport(
+        session,
+        run,
+        exportType,
+        paymentCoverage.configuredEmployeeIds,
+        accountingSettings,
+        paymentSecurity.settings,
+        laborConfig,
+      );
     }
   }
-  return createDemoPayrollExport(session, run, exportType, paymentCoverage.configuredEmployeeIds, accountingSettings, paymentSecurity.settings);
+  return createDemoPayrollExport(
+    session,
+    run,
+    exportType,
+    paymentCoverage.configuredEmployeeIds,
+    accountingSettings,
+    paymentSecurity.settings,
+    laborConfig,
+  );
 }
 
 export async function downloadPayrollExportPackage(session: SessionLike, exportId: string): Promise<PayrollExportDownload> {
@@ -184,8 +217,16 @@ async function createDbPayrollExport(
   paymentConfiguredEmployeeIds: Set<string>,
   accountingSettings: PayrollAccountingSettings,
   paymentSecuritySettings: PayrollPaymentSecuritySettings,
+  laborConfig: TaiwanLaborStandardsConfig,
 ) {
-  const draft = buildPayrollExportDraft(run, exportType, paymentConfiguredEmployeeIds, accountingSettings, paymentSecuritySettings);
+  const draft = buildPayrollExportDraft(
+    run,
+    exportType,
+    paymentConfiguredEmployeeIds,
+    accountingSettings,
+    paymentSecuritySettings,
+    laborConfig,
+  );
   const record = await getDb().$transaction(async (tx) => {
     const created = await tx.payrollExport.create({
       data: {
@@ -324,8 +365,16 @@ function createDemoPayrollExport(
   paymentConfiguredEmployeeIds: Set<string>,
   accountingSettings: PayrollAccountingSettings,
   paymentSecuritySettings: PayrollPaymentSecuritySettings,
+  laborConfig: TaiwanLaborStandardsConfig,
 ) {
-  const draft = buildPayrollExportDraft(run, exportType, paymentConfiguredEmployeeIds, accountingSettings, paymentSecuritySettings);
+  const draft = buildPayrollExportDraft(
+    run,
+    exportType,
+    paymentConfiguredEmployeeIds,
+    accountingSettings,
+    paymentSecuritySettings,
+    laborConfig,
+  );
   const view: PayrollExportView = {
     id: crypto.randomUUID(),
     payrollRunId: run.id,
@@ -419,6 +468,7 @@ function buildPayrollExportDraft(
   paymentConfiguredEmployeeIds: Set<string>,
   accountingSettings: PayrollAccountingSettings,
   paymentSecuritySettings: PayrollPaymentSecuritySettings,
+  laborConfig: TaiwanLaborStandardsConfig,
 ) {
   if (exportType === "bank_transfer") {
     const records = buildBankTransferRecords(run, paymentConfiguredEmployeeIds);
@@ -450,7 +500,7 @@ function buildPayrollExportDraft(
   }
 
   if (exportType === "statutory_filing") {
-    const records = buildStatutoryFilingRecords(run);
+    const records = buildStatutoryFilingRecords(run, laborConfig);
     return buildDraft({
       run,
       exportType,
@@ -616,49 +666,17 @@ function buildAccountingRecords(run: PayrollRunView, settings: PayrollAccounting
   ].filter((record) => record.amount > 0);
 }
 
-function buildStatutoryFilingRecords(run: PayrollRunView) {
-  const definitions = [
-    {
-      report: "Labor insurance premium review",
-      authority: "Bureau of Labor Insurance",
-      codes: ["tw_labor_insurance_employee", "tw_labor_insurance_employer"],
-    },
-    {
-      report: "National Health Insurance premium review",
-      authority: "National Health Insurance Administration",
-      codes: ["tw_nhi_employee", "tw_nhi_employer"],
-    },
-    {
-      report: "Occupational accident insurance review",
-      authority: "Bureau of Labor Insurance",
-      codes: ["tw_occupational_accident_insurance_employer"],
-    },
-    {
-      report: "Labor pension contribution review",
-      authority: "Bureau of Labor Insurance",
-      codes: ["tw_labor_pension_employer"],
-    },
-    {
-      report: "Income tax withholding review",
-      authority: "Ministry of Finance",
-      codes: ["tw_income_tax_withholding"],
-    },
-    {
-      report: "NHI supplementary premium review",
-      authority: "National Health Insurance Administration",
-      codes: ["tw_nhi_supplementary_employee"],
-    },
-  ];
-  return definitions.flatMap((definition) => {
-    const items = run.items.filter((item) => definition.codes.includes(item.code));
+function buildStatutoryFilingRecords(run: PayrollRunView, laborConfig: TaiwanLaborStandardsConfig) {
+  return laborConfig.statutoryPayroll.statutoryFilingReports.flatMap((definition) => {
+    const items = run.items.filter((item) => definition.payrollItemCodes.includes(item.code));
     if (items.length === 0) return [];
     return {
       report: definition.report,
       authority: definition.authority,
-      amount: sumItemsByCode(items, definition.codes),
+      amount: sumItemsByCode(items, definition.payrollItemCodes),
       itemCount: items.length,
       employeeCount: new Set(items.map((item) => item.employeeId)).size,
-      sourceCodes: definition.codes.join(","),
+      sourceCodes: definition.payrollItemCodes.join(","),
       ruleVersions: [...new Set(items.map((item) => item.ruleVersionId).filter(Boolean))].join(",") || "n/a",
     };
   });

@@ -26,6 +26,10 @@ import {
   resetPayrollPaymentSecurityDemoState,
   updatePayrollPaymentSecuritySettings,
 } from "./payment-security";
+import {
+  resetRuleSettingsDemoState,
+  updateTaiwanLaborStandardsConfig,
+} from "@/server/rules/settings";
 
 const hrSession = {
   role: "hr_admin" as const,
@@ -33,6 +37,14 @@ const hrSession = {
   companyId: "demo-company",
   user: { id: "demo-user-hr", displayName: "林人資" },
   employee: { id: "demo-hr-employee", displayName: "林人資" },
+};
+
+const ownerSession = {
+  role: "owner" as const,
+  tenantId: "demo-tenant",
+  companyId: "demo-company",
+  user: { id: "demo-user-owner", displayName: "王老闆" },
+  employee: { id: "demo-owner-employee", displayName: "王老闆" },
 };
 
 const managerSession = {
@@ -50,6 +62,7 @@ describe("payroll exports", () => {
     resetPayrollExportDemoState();
     resetPaymentProfileDemoState();
     resetPayrollPaymentSecurityDemoState();
+    resetRuleSettingsDemoState();
     resetAuditDemoState();
   });
 
@@ -154,6 +167,45 @@ describe("payroll exports", () => {
     });
     expect(bank.warnings).toContain("Payment token vault and customer_bank_csv v2 verification are configured with 5 mapped column(s).");
     expect(bank.previewRows[0].description).toContain("employee_no, bank_code, account_token_ref, amount, memo");
+  });
+
+  it("uses versioned Taiwan labor rules for statutory filing report definitions", async () => {
+    await updateTaiwanLaborStandardsConfig(ownerSession, {
+      statutoryPayroll: {
+        statutoryFilingReports: [
+          {
+            report: "Custom withholding package",
+            authority: "Customer payroll compliance",
+            payrollItemCodes: ["tw_income_tax_withholding"],
+          },
+        ],
+      },
+      changeControl: {
+        reason: "Customer filing package mapping approved by payroll lead.",
+        reviewedBy: "Payroll lead",
+        reviewedAt: "2026-06-14",
+        reviewStatus: "approved",
+        requiresPayrollRecalculation: false,
+      },
+    });
+    await createPayrollRun(hrSession);
+    await resolvePayrollBlockers(hrSession);
+    await recalculatePayrollRun(hrSession);
+    await confirmPayrollRun(hrSession);
+    await lockPayrollRun(hrSession);
+
+    const statutory = await generatePayrollExport(hrSession, "statutory_filing");
+
+    expect(statutory).toMatchObject({
+      exportType: "statutory_filing",
+      recordCount: 1,
+    });
+    expect(statutory.previewRows).toEqual([
+      expect.objectContaining({
+        label: "Custom withholding package",
+        description: "Customer payroll compliance · 5 payroll item(s) · tw_income_tax_withholding",
+      }),
+    ]);
   });
 
   it("blocks managers from payroll export access", async () => {

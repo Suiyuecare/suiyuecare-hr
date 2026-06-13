@@ -26,6 +26,12 @@ export type IncomeTaxBracket = {
   progressiveDifference: number;
 };
 
+export type StatutoryFilingReportDefinition = {
+  report: string;
+  authority: string;
+  payrollItemCodes: string[];
+};
+
 export type TaiwanLaborStandardsConfig = {
   jurisdiction: "TW";
   version: string;
@@ -108,6 +114,7 @@ export type TaiwanStatutoryPayrollConfig = {
   laborInsuranceSalaryGrades: InsuranceSalaryGrade[];
   healthInsuranceSalaryGrades: InsuranceSalaryGrade[];
   laborPensionContributionGrades: InsuranceSalaryGrade[];
+  statutoryFilingReports: StatutoryFilingReportDefinition[];
 };
 
 export type TaiwanIncomeTaxWithholdingConfig = {
@@ -165,6 +172,38 @@ export const defaultTaiwanLaborStandardsConfig: TaiwanLaborStandardsConfig = {
     laborInsuranceSalaryGrades: buildLaborInsuranceGrades2026(),
     healthInsuranceSalaryGrades: buildHealthInsuranceGrades2026Sample(),
     laborPensionContributionGrades: buildLaborInsuranceGrades2026(),
+    statutoryFilingReports: [
+      {
+        report: "Labor insurance premium review",
+        authority: "Bureau of Labor Insurance",
+        payrollItemCodes: ["tw_labor_insurance_employee", "tw_labor_insurance_employer"],
+      },
+      {
+        report: "National Health Insurance premium review",
+        authority: "National Health Insurance Administration",
+        payrollItemCodes: ["tw_nhi_employee", "tw_nhi_employer"],
+      },
+      {
+        report: "Occupational accident insurance review",
+        authority: "Bureau of Labor Insurance",
+        payrollItemCodes: ["tw_occupational_accident_insurance_employer"],
+      },
+      {
+        report: "Labor pension contribution review",
+        authority: "Bureau of Labor Insurance",
+        payrollItemCodes: ["tw_labor_pension_employer"],
+      },
+      {
+        report: "Income tax withholding review",
+        authority: "Ministry of Finance",
+        payrollItemCodes: ["tw_income_tax_withholding"],
+      },
+      {
+        report: "NHI supplementary premium review",
+        authority: "National Health Insurance Administration",
+        payrollItemCodes: ["tw_nhi_supplementary_employee"],
+      },
+    ],
   },
   regularDayOvertimeTiers: [
     {

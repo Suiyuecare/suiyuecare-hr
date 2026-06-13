@@ -8,6 +8,7 @@ import {
   type InsuranceSalaryGrade,
   type LegalSource,
   type RuleChangeControl,
+  type StatutoryFilingReportDefinition,
   type TaiwanStatutoryPayrollConfig,
   type TaiwanLaborStandardsConfig,
 } from "./taiwan-labor-standards";
@@ -297,6 +298,10 @@ function readTaiwanLaborConfig(value: Prisma.JsonValue): TaiwanLaborStandardsCon
         statutoryPayroll: {
           ...defaultTaiwanLaborStandardsConfig.statutoryPayroll,
           ...config.statutoryPayroll,
+          statutoryFilingReports: normalizeStatutoryFilingReports(
+            config.statutoryPayroll.statutoryFilingReports,
+            defaultTaiwanLaborStandardsConfig.statutoryPayroll.statutoryFilingReports,
+          ),
           incomeTaxWithholding: {
             ...defaultTaiwanLaborStandardsConfig.statutoryPayroll.incomeTaxWithholding,
             ...config.statutoryPayroll.incomeTaxWithholding,
@@ -438,6 +443,10 @@ function normalizeRuleSettings(input: TaiwanLaborSettingsInput, base: TaiwanLabo
         input.statutoryPayroll?.laborPensionContributionGrades,
         base.statutoryPayroll.laborPensionContributionGrades,
       ),
+      statutoryFilingReports: normalizeStatutoryFilingReports(
+        input.statutoryPayroll?.statutoryFilingReports,
+        base.statutoryPayroll.statutoryFilingReports,
+      ),
     },
     sources: normalizeLegalSources(input.sources, base.sources),
   };
@@ -490,6 +499,29 @@ function normalizeStatutoryOnboarding(
       base.insuranceWithdrawalDueDaysFromTermination,
     ),
   };
+}
+
+function normalizeStatutoryFilingReports(
+  value: StatutoryFilingReportDefinition[] | undefined,
+  fallback: StatutoryFilingReportDefinition[],
+) {
+  if (!Array.isArray(value) || value.length === 0) return fallback;
+  const reports: StatutoryFilingReportDefinition[] = [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    const report = cleanText(item.report, "");
+    const authority = cleanText(item.authority, "");
+    const payrollItemCodes = Array.isArray(item.payrollItemCodes)
+      ? [...new Set(item.payrollItemCodes.map((code) => cleanText(code, "")).filter(Boolean))]
+      : [];
+    const key = `${report}:${authority}`;
+    if (!report || !authority || payrollItemCodes.length === 0 || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    reports.push({ report, authority, payrollItemCodes });
+  }
+  return reports.length > 0 ? reports : fallback;
 }
 
 function normalizeTerminationCompliance(
