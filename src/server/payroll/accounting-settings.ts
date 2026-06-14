@@ -46,14 +46,10 @@ const globalForPayrollAccountingSettings = globalThis as unknown as {
 export async function getPayrollAccountingSettings(session: SessionLike) {
   assertPermission(session.role, "payroll:manage");
   if (canUseDatabase(session)) {
-    try {
-      const record = await getDb().companyPayrollAccountingSetting.findUnique({
-        where: { companyId: session.companyId },
-      });
-      return record ? readRecord(record) : defaultPayrollAccountingSettings;
-    } catch {
-      return getDemoState().settings;
-    }
+    const record = await getDb().companyPayrollAccountingSetting.findUnique({
+      where: { companyId: session.companyId },
+    });
+    return record ? readRecord(record) : defaultPayrollAccountingSettings;
   }
   return getDemoState().settings;
 }
@@ -67,11 +63,7 @@ export async function updatePayrollAccountingSettings(
   const normalized = normalizeSettings(input, before);
 
   if (canUseDatabase(session)) {
-    try {
-      return updateDbSettings(session, before, normalized);
-    } catch {
-      return updateDemoSettings(session, before, normalized);
-    }
+    return updateDbSettings(session, before, normalized);
   }
   return updateDemoSettings(session, before, normalized);
 }
