@@ -76,30 +76,26 @@ const globalForCalendar = globalThis as unknown as {
 export async function getCompanyCalendarSettings(session: SessionLike) {
   assertPermission(session.role, "settings:read");
   if (canUseDatabase(session)) {
-    try {
-      const rows = await getDb().companyCalendarDay.findMany({
-        where: {
-          tenantId: session.tenantId!,
-          companyId: session.companyId!,
-        },
-        orderBy: { calendarDate: "asc" },
-        take: 120,
-      });
-      return rows.map((row) => ({
-        id: row.id,
-        calendarDate: row.calendarDate,
-        dayType: normalizeDayType(row.dayType),
-        name: row.name,
-        paid: row.paid,
-        requiresWork: row.requiresWork,
-        source: normalizeSource(row.source),
-        notes: row.notes,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-      }));
-    } catch {
-      return getCalendarDemoState().days;
-    }
+    const rows = await getDb().companyCalendarDay.findMany({
+      where: {
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+      },
+      orderBy: { calendarDate: "asc" },
+      take: 120,
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      calendarDate: row.calendarDate,
+      dayType: normalizeDayType(row.dayType),
+      name: row.name,
+      paid: row.paid,
+      requiresWork: row.requiresWork,
+      source: normalizeSource(row.source),
+      notes: row.notes,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    }));
   }
   return getCalendarDemoState().days;
 }
@@ -123,19 +119,15 @@ export async function getCompanyCalendarWorkspace(session: SessionLike) {
 export async function getCompanyCalendarReviews(session: SessionLike) {
   assertPermission(session.role, "settings:read");
   if (canUseDatabase(session)) {
-    try {
-      const rows = await getDb().companyCalendarReview.findMany({
-        where: {
-          tenantId: session.tenantId!,
-          companyId: session.companyId!,
-        },
-        orderBy: { calendarYear: "desc" },
-        take: 5,
-      });
-      return rows.map(mapCalendarReview);
-    } catch {
-      return getCalendarDemoState().reviews;
-    }
+    const rows = await getDb().companyCalendarReview.findMany({
+      where: {
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+      },
+      orderBy: { calendarYear: "desc" },
+      take: 5,
+    });
+    return rows.map(mapCalendarReview);
   }
   return getCalendarDemoState().reviews;
 }
@@ -144,11 +136,7 @@ export async function saveCompanyCalendarDay(session: SessionLike, input: Compan
   assertPermission(session.role, "settings:write");
   const normalized = normalizeCalendarInput(input);
   if (canUseDatabase(session)) {
-    try {
-      return await saveDbCompanyCalendarDay(session, normalized);
-    } catch {
-      return saveDemoCompanyCalendarDay(session, normalized);
-    }
+    return await saveDbCompanyCalendarDay(session, normalized);
   }
   return saveDemoCompanyCalendarDay(session, normalized);
 }
@@ -157,11 +145,7 @@ export async function saveCompanyCalendarReview(session: SessionLike, input: Com
   assertPermission(session.role, "settings:write");
   const normalized = normalizeCalendarReviewInput(input);
   if (canUseDatabase(session)) {
-    try {
-      return await saveDbCompanyCalendarReview(session, normalized);
-    } catch {
-      return saveDemoCompanyCalendarReview(session, normalized);
-    }
+    return await saveDbCompanyCalendarReview(session, normalized);
   }
   return saveDemoCompanyCalendarReview(session, normalized);
 }
