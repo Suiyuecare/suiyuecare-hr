@@ -84,14 +84,10 @@ const globalForFileStorage = globalThis as unknown as {
 export async function getFileStorageSettings(session: SessionLike) {
   assertReadableStorageSettings(session.role);
   if (canUseDatabase(session)) {
-    try {
-      const record = await getDb().companyFileStorageSetting.findUnique({
-        where: { companyId: session.companyId },
-      });
-      return record ? readRecord(record) : defaultFileStorageSettings;
-    } catch {
-      return getDemoState().settings;
-    }
+    const record = await getDb().companyFileStorageSetting.findUnique({
+      where: { companyId: session.companyId },
+    });
+    return record ? readRecord(record) : defaultFileStorageSettings;
   }
   return getDemoState().settings;
 }
@@ -102,11 +98,7 @@ export async function updateFileStorageSettings(session: SessionLike, input: Fil
   const normalized = normalizeSettings(input, before);
 
   if (canUseDatabase(session)) {
-    try {
-      return updateDbSettings(session, before, normalized);
-    } catch {
-      return updateDemoSettings(session, before, normalized);
-    }
+    return updateDbSettings(session, before, normalized);
   }
   return updateDemoSettings(session, before, normalized);
 }
