@@ -62,47 +62,43 @@ const globalForSalaryProfiles = globalThis as unknown as {
 export async function getSalaryProfileWorkspace(session: SessionLike): Promise<SalaryProfileWorkspace> {
   assertPermission(session.role, "payroll:manage");
   if (canUseDatabase(session)) {
-    try {
-      const [employees, profiles] = await Promise.all([
-        getDb().employee.findMany({
-          where: {
-            tenantId: session.tenantId!,
-            companyId: session.companyId!,
-            employmentStatus: "active",
-          },
-          orderBy: { employeeNo: "asc" },
-        }),
-        getDb().salaryProfile.findMany({
-          where: {
-            tenantId: session.tenantId!,
-            companyId: session.companyId!,
-          },
-          include: { employee: true },
-          orderBy: [{ employee: { employeeNo: "asc" } }, { effectiveFrom: "desc" }],
-        }),
-      ]);
-      return {
-        employees: employees.map((employee) => ({
-          id: employee.id,
-          employeeNo: employee.employeeNo,
-          displayName: employee.displayName,
-        })),
-        profiles: profiles.map((profile) => ({
-          id: profile.id,
-          employeeId: profile.employeeId,
-          employeeNo: profile.employee.employeeNo,
-          employeeName: profile.employee.displayName,
-          baseSalary: decimalToNumber(profile.baseSalary),
-          hourlyWage: decimalToNullableNumber(profile.hourlyWage),
-          recurringAllowances: readMoneyItems(profile.recurringAllowances),
-          recurringDeductions: readMoneyItems(profile.recurringDeductions),
-          effectiveFrom: profile.effectiveFrom,
-          effectiveTo: profile.effectiveTo,
-        })),
-      };
-    } catch {
-      return demoWorkspace();
-    }
+    const [employees, profiles] = await Promise.all([
+      getDb().employee.findMany({
+        where: {
+          tenantId: session.tenantId!,
+          companyId: session.companyId!,
+          employmentStatus: "active",
+        },
+        orderBy: { employeeNo: "asc" },
+      }),
+      getDb().salaryProfile.findMany({
+        where: {
+          tenantId: session.tenantId!,
+          companyId: session.companyId!,
+        },
+        include: { employee: true },
+        orderBy: [{ employee: { employeeNo: "asc" } }, { effectiveFrom: "desc" }],
+      }),
+    ]);
+    return {
+      employees: employees.map((employee) => ({
+        id: employee.id,
+        employeeNo: employee.employeeNo,
+        displayName: employee.displayName,
+      })),
+      profiles: profiles.map((profile) => ({
+        id: profile.id,
+        employeeId: profile.employeeId,
+        employeeNo: profile.employee.employeeNo,
+        employeeName: profile.employee.displayName,
+        baseSalary: decimalToNumber(profile.baseSalary),
+        hourlyWage: decimalToNullableNumber(profile.hourlyWage),
+        recurringAllowances: readMoneyItems(profile.recurringAllowances),
+        recurringDeductions: readMoneyItems(profile.recurringDeductions),
+        effectiveFrom: profile.effectiveFrom,
+        effectiveTo: profile.effectiveTo,
+      })),
+    };
   }
   return demoWorkspace();
 }
@@ -125,11 +121,7 @@ export async function saveSalaryProfile(session: SessionLike, input: SalaryProfi
     throw new Error(minimumWage.violations.map((violation) => violation.message).join(" "));
   }
   if (canUseDatabase(session)) {
-    try {
-      return saveDbSalaryProfile(session, normalized);
-    } catch {
-      return saveDemoSalaryProfile(session, normalized);
-    }
+    return saveDbSalaryProfile(session, normalized);
   }
   return saveDemoSalaryProfile(session, normalized);
 }
