@@ -371,7 +371,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `src/server/rules/taiwan-labor-standards.ts`: Taiwan labor standards v1 calculation helpers, work-time/rest-day/holiday validations, and official source references.
 - `src/server/rules/settings.ts`: Taiwan labor rule setting read/update service with DB-backed `rule_versions` and demo fallback.
 - `src/server/rules/validation.ts`: deterministic Taiwan labor rule fixture validation and legal-source freshness checks used by settings, provisioning, seed data, launch readiness, and production database verification.
-- `src/server/settings/security.ts`: company security posture settings with DB/demo fallback, RBAC, and audit logs.
+- `src/server/settings/security.ts`: company security posture settings with DB persistence, demo mode for local previews, RBAC, and audit logs. Database-mode reads/writes fail closed instead of silently falling back to demo settings.
 - `src/server/payroll/db-store.ts`: PostgreSQL-backed payroll run close adapter for create, recalculate, confirm, lock, release, and payslip reads.
 - `src/server/payroll/adjustments.ts`: locked payroll adjustment approval flow with RBAC, audit logs, DB/demo fallback, and post-approval payslip updates.
 - `src/server/payroll/salary-profiles.ts`: salary profile management with payroll RBAC, effective dates, redacted audit logs, and DB/demo fallback.

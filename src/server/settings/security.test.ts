@@ -64,6 +64,44 @@ describe("company security settings", () => {
     });
   });
 
+  it("preserves existing security controls during partial updates", async () => {
+    await updateCompanySecuritySettings(ownerSession, {
+      mfaRequiredForAdmins: true,
+      mfaRequiredForEmployees: true,
+      ssoEnabled: true,
+      ssoProvider: "Entra ID",
+      ssoIssuerUrl: "https://login.example.com/demo/v2.0",
+      ssoClientId: "hr-one-client-id",
+      ssoJwksUrl: "https://login.example.com/demo/discovery/v2.0/keys",
+      passwordMinLength: 14,
+      passwordRequiresNumber: true,
+      passwordRequiresSymbol: true,
+      sessionTimeoutMinutes: 720,
+      idleTimeoutMinutes: 45,
+      allowedEmailDomains: ["example.com"],
+    });
+
+    const updated = await updateCompanySecuritySettings(ownerSession, {
+      idleTimeoutMinutes: 30,
+    });
+
+    expect(updated).toMatchObject({
+      mfaRequiredForAdmins: true,
+      mfaRequiredForEmployees: true,
+      ssoEnabled: true,
+      ssoProvider: "Entra ID",
+      ssoIssuerUrl: "https://login.example.com/demo/v2.0",
+      ssoClientId: "hr-one-client-id",
+      ssoJwksUrl: "https://login.example.com/demo/discovery/v2.0/keys",
+      passwordMinLength: 14,
+      passwordRequiresNumber: true,
+      passwordRequiresSymbol: true,
+      sessionTimeoutMinutes: 720,
+      idleTimeoutMinutes: 30,
+      allowedEmailDomains: ["example.com"],
+    });
+  });
+
   it("blocks non-admin settings writes", async () => {
     await expect(
       updateCompanySecuritySettings(managerSession, {

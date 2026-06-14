@@ -65,14 +65,10 @@ export async function getCompanySecuritySettingsForAuth(session: SessionLike) {
 
 async function readCompanySecuritySettings(session: SessionLike) {
   if (canUseDatabase(session)) {
-    try {
-      const record = await getDb().companySecuritySetting.findUnique({
-        where: { companyId: session.companyId! },
-      });
-      return record ? readRecord(record) : defaultSecuritySettings;
-    } catch {
-      return getDemoState().settings;
-    }
+    const record = await getDb().companySecuritySetting.findUnique({
+      where: { companyId: session.companyId! },
+    });
+    return record ? readRecord(record) : defaultSecuritySettings;
   }
   return getDemoState().settings;
 }
@@ -86,11 +82,7 @@ export async function updateCompanySecuritySettings(
   const normalized = normalizeSettings(input, before);
 
   if (canUseDatabase(session)) {
-    try {
-      return updateDbSettings(session, before, normalized);
-    } catch {
-      return updateDemoSettings(session, before, normalized);
-    }
+    return updateDbSettings(session, before, normalized);
   }
   return updateDemoSettings(session, before, normalized);
 }
@@ -187,16 +179,16 @@ function normalizeSettings(
   const sessionTimeoutMinutes = clampInteger(input.sessionTimeoutMinutes, before.sessionTimeoutMinutes, 15, 10080);
   const idleTimeoutMinutes = clampInteger(input.idleTimeoutMinutes, before.idleTimeoutMinutes, 5, sessionTimeoutMinutes);
   return {
-    mfaRequiredForAdmins: Boolean(input.mfaRequiredForAdmins),
-    mfaRequiredForEmployees: Boolean(input.mfaRequiredForEmployees),
-    ssoEnabled: Boolean(input.ssoEnabled),
-    ssoProvider: cleanText(input.ssoProvider) || null,
+    mfaRequiredForAdmins: input.mfaRequiredForAdmins ?? before.mfaRequiredForAdmins,
+    mfaRequiredForEmployees: input.mfaRequiredForEmployees ?? before.mfaRequiredForEmployees,
+    ssoEnabled: input.ssoEnabled ?? before.ssoEnabled,
+    ssoProvider: input.ssoProvider === undefined ? before.ssoProvider : cleanText(input.ssoProvider) || null,
     ssoIssuerUrl: cleanUrl(input.ssoIssuerUrl, before.ssoIssuerUrl),
     ssoClientId: cleanText(input.ssoClientId) || before.ssoClientId,
     ssoJwksUrl: cleanUrl(input.ssoJwksUrl, before.ssoJwksUrl),
     passwordMinLength,
-    passwordRequiresNumber: Boolean(input.passwordRequiresNumber),
-    passwordRequiresSymbol: Boolean(input.passwordRequiresSymbol),
+    passwordRequiresNumber: input.passwordRequiresNumber ?? before.passwordRequiresNumber,
+    passwordRequiresSymbol: input.passwordRequiresSymbol ?? before.passwordRequiresSymbol,
     sessionTimeoutMinutes,
     idleTimeoutMinutes,
     allowedEmailDomains: normalizeDomains(input.allowedEmailDomains ?? before.allowedEmailDomains),
