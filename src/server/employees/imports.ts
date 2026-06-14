@@ -55,33 +55,29 @@ const globalForImports = globalThis as unknown as {
 export async function getEmployeeImportWorkspace(session: SessionLike): Promise<EmployeeImportWorkspace> {
   assertPermission(session.role, "employee:write");
   if (canUseDatabase(session)) {
-    try {
-      const [departments, employees] = await Promise.all([
-        getDb().department.findMany({
-          where: { tenantId: session.tenantId!, companyId: session.companyId! },
-          orderBy: { code: "asc" },
-        }),
-        getDb().employee.findMany({
-          where: { tenantId: session.tenantId!, companyId: session.companyId! },
-          orderBy: { employeeNo: "asc" },
-        }),
-      ]);
-      return {
-        preview: latestPreview(),
-        departments: departments.map((department) => ({
-          id: department.id,
-          code: department.code,
-          name: department.name,
-        })),
-        employees: employees.map((employee) => ({
-          id: employee.id,
-          employeeNo: employee.employeeNo,
-          displayName: employee.displayName,
-        })),
-      };
-    } catch {
-      return demoWorkspace();
-    }
+    const [departments, employees] = await Promise.all([
+      getDb().department.findMany({
+        where: { tenantId: session.tenantId!, companyId: session.companyId! },
+        orderBy: { code: "asc" },
+      }),
+      getDb().employee.findMany({
+        where: { tenantId: session.tenantId!, companyId: session.companyId! },
+        orderBy: { employeeNo: "asc" },
+      }),
+    ]);
+    return {
+      preview: latestPreview(),
+      departments: departments.map((department) => ({
+        id: department.id,
+        code: department.code,
+        name: department.name,
+      })),
+      employees: employees.map((employee) => ({
+        id: employee.id,
+        employeeNo: employee.employeeNo,
+        displayName: employee.displayName,
+      })),
+    };
   }
   return demoWorkspace();
 }
@@ -102,11 +98,7 @@ export async function confirmEmployeeImport(session: SessionLike, previewId: str
   if (preview.validCount === 0) throw new Error("No valid employee rows to import.");
 
   if (canUseDatabase(session)) {
-    try {
-      return importDbEmployees(session, preview);
-    } catch {
-      return importDemoEmployees(session, preview);
-    }
+    return importDbEmployees(session, preview);
   }
   return importDemoEmployees(session, preview);
 }
