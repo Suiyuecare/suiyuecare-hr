@@ -77,11 +77,7 @@ const globalForOffboarding = globalThis as unknown as {
 export async function getOffboardingWorkspace(session: SessionLike): Promise<OffboardingWorkspace> {
   assertPermission(session.role, "employee:write");
   if (canUseDatabase(session)) {
-    try {
-      return getDbWorkspace(session);
-    } catch {
-      return getDemoWorkspace(session);
-    }
+    return getDbWorkspace(session);
   }
   return getDemoWorkspace(session);
 }
@@ -90,11 +86,7 @@ export async function updateOffboardingTask(session: SessionLike, input: UpdateO
   assertPermission(session.role, "employee:write");
   const normalized = normalizeInput(input);
   if (canUseDatabase(session)) {
-    try {
-      return updateDbTask(session, normalized);
-    } catch {
-      return updateDemoTask(session, normalized);
-    }
+    return updateDbTask(session, normalized);
   }
   return updateDemoTask(session, normalized);
 }

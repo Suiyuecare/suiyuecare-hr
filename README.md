@@ -357,7 +357,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `src/server/files/storage.ts`: configurable file storage policy and object reservation abstraction for HR documents and future attachments, with database-mode fail-closed behavior to avoid accidental demo storage use.
 - `src/server/employees/imports.ts`: employee CSV import wizard service with validation, RBAC, audit logs, local demo previews, and database-mode fail-closed behavior for employee master-data imports.
 - `src/server/employees/lifecycle.ts`: effective-dated employee lifecycle event service with profile updates, Taiwan termination compliance snapshots, RBAC, audit logs, local demo previews, and database-mode fail-closed behavior.
-- `src/server/employees/offboarding.ts`: termination offboarding task readiness, redacted evidence hashes, RBAC, audit logs, and DB/demo fallback.
+- `src/server/employees/offboarding.ts`: termination offboarding task readiness, redacted evidence hashes, RBAC, audit logs, local demo previews, and database-mode fail-closed behavior for termination close tasks.
 - `src/server/attendance/policies.ts`: attendance policy settings for overtime thresholds, punch controls, RBAC, audit logs, and DB/demo fallback.
 - `src/server/attendance/worktime-compliance.ts`: monthly working-time compliance scanner for daily worktime, monthly overtime, and rest-day cycle risks.
 - `src/server/calendar/company-calendar.ts`: company calendar settings and annual Taiwan calendar review readiness for holidays and makeup workdays with RBAC, audit logs, and DB/demo fallback.
