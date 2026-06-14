@@ -69,9 +69,7 @@ export async function getPayrollExportWorkspace(session: SessionLike) {
   const paymentCoverage = await getPaymentProfileCoverage(session, employeeIds);
   const paymentSecurity = await getPayrollPaymentSecurityReadiness(session);
   const accountingSettings = await getPayrollAccountingSettings(session);
-  const exports = canUseDatabase(session)
-    ? await listDbPayrollExports(session).catch(() => listDemoPayrollExports())
-    : listDemoPayrollExports();
+  const exports = canUseDatabase(session) ? await listDbPayrollExports(session) : listDemoPayrollExports();
 
   return {
     payrollRun: payroll.run,
@@ -114,27 +112,15 @@ export async function generatePayrollExport(session: SessionLike, exportType: Pa
   });
 
   if (canUseDatabase(session)) {
-    try {
-      return await createDbPayrollExport(
-        session,
-        run,
-        exportType,
-        paymentCoverage.configuredEmployeeIds,
-        accountingSettings,
-        paymentSecurity.settings,
-        laborConfig,
-      );
-    } catch {
-      return createDemoPayrollExport(
-        session,
-        run,
-        exportType,
-        paymentCoverage.configuredEmployeeIds,
-        accountingSettings,
-        paymentSecurity.settings,
-        laborConfig,
-      );
-    }
+    return createDbPayrollExport(
+      session,
+      run,
+      exportType,
+      paymentCoverage.configuredEmployeeIds,
+      accountingSettings,
+      paymentSecurity.settings,
+      laborConfig,
+    );
   }
   return createDemoPayrollExport(
     session,
@@ -154,11 +140,7 @@ export async function downloadPayrollExportPackage(session: SessionLike, exportI
   }
 
   if (canUseDatabase(session)) {
-    try {
-      return await downloadDbPayrollExport(session, exportId);
-    } catch {
-      return downloadDemoPayrollExport(session, exportId);
-    }
+    return downloadDbPayrollExport(session, exportId);
   }
   return downloadDemoPayrollExport(session, exportId);
 }
