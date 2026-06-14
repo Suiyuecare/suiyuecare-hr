@@ -339,7 +339,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `src/server/kpis/hr-one.ts`: HR One winning KPI scorecard definitions and sale-readiness summary.
 - `src/server/telemetry/product.ts`: privacy-safe product telemetry service for KPI measurement with DB/demo fallback.
 - `src/server/employees/employment-terms.ts`: structured employment terms, wage-basis hashes, employee acknowledgement, RBAC, audit logs, local demo previews, and database-mode fail-closed behavior for working-condition records.
-- `src/server/employees/labor-roster.ts`: Taiwan worker roster completeness, sensitive-field hashes, HR verification, RBAC, audit logs, and DB/demo fallback.
+- `src/server/employees/labor-roster.ts`: Taiwan worker roster completeness, sensitive-field hashes, HR verification, RBAC, audit logs, local demo previews, and database-mode fail-closed behavior for statutory roster records.
 - `src/server/attendance/exceptions.ts`: monthly attendance exception queue, safe resolution suggestions, KPI summary, redacted audit logs, and DB/demo fallback.
 - `src/server/attendance/signoffs.ts`: employee monthly attendance sign-off, HR coverage tracking, redacted audit logs, and DB/demo fallback.
 - `src/server/privacy/governance.ts`: personal data notice settings, employee acknowledgements, data subject request workflow, privacy readiness, RBAC, audit logs, and DB/demo fallback.

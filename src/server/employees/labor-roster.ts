@@ -92,33 +92,29 @@ const globalForLaborRoster = globalThis as unknown as {
 export async function getLaborRosterWorkspace(session: SessionLike): Promise<LaborRosterWorkspace> {
   assertPermission(session.role, "labor_roster:manage");
   if (canUseDatabase(session)) {
-    try {
-      const [employees, profiles] = await Promise.all([
-        getDb().employee.findMany({
-          where: { tenantId: session.tenantId!, companyId: session.companyId!, employmentStatus: "active" },
-          include: { department: true },
-          orderBy: { employeeNo: "asc" },
-        }),
-        getDb().employeeLaborRosterProfile.findMany({
-          where: { tenantId: session.tenantId!, companyId: session.companyId! },
-          include: { employee: { include: { department: true } } },
-          orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
-        }),
-      ]);
-      const profileViews = profiles.map(mapDbProfile);
-      return {
-        employees: employees.map((employee) => ({
-          id: employee.id,
-          employeeNo: employee.employeeNo,
-          displayName: employee.displayName,
-          jobTitle: employee.jobTitle,
-        })),
-        profiles: mergeMissingEmployeeProfiles(employees.map(mapEmployeeForRoster), profileViews),
-        coverage: summarizeCoverage(employees.length, profileViews),
-      };
-    } catch {
-      return getDemoWorkspace();
-    }
+    const [employees, profiles] = await Promise.all([
+      getDb().employee.findMany({
+        where: { tenantId: session.tenantId!, companyId: session.companyId!, employmentStatus: "active" },
+        include: { department: true },
+        orderBy: { employeeNo: "asc" },
+      }),
+      getDb().employeeLaborRosterProfile.findMany({
+        where: { tenantId: session.tenantId!, companyId: session.companyId! },
+        include: { employee: { include: { department: true } } },
+        orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+      }),
+    ]);
+    const profileViews = profiles.map(mapDbProfile);
+    return {
+      employees: employees.map((employee) => ({
+        id: employee.id,
+        employeeNo: employee.employeeNo,
+        displayName: employee.displayName,
+        jobTitle: employee.jobTitle,
+      })),
+      profiles: mergeMissingEmployeeProfiles(employees.map(mapEmployeeForRoster), profileViews),
+      coverage: summarizeCoverage(employees.length, profileViews),
+    };
   }
   return getDemoWorkspace();
 }
@@ -127,11 +123,7 @@ export async function saveLaborRosterProfile(session: SessionLike, input: LaborR
   assertPermission(session.role, "labor_roster:manage");
   const normalized = normalizeInput(input);
   if (canUseDatabase(session)) {
-    try {
-      return saveDbProfile(session, normalized);
-    } catch {
-      return saveDemoProfile(session, normalized);
-    }
+    return saveDbProfile(session, normalized);
   }
   return saveDemoProfile(session, normalized);
 }
