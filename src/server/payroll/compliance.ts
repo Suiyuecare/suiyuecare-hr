@@ -51,47 +51,43 @@ export type PayrollComplianceUpdateInput = {
 export async function listPayrollComplianceProfiles(session: SessionLike) {
   assertPermission(session.role, "payroll:manage");
   if (canUseDatabase(session)) {
-    try {
-      const employees = await getDb().employee.findMany({
-        where: {
-          tenantId: session.tenantId!,
-          companyId: session.companyId!,
-          employmentStatus: "active",
+    const employees = await getDb().employee.findMany({
+      where: {
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+        employmentStatus: "active",
+      },
+      include: {
+        salaryProfiles: {
+          orderBy: { effectiveFrom: "desc" },
+          take: 1,
         },
-        include: {
-          salaryProfiles: {
-            orderBy: { effectiveFrom: "desc" },
-            take: 1,
-          },
-          payrollComplianceProfiles: {
-            orderBy: { effectiveFrom: "desc" },
-            take: 1,
-          },
+        payrollComplianceProfiles: {
+          orderBy: { effectiveFrom: "desc" },
+          take: 1,
         },
-        orderBy: { employeeNo: "asc" },
-      });
+      },
+      orderBy: { employeeNo: "asc" },
+    });
 
-      return employees.map((employee) => {
-        const profile = employee.payrollComplianceProfiles[0];
-        return {
-          employeeId: employee.id,
-          employeeNo: employee.employeeNo,
-          employeeName: employee.displayName,
-          jobTitle: employee.jobTitle,
-          salaryProfile: employee.salaryProfiles[0]
-            ? {
-                baseSalary: decimalToNumber(employee.salaryProfiles[0].baseSalary) ?? 0,
-                recurringAllowances: readMoneyItems(employee.salaryProfiles[0].recurringAllowances),
-              }
-            : null,
-          profile: profile
-            ? mapDbProfile(profile)
-            : defaultProfile(employee.id),
-        };
-      });
-    } catch {
-      return getPayrollComplianceDemoRows();
-    }
+    return employees.map((employee) => {
+      const profile = employee.payrollComplianceProfiles[0];
+      return {
+        employeeId: employee.id,
+        employeeNo: employee.employeeNo,
+        employeeName: employee.displayName,
+        jobTitle: employee.jobTitle,
+        salaryProfile: employee.salaryProfiles[0]
+          ? {
+              baseSalary: decimalToNumber(employee.salaryProfiles[0].baseSalary) ?? 0,
+              recurringAllowances: readMoneyItems(employee.salaryProfiles[0].recurringAllowances),
+            }
+          : null,
+        profile: profile
+          ? mapDbProfile(profile)
+          : defaultProfile(employee.id),
+      };
+    });
   }
 
   return getPayrollComplianceDemoRows();

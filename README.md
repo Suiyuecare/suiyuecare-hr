@@ -58,7 +58,7 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 - HR annual leave expiry workspace scans upcoming annual-leave expiry risks and sends audited employee reminders after HR review.
 - Employee payroll compliance profiles store tax residency, dependent count, insurance wage overrides, withholding method, and effective dates separately from salary amounts.
 - HR can review and update employee payroll compliance profiles from the monthly close flow; each sensitive change is audited.
-- Payroll compliance readiness recommends labor insurance, NHI, and labor pension insured salary grades from active salary profiles plus fixed allowances, flags explicit overrides below the configured grade tables, and blocks production verification with aggregate-only details.
+- Payroll compliance readiness recommends labor insurance, NHI, and labor pension insured salary grades from active salary profiles plus fixed allowances, flags explicit overrides below the configured grade tables, blocks production verification with aggregate-only details, and does not silently fall back to demo compliance rows in database mode.
 - HR statutory insurance center tracks labor insurance, employment insurance, occupational accident insurance, NHI, and labor pension enrollment/withdrawal evidence with due dates, redacted evidence hashes, audit logs, and production verification coverage.
 - Employer statutory payroll cost now separates labor insurance employer premium, NHI employer premium, occupational accident insurance, and labor pension contribution from employee net pay.
 - Income tax withholding uses a versioned annualized progressive estimate with 2026 eTax rate brackets and is flagged for HR review before payroll lock.
