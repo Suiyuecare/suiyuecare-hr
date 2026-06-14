@@ -57,32 +57,28 @@ const globalForEmploymentTerms = globalThis as unknown as {
 export async function getEmploymentTermsWorkspace(session: SessionLike): Promise<EmploymentTermsWorkspace> {
   assertPermission(session.role, "employment_terms:manage");
   if (canUseDatabase(session)) {
-    try {
-      const [employees, terms] = await Promise.all([
-        getDb().employee.findMany({
-          where: { tenantId: session.tenantId!, companyId: session.companyId!, employmentStatus: "active" },
-          orderBy: { employeeNo: "asc" },
-        }),
-        getDb().employeeEmploymentTerm.findMany({
-          where: { tenantId: session.tenantId!, companyId: session.companyId! },
-          include: { employee: true },
-          orderBy: [{ status: "asc" }, { effectiveFrom: "desc" }],
-        }),
-      ]);
-      const termViews = terms.map(mapDbTerm);
-      return {
-        employees: employees.map((employee) => ({
-          id: employee.id,
-          employeeNo: employee.employeeNo,
-          displayName: employee.displayName,
-          jobTitle: employee.jobTitle,
-        })),
-        terms: termViews,
-        coverage: summarizeCoverage(termViews),
-      };
-    } catch {
-      return getDemoWorkspace();
-    }
+    const [employees, terms] = await Promise.all([
+      getDb().employee.findMany({
+        where: { tenantId: session.tenantId!, companyId: session.companyId!, employmentStatus: "active" },
+        orderBy: { employeeNo: "asc" },
+      }),
+      getDb().employeeEmploymentTerm.findMany({
+        where: { tenantId: session.tenantId!, companyId: session.companyId! },
+        include: { employee: true },
+        orderBy: [{ status: "asc" }, { effectiveFrom: "desc" }],
+      }),
+    ]);
+    const termViews = terms.map(mapDbTerm);
+    return {
+      employees: employees.map((employee) => ({
+        id: employee.id,
+        employeeNo: employee.employeeNo,
+        displayName: employee.displayName,
+        jobTitle: employee.jobTitle,
+      })),
+      terms: termViews,
+      coverage: summarizeCoverage(termViews),
+    };
   }
   return getDemoWorkspace();
 }
@@ -91,21 +87,17 @@ export async function getOwnEmploymentTerms(session: SessionLike) {
   assertPermission(session.role, "employment_terms:self");
   if (!session.employee?.id) throw new Error("Employee context is required.");
   if (canUseDatabase(session)) {
-    try {
-      const terms = await getDb().employeeEmploymentTerm.findMany({
-        where: {
-          tenantId: session.tenantId!,
-          companyId: session.companyId!,
-          employeeId: session.employee.id,
-          status: "active",
-        },
-        include: { employee: true },
-        orderBy: { effectiveFrom: "desc" },
-      });
-      return terms.map(mapDbTerm);
-    } catch {
-      return getDemoState().terms.filter((term) => term.employeeId === session.employee?.id && term.status === "active");
-    }
+    const terms = await getDb().employeeEmploymentTerm.findMany({
+      where: {
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+        employeeId: session.employee.id,
+        status: "active",
+      },
+      include: { employee: true },
+      orderBy: { effectiveFrom: "desc" },
+    });
+    return terms.map(mapDbTerm);
   }
   return getDemoState().terms.filter((term) => term.employeeId === session.employee?.id && term.status === "active");
 }
@@ -130,11 +122,7 @@ export async function saveEmploymentTerm(
   assertPermission(session.role, "employment_terms:manage");
   const normalized = normalizeInput(input);
   if (canUseDatabase(session)) {
-    try {
-      return saveDbTerm(session, normalized);
-    } catch {
-      return saveDemoTerm(session, normalized);
-    }
+    return saveDbTerm(session, normalized);
   }
   return saveDemoTerm(session, normalized);
 }
@@ -143,11 +131,7 @@ export async function acknowledgeEmploymentTerm(session: SessionLike, termId: st
   assertPermission(session.role, "employment_terms:self");
   if (!session.employee?.id) throw new Error("Employee context is required.");
   if (canUseDatabase(session)) {
-    try {
-      return acknowledgeDbTerm(session, termId);
-    } catch {
-      return acknowledgeDemoTerm(session, termId);
-    }
+    return acknowledgeDbTerm(session, termId);
   }
   return acknowledgeDemoTerm(session, termId);
 }
