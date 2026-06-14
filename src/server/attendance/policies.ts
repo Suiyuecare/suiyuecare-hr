@@ -45,18 +45,14 @@ const globalForAttendancePolicies = globalThis as unknown as {
 export async function getAttendancePolicySettings(session: SessionLike) {
   assertPermission(session.role, "settings:read");
   if (canUseDatabase(session)) {
-    try {
-      const policies = await getDb().attendancePolicy.findMany({
-        where: {
-          tenantId: session.tenantId!,
-          companyId: session.companyId!,
-        },
-        orderBy: [{ status: "asc" }, { effectiveFrom: "desc" }],
-      });
-      return policies.map(mapAttendancePolicy);
-    } catch {
-      return getAttendancePolicyDemoState().policies;
-    }
+    const policies = await getDb().attendancePolicy.findMany({
+      where: {
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+      },
+      orderBy: [{ status: "asc" }, { effectiveFrom: "desc" }],
+    });
+    return policies.map(mapAttendancePolicy);
   }
   return getAttendancePolicyDemoState().policies;
 }
@@ -77,11 +73,7 @@ export async function saveAttendancePolicySettings(session: SessionLike, input: 
   assertPermission(session.role, "settings:write");
   const normalized = normalizeAttendancePolicyInput(input);
   if (canUseDatabase(session)) {
-    try {
-      return await saveDbAttendancePolicySettings(session, normalized);
-    } catch {
-      return saveDemoAttendancePolicySettings(session, normalized);
-    }
+    return await saveDbAttendancePolicySettings(session, normalized);
   }
   return saveDemoAttendancePolicySettings(session, normalized);
 }
