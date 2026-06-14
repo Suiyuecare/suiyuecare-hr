@@ -53,14 +53,7 @@ export async function getPayrollDashboard(session: SessionLike): Promise<{
 }> {
   assertPermission(session.role, "payroll:manage");
   if (canUseDatabase(session)) {
-    try {
-      return await getDbPayrollDashboard(session);
-    } catch {
-      return {
-        run: getDemoPayrollRun(),
-        checklist: getDemoPayrollChecklist(),
-      };
-    }
+    return getDbPayrollDashboard(session);
   }
   return {
     run: getDemoPayrollRun(),
@@ -71,11 +64,7 @@ export async function getPayrollDashboard(session: SessionLike): Promise<{
 export async function createPayrollRun(session: SessionLike) {
   assertPermission(session.role, "payroll:manage");
   if (canUseDatabase(session)) {
-    try {
-      return await createDbPayrollRun(session);
-    } catch {
-      return createDemoPayrollRun();
-    }
+    return createDbPayrollRun(session);
   }
   return createDemoPayrollRun();
 }
@@ -83,13 +72,8 @@ export async function createPayrollRun(session: SessionLike) {
 export async function resolvePayrollBlockers(session: SessionLike) {
   assertPermission(session.role, "payroll:manage");
   if (canUseDatabase(session)) {
-    try {
-      await resolveDbPayrollBlockers(session);
-      return;
-    } catch {
-      resolveDemoPayrollBlockers();
-      return;
-    }
+    await resolveDbPayrollBlockers(session);
+    return;
   }
   resolveDemoPayrollBlockers();
 }
@@ -97,11 +81,7 @@ export async function resolvePayrollBlockers(session: SessionLike) {
 export async function recalculatePayrollRun(session: SessionLike) {
   assertPermission(session.role, "payroll:manage");
   if (canUseDatabase(session)) {
-    try {
-      return await recalculateDbPayrollRun(session);
-    } catch {
-      return calculateDemoPayrollRun();
-    }
+    return recalculateDbPayrollRun(session);
   }
   return calculateDemoPayrollRun();
 }
@@ -109,12 +89,7 @@ export async function recalculatePayrollRun(session: SessionLike) {
 export async function confirmPayrollRun(session: SessionLike) {
   assertPermission(session.role, "payroll:manage");
   if (canUseDatabase(session)) {
-    try {
-      return await confirmDbPayrollRun(session);
-    } catch {
-      confirmDemoPayrollRun();
-      return;
-    }
+    return confirmDbPayrollRun(session);
   }
   confirmDemoPayrollRun();
 }
@@ -122,12 +97,7 @@ export async function confirmPayrollRun(session: SessionLike) {
 export async function lockPayrollRun(session: SessionLike) {
   assertPermission(session.role, "payroll:manage");
   if (canUseDatabase(session)) {
-    try {
-      return await lockDbPayrollRun(session);
-    } catch {
-      lockDemoPayrollRun();
-      return;
-    }
+    return lockDbPayrollRun(session);
   }
   lockDemoPayrollRun();
 }
@@ -135,12 +105,7 @@ export async function lockPayrollRun(session: SessionLike) {
 export async function releasePayrollPayslips(session: SessionLike) {
   assertPermission(session.role, "payroll:manage");
   if (canUseDatabase(session)) {
-    try {
-      return await releaseDbPayslips(session);
-    } catch {
-      releaseDemoPayslips();
-      return;
-    }
+    return releaseDbPayslips(session);
   }
   releaseDemoPayslips();
 }
@@ -151,11 +116,7 @@ export async function getOwnPayslip(session: SessionLike): Promise<PayslipView |
     throw new Error("Unauthorized payslip access.");
   }
   if (canUseDatabase(session)) {
-    try {
-      return await getDbEmployeePayslip(session, session.employee.id);
-    } catch {
-      return getDemoEmployeePayslip(session.employee.id);
-    }
+    return getDbEmployeePayslip(session, session.employee.id);
   }
   return getDemoEmployeePayslip(session.employee.id);
 }
