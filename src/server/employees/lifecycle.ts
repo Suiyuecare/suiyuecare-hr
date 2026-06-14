@@ -127,44 +127,40 @@ const globalForLifecycle = globalThis as unknown as {
 export async function getEmployeeLifecycleWorkspace(session: SessionLike): Promise<EmployeeLifecycleWorkspace> {
   assertPermission(session.role, "employee:write");
   if (canUseDatabase(session)) {
-    try {
-      const [employees, departments, events] = await Promise.all([
-        getDb().employee.findMany({
-          where: { tenantId: session.tenantId!, companyId: session.companyId! },
-          orderBy: { employeeNo: "asc" },
-        }),
-        getDb().department.findMany({
-          where: { tenantId: session.tenantId!, companyId: session.companyId! },
-          orderBy: { code: "asc" },
-        }),
-        getDb().employeeLifecycleEvent.findMany({
-          where: { tenantId: session.tenantId!, companyId: session.companyId! },
-          include: { employee: true },
-          orderBy: { createdAt: "desc" },
-          take: 20,
-        }),
-      ]);
-      const departmentNames = new Map(departments.map((department) => [department.id, department.name]));
-      return {
-        employees: employees.map((employee) => ({
-          id: employee.id,
-          employeeNo: employee.employeeNo,
-          displayName: employee.displayName,
-          jobTitle: employee.jobTitle,
-          employmentStatus: employee.employmentStatus,
-          hireDate: employee.hireDate,
-          departmentId: employee.departmentId,
-        })),
-        departments: departments.map((department) => ({
-          id: department.id,
-          code: department.code,
-          name: department.name,
-        })),
-        events: events.map((event) => mapDbEvent(event, departmentNames)),
-      };
-    } catch {
-      return demoWorkspace();
-    }
+    const [employees, departments, events] = await Promise.all([
+      getDb().employee.findMany({
+        where: { tenantId: session.tenantId!, companyId: session.companyId! },
+        orderBy: { employeeNo: "asc" },
+      }),
+      getDb().department.findMany({
+        where: { tenantId: session.tenantId!, companyId: session.companyId! },
+        orderBy: { code: "asc" },
+      }),
+      getDb().employeeLifecycleEvent.findMany({
+        where: { tenantId: session.tenantId!, companyId: session.companyId! },
+        include: { employee: true },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+    ]);
+    const departmentNames = new Map(departments.map((department) => [department.id, department.name]));
+    return {
+      employees: employees.map((employee) => ({
+        id: employee.id,
+        employeeNo: employee.employeeNo,
+        displayName: employee.displayName,
+        jobTitle: employee.jobTitle,
+        employmentStatus: employee.employmentStatus,
+        hireDate: employee.hireDate,
+        departmentId: employee.departmentId,
+      })),
+      departments: departments.map((department) => ({
+        id: department.id,
+        code: department.code,
+        name: department.name,
+      })),
+      events: events.map((event) => mapDbEvent(event, departmentNames)),
+    };
   }
   return demoWorkspace();
 }
@@ -173,11 +169,7 @@ export async function recordLifecycleEvent(session: SessionLike, input: Lifecycl
   assertPermission(session.role, "employee:write");
   const normalized = normalizeInput(input);
   if (canUseDatabase(session)) {
-    try {
-      return recordDbLifecycleEvent(session, normalized);
-    } catch {
-      return recordDemoLifecycleEvent(session, normalized);
-    }
+    return recordDbLifecycleEvent(session, normalized);
   }
   return recordDemoLifecycleEvent(session, normalized);
 }
