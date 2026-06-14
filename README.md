@@ -353,7 +353,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `src/server/notifications/service.ts`: notification channel settings, delivery metadata, payload hashing, and DB/demo fallback.
 - `src/server/audit`: redaction and audit foundations.
 - `src/server/audit/queries.ts`: audit log query boundary for DB and demo audit trails.
-- `src/server/employees/documents.ts`: employee document vault with storage object metadata, self-service visibility, RBAC, audit logs, and DB/demo fallback.
+- `src/server/employees/documents.ts`: employee document vault with storage object metadata, self-service visibility, RBAC, audit logs, local demo previews, and database-mode fail-closed behavior for sensitive HR documents.
 - `src/server/files/storage.ts`: configurable file storage policy and object reservation abstraction for HR documents and future attachments, with database-mode fail-closed behavior to avoid accidental demo storage use.
 - `src/server/employees/imports.ts`: employee CSV import wizard service with validation, RBAC, audit logs, and DB/demo fallback.
 - `src/server/employees/lifecycle.ts`: effective-dated employee lifecycle event service with profile updates, RBAC, audit logs, and DB/demo fallback.

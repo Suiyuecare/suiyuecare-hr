@@ -66,31 +66,27 @@ export async function getEmployeeDocumentWorkspace(session: SessionLike): Promis
   assertPermission(session.role, "employee:write");
   const storageSettings = await getFileStorageSettings(session);
   if (canUseDatabase(session)) {
-    try {
-      const [employees, documents] = await Promise.all([
-        getDb().employee.findMany({
-          where: { tenantId: session.tenantId!, companyId: session.companyId! },
-          orderBy: { employeeNo: "asc" },
-        }),
-        getDb().employeeDocument.findMany({
-          where: { tenantId: session.tenantId!, companyId: session.companyId! },
-          include: { employee: true },
-          orderBy: { uploadedAt: "desc" },
-          take: 50,
-        }),
-      ]);
-      return {
-        employees: employees.map((employee) => ({
-          id: employee.id,
-          employeeNo: employee.employeeNo,
-          displayName: employee.displayName,
-        })),
-        documents: documents.map(mapDbDocument),
-        storageSettings,
-      };
-    } catch {
-      return demoWorkspace(storageSettings);
-    }
+    const [employees, documents] = await Promise.all([
+      getDb().employee.findMany({
+        where: { tenantId: session.tenantId!, companyId: session.companyId! },
+        orderBy: { employeeNo: "asc" },
+      }),
+      getDb().employeeDocument.findMany({
+        where: { tenantId: session.tenantId!, companyId: session.companyId! },
+        include: { employee: true },
+        orderBy: { uploadedAt: "desc" },
+        take: 50,
+      }),
+    ]);
+    return {
+      employees: employees.map((employee) => ({
+        id: employee.id,
+        employeeNo: employee.employeeNo,
+        displayName: employee.displayName,
+      })),
+      documents: documents.map(mapDbDocument),
+      storageSettings,
+    };
   }
   return demoWorkspace(storageSettings);
 }
@@ -101,22 +97,18 @@ export async function getOwnEmployeeDocuments(session: SessionLike) {
     throw new Error("Unauthorized document access.");
   }
   if (canUseDatabase(session)) {
-    try {
-      const documents = await getDb().employeeDocument.findMany({
-        where: {
-          tenantId: session.tenantId!,
-          companyId: session.companyId!,
-          employeeId: session.employee.id,
-          visibleToEmployee: true,
-          status: "active",
-        },
-        include: { employee: true },
-        orderBy: { uploadedAt: "desc" },
-      });
-      return documents.map(mapDbDocument);
-    } catch {
-      return demoOwnDocuments(session.employee.id);
-    }
+    const documents = await getDb().employeeDocument.findMany({
+      where: {
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+        employeeId: session.employee.id,
+        visibleToEmployee: true,
+        status: "active",
+      },
+      include: { employee: true },
+      orderBy: { uploadedAt: "desc" },
+    });
+    return documents.map(mapDbDocument);
   }
   return demoOwnDocuments(session.employee.id);
 }
@@ -127,11 +119,7 @@ export async function createEmployeeDocument(session: SessionLike, input: Employ
   const objectReservation = await reserveObjectForUpload(session, normalized);
   const prepared = { ...normalized, ...objectReservation };
   if (canUseDatabase(session)) {
-    try {
-      return createDbDocument(session, prepared);
-    } catch {
-      return createDemoDocument(session, prepared);
-    }
+    return createDbDocument(session, prepared);
   }
   return createDemoDocument(session, prepared);
 }
