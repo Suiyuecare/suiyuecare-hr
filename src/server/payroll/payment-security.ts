@@ -101,11 +101,7 @@ export async function updatePayrollPaymentSecuritySettings(
   const normalized = normalizeSettings(input, before);
 
   if (canUseDatabase(session)) {
-    try {
-      return updateDbSettings(session, before, normalized);
-    } catch {
-      return updateDemoSettings(session, before, normalized);
-    }
+    return updateDbSettings(session, before, normalized);
   }
   return updateDemoSettings(session, before, normalized);
 }
@@ -131,14 +127,10 @@ export function resetPayrollPaymentSecurityDemoState() {
 
 async function readPayrollPaymentSecuritySettings(session: SessionLike) {
   if (canUseDatabase(session)) {
-    try {
-      const record = await getDb().companyPayrollPaymentSecuritySetting.findUnique({
-        where: { companyId: session.companyId! },
-      });
-      return record ? readRecord(record) : defaultPaymentSecuritySettings;
-    } catch {
-      return getDemoState().settings;
-    }
+    const record = await getDb().companyPayrollPaymentSecuritySetting.findUnique({
+      where: { companyId: session.companyId! },
+    });
+    return record ? readRecord(record) : defaultPaymentSecuritySettings;
   }
   return getDemoState().settings;
 }
