@@ -62,49 +62,45 @@ const globalForPaymentProfiles = globalThis as unknown as {
 export async function getPaymentProfileWorkspace(session: SessionLike): Promise<PaymentProfileWorkspace> {
   assertPermission(session.role, "payroll:manage");
   if (canUseDatabase(session)) {
-    try {
-      const [employees, profiles] = await Promise.all([
-        getDb().employee.findMany({
-          where: {
-            tenantId: session.tenantId!,
-            companyId: session.companyId!,
-            employmentStatus: "active",
-          },
-          orderBy: { employeeNo: "asc" },
-        }),
-        getDb().employeePaymentProfile.findMany({
-          where: {
-            tenantId: session.tenantId!,
-            companyId: session.companyId!,
-          },
-          include: { employee: true },
-          orderBy: [{ employee: { employeeNo: "asc" } }, { effectiveFrom: "desc" }],
-        }),
-      ]);
-      return buildWorkspace(
-        employees.map((employee) => ({
-          id: employee.id,
-          employeeNo: employee.employeeNo,
-          displayName: employee.displayName,
-        })),
-        profiles.map((profile) => ({
-          id: profile.id,
-          employeeId: profile.employeeId,
-          employeeNo: profile.employee.employeeNo,
-          employeeName: profile.employee.displayName,
-          paymentMethod: "bank_transfer",
-          bankCode: profile.bankCode,
-          bankBranchCode: profile.bankBranchCode,
-          accountName: profile.accountName,
-          accountNumberLast4: profile.accountNumberLast4,
-          status: profile.status === "inactive" ? "inactive" : "active",
-          effectiveFrom: profile.effectiveFrom,
-          effectiveTo: profile.effectiveTo,
-        })),
-      );
-    } catch {
-      return demoWorkspace();
-    }
+    const [employees, profiles] = await Promise.all([
+      getDb().employee.findMany({
+        where: {
+          tenantId: session.tenantId!,
+          companyId: session.companyId!,
+          employmentStatus: "active",
+        },
+        orderBy: { employeeNo: "asc" },
+      }),
+      getDb().employeePaymentProfile.findMany({
+        where: {
+          tenantId: session.tenantId!,
+          companyId: session.companyId!,
+        },
+        include: { employee: true },
+        orderBy: [{ employee: { employeeNo: "asc" } }, { effectiveFrom: "desc" }],
+      }),
+    ]);
+    return buildWorkspace(
+      employees.map((employee) => ({
+        id: employee.id,
+        employeeNo: employee.employeeNo,
+        displayName: employee.displayName,
+      })),
+      profiles.map((profile) => ({
+        id: profile.id,
+        employeeId: profile.employeeId,
+        employeeNo: profile.employee.employeeNo,
+        employeeName: profile.employee.displayName,
+        paymentMethod: "bank_transfer",
+        bankCode: profile.bankCode,
+        bankBranchCode: profile.bankBranchCode,
+        accountName: profile.accountName,
+        accountNumberLast4: profile.accountNumberLast4,
+        status: profile.status === "inactive" ? "inactive" : "active",
+        effectiveFrom: profile.effectiveFrom,
+        effectiveTo: profile.effectiveTo,
+      })),
+    );
   }
   return demoWorkspace();
 }
@@ -113,11 +109,7 @@ export async function savePaymentProfile(session: SessionLike, input: PaymentPro
   assertPermission(session.role, "payroll:manage");
   const normalized = normalizePaymentProfileInput(input);
   if (canUseDatabase(session)) {
-    try {
-      return saveDbPaymentProfile(session, normalized);
-    } catch {
-      return saveDemoPaymentProfile(session, normalized);
-    }
+    return saveDbPaymentProfile(session, normalized);
   }
   return saveDemoPaymentProfile(session, normalized);
 }
@@ -130,25 +122,21 @@ export async function getPaymentProfileCoverage(session: SessionLike, employeeId
     };
   }
   if (canUseDatabase(session)) {
-    try {
-      const profiles = await getDb().employeePaymentProfile.findMany({
-        where: {
-          tenantId: session.tenantId!,
-          companyId: session.companyId!,
-          employeeId: { in: employeeIds },
-          status: "active",
-          effectiveTo: null,
-        },
-        select: { employeeId: true },
-      });
-      const configuredEmployeeIds = new Set(profiles.map((profile) => profile.employeeId));
-      return {
-        configuredEmployeeIds,
-        missingEmployeeIds: new Set(employeeIds.filter((employeeId) => !configuredEmployeeIds.has(employeeId))),
-      };
-    } catch {
-      return getDemoCoverage(employeeIds);
-    }
+    const profiles = await getDb().employeePaymentProfile.findMany({
+      where: {
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+        employeeId: { in: employeeIds },
+        status: "active",
+        effectiveTo: null,
+      },
+      select: { employeeId: true },
+    });
+    const configuredEmployeeIds = new Set(profiles.map((profile) => profile.employeeId));
+    return {
+      configuredEmployeeIds,
+      missingEmployeeIds: new Set(employeeIds.filter((employeeId) => !configuredEmployeeIds.has(employeeId))),
+    };
   }
   return getDemoCoverage(employeeIds);
 }
