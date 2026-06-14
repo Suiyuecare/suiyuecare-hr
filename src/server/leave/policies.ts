@@ -53,44 +53,40 @@ const globalForLeavePolicies = globalThis as unknown as {
 export async function getLeavePolicySettings(session: SessionLike) {
   assertPermission(session.role, "employee:read");
   if (canUseDatabase(session)) {
-    try {
-      const policies = await getDb().leavePolicy.findMany({
-        where: {
-          tenantId: session.tenantId!,
-          companyId: session.companyId!,
+    const policies = await getDb().leavePolicy.findMany({
+      where: {
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+      },
+      include: {
+        _count: {
+          select: { leaveBalances: true },
         },
-        include: {
-          _count: {
-            select: { leaveBalances: true },
-          },
-        },
-        orderBy: [{ status: "asc" }, { code: "asc" }],
-      });
-      return policies.map((policy) => ({
-        id: policy.id,
-        code: policy.code,
-        name: policy.name,
-        annualUnits: decimalToNumber(policy.annualUnits),
-        unit: policy.unit,
-        attachmentRequired: policy.attachmentRequired,
-        status: normalizeStatus(policy.status),
-        statutoryCategory: normalizeStatutoryCategory(policy.statutoryCategory),
-        eligibilityRule: normalizeEligibilityRule(policy.eligibilityRule),
-        payRatePercent: decimalToNumber(policy.payRatePercent),
-        annualLimitNote: policy.annualLimitNote,
-        requiresLegalReview: policy.requiresLegalReview,
-        accrualMethod: normalizeAccrualMethod(policy.accrualMethod),
-        minNoticeDays: policy.minNoticeDays,
-        carryoverLimitUnits: decimalToNullableNumber(policy.carryoverLimitUnits),
-        paid: policy.paid,
-        syncBalancesOnUpdate: policy.syncBalancesOnUpdate,
-        balanceCount: policy._count.leaveBalances,
-        createdAt: policy.createdAt,
-        updatedAt: policy.updatedAt,
-      }));
-    } catch {
-      return getLeavePolicyDemoState().policies;
-    }
+      },
+      orderBy: [{ status: "asc" }, { code: "asc" }],
+    });
+    return policies.map((policy) => ({
+      id: policy.id,
+      code: policy.code,
+      name: policy.name,
+      annualUnits: decimalToNumber(policy.annualUnits),
+      unit: policy.unit,
+      attachmentRequired: policy.attachmentRequired,
+      status: normalizeStatus(policy.status),
+      statutoryCategory: normalizeStatutoryCategory(policy.statutoryCategory),
+      eligibilityRule: normalizeEligibilityRule(policy.eligibilityRule),
+      payRatePercent: decimalToNumber(policy.payRatePercent),
+      annualLimitNote: policy.annualLimitNote,
+      requiresLegalReview: policy.requiresLegalReview,
+      accrualMethod: normalizeAccrualMethod(policy.accrualMethod),
+      minNoticeDays: policy.minNoticeDays,
+      carryoverLimitUnits: decimalToNullableNumber(policy.carryoverLimitUnits),
+      paid: policy.paid,
+      syncBalancesOnUpdate: policy.syncBalancesOnUpdate,
+      balanceCount: policy._count.leaveBalances,
+      createdAt: policy.createdAt,
+      updatedAt: policy.updatedAt,
+    }));
   }
   return getLeavePolicyDemoState().policies;
 }
@@ -99,11 +95,7 @@ export async function saveLeavePolicySettings(session: SessionLike, input: Leave
   assertPermission(session.role, "employee:write");
   const normalized = normalizeLeavePolicyInput(input);
   if (canUseDatabase(session)) {
-    try {
-      return await saveDbLeavePolicySettings(session, normalized);
-    } catch {
-      return saveDemoLeavePolicySettings(session, normalized);
-    }
+    return await saveDbLeavePolicySettings(session, normalized);
   }
   return saveDemoLeavePolicySettings(session, normalized);
 }

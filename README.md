@@ -361,7 +361,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `src/server/attendance/policies.ts`: attendance policy settings for overtime thresholds, punch controls, record retention, RBAC, audit logs, local demo previews, and database-mode fail-closed behavior.
 - `src/server/attendance/worktime-compliance.ts`: monthly working-time compliance scanner for daily worktime, monthly overtime, and rest-day cycle risks.
 - `src/server/calendar/company-calendar.ts`: company calendar settings and annual Taiwan calendar review readiness for holidays and makeup workdays with RBAC, audit logs, local demo previews, and database-mode fail-closed behavior.
-- `src/server/leave/policies.ts`: leave policy settings service with Taiwan leave category metadata, eligibility/pay-rate controls, RBAC, audit logs, balance provisioning, and DB/demo fallback.
+- `src/server/leave/policies.ts`: leave policy settings service with Taiwan leave category metadata, eligibility/pay-rate controls, RBAC, audit logs, balance provisioning, local demo previews, and database-mode fail-closed behavior.
 - `src/server/leave/statutory.ts`: Taiwan statutory leave coverage requirements and readiness evaluator used by HR leave settings and production verification.
 - `src/server/leave/annual-leave-grants.ts`: annual leave yearly grant batch preview/apply service using Article 38 entitlement tiers with audit logs and notifications.
 - `src/server/leave/annual-leave-expiry.ts`: annual leave expiry risk scanner and audited reminder service with DB/demo fallback.
