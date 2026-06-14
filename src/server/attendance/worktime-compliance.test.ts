@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetAuditDemoState } from "@/server/audit/demo-store";
 import {
+  buildRestDayCycleDays,
   createWorktimeComplianceExceptions,
   getWorktimeComplianceWorkspace,
   resetWorktimeComplianceDemoState,
@@ -55,5 +56,34 @@ describe("worktime compliance", () => {
       periodEnd: workspace.periodEnd,
     });
     expect(after.auditCount).toBe(1);
+  });
+
+  it("builds rest-day cycle evidence from calendar, schedules, and attendance", () => {
+    const days = buildRestDayCycleDays({
+      periodStart: new Date("2026-06-01T00:00:00.000Z"),
+      periodEnd: new Date("2026-06-07T00:00:00.000Z"),
+      calendarDays: [
+        { calendarDate: new Date("2026-06-06T00:00:00.000Z"), dayType: "regular_leave" },
+        { calendarDate: new Date("2026-06-07T00:00:00.000Z"), dayType: "rest_day" },
+      ],
+      scheduleDates: [
+        new Date("2026-06-01T00:00:00.000Z"),
+        new Date("2026-06-02T00:00:00.000Z"),
+        new Date("2026-06-03T00:00:00.000Z"),
+        new Date("2026-06-04T00:00:00.000Z"),
+        new Date("2026-06-05T00:00:00.000Z"),
+      ],
+      attendanceDates: [new Date("2026-06-07T00:00:00.000Z")],
+    });
+
+    expect(days).toEqual([
+      { date: "2026-06-01", dayType: "workday" },
+      { date: "2026-06-02", dayType: "workday" },
+      { date: "2026-06-03", dayType: "workday" },
+      { date: "2026-06-04", dayType: "workday" },
+      { date: "2026-06-05", dayType: "workday" },
+      { date: "2026-06-06", dayType: "regular_leave" },
+      { date: "2026-06-07", dayType: "workday" },
+    ]);
   });
 });

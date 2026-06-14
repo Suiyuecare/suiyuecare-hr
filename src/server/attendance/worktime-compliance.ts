@@ -37,6 +37,11 @@ export type WorktimeComplianceWorkspace = {
   agreementDetail: string;
 };
 
+type RestDayCycleInputDay = {
+  date: string;
+  dayType: "workday" | "regular_leave" | "rest_day" | "holiday";
+};
+
 type DemoState = {
   auditCount: number;
 };
@@ -105,7 +110,7 @@ async function scanDbWorktimeRisks(
   periodEnd: Date,
   agreementReady: boolean,
 ) {
-  const [employees, laborConfig] = await Promise.all([
+  const [employees, calendarDays, laborConfig] = await Promise.all([
     getDb().employee.findMany({
       where: {
         tenantId: session.tenantId!,
@@ -114,6 +119,14 @@ async function scanDbWorktimeRisks(
       },
       include: {
         attendanceRecords: {
+          where: {
+            workDate: {
+              gte: periodStart,
+              lte: periodEnd,
+            },
+          },
+        },
+        workSchedules: {
           where: {
             workDate: {
               gte: periodStart,
@@ -132,6 +145,17 @@ async function scanDbWorktimeRisks(
         },
       },
       orderBy: { employeeNo: "asc" },
+    }),
+    getDb().companyCalendarDay.findMany({
+      where: {
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+        calendarDate: {
+          gte: periodStart,
+          lte: periodEnd,
+        },
+      },
+      orderBy: { calendarDate: "asc" },
     }),
     getTaiwanLaborStandardsConfig(session),
   ]);
@@ -175,7 +199,30 @@ async function scanDbWorktimeRisks(
       detail: issue,
       sourceIds: monthly.sources.map((source) => source.id),
     }));
-    return [...dailyRisks, ...monthlyRisks];
+    const restDayCycle = validateRestDayCycle({
+      days: buildRestDayCycleDays({
+        periodStart,
+        periodEnd,
+        attendanceDates: employee.attendanceRecords
+          .filter((record) => record.clockInAt || record.clockOutAt)
+          .map((record) => record.workDate),
+        scheduleDates: employee.workSchedules.map((schedule) => schedule.workDate),
+        calendarDays: calendarDays.map((day) => ({
+          calendarDate: day.calendarDate,
+          dayType: day.dayType,
+        })),
+      }),
+      config: laborConfig,
+    });
+    const restCycleRisks = restDayCycle.issues.map((issue) => ({
+      employeeId: employee.id,
+      employeeName: employee.displayName,
+      riskType: "rest_day_cycle" as const,
+      severity: "danger" as const,
+      detail: issue,
+      sourceIds: restDayCycle.sources.map((source) => source.id),
+    }));
+    return [...dailyRisks, ...monthlyRisks, ...restCycleRisks];
   });
 }
 
@@ -324,6 +371,49 @@ function demoRisks(config: TaiwanLaborStandardsConfig, agreementReady = false): 
   ];
 }
 
+export function buildRestDayCycleDays(input: {
+  periodStart: Date;
+  periodEnd: Date;
+  attendanceDates?: Date[];
+  scheduleDates?: Date[];
+  calendarDays?: Array<{ calendarDate: Date; dayType: string }>;
+}): RestDayCycleInputDay[] {
+  const attendanceDateKeys = new Set((input.attendanceDates ?? []).map(formatDate));
+  const scheduleDateKeys = new Set((input.scheduleDates ?? []).map(formatDate));
+  const calendarDayTypeByDate = new Map(
+    (input.calendarDays ?? []).map((day) => [formatDate(day.calendarDate), normalizeCalendarDayType(day.dayType)]),
+  );
+  const days: RestDayCycleInputDay[] = [];
+  for (
+    let cursor = startOfUtcDate(input.periodStart);
+    cursor.getTime() <= startOfUtcDate(input.periodEnd).getTime();
+    cursor = addUtcDays(cursor, 1)
+  ) {
+    const date = formatDate(cursor);
+    const hasWorkEvidence = attendanceDateKeys.has(date) || scheduleDateKeys.has(date);
+    days.push({
+      date,
+      dayType: hasWorkEvidence ? "workday" : calendarDayTypeByDate.get(date) ?? "rest_day",
+    });
+  }
+  return days;
+}
+
+function normalizeCalendarDayType(dayType: string): RestDayCycleInputDay["dayType"] {
+  if (dayType === "regular_leave" || dayType === "regular-leave" || dayType === "例假") return "regular_leave";
+  if (dayType === "rest_day" || dayType === "rest-day" || dayType === "休息日") return "rest_day";
+  if (
+    dayType === "national_holiday" ||
+    dayType === "holiday" ||
+    dayType === "company_holiday" ||
+    dayType === "國定假日"
+  ) {
+    return "holiday";
+  }
+  if (dayType === "makeup_workday" || dayType === "workday" || dayType === "工作日") return "workday";
+  return "rest_day";
+}
+
 function normalizePeriod(periodStart?: Date, periodEnd?: Date) {
   const now = new Date();
   const start = periodStart ?? new Date(now.getFullYear(), now.getMonth(), 1);
@@ -345,6 +435,16 @@ function getDemoState() {
 function startOfDate(date: Date) {
   const clone = new Date(date);
   clone.setHours(0, 0, 0, 0);
+  return clone;
+}
+
+function startOfUtcDate(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function addUtcDays(date: Date, days: number) {
+  const clone = startOfUtcDate(date);
+  clone.setUTCDate(clone.getUTCDate() + days);
   return clone;
 }
 
