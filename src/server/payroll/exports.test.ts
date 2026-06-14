@@ -66,7 +66,7 @@ describe("payroll exports", () => {
     resetAuditDemoState();
   });
 
-  it("generates audited bank, accounting, and statutory filing packages only after payroll lock", async () => {
+  it("generates audited accounting and statutory filing packages only after payroll lock", async () => {
     await createPayrollRun(hrSession);
 
     await expect(generatePayrollExport(hrSession, "bank_transfer")).rejects.toThrow(/locked or released/);
@@ -80,16 +80,13 @@ describe("payroll exports", () => {
       grossPayrollDebitAccountName: "Payroll cost custom",
     });
 
-    const bank = await generatePayrollExport(hrSession, "bank_transfer");
+    await expect(generatePayrollExport(hrSession, "bank_transfer")).rejects.toThrow(
+      /Bank transfer export is not ready/,
+    );
     const accounting = await generatePayrollExport(hrSession, "accounting_journal");
     const statutory = await generatePayrollExport(hrSession, "statutory_filing");
     const workspace = await getPayrollExportWorkspace(hrSession);
 
-    expect(bank).toMatchObject({
-      exportType: "bank_transfer",
-      format: "tw-bank-transfer-placeholder-v1",
-      recordCount: 5,
-    });
     expect(accounting).toMatchObject({
       exportType: "accounting_journal",
       format: "accounting-journal-summary-v1",
@@ -105,7 +102,7 @@ describe("payroll exports", () => {
     expect(statutory.previewRows.map((row) => row.label)).toContain("Labor insurance premium review");
     expect(statutory.previewRows.map((row) => row.label)).toContain("Income tax withholding review");
     expect(statutory.warnings.join(" ")).toContain("does not submit to authorities");
-    expect(workspace.exports).toHaveLength(3);
+    expect(workspace.exports).toHaveLength(2);
     const download = await downloadPayrollExportPackage(hrSession, statutory.id);
     expect(download.fileName).toBe("hr-one-tw-statutory-filing-2026-06-manifest.csv");
     expect(download.body).toContain("content_hash");
@@ -124,6 +121,33 @@ describe("payroll exports", () => {
       sensitiveValuesRedacted: true,
       downloadManifestOnly: true,
     });
+  });
+
+  it("blocks bank transfer packages until payment vault and all destinations are ready", async () => {
+    await createPayrollRun(hrSession);
+    await resolvePayrollBlockers(hrSession);
+    await recalculatePayrollRun(hrSession);
+    await confirmPayrollRun(hrSession);
+    await lockPayrollRun(hrSession);
+
+    await expect(generatePayrollExport(hrSession, "bank_transfer")).rejects.toThrow(
+      /payroll payment security is not verified; one or more employee payment destinations are missing/,
+    );
+
+    await updatePayrollPaymentSecuritySettings(hrSession, {
+      tokenVaultProvider: "aws_secrets_manager",
+      tokenVaultRef: "vault://customer/payroll-payment",
+      kmsKeyRef: "alias/customer-payroll-payment",
+      bankFileFormat: "customer_bank_csv",
+      bankFormatVersion: "v2",
+      bankFileColumnOrder: ["employee_no", "account_token_ref", "amount"],
+      bankFormatVerified: true,
+      verificationStatus: "verified",
+    });
+
+    await expect(generatePayrollExport(hrSession, "bank_transfer")).rejects.toThrow(
+      /one or more employee payment destinations are missing/,
+    );
   });
 
   it("uses verified token vault and customer bank format for bank package readiness", async () => {

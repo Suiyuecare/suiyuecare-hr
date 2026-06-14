@@ -472,30 +472,22 @@ function buildPayrollExportDraft(
 ) {
   if (exportType === "bank_transfer") {
     const records = buildBankTransferRecords(run, paymentConfiguredEmployeeIds);
+    assertBankTransferExportReady(records, paymentSecuritySettings);
     const bankRows = buildBankTransferRows(records, paymentSecuritySettings);
-    const missingCount = records.filter((record) => record.paymentDestinationStatus === "missing").length;
-    const paymentSecurityReady = isPaymentSecurityReady(paymentSecuritySettings);
     return buildDraft({
       run,
       exportType,
-      format: paymentSecurityReady
-        ? `${paymentSecuritySettings.bankFileFormat}-${paymentSecuritySettings.bankFormatVersion}`
-        : "tw-bank-transfer-placeholder-v1",
+      format: `${paymentSecuritySettings.bankFileFormat}-${paymentSecuritySettings.bankFormatVersion}`,
       fileName: `hr-one-bank-transfer-${formatPeriod(run.periodStart)}.csv`,
       records: bankRows,
       previewRows: records.slice(0, 5).map((record) => ({
         label: record.employeeName,
-        description:
-          record.paymentDestinationStatus === "configured"
-            ? `Payment destination configured; columns ${paymentSecuritySettings.bankFileColumnOrder.join(", ")}.`
-            : "Payment destination missing; configure employee payment profile before bank upload.",
+        description: `Payment destination configured; columns ${paymentSecuritySettings.bankFileColumnOrder.join(", ")}.`,
         amountLabel: "Amount stored only in secure payroll calculation",
       })),
-      warnings: missingCount > 0
-        ? [`${missingCount} employee payment destination(s) are missing. This is not ready for bank upload.`]
-        : paymentSecurityReady
-          ? [`Payment token vault and ${paymentSecuritySettings.bankFileFormat} ${paymentSecuritySettings.bankFormatVersion} verification are configured with ${paymentSecuritySettings.bankFileColumnOrder.length} mapped column(s).`]
-          : ["Payment destinations are configured, but production bank upload still requires KMS/token vault integration and verified customer bank format mapping."],
+      warnings: [
+        `Payment token vault and ${paymentSecuritySettings.bankFileFormat} ${paymentSecuritySettings.bankFormatVersion} verification are configured with ${paymentSecuritySettings.bankFileColumnOrder.length} mapped column(s).`,
+      ],
     });
   }
 
@@ -547,6 +539,21 @@ function isPaymentSecurityReady(settings: PayrollPaymentSecuritySettings) {
       settings.verificationStatus === "verified" &&
       settings.lastVerifiedAt,
   );
+}
+
+function assertBankTransferExportReady(
+  records: ReturnType<typeof buildBankTransferRecords>,
+  settings: PayrollPaymentSecuritySettings,
+) {
+  const blockers = [
+    isPaymentSecurityReady(settings) ? null : "payroll payment security is not verified",
+    records.some((record) => record.paymentDestinationStatus === "missing")
+      ? "one or more employee payment destinations are missing"
+      : null,
+  ].filter(Boolean);
+  if (blockers.length > 0) {
+    throw new Error(`Bank transfer export is not ready: ${blockers.join("; ")}.`);
+  }
 }
 
 function buildDraft(input: {
