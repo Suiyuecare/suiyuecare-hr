@@ -50,6 +50,7 @@ const readySnapshot: SupabasePilotTenantVerificationSnapshot = {
   exposedTablePrivilegeCount: 0,
   anonUsage: false,
   authenticatedUsage: false,
+  publicSecurityDefinerExecuteCount: 0,
 };
 
 describe("Supabase pilot tenant seed", () => {
@@ -80,7 +81,7 @@ describe("Supabase pilot tenant seed", () => {
     expect(sql).toContain('SET search_path TO "hr_one";');
     expect(sql).toContain('"Payslip"');
     expect(sql).toContain("information_schema.table_privileges");
-    expect(sql).not.toContain("public.");
+    expect(sql).toContain("n.nspname = 'public'");
   });
 
   it("passes when the Supabase pilot tenant has operational trial data and no browser grants", () => {
@@ -95,6 +96,7 @@ describe("Supabase pilot tenant seed", () => {
       auditEntityTypes: readySnapshot.auditEntityTypes.filter((entityType) => entityType !== "payslip"),
       exposedTablePrivilegeCount: 1,
       anonUsage: true,
+      publicSecurityDefinerExecuteCount: 2,
     });
 
     expect(supabasePilotTenantVerificationPassed(checks)).toBe(false);
@@ -102,6 +104,7 @@ describe("Supabase pilot tenant seed", () => {
       "audit coverage",
       "Supabase browser role schema usage",
       "Supabase browser table grants",
+      "Supabase public security-definer RPC exposure",
     ]);
   });
 });

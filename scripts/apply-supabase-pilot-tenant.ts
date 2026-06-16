@@ -146,6 +146,7 @@ function parseSnapshot(row: unknown): SupabasePilotTenantVerificationSnapshot {
     exposedTablePrivilegeCount: readNumber(record, "exposedTablePrivilegeCount"),
     anonUsage: readBoolean(record, "anonUsage"),
     authenticatedUsage: readBoolean(record, "authenticatedUsage"),
+    publicSecurityDefinerExecuteCount: readNumber(record, "publicSecurityDefinerExecuteCount"),
   };
 }
 

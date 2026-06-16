@@ -67,6 +67,7 @@ export type SupabasePilotTenantVerificationSnapshot = {
   exposedTablePrivilegeCount: number;
   anonUsage: boolean;
   authenticatedUsage: boolean;
+  publicSecurityDefinerExecuteCount: number;
 };
 
 export type SupabasePilotTenantVerificationCheck = {
@@ -1069,7 +1070,15 @@ export function buildSupabasePilotTenantVerificationSql(schemaName = "hr_one", t
     "  (SELECT coalesce(array_agg(DISTINCT al.\"entityType\" ORDER BY al.\"entityType\"), ARRAY[]::text[]) FROM \"AuditLog\" al JOIN target ON target.company_id = al.\"companyId\") AS \"auditEntityTypes\",",
     "  (SELECT count(*)::int FROM information_schema.table_privileges WHERE table_schema = current_schema() AND grantee IN ('anon', 'authenticated') AND privilege_type IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER')) AS \"exposedTablePrivilegeCount\",",
     `  has_schema_privilege('anon', ${schemaLiteral}, 'USAGE') AS "anonUsage",`,
-    `  has_schema_privilege('authenticated', ${schemaLiteral}, 'USAGE') AS "authenticatedUsage";`,
+    `  has_schema_privilege('authenticated', ${schemaLiteral}, 'USAGE') AS "authenticatedUsage",`,
+    "  (",
+    "    SELECT count(*)::int",
+    "    FROM pg_proc p",
+    "    JOIN pg_namespace n ON n.oid = p.pronamespace",
+    "    WHERE n.nspname = 'public'",
+    "      AND p.prosecdef",
+    "      AND (has_function_privilege('anon', p.oid, 'EXECUTE') OR has_function_privilege('authenticated', p.oid, 'EXECUTE'))",
+    "  ) AS \"publicSecurityDefinerExecuteCount\";",
     "",
   ].join("\n");
 }
@@ -1105,6 +1114,7 @@ export function buildSupabasePilotTenantVerificationChecks(
     check("audit coverage", snapshot.auditLogCount >= 7 && missingAuditTypes.length === 0, missingAuditTypes.length ? `missing ${missingAuditTypes.join(", ")}` : `${snapshot.auditLogCount} audit event(s)`),
     check("Supabase browser role schema usage", !snapshot.anonUsage && !snapshot.authenticatedUsage, `anon=${snapshot.anonUsage ? "allowed" : "blocked"}, authenticated=${snapshot.authenticatedUsage ? "allowed" : "blocked"}`),
     check("Supabase browser table grants", snapshot.exposedTablePrivilegeCount === 0, `${snapshot.exposedTablePrivilegeCount} anon/authenticated table privilege(s)`),
+    check("Supabase public security-definer RPC exposure", snapshot.publicSecurityDefinerExecuteCount === 0, `${snapshot.publicSecurityDefinerExecuteCount} callable public security-definer function(s)`),
   ];
 }
 
