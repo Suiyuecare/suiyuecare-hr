@@ -34,6 +34,7 @@
     "pilot:handoff": "tsx scripts/pilot-handoff.ts",
     "pilot:daily-status": "tsx scripts/pilot-daily-status.ts",
     "pilot:import-template-pack": "tsx scripts/create-pilot-import-template-pack.ts",
+    "pilot:import-preflight": "tsx scripts/pilot-import-preflight.ts",
     "db:studio": "prisma studio"
   },
   "dependencies": {

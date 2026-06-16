@@ -239,6 +239,14 @@ pnpm pilot:import-template-pack -- --output=/tmp/hr-one-pilot-import-template --
 
 The pack contains employee and payroll profile CSV templates aligned to the current HR import services, plus a short README. It intentionally contains synthetic sample data only. Replace every employee, salary, tax, and payment value from the customer's secure source data before import, and never share completed payroll or bank files through logs, chat, screenshots, or support tickets.
 
+Before uploading completed customer CSV files, run the redacted import preflight:
+
+```bash
+pnpm pilot:import-preflight -- --employee-csv=/secure/customer/employee-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --output=/tmp/hr-one-pilot-import-preflight.md
+```
+
+The preflight checks headers, 20-50 employee count, employee/payroll row matching, unique employee numbers, department coverage, manager reporting lines, non-resident tax setup, required payroll fields, and generated-template placeholders. It returns non-zero until blockers and template-sample warnings are resolved, and its report intentionally omits names, salary amounts, bank accounts, national IDs, health data, and private HR notes.
+
 12. Start the app:
 
 ```bash
@@ -332,6 +340,7 @@ pnpm pilot:acceptance -- --url=https://hr.suiyuecare.com --expected-host=hr.suiy
 pnpm pilot:handoff -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-handoff.md
 pnpm pilot:daily-status -- --day=1 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-1.md
 pnpm pilot:import-template-pack -- --output=/tmp/hr-one-pilot-import-template --cohort-size=25 --force
+pnpm pilot:import-preflight -- --employee-csv=/secure/customer/employee-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --output=/tmp/hr-one-pilot-import-preflight.md
 pnpm release:gate
 pnpm release:gate:production -- --tenant-slug=<customer-slug>
 ```
@@ -351,7 +360,7 @@ After applying the bootstrap SQL, run `pnpm db:supabase:verify-schema -- --proje
 
 For a safe 20-50 person trial rehearsal in the Suiyuecare Supabase project, use `pnpm db:supabase:seed-pilot -- --project-ref=<supabase-project-ref> --schema=hr_one --apply`. The command writes a synthetic 25-person pilot tenant into the private `hr_one` schema through Supabase CLI linked queries, then verifies the cohort, manager reporting line, RBAC assignments, attendance schedule, leave balances, salary/payment/compliance profile coverage, released payslips, announcement receipts, form workflow, rule versions, telemetry baseline, audit coverage, and browser-role isolation. It prints only aggregate counts; salary amounts, payment hashes, employee details, and private notes are not logged. This pilot seed is for operational rehearsal only and does not replace real customer employee import, SSO setup, Vercel `DATABASE_URL`, backup/restore evidence, or `pnpm db:verify:production`.
 
-For a real customer's HR data collection, use `pnpm pilot:import-template-pack -- --output=/tmp/hr-one-pilot-import-template --cohort-size=25 --force` to generate employee and payroll profile CSV templates. The generated rows are synthetic placeholders only. HR must replace them from approved source records, import employees first, import payroll profiles second, and treat the completed payroll/payment CSV as sensitive data.
+For a real customer's HR data collection, use `pnpm pilot:import-template-pack -- --output=/tmp/hr-one-pilot-import-template --cohort-size=25 --force` to generate employee and payroll profile CSV templates. The generated rows are synthetic placeholders only. HR must replace them from approved source records, run `pnpm pilot:import-preflight -- --employee-csv=<employee.csv> --payroll-csv=<payroll.csv>`, import employees first, import payroll profiles second, and treat the completed payroll/payment CSV as sensitive data.
 
 During the two-week pilot, use `pnpm pilot:daily-status -- --day=<0-14> ... --tenant-slug=<customer-slug>` as the daily operating gate. Day 0 checks preflight, Day 1 checks employee rollout and announcements, Day 3 checks leave and manager approvals, Day 7 checks payroll rehearsal and payslip access, and Day 14 checks final review. The report is redacted and should contain only aggregate or hash-only evidence references.
 
@@ -410,6 +419,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `scripts/apply-supabase-pilot-tenant.ts`: Supabase CLI-backed synthetic 25-person pilot tenant seed and verifier for the private `hr_one` schema.
 - `scripts/pilot-daily-status.ts`: redacted day 0-14 pilot operating status gate built from the acceptance matrix.
 - `scripts/create-pilot-import-template-pack.ts`: synthetic 20-50 person employee/payroll CSV template pack generator for real customer onboarding preparation.
+- `scripts/pilot-import-preflight.ts`: redacted employee/payroll CSV preflight before customer pilot import.
 - `scripts/apply-vercel-production-env.ts`: Vercel production env writer that validates `.env.vercel.production` before creating project env variables.
 - `src/server/provisioning/tenant.ts`: customer tenant provisioning service and validation rules.
 - `src/server/onboarding/readiness.ts`: HR onboarding completeness checks before production tenant verification.
@@ -418,6 +428,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `src/server/readiness/pilot-daily-status.ts`: daily trial phase mapping, blocker summary, production-evidence reminders, and privacy guardrails.
 - `src/server/readiness/pilot-cohort.ts`: aggregate-only real customer cohort reader for pilot acceptance.
 - `src/server/readiness/pilot-import-template.ts`: safe synthetic employee and payroll import template pack builder.
+- `src/server/readiness/pilot-import-preflight.ts`: aggregate-only customer CSV preflight for cohort, manager, department, payroll, tax, and template-placeholder readiness.
 - `src/server/subscriptions/service.ts`: owner-only customer subscription posture, commercial readiness checks, and redacted audit logging.
 - `src/server/auth/rbac.ts`: RBAC permissions.
 - `src/server/auth/access-management.ts`: owner user invitation, role assignment, account status management, and access audit service.

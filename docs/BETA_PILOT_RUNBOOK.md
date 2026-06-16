@@ -134,14 +134,22 @@ Required data:
 
 Recommended sequence:
 
-1. Import employees from `/hr/employee-import`.
-2. Complete onboarding gaps from `/hr/onboarding-readiness`.
-3. Import salary/payment/compliance data from `/hr/payroll-profile-import`.
-4. Review labor roster from `/hr/labor-roster`.
-5. Review statutory insurance from `/hr/insurance`.
-6. Configure announcements, notifications, and work rules.
-7. Run production verification again.
-8. Run the acceptance matrix with the real tenant slug so cohort evidence comes from PostgreSQL, not manual CLI counts:
+1. Generate the CSV template pack with `pnpm pilot:import-template-pack -- --output=/tmp/hr-one-pilot-import-template --cohort-size=25 --force`.
+2. Replace every sample employee, salary, tax, and payment value from approved customer source records.
+3. Run the redacted import preflight:
+
+   ```bash
+   pnpm pilot:import-preflight -- --employee-csv=/secure/customer/employee-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --output=/tmp/hr-one-pilot-import-preflight.md
+   ```
+
+4. Import employees from `/hr/employee-import` only after preflight returns `ready`.
+5. Complete onboarding gaps from `/hr/onboarding-readiness`.
+6. Import salary/payment/compliance data from `/hr/payroll-profile-import`.
+7. Review labor roster from `/hr/labor-roster`.
+8. Review statutory insurance from `/hr/insurance`.
+9. Configure announcements, notifications, and work rules.
+10. Run production verification again.
+11. Run the acceptance matrix with the real tenant slug so cohort evidence comes from PostgreSQL, not manual CLI counts:
 
    ```bash
    pnpm pilot:acceptance -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug>
@@ -153,6 +161,7 @@ Expected evidence:
 - Salary/payment changes have audit logs without raw salary or bank account values.
 - HR onboarding readiness has no blocker for the pilot company.
 - `pilot:acceptance` reports `real_customer` cohort evidence from aggregate active employee and manager counts.
+- `pilot:import-preflight` returns `ready` and the Markdown report contains no names, salary amounts, bank accounts, national IDs, health data, or private HR notes.
 
 ## Phase 3: Two-Week Trial Operations
 
