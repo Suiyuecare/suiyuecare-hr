@@ -69,6 +69,45 @@ export default async function HrDashboardPage() {
         <p>人資首頁以待處理流程與異常為核心，而不是一長串功能選單。</p>
       </section>
 
+      <section className="pilot-trial-board" aria-label="兩週試用指揮列">
+        <div className="pilot-trial-copy">
+          <span className="muted">20-50 人試用</span>
+          <strong>本週要讓公司完整跑過日常、簽核、公告、月結預演與薪資單查看。</strong>
+        </div>
+        <div className="pilot-trial-steps">
+          <a href="/app/attendance">
+            <span>01</span>
+            <strong>打卡</strong>
+            <small>{pendingExceptionCount ? `${pendingExceptionCount} 筆異常` : "可試用"}</small>
+          </a>
+          <a href="/manager/inbox">
+            <span>02</span>
+            <strong>簽核</strong>
+            <small>統一 Inbox</small>
+          </a>
+          <a href="/hr/announcements">
+            <span>03</span>
+            <strong>公告</strong>
+            <small>回條追蹤</small>
+          </a>
+          <a href="/hr">
+            <span>04</span>
+            <strong>月結預演</strong>
+            <small>{labelStatus(payroll.run?.status ?? "not started")}</small>
+          </a>
+          <a href="/app/payslip">
+            <span>05</span>
+            <strong>薪資單</strong>
+            <small>本人可讀</small>
+          </a>
+          <a href="/settings/readiness">
+            <span>06</span>
+            <strong>安全 Gate</strong>
+            <small>{kpiSummary.readyForSale ? "已接近" : "待檢查"}</small>
+          </a>
+        </div>
+      </section>
+
       <section className="grid hr-command-center">
         <div className="panel span-4 metric">
           <span className="muted">員工數</span>

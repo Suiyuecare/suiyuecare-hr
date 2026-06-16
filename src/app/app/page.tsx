@@ -14,16 +14,60 @@ export default async function EmployeeHomePage() {
   const today = toInputDate(new Date());
   const taskStartedAt = Date.now();
   const pendingRequests = workspace.requests.filter((request) => request.status === "pending");
+  const clockInDisplay = workspace.attendance.clockInAt ? formatTime(workspace.attendance.clockInAt) : "--:--";
+  const clockOutDisplay = workspace.attendance.clockOutAt ? formatTime(workspace.attendance.clockOutAt) : "--:--";
+  const todayCompletion = [
+    workspace.attendance.clockInAt,
+    workspace.attendance.clockOutAt,
+    workspace.notifications.some((notification) => notification.status === "unread") ? null : true,
+  ].filter(Boolean).length;
 
   return (
     <>
       <main className="page mobile-page">
-        <section className="page-header">
-          <h1>今日</h1>
-          <p>
-            {session.employee?.displayName ?? "示範員工"} ·{" "}
-            {translateEmployeeDepartment(session.employee?.department?.name ?? "產品工程部")}
-          </p>
+        <section className="employee-hero" aria-label="員工今日工作台">
+          <div className="employee-hero-main">
+            <span className="muted">員工前台</span>
+            <h1>{session.employee?.displayName ?? "示範員工"}，今天要處理的事</h1>
+            <p>
+              {translateEmployeeDepartment(session.employee?.department?.name ?? "產品工程部")} ·{" "}
+              {translateShiftName(workspace.attendance.shiftName)}{" "}
+              {formatTime(workspace.attendance.scheduledStart)}-
+              {formatTime(workspace.attendance.scheduledEnd)}
+            </p>
+            <div className="employee-hero-actions" aria-label="今日打卡">
+              <form action="/api/workflows/clock-in" method="post">
+                <input type="hidden" name="source" value="mobile" />
+                <button className="button primary" type="submit">
+                  上班打卡
+                </button>
+              </form>
+              <form action="/api/workflows/clock-out" method="post">
+                <input type="hidden" name="source" value="mobile" />
+                <button className="button" type="submit">
+                  下班打卡
+                </button>
+              </form>
+            </div>
+          </div>
+          <div className="employee-hero-status" aria-label="今日狀態摘要">
+            <span className="badge">{labelStatus(workspace.attendance.status)}</span>
+            <strong>{clockInDisplay} / {clockOutDisplay}</strong>
+            <div className="employee-mini-metrics">
+              <span>
+                <small>特休</small>
+                <b>{workspace.leaveBalance.remainingUnits}</b>
+              </span>
+              <span>
+                <small>待簽核</small>
+                <b>{pendingRequests.length}</b>
+              </span>
+              <span>
+                <small>今日完成</small>
+                <b>{todayCompletion}/3</b>
+              </span>
+            </div>
+          </div>
         </section>
 
         <section className="grid">
@@ -38,33 +82,11 @@ export default async function EmployeeHomePage() {
             </div>
             <div className="today-status">
               <span className="badge">{labelStatus(workspace.attendance.status)}</span>
-              <strong>
-                {workspace.attendance.clockInAt
-                  ? formatTime(workspace.attendance.clockInAt)
-                  : "--:--"}
-                {" / "}
-                {workspace.attendance.clockOutAt
-                  ? formatTime(workspace.attendance.clockOutAt)
-                  : "--:--"}
-              </strong>
+              <strong>{clockInDisplay} / {clockOutDisplay}</strong>
             </div>
             <p className="muted punch-policy-note">
               {attendancePolicy.punchPolicyNote ?? describePunchPolicy(attendancePolicy)}
             </p>
-            <div className="action-row">
-              <form action="/api/workflows/clock-in" method="post">
-                <input type="hidden" name="source" value="mobile" />
-                <button className="button primary" type="submit">
-                  上班打卡
-                </button>
-              </form>
-              <form action="/api/workflows/clock-out" method="post">
-                <input type="hidden" name="source" value="mobile" />
-                <button className="button" type="submit">
-                  下班打卡
-                </button>
-              </form>
-            </div>
           </div>
 
           <section className="span-12 employee-command-grid" aria-label="今日常用任務">
@@ -349,13 +371,9 @@ export default async function EmployeeHomePage() {
       <nav className="bottom-nav" aria-label="員工手機導覽">
         <DashboardLink href="/app" label="首頁" />
         <DashboardLink href="/app/attendance" label="出勤" />
-        <DashboardLink href="/app/documents" label="文件" />
+        <DashboardLink href="/app#quick-actions" label="申請" />
         <DashboardLink href="/app/announcements" label="公告" />
-        <DashboardLink href="/app/training" label="訓練" />
-        <DashboardLink href="/app/incidents" label="通報" />
-        <DashboardLink href="/app/privacy" label="個資" />
         <DashboardLink href="/app/payslip" label="薪資單" />
-        <DashboardLink href="/manager/inbox" label="簽核" />
       </nav>
     </>
   );
@@ -431,7 +449,7 @@ function labelRequestStatus(status: string) {
 }
 
 function translateShiftName(name: string) {
-  if (name.startsWith("Regular")) return name.replace("Regular", "日班");
+  if (name.startsWith("Regular")) return "日班";
   const labels: Record<string, string> = {
     Regular: "日班",
     "Pilot day shift": "日班",

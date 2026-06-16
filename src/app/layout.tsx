@@ -54,8 +54,14 @@ export default async function RootLayout({
                 )}
               </div>
               <nav className="topbar-nav" aria-label="主要系統切換">
-                <Link href="/app">員工前台</Link>
-                <Link href="/console">管理後台</Link>
+                <Link href="/app">
+                  <span>員工前台</span>
+                  <small>打卡 · 請假 · 薪資單</small>
+                </Link>
+                <Link href="/console">
+                  <span>管理後台</span>
+                  <small>簽核 · 月結 · 設定</small>
+                </Link>
               </nav>
               {session && showDemoRoleSwitcher ? (
                 <form action="/api/demo/switch-role" method="post" className="role-switcher">

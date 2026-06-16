@@ -57,14 +57,14 @@ test("正式登入頁提供 Supabase Email 連結入口", async ({ page }) => {
 
 test("員工前台與管理後台依角色分流", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "今日" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /今天要處理的事/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "上班打卡" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "管理後台" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /管理後台/ })).toBeVisible();
 
   await page.getByLabel("示範角色").selectOption("hr_admin");
   await page.getByRole("button", { name: "切換" }).click();
   await expect(page).toHaveURL(/\/console$/);
-  await expect(page.getByRole("heading", { name: "管理後台" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "試用營運總覽" })).toBeVisible();
   await expect(page.getByRole("navigation").getByText("公司管理", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "人事建檔" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "出勤管理", level: 3 })).toBeVisible();
@@ -140,7 +140,7 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   const announcementTitle = "兩週試用公告確認";
 
   await page.goto("/app");
-  await expect(page.getByRole("heading", { name: "今日" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /今天要處理的事/ })).toBeVisible();
 
   await page.getByRole("button", { name: "上班打卡" }).click();
   await expect(page.getByText("已上班打卡").first()).toBeVisible();

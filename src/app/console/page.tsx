@@ -20,9 +20,9 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
     <main className="page console-page">
       <section className="console-hero">
         <div>
-          <span className="muted">後端管理系統</span>
-          <h1>管理後台</h1>
-          <p>給執行長、人資、行政部門主任使用；員工日常操作維持在手機前台。</p>
+          <span className="muted">HR One Operating Console</span>
+          <h1>試用營運總覽</h1>
+          <p>前台處理員工日常任務，後台處理主管簽核、人資月結、公告與安全上線。</p>
         </div>
         <div className="console-hero-actions">
           <Link className="button" href="/app">
@@ -32,6 +32,19 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
             月結工作台
           </Link>
         </div>
+      </section>
+
+      <section className="console-product-lanes" aria-label="產品分流">
+        <Link className="console-lane employee-lane" href="/app">
+          <span>1. 前端員工日常使用</span>
+          <strong>打卡、請假、補打卡、公告、薪資單</strong>
+          <small>手機第一屏只放員工今天需要完成的任務。</small>
+        </Link>
+        <Link className="console-lane admin-lane" href="/hr">
+          <span>2. 後端管理系統</span>
+          <strong>執行長、人資、行政部門主任</strong>
+          <small>月結、異常、簽核、權限與稽核集中處理。</small>
+        </Link>
       </section>
 
       <section className="pilot-operating-strip" aria-label="兩週試用核心流程">
