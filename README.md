@@ -4,6 +4,23 @@ HR One is the initial foundation for a Taiwan-focused AI Native HR Operating Sys
 
 AI features are intentionally implemented as a safe Copilot layer first. The current assistant is deterministic and advisory so permissions, auditability, source references, and blocked sensitive decisions can be verified before connecting an external model provider.
 
+## 中文功能盤點
+
+- 前端員工日常使用：手機優先首頁、今日班表與打卡狀態、上下班打卡、請假、加班、補打卡、公告簽收、表單送出、申請進度時間軸、薪資單自助查看、員工訓練與公司規章確認。
+- 主管工作台：統一簽核 Inbox，可處理請假、加班、補打卡與自訂表單，卡片顯示風險摘要、申請脈絡、簽核意見與員工通知。
+- HR 後台：員工匯入、人事主檔、組織與部門、任用異動、文件庫、出勤例外、班表、假勤政策、薪資設定、薪資月結、薪資單釋出、公告、表單建置、工作規則、訓練、勞健保/勞退與台灣法規規則管理。
+- 老闆/Owner 管理：公司設定、RBAC 權限、訂閱與商務狀態、資安設定、支援存取授權、備份還原證據、上線 readiness、audit log 與勞檢證據包。
+- AI Copilot 安全層：政策 Q&A、表單草稿、簽核摘要、薪資異常解釋；只做輔助與來源引用，不做招募拒絕、裁員、薪資、績效或懲戒決策。
+- 試用與上線工具：Supabase private schema 驗證、Vercel production env 草稿、20-50 人 pilot 匯入模板、匯入預檢、每日狀態、證據掃描、go/no-go 開跑總檢查。
+
+## 下一階段
+
+- 補齊 Vercel Production 真實環境變數：`DATABASE_URL`、正式 OIDC/SSO、vault/KMS 參照、備份還原演練證據，讓 `https://hr.suiyuecare.com/api/health/ready` 從 degraded 變成 ok。
+- 匯入一家公司 20-50 人的真實試用資料：員工、部門、主管線、薪資 profile、付款 profile、勞健保/勞退、假勤餘額與班表。
+- 用 `pnpm pilot:go-no-go` 做試用開跑前總檢查，必須同時通過 acceptance、Day 0、匯入預檢與證據掃描。
+- 重新排版前端/後台 UI：比照 Finance 系統調整色彩、資訊密度、卡片層級、文字大小、主視覺與後台模組入口，避免「很多功能但不好用」。
+- 做 2 週小規模實測：追蹤第一次請假時間、主管簽核時間、手機端任務完成率、出勤異常解決率、薪資月結演練時間與權限/敏感資料測試。
+
 ## MVP Workflows
 
 - Employee clock in/out with punch source.
@@ -87,7 +104,7 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 - API middleware blocks explicit cross-origin mutation requests before they reach HR, payroll, approval, form, AI, or settings handlers.
 - Public operational health endpoints expose `/api/health/live` for liveness and `/api/health/ready` for readiness without returning secrets, database URLs, PII, salary, or tenant data.
 - Owner launch-readiness dashboard checks PostgreSQL persistence, tenant foundation, commercial subscription readiness, SSO/MFA posture, privileged SSO identity bindings, support access governance, personal data governance, labor roster completeness, onboarding training evidence, workplace incident response, production document storage, external notification readiness, Taiwan rule governance, audit evidence, and KPI gates before sale.
-- Beta pilot readiness gate, persisted trial runs, and two-week operations runbook for the next implementation phase: checks whether a 20-50 person trial can safely run through employee mobile tasks, clock in/out, leave request, manager approval, announcements, HR payroll close rehearsal, released payslip viewing, audit coverage, and unauthorized payroll-access guardrails before a customer trial begins, then shows HR the preflight, day 1, day 3, day 7, and day 14 operating checkpoints with hash-only evidence recording.
+- Beta pilot readiness gate, one-command go/no-go report, persisted trial runs, and two-week operations runbook for the next implementation phase: checks whether a 20-50 person trial can safely run through employee mobile tasks, clock in/out, leave request, manager approval, announcements, HR payroll close rehearsal, released payslip viewing, audit coverage, import preflight, evidence privacy scan, and unauthorized payroll-access guardrails before a customer trial begins, then shows HR the preflight, day 1, day 3, day 7, and day 14 operating checkpoints with hash-only evidence recording.
 - Customer tenant provisioning CLI creates a non-demo tenant foundation with owner access, core roles, production SSO posture, object-storage settings, external notification posture, Taiwan rule baselines, default HR policies, starter form workflow, and audit evidence before employee import.
 - GitHub Actions CI runs schema validation, typecheck, lint, unit tests, and build on pull requests and `main`; E2E smoke and production release gates are available as separate workflows.
 
@@ -247,6 +264,14 @@ pnpm pilot:import-preflight -- --employee-csv=/secure/customer/employee-import.c
 
 The preflight checks headers, 20-50 employee count, employee/payroll row matching, unique employee numbers, department coverage, manager reporting lines, non-resident tax setup, required payroll fields, and generated-template placeholders. It returns non-zero until blockers and template-sample warnings are resolved, and its report intentionally omits names, salary amounts, bank accounts, national IDs, health data, and private HR notes.
 
+Before inviting real pilot employees, run the full go/no-go gate:
+
+```bash
+pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --employee-csv=/secure/customer/employee-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --evidence-path=/tmp/hr-one-pilot-evidence --recursive --output=/tmp/hr-one-pilot-go-no-go.md
+```
+
+This aggregates `pilot:acceptance`, Day 0 `pilot:daily-status`, customer import preflight, and pilot evidence scan into one redacted start/stop report. It exits non-zero until production readiness, real cohort data, CSV import readiness, and privacy scanning are all acceptable.
+
 12. Start the app:
 
 ```bash
@@ -342,6 +367,7 @@ pnpm pilot:handoff -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuec
 pnpm pilot:daily-status -- --day=1 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-1.md
 pnpm pilot:import-template-pack -- --output=/tmp/hr-one-pilot-import-template --cohort-size=25 --force
 pnpm pilot:import-preflight -- --employee-csv=/secure/customer/employee-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --output=/tmp/hr-one-pilot-import-preflight.md
+pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --employee-csv=/secure/customer/employee-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --evidence-path=/tmp/hr-one-pilot-evidence --recursive --output=/tmp/hr-one-pilot-go-no-go.md
 pnpm pilot:evidence-scan -- --path=/tmp/hr-one-pilot-evidence --recursive
 pnpm release:gate
 pnpm release:gate:production -- --tenant-slug=<customer-slug>
@@ -363,6 +389,8 @@ After applying the bootstrap SQL, run `pnpm db:supabase:verify-schema -- --proje
 For a safe 20-50 person trial rehearsal in the Suiyuecare Supabase project, use `pnpm db:supabase:seed-pilot -- --project-ref=<supabase-project-ref> --schema=hr_one --apply`. The command writes a synthetic 25-person pilot tenant into the private `hr_one` schema through Supabase CLI linked queries, then verifies the cohort, manager reporting line, RBAC assignments, attendance schedule, leave balances, salary/payment/compliance profile coverage, released payslips, announcement receipts, form workflow, rule versions, telemetry baseline, audit coverage, and browser-role isolation. It prints only aggregate counts; salary amounts, payment hashes, employee details, and private notes are not logged. This pilot seed is for operational rehearsal only and does not replace real customer employee import, SSO setup, Vercel `DATABASE_URL`, backup/restore evidence, or `pnpm db:verify:production`.
 
 For a real customer's HR data collection, use `pnpm pilot:import-template-pack -- --output=/tmp/hr-one-pilot-import-template --cohort-size=25 --force` to generate employee and payroll profile CSV templates. The generated rows are synthetic placeholders only. HR must replace them from approved source records, run `pnpm pilot:import-preflight -- --employee-csv=<employee.csv> --payroll-csv=<payroll.csv>`, import employees first, import payroll profiles second, and treat the completed payroll/payment CSV as sensitive data.
+
+Before sending the first employee invitation, run `pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --employee-csv=<employee.csv> --payroll-csv=<payroll.csv> --evidence-path=<pilot-evidence-folder> --recursive --output=/tmp/hr-one-pilot-go-no-go.md`. It combines production acceptance, Day 0 status, import preflight, and evidence privacy scanning into one redacted start/stop decision.
 
 During the two-week pilot, use `pnpm pilot:daily-status -- --day=<0-14> ... --tenant-slug=<customer-slug>` as the daily operating gate. Day 0 checks preflight, Day 1 checks employee rollout and announcements, Day 3 checks leave and manager approvals, Day 7 checks payroll rehearsal and payslip access, and Day 14 checks final review. The report is redacted and should contain only aggregate or hash-only evidence references. Before sharing the pilot folder, run `pnpm pilot:evidence-scan -- --path=<pilot-evidence-folder> --recursive`; it fails when it detects database URLs, bearer tokens, Supabase secret keys, private keys, raw `DATABASE_URL`, labeled national IDs, bank accounts, salary amounts, or health data, and it reports only category counts without echoing matched values.
 
@@ -426,6 +454,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `scripts/pilot-daily-status.ts`: redacted day 0-14 pilot operating status gate built from the acceptance matrix.
 - `scripts/create-pilot-import-template-pack.ts`: synthetic 20-50 person employee/payroll CSV template pack generator for real customer onboarding preparation.
 - `scripts/pilot-import-preflight.ts`: redacted employee/payroll CSV preflight before customer pilot import.
+- `scripts/pilot-go-no-go.ts`: one-command redacted pilot start/stop gate that aggregates acceptance, Day 0, import preflight, and evidence scan.
 - `scripts/pilot-evidence-scan.ts`: scans pilot reports/evidence files for sensitive values without printing matched secrets or PII.
 - `scripts/apply-vercel-production-env.ts`: Vercel production env writer that validates `.env.vercel.production` before creating project env variables.
 - `scripts/bootstrap-vercel-known-production-env.ts`: dry-run/apply helper for known safe Vercel Production env values before operator-managed secrets are available.
@@ -437,6 +466,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `src/server/readiness/pilot-cohort.ts`: aggregate-only real customer cohort reader for pilot acceptance.
 - `src/server/readiness/pilot-import-template.ts`: safe synthetic employee and payroll import template pack builder.
 - `src/server/readiness/pilot-import-preflight.ts`: aggregate-only customer CSV preflight for cohort, manager, department, payroll, tax, and template-placeholder readiness.
+- `src/server/readiness/pilot-go-no-go.ts`: pure start/stop decision builder for 20-50 person pilot readiness.
 - `src/server/readiness/pilot-evidence-scan.ts`: category-count scanner for DB URLs, tokens, salary, bank, national ID, and health-data leaks in pilot artifacts.
 - `src/server/subscriptions/service.ts`: owner-only customer subscription posture, commercial readiness checks, and redacted audit logging.
 - `src/server/auth/rbac.ts`: RBAC permissions.

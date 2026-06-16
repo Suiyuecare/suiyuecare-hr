@@ -12,7 +12,7 @@ This runbook is the execution checklist for turning HR One from a demo-ready app
 - Supabase private schema exposure: `anon` and `authenticated` do not have `USAGE` on `hr_one`.
 - Supabase pilot rehearsal data: 25 active employees, 3 managers with direct reports, 4 departments, attendance schedules, leave balances, salary/payment/statutory profile coverage, released payroll rehearsal, 25 payslips, announcement receipts, starter form workflow, active rule versions, telemetry baseline, and audit coverage.
 - Vercel Production env: currently blocked until the 28 required production keys are written and the app is redeployed.
-- GitHub `main` includes the private-schema SQL generator, Prisma migration baseline support, pilot acceptance matrix, daily pilot status gate, handoff generator, and 20-50 person import template pack.
+- GitHub `main` includes the private-schema SQL generator, Prisma migration baseline support, pilot acceptance matrix, daily pilot status gate, handoff generator, go/no-go start gate, and 20-50 person import template pack.
 
 Do not call the product production-pilot-ready until `/api/health/ready` is `ok` in production and a non-demo tenant passes production verification.
 
@@ -156,6 +156,12 @@ Recommended sequence:
    pnpm pilot:acceptance -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug>
    ```
 
+12. Run the start/stop go-no-go report before inviting employees:
+
+   ```bash
+   pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --employee-csv=/secure/customer/employee-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --evidence-path=/tmp/hr-one-pilot-evidence --recursive --output=/tmp/hr-one-pilot-go-no-go.md
+   ```
+
 Expected evidence:
 
 - Employee import audit log has aggregate counts only.
@@ -163,6 +169,7 @@ Expected evidence:
 - HR onboarding readiness has no blocker for the pilot company.
 - `pilot:acceptance` reports `real_customer` cohort evidence from aggregate active employee and manager counts.
 - `pilot:import-preflight` returns `ready` and the Markdown report contains no names, salary amounts, bank accounts, national IDs, health data, or private HR notes.
+- `pilot:go-no-go` returns `ready_to_start` only when production acceptance, Day 0 status, import preflight, and pilot evidence scan are all acceptable.
 - `pnpm pilot:evidence-scan -- --path=<pilot-evidence-folder> --recursive` passes before any generated pilot report is shared outside the implementation team.
 
 ## Phase 3: Two-Week Trial Operations
@@ -175,6 +182,7 @@ Preflight:
 - Create the persisted 20-50 person trial run.
 - Complete the access review checkpoint.
 - Confirm unauthorized payroll access tests pass.
+- Run `pnpm pilot:go-no-go -- ... --output=/tmp/hr-one-pilot-go-no-go.md` and keep the redacted report in the pilot evidence folder.
 - Run the daily status gate for Day 0:
 
   ```bash

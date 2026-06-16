@@ -36,6 +36,7 @@
     "pilot:daily-status": "tsx scripts/pilot-daily-status.ts",
     "pilot:import-template-pack": "tsx scripts/create-pilot-import-template-pack.ts",
     "pilot:import-preflight": "tsx scripts/pilot-import-preflight.ts",
+    "pilot:go-no-go": "tsx scripts/pilot-go-no-go.ts",
     "pilot:evidence-scan": "tsx scripts/pilot-evidence-scan.ts",
     "db:studio": "prisma studio"
   },
