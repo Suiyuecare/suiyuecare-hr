@@ -40,6 +40,19 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
           <p>已跑過打卡、請假簽核、公告回條、HR 月結預演與員工薪資單查看；checkpoint 會顯示最新 hash 證據。</p>
         </div>
       ) : null}
+      {success?.startsWith("beta-final-review") ? (
+        <div className={`panel ${success === "beta-final-review-verified" ? "success-panel" : success === "beta-final-review-blocked" ? "danger-panel" : ""}`}>
+          <strong>第 14 天試用結案檢查已記錄</strong>
+          <p>
+            系統已依目前 readiness 產生 hash-only checkpoint；
+            {success === "beta-final-review-verified"
+              ? "目前判定可進入下一階段。"
+              : success === "beta-final-review-blocked"
+                ? "仍有 blocker，請先清掉阻擋項。"
+                : "仍有待處理項，請完成後再重跑結案檢查。"}
+          </p>
+        </div>
+      ) : null}
 
       <section className="grid">
         <div className="panel span-3 metric">
@@ -163,6 +176,14 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
                     <span className="muted">自動檢查薪資與個資防漏，不讀取薪資金額或銀行帳號。</span>
                     <button className="button primary" type="submit">
                       跑權限防漏檢查
+                    </button>
+                  </form>
+                ) : null}
+                {step.id === "day_14" ? (
+                  <form action="/api/settings/beta-pilot-final-review" method="post" className="mini-form compact-form">
+                    <span className="muted">依目前 gate 產生第 14 天結案 checkpoint；未過關會記錄 blocked 或處理中，不會存 raw 個資或薪資。</span>
+                    <button className="button primary" type="submit">
+                      跑試用結案檢查
                     </button>
                   </form>
                 ) : null}
