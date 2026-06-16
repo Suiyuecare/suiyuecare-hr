@@ -16,6 +16,7 @@ export type Permission =
   | "approval:act"
   | "attendance:read:self"
   | "attendance:write"
+  | "attendance_policy:manage"
   | "leave:write"
   | "overtime:write"
   | "form:manage"
@@ -54,6 +55,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "employment_terms:manage",
     "employment_terms:self",
     "attendance:read:self",
+    "attendance_policy:manage",
     "form:manage",
     "settings:read",
     "settings:write",
@@ -88,6 +90,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "approval:act",
     "attendance:read:self",
     "attendance:write",
+    "attendance_policy:manage",
     "leave:write",
     "overtime:write",
     "form:manage",
@@ -167,11 +170,11 @@ export function normalizeRole(value: string | undefined): RoleKey {
 export function dashboardPathForRole(role: RoleKey) {
   switch (role) {
     case "owner":
-      return "/settings";
+      return "/console";
     case "hr_admin":
-      return "/hr";
+      return "/console";
     case "manager":
-      return "/manager/inbox";
+      return "/console";
     case "employee":
       return "/app";
   }

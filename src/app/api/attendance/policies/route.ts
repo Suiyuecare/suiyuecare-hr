@@ -5,7 +5,7 @@ import { saveAttendancePolicySettings } from "@/server/attendance/policies";
 export async function POST(request: Request) {
   const formData = await request.formData();
   try {
-    await saveAttendancePolicySettings(await requireTenantSession({ permission: "settings:write" }), {
+    await saveAttendancePolicySettings(await requireTenantSession({ permission: "attendance_policy:manage" }), {
       id: readString(formData.get("id")) || null,
       name: readString(formData.get("name")),
       status: readString(formData.get("status")) === "inactive" ? "inactive" : "active",

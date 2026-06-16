@@ -117,7 +117,7 @@ describe("attendance policy settings", () => {
         employeeExportEnabled: true,
         effectiveFrom: new Date("2026-01-01T00:00:00+08:00"),
       }),
-    ).rejects.toThrow(/settings:write/);
+    ).rejects.toThrow(/attendance_policy:manage/);
   });
 
   it("flags missing attendance recordkeeping controls before production launch", async () => {

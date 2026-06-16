@@ -96,7 +96,7 @@ export async function getActiveAttendancePolicy(session: SessionLike) {
 }
 
 export async function saveAttendancePolicySettings(session: SessionLike, input: AttendancePolicyInput) {
-  assertPermission(session.role, "settings:write");
+  assertPermission(session.role, "attendance_policy:manage");
   const normalized = normalizeAttendancePolicyInput(input);
   if (canUseDatabase(session)) {
     return await saveDbAttendancePolicySettings(session, normalized);

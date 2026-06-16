@@ -40,6 +40,10 @@ export default async function RootLayout({
                   {authAssurance?.mfaVerified ? "已完成" : "未完成"}
                 </small>
               </div>
+              <nav className="topbar-nav" aria-label="主要系統切換">
+                <Link href="/app">員工前台</Link>
+                <Link href="/console">管理後台</Link>
+              </nav>
               <form action="/api/demo/switch-role" method="post" className="role-switcher">
                 <label className="muted" htmlFor="role">
                   示範角色

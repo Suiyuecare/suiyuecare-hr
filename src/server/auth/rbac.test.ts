@@ -18,11 +18,11 @@ describe("RBAC", () => {
     expect(normalizeRole("not-a-role")).toBe("employee");
   });
 
-  it("routes each role to a distinct dashboard", () => {
+  it("routes employees to the front stage and management roles to the console", () => {
     expect(dashboardPathForRole("employee")).toBe("/app");
-    expect(dashboardPathForRole("manager")).toBe("/manager/inbox");
-    expect(dashboardPathForRole("hr_admin")).toBe("/hr");
-    expect(dashboardPathForRole("owner")).toBe("/settings");
+    expect(dashboardPathForRole("manager")).toBe("/console");
+    expect(dashboardPathForRole("hr_admin")).toBe("/console");
+    expect(dashboardPathForRole("owner")).toBe("/console");
   });
 
   it("keeps managers out of salary data by default", () => {
@@ -42,5 +42,11 @@ describe("RBAC", () => {
   it("allows HR review approvals while blocking employee approvals", () => {
     expect(hasPermission("hr_admin", "approval:act")).toBe(true);
     expect(hasPermission("employee", "approval:act")).toBe(false);
+  });
+
+  it("lets HR manage attendance policy while blocking managers from policy setup", () => {
+    expect(hasPermission("hr_admin", "attendance_policy:manage")).toBe(true);
+    expect(hasPermission("owner", "attendance_policy:manage")).toBe(true);
+    expect(hasPermission("manager", "attendance_policy:manage")).toBe(false);
   });
 });
