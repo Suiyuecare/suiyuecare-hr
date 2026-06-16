@@ -539,6 +539,72 @@ textarea {
   font-size: 13px;
 }
 
+.admin-module-board {
+  background: #ffffff;
+}
+
+.admin-module-board > .section-heading {
+  align-items: center;
+}
+
+.admin-module-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-module-card {
+  display: grid;
+  grid-template-rows: auto auto minmax(48px, auto) auto 1fr;
+  align-content: start;
+  gap: 12px;
+  min-height: 270px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #f8faf9;
+  padding: 16px;
+}
+
+.admin-module-card h3 {
+  margin: 4px 0 0;
+  font-size: 22px;
+  font-weight: 1000;
+  line-height: 1.15;
+}
+
+.admin-module-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.admin-module-card .button {
+  width: 100%;
+}
+
+.admin-module-card ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-module-card li a {
+  display: block;
+  overflow: hidden;
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-module-card li a:hover {
+  color: var(--accent-strong);
+}
+
 .payroll-console,
 .exception-console,
 .department-console {
@@ -758,6 +824,71 @@ textarea {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.employee-command-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.employee-action-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 130px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.employee-action-card strong {
+  color: var(--foreground);
+  font-size: 19px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.employee-action-card small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.employee-action-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.employee-action-card.primary-card {
+  border-color: #11161c;
+  background: #11161c;
+}
+
+.employee-action-card.primary-card strong {
+  color: #ffffff;
+}
+
+.employee-action-card.primary-card .muted,
+.employee-action-card.primary-card small {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.leave-balance-strip {
+  display: grid;
+  grid-template-columns: minmax(110px, auto) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-height: 86px;
+}
+
+.leave-balance-strip strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 32px;
+  font-weight: 1000;
+  line-height: 1;
 }
 
 .inline-actions {
@@ -1146,6 +1277,57 @@ legend {
   white-space: nowrap;
 }
 
+.pilot-operating-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.pilot-operating-strip a {
+  display: grid;
+  gap: 6px;
+  min-height: 92px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+}
+
+.pilot-operating-strip a:first-child {
+  border-color: #11161c;
+  background: #11161c;
+}
+
+.pilot-operating-strip a:first-child span,
+.pilot-operating-strip a:first-child strong {
+  color: #ffffff;
+}
+
+.pilot-operating-strip span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.pilot-operating-strip strong {
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 1000;
+  line-height: 1.25;
+}
+
+.pilot-operating-strip a:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.pilot-operating-strip a:first-child:hover {
+  border-color: var(--accent);
+  background: #11161c;
+}
+
 .console-toolbar {
   display: grid;
   grid-template-columns: minmax(340px, 0.95fr) minmax(520px, 1.35fr);
@@ -1526,6 +1708,10 @@ legend {
   .decision-grid,
   .toggle-row,
   .finance-strip,
+  .employee-command-grid,
+  .leave-balance-strip,
+  .admin-module-grid,
+  .pilot-operating-strip,
   .trial-summary-grid,
   .workspace-grid,
   .inbox-workspace,
@@ -1538,6 +1724,14 @@ legend {
   .console-search > div,
   .console-module-main,
   .console-pinned ul {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-module-card {
+    min-height: auto;
+  }
+
+  .admin-module-card ul {
     grid-template-columns: 1fr;
   }
 

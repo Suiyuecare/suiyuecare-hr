@@ -34,6 +34,29 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
         </div>
       </section>
 
+      <section className="pilot-operating-strip" aria-label="兩週試用核心流程">
+        <Link href="/app">
+          <span>員工日常</span>
+          <strong>打卡 · 請假 · 薪資單</strong>
+        </Link>
+        <Link href="/manager/inbox">
+          <span>主管作業</span>
+          <strong>統一簽核 Inbox</strong>
+        </Link>
+        <Link href="/hr/announcements">
+          <span>行政發布</span>
+          <strong>公告與回條</strong>
+        </Link>
+        <Link href="/hr">
+          <span>HR 月結</span>
+          <strong>出勤異常 · 薪資預演</strong>
+        </Link>
+        <Link href="/settings/readiness">
+          <span>安全上線</span>
+          <strong>權限 · 稽核 · readiness</strong>
+        </Link>
+      </section>
+
       <section className="console-toolbar" aria-label="後台工具列">
         <form className="console-search" action="/console">
           <label htmlFor="console-search-input">搜尋功能</label>

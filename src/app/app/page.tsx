@@ -67,9 +67,38 @@ export default async function EmployeeHomePage() {
             </div>
           </div>
 
-          <div className="panel span-6 metric">
-            <span className="muted">特休剩餘</span>
-            <strong>{workspace.leaveBalance.remainingUnits}</strong>
+          <section className="span-12 employee-command-grid" aria-label="今日常用任務">
+            <a className="employee-action-card primary-card" href="#quick-actions">
+              <span className="muted">主要任務</span>
+              <strong>請假 / 加班 / 補打卡</strong>
+              <small>展開表單後送出</small>
+            </a>
+            <a className="employee-action-card" href="/app/attendance">
+              <span className="muted">今日出勤</span>
+              <strong>{labelStatus(workspace.attendance.status)}</strong>
+              <small>
+                {workspace.attendance.clockInAt ? formatTime(workspace.attendance.clockInAt) : "--:--"}
+                {" / "}
+                {workspace.attendance.clockOutAt ? formatTime(workspace.attendance.clockOutAt) : "--:--"}
+              </small>
+            </a>
+            <a className="employee-action-card" href="#requests">
+              <span className="muted">簽核進度</span>
+              <strong>{pendingRequests.length} 筆等待</strong>
+              <small>查看目前關卡</small>
+            </a>
+            <a className="employee-action-card" href="/app/payslip">
+              <span className="muted">薪資單</span>
+              <strong>自助查看</strong>
+              <small>發布後僅本人可讀</small>
+            </a>
+          </section>
+
+          <div className="panel span-12 leave-balance-strip">
+            <div>
+              <span className="muted">特休剩餘</span>
+              <strong>{workspace.leaveBalance.remainingUnits}</strong>
+            </div>
             <span className="badge">{workspace.leaveBalance.pendingUnits} 待簽核</span>
             {workspace.leaveBalance.carryoverUnits ? (
               <small className="muted">
@@ -78,20 +107,16 @@ export default async function EmployeeHomePage() {
                   workspace.leaveBalance.carryoverUnits - (workspace.leaveBalance.carryoverUsedUnits ?? 0),
                 )} 優先使用遞延特休
               </small>
-            ) : null}
-          </div>
-
-          <div className="panel span-6 metric">
-            <span className="muted">待處理申請</span>
-            <strong>{pendingRequests.length}</strong>
-            <span className="badge">主管簽核中</span>
+            ) : (
+              <small className="muted">請假送出後會保留餘額並通知主管。</small>
+            )}
           </div>
 
           <section className="panel span-12 employee-actions" aria-labelledby="quick-actions">
             <div className="section-heading">
               <div>
                 <h2 id="quick-actions">快速處理</h2>
-                <p className="muted">常用申請收在三個任務裡，展開、填寫、送出。</p>
+                <p className="muted">手機上保留三個常用任務，避免進深層選單。</p>
               </div>
               <span className="badge">三步完成</span>
             </div>

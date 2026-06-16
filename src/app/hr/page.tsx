@@ -45,6 +45,11 @@ export default async function HrDashboardPage() {
     onboardingOpenCount: onboardingReadiness.checks.filter((check) => check.status !== "ready").length,
     kpiOpenCount: kpiSummary.watch + kpiSummary.failing,
   });
+  const adminModuleGroups = buildAdminModuleGroups({
+    pendingExceptionCount,
+    payrollStatus: payroll.run?.status ?? "not started",
+    onboardingOpenCount: onboardingReadiness.checks.filter((check) => check.status !== "ready").length,
+  });
 
   if (!overview) {
     return (
@@ -157,100 +162,39 @@ export default async function HrDashboardPage() {
           ))}
         </section>
 
-        <section className="panel span-12 hr-toolbox">
+        <section className="panel span-12 admin-module-board">
           <div className="section-heading">
             <div>
-              <h2>員工與表單</h2>
-              <p className="muted">員工生命週期工具集中在此，日常優先事項仍以上方工作卡為主。</p>
+              <h2>後台模組</h2>
+              <p className="muted">人資、行政主任與老闆從模組進入設定；日常阻擋項仍以上方工作卡優先。</p>
             </div>
-            <div className="inline-actions">
-              <a className="button" href="/hr/employee-import">
-                匯入
-              </a>
-              <a className="button" href="/hr/onboarding-readiness">
-                到職準備
-              </a>
-              <a className="button" href="/hr/employee-lifecycle">
-                生命週期
-              </a>
-              <a className="button" href="/hr/employment-terms">
-                勞動條件
-              </a>
-              <a className="button" href="/hr/labor-roster">
-                勞工名卡
-              </a>
-              <a className="button" href="/hr/offboarding">
-                離職
-              </a>
-              <a className="button" href="/hr/documents">
-                文件
-              </a>
-              <a className="button" href="/hr/announcements">
-                公告
-              </a>
-              <a className="button" href="/hr/work-rules">
-                工作規則
-              </a>
-              <a className="button" href="/hr/training">
-                訓練
-              </a>
-              <a className="button" href="/hr/incidents">
-                職安通報
-              </a>
-              <a className="button" href="/hr/copilot">
-                AI Copilot
-              </a>
-              <a className="button" href="/hr/policy-sources">
-                政策來源
-              </a>
-              <a className="button" href="/hr/kpis">
-                KPIs
-              </a>
-              <a className="button primary" href="/hr/forms">
-                開啟表單建立器
-              </a>
-            </div>
+            <a className="button primary" href="/console">
+              開啟完整後台
+            </a>
           </div>
-        </section>
-
-        <section className="panel span-12 hr-toolbox">
-          <div className="section-heading">
-            <div>
-              <h2>出勤假勤</h2>
-              <p className="muted">政策設定與異常處理可由後台調整，不需改程式。</p>
-            </div>
-            <div className="inline-actions">
-              <a className="button" href="/hr/shift-templates">
-                班別範本
-              </a>
-              <a className="button" href="/hr/attendance-policies">
-                出勤政策
-              </a>
-              <a className="button" href="/hr/attendance-exceptions">
-                異常
-              </a>
-              <a className="button" href="/hr/attendance-signoffs">
-                出勤確認
-              </a>
-              <a className="button" href="/hr/worktime-compliance">
-                工時合規
-              </a>
-              <a className="button" href="/hr/worktime-agreements">
-                工時約定
-              </a>
-              <a className="button" href="/hr/calendar">
-                公司行事曆
-              </a>
-              <a className="button" href="/hr/annual-leave-grants">
-                特休給假
-              </a>
-              <a className="button" href="/hr/annual-leave-expiry">
-                特休到期
-              </a>
-              <a className="button primary" href="/hr/leave-policies">
-                假別政策
-              </a>
-            </div>
+          <div className="admin-module-grid">
+            {adminModuleGroups.map((group) => (
+              <article className="admin-module-card" key={group.id}>
+                <div>
+                  <span className="muted">{group.area}</span>
+                  <h3>{group.title}</h3>
+                </div>
+                <span className={`badge ${group.tone === "danger" ? "danger" : group.tone === "warning" ? "warning" : ""}`}>
+                  {group.status}
+                </span>
+                <p>{group.summary}</p>
+                <a className="button primary" href={group.primary.href}>
+                  {group.primary.label}
+                </a>
+                <ul>
+                  {group.links.map((link) => (
+                    <li key={link.href}>
+                      <a href={link.href}>{link.label}</a>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
           </div>
         </section>
 
@@ -501,6 +445,23 @@ type WorkspaceGroup = {
   }>;
 };
 
+type AdminModuleGroup = {
+  id: string;
+  area: string;
+  title: string;
+  summary: string;
+  status: string;
+  tone: "ready" | "warning" | "danger";
+  primary: {
+    href: string;
+    label: string;
+  };
+  links: Array<{
+    href: string;
+    label: string;
+  }>;
+};
+
 type CloseStep = Awaited<ReturnType<typeof getPayrollDashboard>>["checklist"]["steps"][number];
 
 function buildNextActions(input: {
@@ -638,6 +599,104 @@ function buildWorkspaceGroups(input: {
         { href: "/settings/readiness", label: "上線門檻" },
         { href: "/settings/audit", label: "稽核" },
         { href: "/hr/forms", label: "表單" },
+      ],
+    },
+  ];
+}
+
+function buildAdminModuleGroups(input: {
+  pendingExceptionCount: number;
+  payrollStatus: string;
+  onboardingOpenCount: number;
+}): AdminModuleGroup[] {
+  return [
+    {
+      id: "people",
+      area: "人事管理",
+      title: "員工與任用",
+      summary: "匯入員工、管理異動、文件、勞工名卡、訓練與離職任務。",
+      status: input.onboardingOpenCount ? `${input.onboardingOpenCount} 個缺口` : "資料齊全",
+      tone: input.onboardingOpenCount ? "warning" : "ready",
+      primary: { href: "/hr/onboarding-readiness", label: "檢查到職準備" },
+      links: [
+        { href: "/hr/employee-import", label: "員工匯入" },
+        { href: "/hr/employee-lifecycle", label: "人事異動" },
+        { href: "/hr/documents", label: "文件證明" },
+        { href: "/hr/offboarding", label: "離職作業" },
+      ],
+    },
+    {
+      id: "attendance",
+      area: "出勤管理",
+      title: "打卡與假勤",
+      summary: "管理打卡政策、出勤異常、特休、假別、工時合規與員工出勤確認。",
+      status: input.pendingExceptionCount ? `${input.pendingExceptionCount} 筆異常` : "異常清空",
+      tone: input.pendingExceptionCount ? "danger" : "ready",
+      primary: { href: "/hr/attendance-exceptions", label: "處理異常" },
+      links: [
+        { href: "/hr/attendance-policies", label: "打卡設定" },
+        { href: "/hr/leave-policies", label: "假勤設定" },
+        { href: "/hr/annual-leave-grants", label: "特休管理" },
+        { href: "/hr/worktime-compliance", label: "工時分析" },
+      ],
+    },
+    {
+      id: "scheduling",
+      area: "排班作業",
+      title: "班別與行事曆",
+      summary: "維護班別、公司行事曆、工時約定與排班發布前的合規條件。",
+      status: "可設定",
+      tone: "ready",
+      primary: { href: "/hr/shift-templates", label: "開啟排班" },
+      links: [
+        { href: "/hr/calendar", label: "行事曆" },
+        { href: "/hr/worktime-agreements", label: "工時約定" },
+        { href: "/hr/attendance-signoffs", label: "出勤確認" },
+      ],
+    },
+    {
+      id: "payroll",
+      area: "薪資作業",
+      title: "月結與發薪",
+      summary: "薪資 profile、加扣項、保險、所得稅、付款安全、匯出與薪資單發布。",
+      status: labelStatus(input.payrollStatus),
+      tone: input.payrollStatus === "released" ? "ready" : "warning",
+      primary: { href: "/hr", label: "繼續月結" },
+      links: [
+        { href: "/hr/salary-profiles", label: "薪資資料" },
+        { href: "/hr/payroll-profile-import", label: "薪資匯入" },
+        { href: "/hr/payment-profiles", label: "付款資料" },
+        { href: "/hr/payroll-exports", label: "發薪紀錄" },
+      ],
+    },
+    {
+      id: "forms",
+      area: "表單簽核",
+      title: "表單與公告",
+      summary: "自訂表單、簽核設定、公告發布、回條追蹤與通知管道。",
+      status: "統一 Inbox",
+      tone: "ready",
+      primary: { href: "/hr/forms", label: "建立表單" },
+      links: [
+        { href: "/manager/inbox", label: "簽核查詢" },
+        { href: "/hr/announcements", label: "公告發布" },
+        { href: "/settings/notifications", label: "簽核通知" },
+        { href: "/hr/copilot", label: "AI 草稿" },
+      ],
+    },
+    {
+      id: "reports",
+      area: "報表工具",
+      title: "分析與稽核",
+      summary: "人事、出勤、薪酬 KPI、audit log、證據包與上線 readiness。",
+      status: "可檢查",
+      tone: "ready",
+      primary: { href: "/hr/kpis", label: "開啟 KPI" },
+      links: [
+        { href: "/settings/audit", label: "稽核紀錄" },
+        { href: "/settings/readiness", label: "上線檢查" },
+        { href: "/hr/policy-sources", label: "政策來源" },
+        { href: "/settings/privacy", label: "個資治理" },
       ],
     },
   ];
