@@ -7,6 +7,8 @@ export type OidcVerificationConfig = {
   audience: string;
   jwksUrl: string;
   maxTokenAgeSeconds: number;
+  defaultTenantExternalId?: string | null;
+  defaultCompanyExternalId?: string | null;
 };
 
 export type OidcVerifiedClaims = {
@@ -101,20 +103,23 @@ export async function verifyOidcJwt(input: {
   const header = parseJsonPart<JwtHeader>(parts[0], "header");
   const payload = parseJsonPart<JwtPayload>(parts[1], "payload");
 
-  if (header.alg !== "RS256") {
+  const algorithm = jwtAlgorithm(header.alg);
+  if (!algorithm) {
     throw new Error("Unsupported OIDC token algorithm.");
   }
 
   const jwk = await findSigningJwk({
     jwksUrl: input.config.jwksUrl,
     kid: typeof header.kid === "string" ? header.kid : null,
+    alg: algorithm,
     fetchJwks: input.fetchJwks,
   });
 
-  const verified = await verifyRs256Signature({
+  const verified = await verifyJwtSignature({
     signingInput: `${parts[0]}.${parts[1]}`,
     signature: parts[2],
     jwk,
+    alg: algorithm,
   });
   if (!verified) {
     throw new Error("OIDC token signature verification failed.");
@@ -129,6 +134,8 @@ export function oidcConfigFromEnv(env: Record<string, string | undefined>): Oidc
     audience: requiredEnv(env, "HR_ONE_AUTH_AUDIENCE"),
     jwksUrl: requiredEnv(env, "HR_ONE_AUTH_JWKS_URL"),
     maxTokenAgeSeconds: readInteger(env.HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS, 3_600),
+    defaultTenantExternalId: optionalEnv(env, "HR_ONE_AUTH_DEFAULT_TENANT"),
+    defaultCompanyExternalId: optionalEnv(env, "HR_ONE_AUTH_DEFAULT_COMPANY"),
   };
 }
 
@@ -171,8 +178,8 @@ function normalizeAndValidateClaims(
     email: optionalString(payload.email),
     emailVerified: typeof payload.email_verified === "boolean" ? payload.email_verified : null,
     name: optionalString(payload.name),
-    tenantExternalId: optionalString(payload.tenant_id),
-    companyExternalId: optionalString(payload.company_id),
+    tenantExternalId: optionalString(payload.tenant_id) ?? config.defaultTenantExternalId ?? null,
+    companyExternalId: optionalString(payload.company_id) ?? config.defaultCompanyExternalId ?? null,
     employeeId: optionalString(payload.employee_id),
     employeeName: optionalString(payload.employee_name),
     roleKeys: stringArray(payload.roles),
@@ -188,14 +195,14 @@ function normalizeAndValidateClaims(
 async function findSigningJwk(input: {
   jwksUrl: string;
   kid: string | null;
+  alg: "RS256" | "ES256";
   fetchJwks?: (url: string) => Promise<Jwks>;
 }) {
   const jwks = input.fetchJwks ? await input.fetchJwks(input.jwksUrl) : await fetchJwks(input.jwksUrl);
   const keys = Array.isArray(jwks.keys) ? jwks.keys as Jwk[] : [];
   const key = keys.find((candidate) => {
-    if (candidate.kty !== "RSA") return false;
+    if (!jwkSupportsAlgorithm(candidate, input.alg)) return false;
     if (candidate.use && candidate.use !== "sig") return false;
-    if (candidate.alg && candidate.alg !== "RS256") return false;
     return input.kid ? candidate.kid === input.kid : true;
   });
 
@@ -213,11 +220,28 @@ async function fetchJwks(url: string) {
   return await response.json() as Jwks;
 }
 
-async function verifyRs256Signature(input: {
+async function verifyJwtSignature(input: {
   signingInput: string;
   signature: string;
   jwk: Jwk;
+  alg: "RS256" | "ES256";
 }) {
+  if (input.alg === "ES256") {
+    const key = await crypto.subtle.importKey(
+      "jwk",
+      input.jwk,
+      { name: "ECDSA", namedCurve: "P-256" },
+      false,
+      ["verify"],
+    );
+    return await crypto.subtle.verify(
+      { name: "ECDSA", hash: "SHA-256" },
+      key,
+      base64UrlToBytes(input.signature),
+      new TextEncoder().encode(input.signingInput),
+    );
+  }
+
   const key = await crypto.subtle.importKey(
     "jwk",
     input.jwk,
@@ -231,6 +255,17 @@ async function verifyRs256Signature(input: {
     base64UrlToBytes(input.signature),
     new TextEncoder().encode(input.signingInput),
   );
+}
+
+function jwtAlgorithm(value: unknown): "RS256" | "ES256" | null {
+  if (value === "RS256" || value === "ES256") return value;
+  return null;
+}
+
+function jwkSupportsAlgorithm(jwk: Jwk, alg: "RS256" | "ES256") {
+  if (jwk.alg && jwk.alg !== alg) return false;
+  if (alg === "RS256") return jwk.kty === "RSA";
+  return jwk.kty === "EC" && jwk.crv === "P-256";
 }
 
 function parseJsonPart<T>(part: string, label: string): T {
@@ -289,6 +324,11 @@ function requiredEnv(env: Record<string, string | undefined>, key: string) {
     throw new Error(`Missing ${key}.`);
   }
   return value;
+}
+
+function optionalEnv(env: Record<string, string | undefined>, key: string) {
+  const value = env[key]?.trim();
+  return value || null;
 }
 
 function readInteger(value: string | undefined, fallback: number) {

@@ -42,6 +42,7 @@ Goal: production data must survive deploys and must not fall back to in-memory d
    - `HR_ONE_DATABASE_PROVIDER=supabase_postgres`
    - `HR_ONE_AUTH_SESSION_SOURCE=oidc`
    - `HR_ONE_AUTH_LOGIN_URL`, HTTPS company SSO login URL for unauthenticated production visitors.
+   - For Supabase Auth as the pilot IdP: `HR_ONE_AUTH_PROVIDER=supabase_auth`, `HR_ONE_AUTH_ISSUER_URL=https://<project-ref>.supabase.co/auth/v1`, `HR_ONE_AUTH_JWKS_URL=https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json`, `HR_ONE_AUTH_AUDIENCE=authenticated`, plus `HR_ONE_AUTH_DEFAULT_TENANT` and `HR_ONE_AUTH_DEFAULT_COMPANY` for the pilot tenant/company when Supabase tokens do not include custom tenant claims.
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
    - Required production secrets listed in `README.md`, stored as secret values or vault references.

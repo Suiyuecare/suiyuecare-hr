@@ -55,6 +55,8 @@ describe("Vercel production env draft", () => {
       HR_ONE_AUTH_ISSUER_URL: "https://login.suiyuecare.com/hr-one/v2.0",
       HR_ONE_AUTH_LOGIN_URL: "https://login.suiyuecare.com/hr-one/oauth2/v2.0/authorize",
       HR_ONE_AUTH_JWKS_URL: "https://login.suiyuecare.com/hr-one/keys",
+      HR_ONE_AUTH_DEFAULT_TENANT: "customer-a",
+      HR_ONE_AUTH_DEFAULT_COMPANY: "company-1",
       HR_ONE_BACKUP_RESTORE_TESTED_AT: "2026-06-16",
     };
     const report = buildEnvironmentVerificationReport(env, "production", new Date("2026-06-17T00:00:00.000Z"));

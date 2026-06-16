@@ -39,6 +39,8 @@ export function buildVercelProductionEnvDraft(options: VercelProductionEnvDraftO
     ["HR_ONE_AUTH_AUDIENCE", "hr-one-api"],
     ["HR_ONE_AUTH_JWKS_URL", "REPLACE_WITH_HTTPS_OIDC_JWKS_URL"],
     ["HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS", "3600"],
+    ["HR_ONE_AUTH_DEFAULT_TENANT", ""],
+    ["HR_ONE_AUTH_DEFAULT_COMPANY", ""],
     ["HR_ONE_AI_PROVIDER", "disabled"],
     ["HR_ONE_AI_PROMPT_STORAGE", "hashed"],
     ["HR_ONE_RATE_LIMIT_ENABLED", "true"],

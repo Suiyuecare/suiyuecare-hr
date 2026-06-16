@@ -108,6 +108,46 @@ describe("OIDC token verification", () => {
     })).rejects.toThrow(/expired/);
   });
 
+  it("verifies ES256 JWTs such as Supabase Auth asymmetric signing keys", async () => {
+    const supabaseConfig: OidcVerificationConfig = {
+      issuer: "https://aruncclorusswpfnpgsn.supabase.co/auth/v1",
+      audience: "authenticated",
+      jwksUrl: "https://aruncclorusswpfnpgsn.supabase.co/auth/v1/.well-known/jwks.json",
+      maxTokenAgeSeconds: 3_600,
+      defaultTenantExternalId: "customer-a",
+      defaultCompanyExternalId: "company-1",
+    };
+    const fixture = createJwtFixture({
+      iss: supabaseConfig.issuer,
+      aud: "authenticated",
+      exp: nowSeconds + 600,
+      iat: nowSeconds - 60,
+      sub: "supabase-user-id",
+      email: "employee@customer.example",
+      email_verified: true,
+      amr: ["pwd"],
+    }, { alg: "ES256" });
+
+    const claims = await verifyOidcJwt({
+      token: fixture.token,
+      config: supabaseConfig,
+      fetchJwks: async (url) => {
+        expect(url).toBe(supabaseConfig.jwksUrl);
+        return fixture.jwks;
+      },
+      now,
+    });
+
+    expect(claims).toMatchObject({
+      subject: "supabase-user-id",
+      issuer: supabaseConfig.issuer,
+      audience: ["authenticated"],
+      email: "employee@customer.example",
+      tenantExternalId: "customer-a",
+      companyExternalId: "company-1",
+    });
+  });
+
   it("rejects unsupported algorithms and missing signing keys", async () => {
     const fixture = createJwtFixture({
       iss: config.issuer,
@@ -146,9 +186,13 @@ describe("OIDC token verification", () => {
       HR_ONE_AUTH_AUDIENCE: config.audience,
       HR_ONE_AUTH_JWKS_URL: config.jwksUrl,
       HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS: "1800",
+      HR_ONE_AUTH_DEFAULT_TENANT: "customer-a",
+      HR_ONE_AUTH_DEFAULT_COMPANY: "company-1",
     })).toEqual({
       ...config,
       maxTokenAgeSeconds: 1_800,
+      defaultTenantExternalId: "customer-a",
+      defaultCompanyExternalId: "company-1",
     });
   });
 
@@ -228,24 +272,28 @@ function createJwtFixture(
   headerOverrides: Record<string, unknown> = {},
 ) {
   const kid = "test-key-1";
-  const { publicKey, privateKey } = generateKeyPairSync("rsa", {
-    modulusLength: 2048,
-  });
+  const alg = headerOverrides.alg === "ES256" ? "ES256" : "RS256";
+  const { publicKey, privateKey } = alg === "ES256"
+    ? generateKeyPairSync("ec", { namedCurve: "P-256" })
+    : generateKeyPairSync("rsa", { modulusLength: 2048 });
   const publicJwk = publicKey.export({ format: "jwk" });
   const jwk = {
     ...publicJwk,
     kid,
-    alg: "RS256",
+    alg,
     use: "sig",
   };
   const header = {
-    alg: "RS256",
+    alg,
     typ: "JWT",
     kid,
     ...headerOverrides,
   };
   const signingInput = `${base64UrlJson(header)}.${base64UrlJson(payload)}`;
-  const signature = createSign("RSA-SHA256").update(signingInput).end().sign(privateKey);
+  const signature = createSign("SHA256")
+    .update(signingInput)
+    .end()
+    .sign(alg === "ES256" ? { key: privateKey, dsaEncoding: "ieee-p1363" } : privateKey);
 
   return {
     token: `${signingInput}.${base64Url(signature)}`,
