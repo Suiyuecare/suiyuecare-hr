@@ -9,15 +9,18 @@ import {
 function main() {
   const args = process.argv.slice(2);
   const employeeCsvPath = readArg(args, "--employee-csv");
+  const identityCsvPath = readArg(args, "--identity-csv");
   const payrollCsvPath = readArg(args, "--payroll-csv");
   const output = readArg(args, "--output");
   const json = args.includes("--json");
 
   if (!employeeCsvPath) throw new Error("Missing --employee-csv=<path>.");
+  if (!identityCsvPath) throw new Error("Missing --identity-csv=<path>.");
   if (!payrollCsvPath) throw new Error("Missing --payroll-csv=<path>.");
 
   const report = buildPilotImportPreflightReport({
     employeeCsv: readFileSync(resolve(employeeCsvPath), "utf8"),
+    identityCsv: readFileSync(resolve(identityCsvPath), "utf8"),
     payrollCsv: readFileSync(resolve(payrollCsvPath), "utf8"),
   });
   const content = json

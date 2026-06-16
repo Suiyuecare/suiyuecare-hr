@@ -1,11 +1,13 @@
 import {
   employeeImportTemplateHeaders,
+  pilotIdentityImportTemplateHeaders,
   payrollProfileImportTemplateHeaders,
 } from "@/server/readiness/pilot-import-template";
 import { redactSensitiveDetail } from "@/server/readiness/production-pilot-gate";
 
 export type PilotImportPreflightInput = {
   employeeCsv: string;
+  identityCsv: string;
   payrollCsv: string;
   checkedAt?: Date;
 };
@@ -20,6 +22,7 @@ export type PilotImportPreflightReport = {
   status: "ready" | "action_required" | "blocked";
   checkedAt: string;
   employeeRows: number;
+  identityRows: number;
   payrollRows: number;
   managerAssignmentCount: number;
   managerWithDirectReportsCount: number;
@@ -33,19 +36,26 @@ const minPilotEmployees = 20;
 const maxPilotEmployees = 50;
 const syntheticEmployeeNoPattern = /^PILOT\d+$/i;
 const syntheticAccountPattern = /^900000\d+$/;
+const syntheticExternalSubjectPattern = /^sso-pilot\d+$/i;
 
 export function buildPilotImportPreflightReport(
   input: PilotImportPreflightInput,
 ): PilotImportPreflightReport {
   const checkedAt = (input.checkedAt ?? new Date()).toISOString();
   const employeeTable = parseCsv(input.employeeCsv);
+  const identityTable = parseCsv(input.identityCsv);
   const payrollTable = parseCsv(input.payrollCsv);
   const employeeRows = employeeTable.rows;
+  const identityRows = identityTable.rows;
   const payrollRows = payrollTable.rows;
   const employeeNos = employeeRows.map((row) => text(row.employeeNo));
+  const identityEmployeeNos = identityRows.map((row) => text(row.employeeNo));
   const payrollEmployeeNos = payrollRows.map((row) => text(row.employeeNo));
   const uniqueEmployeeNos = new Set(employeeNos.filter(Boolean).map((value) => value.toLowerCase()));
+  const identityEmployeeNoSet = new Set(identityEmployeeNos.filter(Boolean).map((value) => value.toLowerCase()));
   const payrollEmployeeNoSet = new Set(payrollEmployeeNos.filter(Boolean).map((value) => value.toLowerCase()));
+  const identityEmails = identityRows.map((row) => text(row.email).toLowerCase());
+  const identitySubjects = identityRows.map((row) => text(row.externalSubject).toLowerCase());
   const managerAssignments = employeeRows
     .map((row) => ({
       employeeNo: text(row.employeeNo),
@@ -60,6 +70,7 @@ export function buildPilotImportPreflightReport(
   const departments = new Set(employeeRows.map((row) => text(row.departmentCode)).filter(Boolean));
   const checks: PilotImportPreflightCheck[] = [
     checkHeaders("employee CSV headers", employeeTable.headers, [...employeeImportTemplateHeaders]),
+    checkHeaders("identity CSV headers", identityTable.headers, [...pilotIdentityImportTemplateHeaders]),
     checkHeaders("payroll CSV headers", payrollTable.headers, [...payrollProfileImportTemplateHeaders]),
     check(
       "20-50 active employee rows",
@@ -72,6 +83,12 @@ export function buildPilotImportPreflightReport(
       payrollRows.length === employeeRows.length,
       `${payrollRows.length}/${employeeRows.length} payroll row(s)`,
       "Payroll profile CSV must have one row for every employee row before pilot import.",
+    ),
+    check(
+      "identity rows match employee rows",
+      identityRows.length === employeeRows.length,
+      `${identityRows.length}/${employeeRows.length} identity row(s)`,
+      "Identity CSV must have one row for every employee row before pilot invitations.",
     ),
     check(
       "employee numbers are unique and present",
@@ -88,6 +105,26 @@ export function buildPilotImportPreflightReport(
       "Employee and payroll profile CSV files must reference the same employees.",
     ),
     check(
+      "identity employee numbers match employee CSV",
+      uniqueEmployeeNos.size > 0 &&
+        identityEmployeeNoSet.size === uniqueEmployeeNos.size &&
+        [...uniqueEmployeeNos].every((employeeNo) => identityEmployeeNoSet.has(employeeNo)),
+      `${matchingCount(uniqueEmployeeNos, identityEmployeeNoSet)}/${uniqueEmployeeNos.size} employee number(s) matched`,
+      "Employee and identity CSV files must reference the same employees.",
+    ),
+    check(
+      "identity emails are valid and unique",
+      identityRows.length > 0 && allPresentUniqueValid(identityEmails, isValidEmail),
+      `${uniqueCount(identityEmails)}/${identityRows.length} unique valid email value(s)`,
+      "Every identity row needs a non-empty valid unique email.",
+    ),
+    check(
+      "identity SSO subjects are present and unique",
+      identityRows.length > 0 && allPresentUniqueValid(identitySubjects),
+      `${uniqueCount(identitySubjects)}/${identityRows.length} unique SSO subject value(s)`,
+      "Every identity row needs a non-empty unique externalSubject.",
+    ),
+    check(
       "department coverage",
       departments.size >= 2,
       `${departments.size} department code(s)`,
@@ -101,7 +138,7 @@ export function buildPilotImportPreflightReport(
     ),
     warnIf(
       "synthetic template markers",
-      !hasSyntheticMarkers(employeeRows, payrollRows),
+      !hasSyntheticMarkers(employeeRows, identityRows, payrollRows),
       "No template-only markers detected.",
       "Generated template sample values are still present; replace them with secure customer source data before import.",
     ),
@@ -125,6 +162,7 @@ export function buildPilotImportPreflightReport(
     status: blockers > 0 ? "blocked" : warnings > 0 ? "action_required" : "ready",
     checkedAt,
     employeeRows: employeeRows.length,
+    identityRows: identityRows.length,
     payrollRows: payrollRows.length,
     managerAssignmentCount: managerAssignments.length,
     managerWithDirectReportsCount: managerIds.size,
@@ -144,7 +182,7 @@ export function formatPilotImportPreflightMarkdown(report: PilotImportPreflightR
     "",
     `Checked at: ${report.checkedAt}`,
     `Status: ${report.status}`,
-    `Rows: ${report.employeeRows} employee / ${report.payrollRows} payroll profile`,
+    `Rows: ${report.employeeRows} employee / ${report.identityRows} identity / ${report.payrollRows} payroll profile`,
     `Managers: ${report.managerWithDirectReportsCount} manager(s), ${report.managerAssignmentCount} reporting line(s)`,
     `Departments: ${report.departmentCount}`,
     `Result: ${report.blockers} blocker(s), ${report.warnings} warning(s)`,
@@ -155,9 +193,9 @@ export function formatPilotImportPreflightMarkdown(report: PilotImportPreflightR
     "",
     "## Privacy",
     "",
-    "- This report intentionally excludes names, salary amounts, bank account numbers, national IDs, health data, and private HR notes.",
+    "- This report intentionally excludes names, emails, SSO subjects, salary amounts, bank account numbers, national IDs, health data, and private HR notes.",
     "- Review completed CSV files only through approved secure channels.",
-    "- Do not attach completed payroll or bank files to support tickets, chat, screenshots, or logs.",
+    "- Do not attach completed identity, payroll, or bank files to support tickets, chat, screenshots, or logs.",
     "",
   ].join("\n");
 }
@@ -221,6 +259,24 @@ function matchingCount(left: Set<string>, right: Set<string>) {
   return [...left].filter((value) => right.has(value)).length;
 }
 
+function uniqueCount(values: string[]) {
+  return new Set(values.filter(Boolean)).size;
+}
+
+function allPresentUniqueValid(
+  values: string[],
+  validator: (value: string) => boolean = Boolean,
+) {
+  const present = values.filter(Boolean);
+  return present.length === values.length &&
+    new Set(present).size === values.length &&
+    present.every(validator);
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 function managerReferencesValid(
   rows: Array<{ employeeNo: string; managerEmployeeNo: string }>,
   employeeNos: Set<string>,
@@ -234,12 +290,17 @@ function managerReferencesValid(
 
 function hasSyntheticMarkers(
   employeeRows: Array<Record<string, string>>,
+  identityRows: Array<Record<string, string>>,
   payrollRows: Array<Record<string, string>>,
 ) {
   return employeeRows.some((row) => {
     const employeeNo = text(row.employeeNo);
     const displayName = text(row.displayName);
     return syntheticEmployeeNoPattern.test(employeeNo) || displayName.includes("測試員工");
+  }) || identityRows.some((row) => {
+    const email = text(row.email).toLowerCase();
+    const subject = text(row.externalSubject);
+    return email.endsWith("@example.com") || syntheticExternalSubjectPattern.test(subject);
   }) || payrollRows.some((row) => syntheticAccountPattern.test(digits(text(row.accountNumber))));
 }
 

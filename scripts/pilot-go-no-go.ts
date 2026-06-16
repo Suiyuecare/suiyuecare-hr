@@ -104,11 +104,13 @@ function maybeBuildImportPreflight(
 ): PilotImportPreflightReport | null {
   if (skipped) return null;
   const employeeCsvPath = readArg(args, "--employee-csv");
+  const identityCsvPath = readArg(args, "--identity-csv");
   const payrollCsvPath = readArg(args, "--payroll-csv");
-  if (!employeeCsvPath || !payrollCsvPath) return null;
+  if (!employeeCsvPath || !identityCsvPath || !payrollCsvPath) return null;
 
   return buildPilotImportPreflightReport({
     employeeCsv: readFileSync(resolve(employeeCsvPath), "utf8"),
+    identityCsv: readFileSync(resolve(identityCsvPath), "utf8"),
     payrollCsv: readFileSync(resolve(payrollCsvPath), "utf8"),
   });
 }

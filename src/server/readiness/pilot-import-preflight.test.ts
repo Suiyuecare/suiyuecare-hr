@@ -8,7 +8,7 @@ import {
 
 describe("pilot import preflight", () => {
   it("passes a real-customer-shaped 20-person import pack using aggregate-only output", () => {
-    const input = buildRealCustomerCsvPair(20);
+    const input = buildRealCustomerCsvBundle(20);
     const report = buildPilotImportPreflightReport({
       ...input,
       checkedAt: new Date("2026-06-17T00:00:00.000Z"),
@@ -18,6 +18,7 @@ describe("pilot import preflight", () => {
     expect(report).toMatchObject({
       status: "ready",
       employeeRows: 20,
+      identityRows: 20,
       payrollRows: 20,
       managerWithDirectReportsCount: 2,
       departmentCount: 2,
@@ -27,6 +28,8 @@ describe("pilot import preflight", () => {
     expect(pilotImportPreflightPassed(report)).toBe(true);
     expect(markdown).toContain("Status: ready");
     expect(markdown).not.toContain("正式員工");
+    expect(markdown).not.toContain("a001@customer.example");
+    expect(markdown).not.toContain("oidc-a001");
     expect(markdown).not.toContain("1234567890");
     expect(markdown).not.toContain("56000");
   });
@@ -35,6 +38,7 @@ describe("pilot import preflight", () => {
     const pack = buildPilotImportTemplatePack({ generatedAt: new Date("2026-06-17T00:00:00.000Z") });
     const report = buildPilotImportPreflightReport({
       employeeCsv: requiredFile(pack, "employee-import-template.csv"),
+      identityCsv: requiredFile(pack, "identity-import-template.csv"),
       payrollCsv: requiredFile(pack, "payroll-profile-import-template.csv"),
       checkedAt: new Date("2026-06-17T00:00:00.000Z"),
     });
@@ -47,10 +51,11 @@ describe("pilot import preflight", () => {
   });
 
   it("blocks mismatched employee and payroll rows without leaking raw payroll fields", () => {
-    const input = buildRealCustomerCsvPair(20);
+    const input = buildRealCustomerCsvBundle(20);
     const payrollLines = input.payrollCsv.trim().split(/\r?\n/);
     const report = buildPilotImportPreflightReport({
       employeeCsv: input.employeeCsv,
+      identityCsv: input.identityCsv,
       payrollCsv: `${payrollLines.slice(0, -1).join("\n")}\n`,
       checkedAt: new Date("2026-06-17T00:00:00.000Z"),
     });
@@ -66,8 +71,30 @@ describe("pilot import preflight", () => {
     expect(markdown).not.toContain("56000");
   });
 
+  it("blocks mismatched identity rows without leaking raw emails or SSO subjects", () => {
+    const input = buildRealCustomerCsvBundle(20);
+    const identityLines = input.identityCsv.trim().split(/\r?\n/);
+    const report = buildPilotImportPreflightReport({
+      employeeCsv: input.employeeCsv,
+      identityCsv: `${identityLines.slice(0, -1).join("\n")}\n`,
+      payrollCsv: input.payrollCsv,
+      checkedAt: new Date("2026-06-17T00:00:00.000Z"),
+    });
+    const markdown = formatPilotImportPreflightMarkdown(report);
+
+    expect(report.status).toBe("blocked");
+    expect(report.checks.find((check) => check.name === "identity rows match employee rows")).toMatchObject({
+      status: "block",
+    });
+    expect(report.checks.find((check) => check.name === "identity employee numbers match employee CSV")).toMatchObject({
+      status: "block",
+    });
+    expect(markdown).not.toContain("a001@customer.example");
+    expect(markdown).not.toContain("oidc-a001");
+  });
+
   it("blocks missing manager lines and non-resident tax setup", () => {
-    const input = buildRealCustomerCsvPair(20, {
+    const input = buildRealCustomerCsvBundle(20, {
       includeManagers: false,
       includeNonResidentWithoutRate: true,
     });
@@ -86,7 +113,7 @@ describe("pilot import preflight", () => {
   });
 });
 
-function buildRealCustomerCsvPair(
+function buildRealCustomerCsvBundle(
   count: number,
   options: { includeManagers?: boolean; includeNonResidentWithoutRate?: boolean } = {},
 ) {
@@ -98,6 +125,11 @@ function buildRealCustomerCsvPair(
     "departmentCode",
     "hireDate",
     "managerEmployeeNo",
+  ];
+  const identityHeaders = [
+    "employeeNo",
+    "email",
+    "externalSubject",
   ];
   const payrollHeaders = [
     "employeeNo",
@@ -158,9 +190,18 @@ function buildRealCustomerCsvPair(
       "2026-07-01",
     ];
   });
+  const identityRows = Array.from({ length: count }, (_, index) => {
+    const employeeNo = `A${String(index + 1).padStart(3, "0")}`;
+    return [
+      employeeNo,
+      `${employeeNo.toLowerCase()}@customer.example`,
+      `oidc-${employeeNo.toLowerCase()}`,
+    ];
+  });
 
   return {
     employeeCsv: toCsv([employeeHeaders, ...employeeRows]),
+    identityCsv: toCsv([identityHeaders, ...identityRows]),
     payrollCsv: toCsv([payrollHeaders, ...payrollRows]),
   };
 }

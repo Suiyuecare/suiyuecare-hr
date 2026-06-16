@@ -174,6 +174,7 @@ function importPreflightReport(options: {
     status: options.status,
     checkedAt: "2026-06-17T00:00:00.000Z",
     employeeRows: 25,
+    identityRows: 25,
     payrollRows: 25,
     managerAssignmentCount: 20,
     managerWithDirectReportsCount: 3,

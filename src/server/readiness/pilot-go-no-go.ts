@@ -51,7 +51,7 @@ export type PilotGoNoGoReport = {
 };
 
 const missingImportNextStep =
-  "Run pnpm pilot:import-preflight with the completed employee and payroll CSV files before inviting pilot employees.";
+  "Run pnpm pilot:import-preflight with the completed employee, identity, and payroll CSV files before inviting pilot employees.";
 
 const missingInviteNextStep =
   "Run pnpm pilot:invite-readiness for the real customer tenant before inviting pilot employees.";
@@ -128,7 +128,7 @@ export function formatPilotGoNoGoMarkdown(report: PilotGoNoGoReport) {
     "",
     "- This report must contain only aggregate counts, statuses, redacted next steps, or hash-only evidence references.",
     "- Do not paste salary amounts, bank accounts, national IDs, health data, database URLs, tokens, or private HR notes into pilot reports.",
-    "- Completed employee and payroll CSV files must stay in approved secure storage and must not be attached to chat or support tickets.",
+    "- Completed employee, identity, and payroll CSV files must stay in approved secure storage and must not be attached to chat or support tickets.",
     "",
   ].join("\n");
 }
@@ -170,7 +170,7 @@ function buildImportPreflightCheck(
       detail: required
         ? "No import preflight report was provided."
         : "Import preflight was skipped by operator choice.",
-      nextStep: required ? missingImportNextStep : "Run import preflight before using real customer employee or payroll CSV files.",
+      nextStep: required ? missingImportNextStep : "Run import preflight before using real customer employee, identity, or payroll CSV files.",
     };
   }
 
@@ -179,9 +179,9 @@ function buildImportPreflightCheck(
     id: "import_preflight",
     title: "Customer import preflight",
     status: passed ? "pass" : "block",
-    detail: `${report.status}; ${report.employeeRows} employee row(s), ${report.payrollRows} payroll row(s), ${report.blockers} blocker(s), ${report.warnings} warning(s)`,
+    detail: `${report.status}; ${report.employeeRows} employee row(s), ${report.identityRows} identity row(s), ${report.payrollRows} payroll row(s), ${report.blockers} blocker(s), ${report.warnings} warning(s)`,
     nextStep: passed
-      ? "Import employee records first, then payroll profiles, through approved secure channels."
+      ? "Import employee records first, then identity links and payroll profiles, through approved secure channels."
       : "Fix every import preflight blocker or warning before using the completed customer CSV files.",
   };
 }

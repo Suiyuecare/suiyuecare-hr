@@ -71,11 +71,11 @@ async function main() {
   };
   const stages: ImportStage[] = [];
 
-  const preflight = buildPilotImportPreflightReport({ employeeCsv, payrollCsv });
+  const preflight = buildPilotImportPreflightReport({ employeeCsv, identityCsv, payrollCsv });
   stages.push({
-    name: "employee/payroll import preflight",
+    name: "employee/identity/payroll import preflight",
     status: pilotImportPreflightPassed(preflight) ? "pass" : "block",
-    detail: `${preflight.status}; ${preflight.employeeRows} employee row(s), ${preflight.payrollRows} payroll row(s), ${preflight.blockers} blocker(s), ${preflight.warnings} warning(s)`,
+    detail: `${preflight.status}; ${preflight.employeeRows} employee row(s), ${preflight.identityRows} identity row(s), ${preflight.payrollRows} payroll row(s), ${preflight.blockers} blocker(s), ${preflight.warnings} warning(s)`,
   });
 
   const employeePreview = await previewEmployeeImport(session, employeeCsv);
