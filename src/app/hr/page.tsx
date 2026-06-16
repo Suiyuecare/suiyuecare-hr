@@ -1,5 +1,6 @@
 import { EmptyState } from "@/components/EmptyState";
 import { getDemoSession } from "@/server/auth/demo-session";
+import { hasPermission } from "@/server/auth/rbac";
 import { getCompanyOverview } from "@/server/dashboard/queries";
 import { getHrOneKpis, summarizeHrOneKpis } from "@/server/kpis/hr-one";
 import { getOnboardingReadinessReport } from "@/server/onboarding/readiness";
@@ -8,6 +9,21 @@ import { getHrAttendanceExceptions } from "@/server/workflows/service";
 
 export default async function HrDashboardPage() {
   const [session, overview] = await Promise.all([getDemoSession(), getCompanyOverview()]);
+  if (!hasPermission(session.role, "payroll:manage")) {
+    return (
+      <main className="page">
+        <section className="page-header">
+          <h1>需要人資權限</h1>
+          <p>這裡是 HR 月結與薪資作業後台，員工日常任務請使用員工前台。</p>
+        </section>
+        <EmptyState
+          title="無法開啟 HR 月結"
+          body="請切換為人資管理員或老闆示範角色；一般員工與主管預設不能讀取薪資與月結資料。"
+        />
+      </main>
+    );
+  }
+
   const [exceptions, payroll, onboardingReadiness, kpis] = await Promise.all([
     getHrAttendanceExceptions(session),
     getPayrollDashboard(session),
@@ -630,6 +646,7 @@ function buildWorkspaceGroups(input: {
 function translateActionLabel(label: string) {
   const labels: Record<string, string> = {
     Review: "檢查",
+    "Import payroll profiles": "匯入薪資資料",
     "Open readiness": "開啟準備度",
     "Open launch gate": "開啟上線門檻",
     "Open labor roster": "開啟勞工名卡",
@@ -642,6 +659,7 @@ function translateReadinessTitle(title: string) {
     "Labor roster profiles": "勞工名卡資料",
     "Payment profiles": "付款資料",
     "Salary profiles": "薪資資料",
+    "Salary profile coverage": "薪資資料",
     "Work rules": "工作規則",
   };
   return labels[title] ?? title;
@@ -651,6 +669,8 @@ function translateReadinessDetail(detail: string) {
   const labels: Record<string, string> = {
     "2/5 active employee(s) have complete and verified Taiwan labor roster profiles.":
       "5 位在職員工中，已有 2 位完成並驗證台灣勞工名卡資料。",
+    "5/25 active employee(s) have current salary profiles.":
+      "25 位在職員工中，已有 5 位具備目前生效的薪資資料。",
     "Missing punches must be resolved.": "漏打卡需先補正，才能進入薪資鎖定。",
   };
   return labels[detail] ?? detail;

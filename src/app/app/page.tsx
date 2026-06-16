@@ -22,7 +22,7 @@ export default async function EmployeeHomePage() {
           <h1>今日</h1>
           <p>
             {session.employee?.displayName ?? "示範員工"} ·{" "}
-            {session.employee?.department?.name ?? "產品工程部"}
+            {translateEmployeeDepartment(session.employee?.department?.name ?? "產品工程部")}
           </p>
         </section>
 
@@ -30,7 +30,7 @@ export default async function EmployeeHomePage() {
           <div className="panel span-12 today-card">
             <div>
               <span className="muted">今日班別</span>
-              <h2>{workspace.attendance.shiftName}</h2>
+              <h2>{translateShiftName(workspace.attendance.shiftName)}</h2>
               <p className="muted">
                 {formatTime(workspace.attendance.scheduledStart)}-
                 {formatTime(workspace.attendance.scheduledEnd)}
@@ -403,6 +403,25 @@ function labelRequestStatus(status: string) {
   if (status === "rejected") return "已退回";
   if (status === "cancelled") return "已取消";
   return status;
+}
+
+function translateShiftName(name: string) {
+  if (name.startsWith("Regular")) return name.replace("Regular", "日班");
+  const labels: Record<string, string> = {
+    Regular: "日班",
+    "Pilot day shift": "日班",
+  };
+  return labels[name] ?? name;
+}
+
+function translateEmployeeDepartment(name: string) {
+  const labels: Record<string, string> = {
+    "Product Engineering": "產品工程部",
+    "People Operations": "人事營運部",
+    Administration: "行政部",
+    "Care Services": "照護服務部",
+  };
+  return labels[name] ?? name;
 }
 
 function describePunchPolicy(policy: {
