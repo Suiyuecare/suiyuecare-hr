@@ -23,6 +23,7 @@
     "db:supabase:verify-schema": "tsx scripts/verify-supabase-private-schema.ts",
     "env:verify": "tsx scripts/verify-env.ts",
     "env:verify:production": "tsx scripts/verify-env.ts --mode production",
+    "vercel:apply-production-env": "tsx scripts/apply-vercel-production-env.ts",
     "release:gate": "tsx scripts/release-gate.ts",
     "release:gate:production": "tsx scripts/release-gate.ts --mode production",
     "db:studio": "prisma studio"

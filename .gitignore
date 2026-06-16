@@ -5,6 +5,7 @@ playwright-report
 test-results
 .env
 .env.local
+.env.vercel.production
 *.log
 tsconfig.tsbuildinfo
 .vercel

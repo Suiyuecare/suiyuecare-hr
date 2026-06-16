@@ -43,6 +43,16 @@ Goal: production data must survive deploys and must not fall back to in-memory d
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
    - Required production secrets listed in `README.md`, stored as secret values or vault references.
 
+   Prepare and apply the values with:
+
+   ```bash
+   cp .env.vercel.production.example .env.vercel.production
+   pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --dry-run
+   VERCEL_TOKEN=<token> pnpm vercel:apply-production-env -- --env-file=.env.vercel.production
+   ```
+
+   The dry run must pass before writing to Vercel. The script does not print secret values.
+
 5. Verify:
 
    ```bash

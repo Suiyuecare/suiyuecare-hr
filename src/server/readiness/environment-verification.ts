@@ -11,7 +11,17 @@ export type EnvironmentVerificationReport = {
   checks: EnvironmentVerificationCheck[];
 };
 
-const weakValuePatterns = [/changeme/i, /change-me/i, /example/i, /demo/i, /test/i, /localhost/i];
+const weakValuePatterns = [
+  /changeme/i,
+  /change-me/i,
+  /replace/i,
+  /placeholder/i,
+  /example/i,
+  /demo/i,
+  /test/i,
+  /localhost/i,
+  /password/i,
+];
 const requiredSecretLength = 32;
 const minimumBackupRetentionDays = 30;
 const maximumRestoreDrillAgeDays = 90;
@@ -115,6 +125,15 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
       databaseProvider
         ? `${databaseProvider} configured`
         : "missing HR_ONE_DATABASE_PROVIDER",
+    ),
+    check(
+      "database private schema",
+      databaseProvider !== "supabase_postgres" || databaseUrlUsesSchema(databaseUrl, "hr_one"),
+      databaseProvider === "supabase_postgres"
+        ? databaseUrlUsesSchema(databaseUrl, "hr_one")
+          ? "schema=hr_one configured"
+          : "set DATABASE_URL query parameter schema=hr_one"
+        : "not required for this database provider",
     ),
     check(
       "Supabase project url",
@@ -304,6 +323,15 @@ function isProductionPostgresUrl(value: string | null) {
   try {
     const url = new URL(value);
     return url.protocol === "postgresql:" || url.protocol === "postgres:";
+  } catch {
+    return false;
+  }
+}
+
+function databaseUrlUsesSchema(value: string | null, schema: string) {
+  if (!value) return false;
+  try {
+    return new URL(value).searchParams.get("schema") === schema;
   } catch {
     return false;
   }

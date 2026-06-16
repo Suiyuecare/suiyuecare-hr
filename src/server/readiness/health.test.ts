@@ -3,7 +3,7 @@ import { getLiveHealth, getReadyHealth, healthHttpStatus } from "@/server/readin
 
 const productionEnv = {
   HR_ONE_ENV: "production",
-  DATABASE_URL: "postgresql://hrone:secret@db.customer.internal:5432/hrone",
+  DATABASE_URL: "postgresql://hrone:secret@db.customer.internal:5432/hrone?schema=hr_one",
   HR_ONE_APP_URL: "https://hr.customer.co",
   HR_ONE_DEPLOYMENT_TARGET: "vercel",
   VERCEL_PROJECT_ID: "prj_Ueh6m200Y21GRuTjXKWZxTWc6IQa",

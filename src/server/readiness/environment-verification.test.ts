@@ -6,7 +6,7 @@ import {
 
 const productionEnv = {
   HR_ONE_ENV: "production",
-  DATABASE_URL: "postgresql://hrone:secret@db.customer.internal:5432/hrone",
+  DATABASE_URL: "postgresql://hrone:secret@db.customer.internal:5432/hrone?schema=hr_one",
   HR_ONE_APP_URL: "https://hr.customer.co",
   HR_ONE_DEPLOYMENT_TARGET: "vercel",
   VERCEL_PROJECT_ID: "prj_Ueh6m200Y21GRuTjXKWZxTWc6IQa",
@@ -57,6 +57,7 @@ describe("environment verification", () => {
         DATABASE_URL: "postgresql://hrone:hrone@localhost:5432/hrone",
         HR_ONE_APP_URL: "http://localhost:3000",
         HR_ONE_SESSION_SECRET: "change-me",
+        HR_ONE_ENCRYPTION_KEY: "replace-with-at-least-32-random-characters",
       },
       "production",
       new Date("2026-06-12T00:00:00.000Z"),
@@ -66,6 +67,7 @@ describe("environment verification", () => {
     expect(report.checks.find((item) => item.name === "database url")).toMatchObject({ passed: false });
     expect(report.checks.find((item) => item.name === "public app url")).toMatchObject({ passed: false });
     expect(report.checks.find((item) => item.name === "HR_ONE_SESSION_SECRET")).toMatchObject({ passed: false });
+    expect(report.checks.find((item) => item.name === "HR_ONE_ENCRYPTION_KEY")).toMatchObject({ passed: false });
   });
 
   it("requires Vercel and Supabase production bindings when selected", () => {
@@ -92,6 +94,10 @@ describe("environment verification", () => {
       passed: true,
       detail: "supabase_postgres configured",
     });
+    expect(report.checks.find((item) => item.name === "database private schema")).toMatchObject({
+      passed: true,
+      detail: "schema=hr_one configured",
+    });
     expect(report.checks.find((item) => item.name === "Supabase project url")).toMatchObject({
       passed: false,
       detail: "invalid NEXT_PUBLIC_SUPABASE_URL",
@@ -99,6 +105,23 @@ describe("environment verification", () => {
     expect(report.checks.find((item) => item.name === "Supabase publishable key")).toMatchObject({
       passed: false,
       detail: "invalid NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+    });
+  });
+
+  it("requires Supabase production URLs to target the HR One private schema", () => {
+    const report = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        DATABASE_URL: "postgresql://hrone:secret@db.customer.internal:5432/hrone",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+
+    expect(environmentVerificationPassed(report)).toBe(false);
+    expect(report.checks.find((item) => item.name === "database private schema")).toMatchObject({
+      passed: false,
+      detail: "set DATABASE_URL query parameter schema=hr_one",
     });
   });
 
