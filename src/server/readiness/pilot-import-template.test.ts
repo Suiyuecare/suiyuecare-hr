@@ -5,6 +5,7 @@ import {
   buildPilotImportTemplatePack,
   employeeImportTemplateHeaders,
   getPilotImportTemplateFile,
+  pilotIdentityImportTemplateHeaders,
   payrollProfileImportTemplateHeaders,
 } from "@/server/readiness/pilot-import-template";
 
@@ -22,7 +23,7 @@ describe("pilot import template pack", () => {
     resetEmployeeImportDemoState();
   });
 
-  it("generates a 25-person sample pack aligned to employee and payroll import headers", async () => {
+  it("generates a 25-person sample pack aligned to employee, identity, and payroll import headers", async () => {
     const pack = buildPilotImportTemplatePack({
       generatedAt: new Date("2026-06-17T00:00:00.000Z"),
       cohortSize: 25,
@@ -30,13 +31,17 @@ describe("pilot import template pack", () => {
       effectiveFrom: "2026-07-01",
     });
     const employeeCsv = requiredFile(pack, "employee-import-template.csv");
+    const identityCsv = requiredFile(pack, "identity-import-template.csv");
     const payrollCsv = requiredFile(pack, "payroll-profile-import-template.csv");
 
     expect(pack.cohortSize).toBe(25);
     expect(headerOf(employeeCsv)).toEqual([...employeeImportTemplateHeaders]);
+    expect(headerOf(identityCsv)).toEqual([...pilotIdentityImportTemplateHeaders]);
     expect(headerOf(payrollCsv)).toEqual([...payrollProfileImportTemplateHeaders]);
     expect(dataRowCount(employeeCsv)).toBe(25);
+    expect(dataRowCount(identityCsv)).toBe(25);
     expect(dataRowCount(payrollCsv)).toBe(25);
+    expect(employeeNos(employeeCsv)).toEqual(employeeNos(identityCsv));
     expect(employeeNos(employeeCsv)).toEqual(employeeNos(payrollCsv));
     expect(employeeCsv).toContain("PILOT001");
     expect(employeeCsv).toContain("PILOT025");
@@ -69,6 +74,7 @@ describe("pilot import template pack", () => {
     };
 
     expect(readme).toContain("All rows are synthetic sample data");
+    expect(readme).toContain("identity-import-template.csv");
     expect(readme).toContain("Do not paste real payroll or bank data");
     expect(manifest.safety).toEqual({
       sampleOnly: true,

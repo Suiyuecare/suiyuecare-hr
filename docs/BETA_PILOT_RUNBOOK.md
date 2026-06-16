@@ -12,7 +12,7 @@ This runbook is the execution checklist for turning HR One from a demo-ready app
 - Supabase private schema exposure: `anon` and `authenticated` do not have `USAGE` on `hr_one`.
 - Supabase pilot rehearsal data: 25 active employees, 3 managers with direct reports, 4 departments, attendance schedules, leave balances, salary/payment/statutory profile coverage, released payroll rehearsal, 25 payslips, announcement receipts, starter form workflow, active rule versions, telemetry baseline, and audit coverage.
 - Vercel Production env: currently blocked until the 28 required production keys are written and the app is redeployed.
-- GitHub `main` includes the private-schema SQL generator, Prisma migration baseline support, pilot acceptance matrix, daily pilot status gate, handoff generator, invite readiness gate, go/no-go start gate, trial completion gate, and 20-50 person import template pack.
+- GitHub `main` includes the private-schema SQL generator, Prisma migration baseline support, pilot acceptance matrix, daily pilot status gate, handoff generator, identity import gate, invite readiness gate, go/no-go start gate, trial completion gate, and 20-50 person import template pack.
 
 Do not call the product production-pilot-ready until `/api/health/ready` is `ok` in production and a non-demo tenant passes production verification.
 
@@ -144,25 +144,37 @@ Recommended sequence:
    ```
 
 4. Import employees from `/hr/employee-import` only after preflight returns `ready`.
-5. Complete onboarding gaps from `/hr/onboarding-readiness`.
-6. Import salary/payment/compliance data from `/hr/payroll-profile-import`.
-7. Review labor roster from `/hr/labor-roster`.
-8. Review statutory insurance from `/hr/insurance`.
-9. Configure announcements, notifications, and work rules.
-10. Run production verification again.
-11. Run the acceptance matrix with the real tenant slug so cohort evidence comes from PostgreSQL, not manual CLI counts:
+5. Dry-run the identity import:
+
+   ```bash
+   pnpm pilot:identity-import -- --tenant-slug=<customer-slug> --csv=/secure/customer/identity-import.csv --output=/tmp/hr-one-pilot-identity-import.md
+   ```
+
+6. Apply the identity import only after the dry-run is `ready`:
+
+   ```bash
+   pnpm pilot:identity-import -- --tenant-slug=<customer-slug> --csv=/secure/customer/identity-import.csv --apply --output=/tmp/hr-one-pilot-identity-import-applied.md
+   ```
+
+7. Complete onboarding gaps from `/hr/onboarding-readiness`.
+8. Import salary/payment/compliance data from `/hr/payroll-profile-import`.
+9. Review labor roster from `/hr/labor-roster`.
+10. Review statutory insurance from `/hr/insurance`.
+11. Configure announcements, notifications, and work rules.
+12. Run production verification again.
+13. Run the acceptance matrix with the real tenant slug so cohort evidence comes from PostgreSQL, not manual CLI counts:
 
    ```bash
    pnpm pilot:acceptance -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug>
    ```
 
-12. Run the invite readiness check after employee users and SSO identities are linked:
+14. Run the invite readiness check after employee users and SSO identities are linked:
 
    ```bash
    pnpm pilot:invite-readiness -- --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-invite-readiness.md
    ```
 
-13. Run the start/stop go-no-go report before inviting employees:
+15. Run the start/stop go-no-go report before inviting employees:
 
    ```bash
    pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --employee-csv=/secure/customer/employee-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --evidence-path=/tmp/hr-one-pilot-evidence --recursive --output=/tmp/hr-one-pilot-go-no-go.md
@@ -172,6 +184,7 @@ Expected evidence:
 
 - Employee import audit log has aggregate counts only.
 - Salary/payment changes have audit logs without raw salary or bank account values.
+- Identity import audit logs have user/employee/role/SSO linkage evidence without raw emails or SSO subjects.
 - HR onboarding readiness has no blocker for the pilot company.
 - `pilot:acceptance` reports `real_customer` cohort evidence from aggregate active employee and manager counts.
 - `pilot:import-preflight` returns `ready` and the Markdown report contains no names, salary amounts, bank accounts, national IDs, health data, or private HR notes.

@@ -11,12 +11,12 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 - HR 後台：員工匯入、人事主檔、組織與部門、任用異動、文件庫、出勤例外、班表、假勤政策、薪資設定、薪資月結、薪資單釋出、公告、表單建置、工作規則、訓練、勞健保/勞退與台灣法規規則管理。
 - 老闆/Owner 管理：公司設定、RBAC 權限、訂閱與商務狀態、資安設定、支援存取授權、備份還原證據、上線 readiness、audit log 與勞檢證據包。
 - AI Copilot 安全層：政策 Q&A、表單草稿、簽核摘要、薪資異常解釋；只做輔助與來源引用，不做招募拒絕、裁員、薪資、績效或懲戒決策。
-- 試用與上線工具：Supabase private schema 驗證、Vercel production env 草稿、20-50 人 pilot 匯入模板、匯入預檢、邀請 readiness、每日狀態、證據掃描、go/no-go 開跑總檢查、兩週試用結案檢查。
+- 試用與上線工具：Supabase private schema 驗證、Vercel production env 草稿、20-50 人 pilot 匯入模板、匯入預檢、身份/SSO 匯入、邀請 readiness、每日狀態、證據掃描、go/no-go 開跑總檢查、兩週試用結案檢查。
 
 ## 下一階段
 
 - 補齊 Vercel Production 真實環境變數：`DATABASE_URL`、正式 OIDC/SSO、vault/KMS 參照、備份還原演練證據，讓 `https://hr.suiyuecare.com/api/health/ready` 從 degraded 變成 ok。
-- 匯入一家公司 20-50 人的真實試用資料：員工、部門、主管線、薪資 profile、付款 profile、勞健保/勞退、假勤餘額與班表。
+- 匯入一家公司 20-50 人的真實試用資料：員工、部門、主管線、user/SSO identity、薪資 profile、付款 profile、勞健保/勞退、假勤餘額與班表。
 - 用 `pnpm pilot:go-no-go` 做試用開跑前總檢查，必須同時通過 acceptance、Day 0、匯入預檢、邀請 readiness 與證據掃描。
 - 兩週試用結束後用 `pnpm pilot:trial-completion` 彙整 checkpoint、KPI 與 evidence scan，確認打卡、請假、簽核、公告、月結預演、薪資單查看與敏感資料安全都有證據。
 - 重新排版前端/後台 UI：比照 Finance 系統調整色彩、資訊密度、卡片層級、文字大小、主視覺與後台模組入口，避免「很多功能但不好用」。
@@ -265,6 +265,20 @@ pnpm pilot:import-preflight -- --employee-csv=/secure/customer/employee-import.c
 
 The preflight checks headers, 20-50 employee count, employee/payroll row matching, unique employee numbers, department coverage, manager reporting lines, non-resident tax setup, required payroll fields, and generated-template placeholders. It returns non-zero until blockers and template-sample warnings are resolved, and its report intentionally omits names, salary amounts, bank accounts, national IDs, health data, and private HR notes.
 
+After employee import, dry-run the identity and SSO linking CSV:
+
+```bash
+pnpm pilot:identity-import -- --tenant-slug=<customer-slug> --csv=/secure/customer/identity-import.csv --output=/tmp/hr-one-pilot-identity-import.md
+```
+
+After HR verifies the redacted dry-run report, apply it:
+
+```bash
+pnpm pilot:identity-import -- --tenant-slug=<customer-slug> --csv=/secure/customer/identity-import.csv --apply --output=/tmp/hr-one-pilot-identity-import-applied.md
+```
+
+The identity import creates or updates active users, links `Employee.userId`, ensures employee roles, assigns manager roles based on actual direct reports, and links OIDC subjects. Audit metadata stores hashes and aggregate counts only; it does not store raw emails or SSO subjects.
+
 After importing employee users and SSO identities, run the invite readiness check:
 
 ```bash
@@ -384,6 +398,8 @@ pnpm pilot:handoff -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuec
 pnpm pilot:daily-status -- --day=1 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-1.md
 pnpm pilot:import-template-pack -- --output=/tmp/hr-one-pilot-import-template --cohort-size=25 --force
 pnpm pilot:import-preflight -- --employee-csv=/secure/customer/employee-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --output=/tmp/hr-one-pilot-import-preflight.md
+pnpm pilot:identity-import -- --tenant-slug=<customer-slug> --csv=/secure/customer/identity-import.csv --output=/tmp/hr-one-pilot-identity-import.md
+pnpm pilot:identity-import -- --tenant-slug=<customer-slug> --csv=/secure/customer/identity-import.csv --apply --output=/tmp/hr-one-pilot-identity-import-applied.md
 pnpm pilot:invite-readiness -- --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-invite-readiness.md
 pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --employee-csv=/secure/customer/employee-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --evidence-path=/tmp/hr-one-pilot-evidence --recursive --output=/tmp/hr-one-pilot-go-no-go.md
 pnpm pilot:trial-completion -- --tenant-slug=<customer-slug> --evidence-path=/tmp/hr-one-pilot-evidence --recursive --output=/tmp/hr-one-pilot-completion.md
@@ -407,7 +423,7 @@ After applying the bootstrap SQL, run `pnpm db:supabase:verify-schema -- --proje
 
 For a safe 20-50 person trial rehearsal in the Suiyuecare Supabase project, use `pnpm db:supabase:seed-pilot -- --project-ref=<supabase-project-ref> --schema=hr_one --apply`. The command writes a synthetic 25-person pilot tenant into the private `hr_one` schema through Supabase CLI linked queries, then verifies the cohort, manager reporting line, RBAC assignments, attendance schedule, leave balances, salary/payment/compliance profile coverage, released payslips, announcement receipts, form workflow, rule versions, telemetry baseline, audit coverage, and browser-role isolation. It prints only aggregate counts; salary amounts, payment hashes, employee details, and private notes are not logged. This pilot seed is for operational rehearsal only and does not replace real customer employee import, SSO setup, Vercel `DATABASE_URL`, backup/restore evidence, or `pnpm db:verify:production`.
 
-For a real customer's HR data collection, use `pnpm pilot:import-template-pack -- --output=/tmp/hr-one-pilot-import-template --cohort-size=25 --force` to generate employee and payroll profile CSV templates. The generated rows are synthetic placeholders only. HR must replace them from approved source records, run `pnpm pilot:import-preflight -- --employee-csv=<employee.csv> --payroll-csv=<payroll.csv>`, import employees first, import payroll profiles second, run `pnpm pilot:invite-readiness -- --tenant-slug=<customer-slug>`, and treat completed payroll/payment CSV plus identity-provider exports as sensitive data.
+For a real customer's HR data collection, use `pnpm pilot:import-template-pack -- --output=/tmp/hr-one-pilot-import-template --cohort-size=25 --force` to generate employee, identity, and payroll profile CSV templates. The generated rows are synthetic placeholders only. HR must replace them from approved source records, run `pnpm pilot:import-preflight -- --employee-csv=<employee.csv> --payroll-csv=<payroll.csv>`, import employees first, run `pnpm pilot:identity-import -- --tenant-slug=<customer-slug> --csv=<identity.csv>` as a dry-run before applying, import payroll profiles second, run `pnpm pilot:invite-readiness -- --tenant-slug=<customer-slug>`, and treat completed payroll/payment CSV plus identity-provider exports as sensitive data.
 
 Before sending the first employee invitation, run `pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --employee-csv=<employee.csv> --payroll-csv=<payroll.csv> --evidence-path=<pilot-evidence-folder> --recursive --output=/tmp/hr-one-pilot-go-no-go.md`. It combines production acceptance, Day 0 status, import preflight, invite readiness, and evidence privacy scanning into one redacted start/stop decision.
 
@@ -473,6 +489,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `scripts/pilot-daily-status.ts`: redacted day 0-14 pilot operating status gate built from the acceptance matrix.
 - `scripts/create-pilot-import-template-pack.ts`: synthetic 20-50 person employee/payroll CSV template pack generator for real customer onboarding preparation.
 - `scripts/pilot-import-preflight.ts`: redacted employee/payroll CSV preflight before customer pilot import.
+- `scripts/pilot-identity-import.ts`: dry-run/apply CLI for linking active employees to users, employee/manager roles, and SSO subjects without logging raw identities.
 - `scripts/pilot-invite-readiness.ts`: aggregate-only invitation readiness gate for linked active users, employee/manager roles, SSO identities, allowed email domains, and department coverage.
 - `scripts/pilot-go-no-go.ts`: one-command redacted pilot start/stop gate that aggregates acceptance, Day 0, import preflight, invite readiness, and evidence scan.
 - `scripts/pilot-trial-completion.ts`: two-week pilot completion gate for checkpoint evidence, KPI status, and evidence privacy scan.
@@ -487,6 +504,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `src/server/readiness/pilot-cohort.ts`: aggregate-only real customer cohort reader for pilot acceptance.
 - `src/server/readiness/pilot-import-template.ts`: safe synthetic employee and payroll import template pack builder.
 - `src/server/readiness/pilot-import-preflight.ts`: aggregate-only customer CSV preflight for cohort, manager, department, payroll, tax, and template-placeholder readiness.
+- `src/server/provisioning/pilot-identity-import.ts`: pilot identity import planner/applicator for user, role, employee link, and OIDC subject setup with redacted audit metadata.
 - `src/server/readiness/pilot-invite-readiness.ts`: aggregate-only invite readiness report for 20-50 person pilot login, role, SSO, manager, and department coverage.
 - `src/server/readiness/pilot-go-no-go.ts`: pure start/stop decision builder for 20-50 person pilot readiness.
 - `src/server/readiness/pilot-trial-completion.ts`: pure completion decision builder for trial checkpoint, KPI, and privacy evidence.

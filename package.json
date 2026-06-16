@@ -36,6 +36,7 @@
     "pilot:daily-status": "tsx scripts/pilot-daily-status.ts",
     "pilot:import-template-pack": "tsx scripts/create-pilot-import-template-pack.ts",
     "pilot:import-preflight": "tsx scripts/pilot-import-preflight.ts",
+    "pilot:identity-import": "tsx scripts/pilot-identity-import.ts",
     "pilot:invite-readiness": "tsx scripts/pilot-invite-readiness.ts",
     "pilot:go-no-go": "tsx scripts/pilot-go-no-go.ts",
     "pilot:trial-completion": "tsx scripts/pilot-trial-completion.ts",

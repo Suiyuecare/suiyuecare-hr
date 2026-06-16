@@ -1,3 +1,8 @@
+import {
+  pilotIdentityImportTemplateHeaders,
+  toPilotIdentityCsv,
+} from "@/server/provisioning/pilot-identity-import";
+
 export type PilotImportTemplatePackOptions = {
   cohortSize?: number;
   generatedAt?: Date;
@@ -102,6 +107,13 @@ export function buildPilotImportTemplatePack(
       ];
     }),
   ]);
+  const identityCsv = toPilotIdentityCsv(
+    employees.map((employee) => ({
+      employeeNo: employee.employeeNo,
+      email: `${employee.employeeNo.toLowerCase()}@example.com`,
+      externalSubject: `sso-${employee.employeeNo.toLowerCase()}`,
+    })),
+  );
   const readme = buildReadme({ cohortSize, generatedAt, hireDate, effectiveFrom });
   const manifest = JSON.stringify(
     {
@@ -111,6 +123,7 @@ export function buildPilotImportTemplatePack(
       maxPilotCohortSize,
       files: [
         "employee-import-template.csv",
+        "identity-import-template.csv",
         "payroll-profile-import-template.csv",
         "README.md",
       ],
@@ -130,6 +143,7 @@ export function buildPilotImportTemplatePack(
     generatedAt,
     files: [
       { path: "employee-import-template.csv", content: employeeCsv },
+      { path: "identity-import-template.csv", content: identityCsv },
       { path: "payroll-profile-import-template.csv", content: payrollCsv },
       { path: "README.md", content: readme },
       { path: "manifest.json", content: `${manifest}\n` },
@@ -199,14 +213,15 @@ function buildReadme(input: {
     "## Files",
     "",
     "- `employee-import-template.csv`: employee roster template for HR employee import.",
+    "- `identity-import-template.csv`: employee login and SSO identity template for pilot invitations.",
     "- `payroll-profile-import-template.csv`: salary, payroll compliance, and payment profile template.",
     "- `manifest.json`: machine-readable summary of the generated pack.",
     "",
     "## Before Import",
     "",
-    "1. Replace every sample employee number, display name, job title, department code, manager employee number, salary value, bank code, account name, and account number with the customer's real HR source data.",
+    "1. Replace every sample employee number, display name, job title, department code, manager employee number, email, external SSO subject, salary value, bank code, account name, and account number with the customer's real HR source data.",
     "2. Confirm department codes exist in HR One before importing. The sample uses `POPS` and `ENG` only as placeholders.",
-    "3. Import employees first, then import payroll profiles after the employee preview is confirmed.",
+    "3. Import employees first, then run the identity import dry-run, then import payroll profiles after the employee preview is confirmed.",
     "4. Share files that contain real salary, bank account, national ID, health data, or private HR notes only through approved secure channels.",
     "5. Do not paste real payroll or bank data into support tickets, chat tools, logs, or screenshots.",
     "",
@@ -221,10 +236,13 @@ function buildReadme(input: {
     "",
     "- Keep the first production trial between 20 and 50 active employees.",
     "- Provide managerEmployeeNo reporting lines so the unified approval Inbox can be tested.",
+    "- Link every active employee to a user and SSO subject before sending invitations.",
     "- After import, run HR onboarding readiness, payroll profile coverage, and pilot acceptance checks before the two-week trial starts.",
     "",
   ].join("\n");
 }
+
+export { pilotIdentityImportTemplateHeaders };
 
 function assertCohortSize(cohortSize: number) {
   if (!Number.isInteger(cohortSize)) {
