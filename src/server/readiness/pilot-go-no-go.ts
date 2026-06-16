@@ -3,6 +3,8 @@ import type { PilotDailyStatusReport } from "@/server/readiness/pilot-daily-stat
 import { pilotDailyStatusPassed } from "@/server/readiness/pilot-daily-status";
 import type { PilotEvidenceScanReport } from "@/server/readiness/pilot-evidence-scan";
 import { pilotEvidenceScanPassed } from "@/server/readiness/pilot-evidence-scan";
+import type { PilotInviteReadinessReport } from "@/server/readiness/pilot-invite-readiness";
+import { pilotInviteReadinessPassed } from "@/server/readiness/pilot-invite-readiness";
 import type { PilotImportPreflightReport } from "@/server/readiness/pilot-import-preflight";
 import { pilotImportPreflightPassed } from "@/server/readiness/pilot-import-preflight";
 import { redactSensitiveDetail } from "@/server/readiness/production-pilot-gate";
@@ -13,6 +15,7 @@ export type PilotGoNoGoCheckId =
   | "acceptance"
   | "day_0_status"
   | "import_preflight"
+  | "invite_readiness"
   | "evidence_scan";
 
 export type PilotGoNoGoCheckStatus = "pass" | "warn" | "block";
@@ -29,8 +32,10 @@ export type PilotGoNoGoInput = {
   acceptance: PilotAcceptanceReport;
   day0: PilotDailyStatusReport;
   importPreflight?: PilotImportPreflightReport | null;
+  inviteReadiness?: PilotInviteReadinessReport | null;
   evidenceScan?: PilotEvidenceScanReport | null;
   importPreflightRequired?: boolean;
+  inviteReadinessRequired?: boolean;
   evidenceScanRequired?: boolean;
   generatedAt?: Date;
 };
@@ -47,6 +52,9 @@ export type PilotGoNoGoReport = {
 
 const missingImportNextStep =
   "Run pnpm pilot:import-preflight with the completed employee and payroll CSV files before inviting pilot employees.";
+
+const missingInviteNextStep =
+  "Run pnpm pilot:invite-readiness for the real customer tenant before inviting pilot employees.";
 
 const missingEvidenceNextStep =
   "Run pnpm pilot:evidence-scan on the pilot evidence folder and fix every finding before sharing pilot materials.";
@@ -68,6 +76,10 @@ export function buildPilotGoNoGoReport(input: PilotGoNoGoInput): PilotGoNoGoRepo
     buildImportPreflightCheck(
       input.importPreflight ?? null,
       input.importPreflightRequired ?? true,
+    ),
+    buildInviteReadinessCheck(
+      input.inviteReadiness ?? null,
+      input.inviteReadinessRequired ?? true,
     ),
     buildEvidenceScanCheck(
       input.evidenceScan ?? null,
@@ -171,6 +183,34 @@ function buildImportPreflightCheck(
     nextStep: passed
       ? "Import employee records first, then payroll profiles, through approved secure channels."
       : "Fix every import preflight blocker or warning before using the completed customer CSV files.",
+  };
+}
+
+function buildInviteReadinessCheck(
+  report: PilotInviteReadinessReport | null,
+  required: boolean,
+): PilotGoNoGoCheck {
+  if (!report) {
+    return {
+      id: "invite_readiness",
+      title: "Pilot invite readiness",
+      status: required ? "block" : "warn",
+      detail: required
+        ? "No invite readiness report was provided."
+        : "Invite readiness was skipped by operator choice.",
+      nextStep: required ? missingInviteNextStep : "Run invite readiness before sending the first pilot employee invitation.",
+    };
+  }
+
+  const passed = pilotInviteReadinessPassed(report);
+  return {
+    id: "invite_readiness",
+    title: "Pilot invite readiness",
+    status: passed ? "pass" : "block",
+    detail: `${report.status}; ${report.activeEmployeeCount} active employee(s), ${report.managerWithDirectReportsCount} manager(s), ${report.blockers} blocker(s), ${report.warnings} warning(s)`,
+    nextStep: passed
+      ? "Send invitations only through approved identity-provider and customer communication channels."
+      : "Fix pilot invite readiness blockers before sending employee invitations.",
   };
 }
 

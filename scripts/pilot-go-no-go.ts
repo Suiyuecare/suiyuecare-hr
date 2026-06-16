@@ -9,6 +9,11 @@ import {
   type PilotEvidenceScanReport,
 } from "../src/server/readiness/pilot-evidence-scan";
 import {
+  buildPilotInviteReadinessReport,
+  readPilotInviteReadinessSnapshotFromDatabase,
+  type PilotInviteReadinessReport,
+} from "../src/server/readiness/pilot-invite-readiness";
+import {
   buildPilotGoNoGoReport,
   formatPilotGoNoGoMarkdown,
   pilotGoNoGoPassed,
@@ -26,6 +31,7 @@ async function main() {
   const json = args.includes("--json");
   const output = readArg(args, "--output");
   const skipImportPreflight = args.includes("--skip-import-preflight");
+  const skipInviteReadiness = args.includes("--skip-invite-readiness");
   const skipEvidenceScan = args.includes("--skip-evidence-scan");
   const acceptance = runPilotAcceptance(args);
   const day0 = buildPilotDailyStatusReport({
@@ -33,13 +39,16 @@ async function main() {
     day: 0,
   });
   const importPreflight = maybeBuildImportPreflight(args, skipImportPreflight);
+  const inviteReadiness = await maybeBuildInviteReadiness(args, skipInviteReadiness);
   const evidenceScan = maybeBuildEvidenceScan(args, skipEvidenceScan);
   const report = buildPilotGoNoGoReport({
     acceptance,
     day0,
     importPreflight,
+    inviteReadiness,
     evidenceScan,
     importPreflightRequired: !skipImportPreflight,
+    inviteReadinessRequired: !skipInviteReadiness,
     evidenceScanRequired: !skipEvidenceScan,
   });
   const content = json
@@ -102,6 +111,20 @@ function maybeBuildImportPreflight(
     employeeCsv: readFileSync(resolve(employeeCsvPath), "utf8"),
     payrollCsv: readFileSync(resolve(payrollCsvPath), "utf8"),
   });
+}
+
+async function maybeBuildInviteReadiness(
+  args: string[],
+  skipped: boolean,
+): Promise<PilotInviteReadinessReport | null> {
+  if (skipped) return null;
+  const tenantSlug = readArg(args, "--tenant-slug");
+  if (!tenantSlug) return null;
+  const snapshot = await readPilotInviteReadinessSnapshotFromDatabase({
+    tenantSlug,
+    companyId: readArg(args, "--company-id"),
+  });
+  return buildPilotInviteReadinessReport({ snapshot });
 }
 
 function maybeBuildEvidenceScan(args: string[], skipped: boolean): PilotEvidenceScanReport | null {

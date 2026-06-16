@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PilotAcceptanceItem, PilotAcceptanceReport } from "@/server/readiness/pilot-acceptance";
 import { buildPilotDailyStatusReport } from "@/server/readiness/pilot-daily-status";
 import type { PilotEvidenceScanReport } from "@/server/readiness/pilot-evidence-scan";
+import type { PilotInviteReadinessReport } from "@/server/readiness/pilot-invite-readiness";
 import type { PilotImportPreflightReport } from "@/server/readiness/pilot-import-preflight";
 import {
   buildPilotGoNoGoReport,
@@ -16,6 +17,7 @@ describe("pilot go/no-go", () => {
       acceptance,
       day0: buildPilotDailyStatusReport({ acceptance, day: 0 }),
       importPreflight: importPreflightReport({ status: "ready" }),
+      inviteReadiness: inviteReadinessReport({ status: "ready" }),
       evidenceScan: evidenceScanReport({ status: "pass" }),
       generatedAt: new Date("2026-06-17T00:00:00.000Z"),
     });
@@ -26,7 +28,7 @@ describe("pilot go/no-go", () => {
       blockers: 0,
       warnings: 0,
     });
-    expect(report.checks.map((check) => check.status)).toEqual(["pass", "pass", "pass", "pass"]);
+    expect(report.checks.map((check) => check.status)).toEqual(["pass", "pass", "pass", "pass", "pass"]);
     expect(pilotGoNoGoPassed(report)).toBe(true);
   });
 
@@ -56,6 +58,9 @@ describe("pilot go/no-go", () => {
     expect(report.checks.find((check) => check.id === "evidence_scan")).toMatchObject({
       status: "block",
     });
+    expect(report.checks.find((check) => check.id === "invite_readiness")).toMatchObject({
+      status: "block",
+    });
     expect(markdown).toContain("[REDACTED]");
     expect(markdown).not.toContain("postgresql://");
     expect(markdown).not.toContain("secret@db.example.com");
@@ -71,6 +76,7 @@ describe("pilot go/no-go", () => {
       acceptance,
       day0: buildPilotDailyStatusReport({ acceptance, day: 0 }),
       importPreflight: importPreflightReport({ status: "action_required", warnings: 1 }),
+      inviteReadiness: inviteReadinessReport({ status: "blocked", blockers: 2 }),
       evidenceScan: evidenceScanReport({ status: "failed", findingCount: 2 }),
     });
 
@@ -81,9 +87,13 @@ describe("pilot go/no-go", () => {
     expect(report.checks.find((check) => check.id === "evidence_scan")).toMatchObject({
       status: "block",
     });
+    expect(report.checks.find((check) => check.id === "invite_readiness")).toMatchObject({
+      status: "block",
+    });
     expect(report.nextActions).toEqual(
       expect.arrayContaining([
         "Fix every import preflight blocker or warning before using the completed customer CSV files.",
+        "Fix pilot invite readiness blockers before sending employee invitations.",
         "Remove sensitive values from pilot evidence files and rerun the evidence scan.",
       ]),
     );
@@ -95,17 +105,19 @@ describe("pilot go/no-go", () => {
       acceptance,
       day0: buildPilotDailyStatusReport({ acceptance, day: 0 }),
       importPreflight: null,
+      inviteReadiness: null,
       evidenceScan: null,
       importPreflightRequired: false,
+      inviteReadinessRequired: false,
       evidenceScanRequired: false,
     });
 
     expect(report).toMatchObject({
       status: "ready_to_start",
       blockers: 0,
-      warnings: 2,
+      warnings: 3,
     });
-    expect(report.checks.map((check) => check.status)).toEqual(["pass", "pass", "warn", "warn"]);
+    expect(report.checks.map((check) => check.status)).toEqual(["pass", "pass", "warn", "warn", "warn"]);
     expect(pilotGoNoGoPassed(report)).toBe(true);
   });
 });
@@ -169,6 +181,23 @@ function importPreflightReport(options: {
     blockers: options.blockers ?? 0,
     warnings: options.warnings ?? 0,
     checks: [],
+  };
+}
+
+function inviteReadinessReport(options: {
+  status: PilotInviteReadinessReport["status"];
+  blockers?: number;
+  warnings?: number;
+}): PilotInviteReadinessReport {
+  return {
+    status: options.status,
+    checkedAt: "2026-06-17T00:00:00.000Z",
+    activeEmployeeCount: 25,
+    managerWithDirectReportsCount: 3,
+    blockers: options.blockers ?? 0,
+    warnings: options.warnings ?? 0,
+    checks: [],
+    nextActions: [],
   };
 }
 
