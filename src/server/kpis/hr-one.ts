@@ -1,5 +1,11 @@
 import { getAuditDemoState } from "@/server/audit/demo-store";
+import { getDb } from "@/server/db/client";
 import { getProductTelemetrySnapshot, type ProductTelemetrySnapshot } from "@/server/telemetry/product";
+
+type KpiSessionLike = {
+  tenantId?: string | null;
+  companyId?: string | null;
+};
 
 export type HrOneKpiStatus = "passing" | "watch" | "failing";
 
@@ -13,13 +19,19 @@ export type HrOneKpi = {
   nextStep: string;
 };
 
-export async function getHrOneKpis(): Promise<HrOneKpi[]> {
-  const telemetry = await getProductTelemetrySnapshot();
-  return buildHrOneKpis(telemetry);
+export async function getHrOneKpis(session?: KpiSessionLike): Promise<HrOneKpi[]> {
+  const [telemetry, auditEventCount] = await Promise.all([
+    getProductTelemetrySnapshot(session),
+    getAuditEventCount(session),
+  ]);
+  return buildHrOneKpis(telemetry, { auditEventCount });
 }
 
-export function buildHrOneKpis(telemetry: ProductTelemetrySnapshot): HrOneKpi[] {
-  const auditEvents = getAuditDemoState().logs.length;
+export function buildHrOneKpis(
+  telemetry: ProductTelemetrySnapshot,
+  options: { auditEventCount?: number } = {},
+): HrOneKpi[] {
+  const auditEvents = options.auditEventCount ?? getAuditDemoState().logs.length;
   return [
     timeBelowTarget({
       id: "first_leave_success_time",
@@ -106,6 +118,22 @@ export function buildHrOneKpis(telemetry: ProductTelemetrySnapshot): HrOneKpi[] 
       unit: "minute",
     }),
   ];
+}
+
+async function getAuditEventCount(session?: KpiSessionLike) {
+  if (process.env.DATABASE_URL && session?.tenantId && session.companyId) {
+    try {
+      return await getDb().auditLog.count({
+        where: {
+          tenantId: session.tenantId,
+          companyId: session.companyId,
+        },
+      });
+    } catch {
+      return getAuditDemoState().logs.length;
+    }
+  }
+  return getAuditDemoState().logs.length;
 }
 
 export function summarizeHrOneKpis(kpis: HrOneKpi[]) {

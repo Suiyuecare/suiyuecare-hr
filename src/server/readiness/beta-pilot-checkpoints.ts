@@ -62,6 +62,14 @@ export type BetaPilotCheckpointEvidence = {
   recordedAt: Date;
 };
 
+export type BetaPilotCheckpointCoverage = {
+  checkpointId: BetaPilotCheckpointId;
+  latestStatus: BetaPilotCheckpointStatus;
+  evidenceTypes: BetaPilotEvidenceType[];
+  recordedCount: number;
+  latestRecordedAt: Date | null;
+};
+
 export type RecordBetaPilotCheckpointInput = {
   checkpointId: string;
   status: string;
@@ -132,6 +140,51 @@ export async function getBetaPilotCheckpointEvidence(session: SessionLike) {
   return betaPilotCheckpointIds.map((checkpointId) => latestByCheckpoint.get(checkpointId) ?? null);
 }
 
+export async function getBetaPilotCheckpointCoverage(session: SessionLike): Promise<BetaPilotCheckpointCoverage[]> {
+  assertPermission(session.role, "settings:read");
+  const logs = await readCheckpointAuditLogs(session);
+  const coverageByCheckpoint = new Map<BetaPilotCheckpointId, {
+    latestStatus: BetaPilotCheckpointStatus;
+    evidenceTypes: Set<BetaPilotEvidenceType>;
+    recordedCount: number;
+    latestRecordedAt: Date | null;
+  }>();
+
+  for (const checkpointId of betaPilotCheckpointIds) {
+    coverageByCheckpoint.set(checkpointId, {
+      latestStatus: "not_started",
+      evidenceTypes: new Set(),
+      recordedCount: 0,
+      latestRecordedAt: null,
+    });
+  }
+
+  for (const log of logs) {
+    const metadata = readMetadata(log.metadataJson);
+    const checkpointId = normalizeCheckpointId(metadata.checkpointId ?? log.entityId);
+    if (!checkpointId) continue;
+    const coverage = coverageByCheckpoint.get(checkpointId);
+    if (!coverage) continue;
+    coverage.recordedCount += 1;
+    coverage.evidenceTypes.add(normalizeEvidenceType(metadata.evidenceType));
+    if (!coverage.latestRecordedAt || log.createdAt > coverage.latestRecordedAt) {
+      coverage.latestRecordedAt = log.createdAt;
+      coverage.latestStatus = normalizeStatus(metadata.checkpointStatus);
+    }
+  }
+
+  return betaPilotCheckpointIds.map((checkpointId) => {
+    const coverage = coverageByCheckpoint.get(checkpointId)!;
+    return {
+      checkpointId,
+      latestStatus: coverage.latestStatus,
+      evidenceTypes: [...coverage.evidenceTypes].sort(),
+      recordedCount: coverage.recordedCount,
+      latestRecordedAt: coverage.latestRecordedAt,
+    };
+  });
+}
+
 export async function recordBetaPilotCheckpoint(
   session: SessionLike,
   input: RecordBetaPilotCheckpointInput,
@@ -154,6 +207,46 @@ export async function recordBetaPilotCheckpoint(
     source: "beta_pilot_runbook",
     metadata: {},
   });
+}
+
+async function readCheckpointAuditLogs(session: SessionLike) {
+  if (canUseDatabase(session)) {
+    try {
+      const logs = await getDb().auditLog.findMany({
+        where: {
+          tenantId: session.tenantId,
+          companyId: session.companyId,
+          entityType: checkpointEntityType,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 500,
+      });
+      return logs.map((log) => ({
+        entityId: log.entityId,
+        metadataJson: log.metadataJson,
+        createdAt: log.createdAt,
+      }));
+    } catch {
+      return readDemoCheckpointAuditLogs(session);
+    }
+  }
+  return readDemoCheckpointAuditLogs(session);
+}
+
+function readDemoCheckpointAuditLogs(session: SessionLike) {
+  return getAuditDemoState().logs
+    .filter((log) =>
+      log.tenantId === (session.tenantId ?? "demo-tenant") &&
+      log.companyId === (session.companyId ?? "demo-company") &&
+      log.entityType === checkpointEntityType,
+    )
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+    .slice(0, 500)
+    .map((log) => ({
+      entityId: log.entityId,
+      metadataJson: log.metadataJson,
+      createdAt: log.createdAt,
+    }));
 }
 
 async function writeCheckpointEvidence(

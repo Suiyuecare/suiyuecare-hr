@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { getAuditDemoState, resetAuditDemoState } from "@/server/audit/demo-store";
 import {
+  getBetaPilotCheckpointCoverage,
   getBetaPilotCheckpointEvidence,
   recordBetaPilotAutomatedEvidence,
   recordBetaPilotCheckpoint,
@@ -123,5 +124,33 @@ describe("beta pilot checkpoints", () => {
     });
     expect(JSON.stringify(getAuditDemoState().logs)).not.toContain("CLOCK-OUT-001");
     expect(JSON.stringify(getAuditDemoState().logs)).not.toContain("LEAVE-APPROVAL-001");
+  });
+
+  it("summarizes checkpoint coverage across multiple evidence records", async () => {
+    await recordBetaPilotAutomatedEvidence(employeeSession, {
+      checkpointId: "day_3",
+      evidenceType: "smoke_test",
+      evidenceRef: "CLOCK-OUT-001",
+      requiredEvidenceTypes: ["smoke_test", "approval_flow"],
+    });
+    await recordBetaPilotAutomatedEvidence(employeeSession, {
+      checkpointId: "day_3",
+      evidenceType: "approval_flow",
+      evidenceRef: "LEAVE-APPROVAL-001",
+      requiredEvidenceTypes: ["smoke_test", "approval_flow"],
+    });
+
+    const coverage = await getBetaPilotCheckpointCoverage(hrSession);
+
+    expect(coverage.find((checkpoint) => checkpoint.checkpointId === "day_3")).toMatchObject({
+      latestStatus: "verified",
+      evidenceTypes: ["approval_flow", "smoke_test"],
+      recordedCount: 2,
+    });
+    expect(coverage.find((checkpoint) => checkpoint.checkpointId === "preflight")).toMatchObject({
+      latestStatus: "not_started",
+      evidenceTypes: [],
+      recordedCount: 0,
+    });
   });
 });

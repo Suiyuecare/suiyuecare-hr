@@ -12,7 +12,7 @@ This runbook is the execution checklist for turning HR One from a demo-ready app
 - Supabase private schema exposure: `anon` and `authenticated` do not have `USAGE` on `hr_one`.
 - Supabase pilot rehearsal data: 25 active employees, 3 managers with direct reports, 4 departments, attendance schedules, leave balances, salary/payment/statutory profile coverage, released payroll rehearsal, 25 payslips, announcement receipts, starter form workflow, active rule versions, telemetry baseline, and audit coverage.
 - Vercel Production env: currently blocked until the 28 required production keys are written and the app is redeployed.
-- GitHub `main` includes the private-schema SQL generator, Prisma migration baseline support, pilot acceptance matrix, daily pilot status gate, handoff generator, invite readiness gate, go/no-go start gate, and 20-50 person import template pack.
+- GitHub `main` includes the private-schema SQL generator, Prisma migration baseline support, pilot acceptance matrix, daily pilot status gate, handoff generator, invite readiness gate, go/no-go start gate, trial completion gate, and 20-50 person import template pack.
 
 Do not call the product production-pilot-ready until `/api/health/ready` is `ok` in production and a non-demo tenant passes production verification.
 
@@ -228,12 +228,18 @@ Day 14:
 - Confirm no unresolved security, payroll, or attendance blockers remain.
 - Run `pnpm pilot:daily-status -- --day=14 ... --tenant-slug=<customer-slug> --final-review=verified --output=/tmp/hr-one-pilot-day-14.md` only after the final review checkpoint is genuinely verified.
 - Run `pnpm pilot:evidence-scan -- --path=<pilot-evidence-folder> --recursive` and fix every finding before the final handoff.
+- Run the trial completion gate:
+
+  ```bash
+  pnpm pilot:trial-completion -- --tenant-slug=<customer-slug> --evidence-path=<pilot-evidence-folder> --recursive --output=/tmp/hr-one-pilot-completion.md
+  ```
 
 Expected evidence:
 
 - Trial run and checkpoint records are persisted in PostgreSQL.
 - Daily status reports are redacted and contain only aggregate or hash-only evidence references.
 - Evidence scan passes for the pilot report folder and reports zero sensitive-value findings.
+- `pilot:trial-completion` reports `completed` only when preflight access review, Day 1 announcement receipt, Day 3 clock/leave/manager approval evidence, Day 7 payroll rehearsal plus payslip access, Day 14 final review, KPI status, and evidence privacy scan are all acceptable.
 - Audit logs exist for create, approve, reject, payroll close, payslip release, and sensitive settings.
 - Employees cannot see other employees' payslips.
 - Managers cannot see subordinate salary unless explicitly granted.
