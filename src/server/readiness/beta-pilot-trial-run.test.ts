@@ -12,6 +12,8 @@ import {
 } from "./beta-pilot-trial-run";
 
 const originalDatabaseUrl = process.env.DATABASE_URL;
+const originalHrOneEnv = process.env.HR_ONE_ENV;
+const originalVercelEnv = process.env.VERCEL_ENV;
 
 const hrSession = {
   role: "hr_admin" as const,
@@ -32,6 +34,8 @@ const employeeSession = {
 describe("beta pilot trial run", () => {
   beforeEach(() => {
     delete process.env.DATABASE_URL;
+    delete process.env.HR_ONE_ENV;
+    delete process.env.VERCEL_ENV;
     resetAuditDemoState();
     resetAnnouncementDemoState();
     resetAnnualLeaveSettlementDemoState();
@@ -46,6 +50,16 @@ describe("beta pilot trial run", () => {
       process.env.DATABASE_URL = originalDatabaseUrl;
     } else {
       delete process.env.DATABASE_URL;
+    }
+    if (originalHrOneEnv) {
+      process.env.HR_ONE_ENV = originalHrOneEnv;
+    } else {
+      delete process.env.HR_ONE_ENV;
+    }
+    if (originalVercelEnv) {
+      process.env.VERCEL_ENV = originalVercelEnv;
+    } else {
+      delete process.env.VERCEL_ENV;
     }
   });
 
@@ -69,6 +83,10 @@ describe("beta pilot trial run", () => {
     expect(workspace.employeeCount).toBe(25);
     expect(workspace.managerCount).toBe(1);
     expect(workspace.openBlockedCount).toBeGreaterThan(0);
+    expect(workspace.persistence).toMatchObject({
+      mode: "demo",
+      readyForLiveTrial: false,
+    });
 
     const audit = getAuditDemoState().logs[0];
     expect(audit).toMatchObject({
@@ -105,6 +123,19 @@ describe("beta pilot trial run", () => {
   it("blocks employees from creating or viewing trial run management data", async () => {
     await expect(upsertBetaPilotTrialRun(employeeSession)).rejects.toThrow(/pilot:manage/);
     await expect(getBetaPilotTrialWorkspace(employeeSession)).rejects.toThrow(/settings:read/);
+    expect(getAuditDemoState().logs).toHaveLength(0);
+  });
+
+  it("does not create ephemeral trial evidence in production without DATABASE_URL", async () => {
+    process.env.VERCEL_ENV = "production";
+
+    const workspace = await getBetaPilotTrialWorkspace(hrSession);
+    expect(workspace.persistence).toMatchObject({
+      mode: "production_missing_database",
+      readyForLiveTrial: false,
+    });
+
+    await expect(upsertBetaPilotTrialRun(hrSession)).rejects.toThrow(/DATABASE_URL/);
     expect(getAuditDemoState().logs).toHaveLength(0);
   });
 });

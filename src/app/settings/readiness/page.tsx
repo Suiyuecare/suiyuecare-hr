@@ -32,7 +32,7 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
       </section>
       {error ? (
         <div className="panel danger-panel">
-          <strong>無法更新試用 checkpoint</strong>
+          <strong>無法更新試用資料</strong>
           <p>{error}</p>
         </div>
       ) : null}
@@ -45,7 +45,7 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
       {success === "beta-trial-run" ? (
         <div className="panel success-panel">
           <strong>試用批次已同步</strong>
-          <p>已依目前 readiness 與 20-50 人試用名單建立或更新批次，並寫入 hash-only audit log。</p>
+          <p>已依目前 readiness 與 20-50 人試用名單建立或更新批次；正式資料庫模式會寫入 hash-only audit log。</p>
         </div>
       ) : null}
       {success?.startsWith("beta-final-review") ? (
@@ -97,6 +97,10 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
             <span className={`badge ${trialWorkspace.readyForPilot ? "" : trialWorkspace.openBlockedCount ? "danger" : "warning"}`}>
               {readinessStatusLabel(trialWorkspace.readinessStatus)}
             </span>
+          </div>
+          <div className={`panel-subtle ${trialWorkspace.persistence.readyForLiveTrial ? "" : "danger-panel"}`}>
+            <strong>{persistenceModeLabel(trialWorkspace.persistence.mode)}</strong>
+            <span className="muted">{trialWorkspace.persistence.detail}</span>
           </div>
           <div className="trial-summary-grid">
             <div className="trial-summary-stat">
@@ -166,7 +170,7 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
                 </label>
               </div>
               <button className="button primary" type="submit">
-                建立/同步試用批次
+                {trialWorkspace.persistence.readyForLiveTrial ? "建立/同步試用批次" : "演練同步試用批次"}
               </button>
             </form>
           ) : null}
@@ -486,6 +490,12 @@ function trialStatusLabel(status: string) {
   if (status === "blocked") return "阻擋中";
   if (status === "cancelled") return "已取消";
   return "準備中";
+}
+
+function persistenceModeLabel(mode: string) {
+  if (mode === "database") return "PostgreSQL 證據保存";
+  if (mode === "production_missing_database") return "Production 缺少資料庫";
+  return "Demo 暫存模式";
 }
 
 function checkpointStatusLabel(status: BetaPilotCheckpointStatus) {

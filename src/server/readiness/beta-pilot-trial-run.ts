@@ -35,11 +35,18 @@ export type BetaPilotTrialRunView = {
   evidenceSummaryHash: string | null;
 };
 
+export type BetaPilotTrialPersistence = {
+  mode: "database" | "demo" | "production_missing_database";
+  readyForLiveTrial: boolean;
+  detail: string;
+};
+
 export type BetaPilotTrialWorkspace = {
   trialRun: BetaPilotTrialRunView | null;
   suggestedStartsAt: Date;
   suggestedEndsAt: Date;
   readinessStatus: BetaPilotTrialReadinessStatus;
+  persistence: BetaPilotTrialPersistence;
   readyForPilot: boolean;
   openBlockedCount: number;
   openActionRequiredCount: number;
@@ -83,12 +90,14 @@ export async function getBetaPilotTrialWorkspace(
   ]);
   const readinessStatus = summarizeReadinessStatus(pilotReport);
   const suggestedStartsAt = startOfToday();
+  const persistence = getPersistenceStatus(session);
   return {
     trialRun,
     suggestedStartsAt,
     suggestedEndsAt: addDays(suggestedStartsAt, 14),
     readinessStatus,
-    readyForPilot: pilotReport.readyForPilot,
+    persistence,
+    readyForPilot: pilotReport.readyForPilot && persistence.readyForLiveTrial,
     openBlockedCount: pilotReport.blockedCount,
     openActionRequiredCount: pilotReport.actionRequiredCount,
     employeeCount: cohort.employeeCount,
@@ -101,6 +110,9 @@ export async function upsertBetaPilotTrialRun(
   input: UpsertTrialRunInput = {},
 ): Promise<BetaPilotTrialRunView> {
   assertPermission(session.role, "pilot:manage");
+  if (isProductionDeployment() && !canUseDatabase(session)) {
+    throw new Error("正式試用批次需要 DATABASE_URL 與資料庫 tenant/company context，避免只建立會遺失的 demo 暫存證據。");
+  }
   const [pilotReport, cohort] = await Promise.all([
     getCurrentBetaPilotReport(session),
     getCohortSnapshot(session),
@@ -477,6 +489,28 @@ function normalizeReadinessStatus(value: string): BetaPilotTrialRunView["latestR
   return "not_started";
 }
 
+function getPersistenceStatus(session: SessionLike): BetaPilotTrialPersistence {
+  if (canUseDatabase(session)) {
+    return {
+      mode: "database",
+      readyForLiveTrial: true,
+      detail: "試用批次與事件會寫入 PostgreSQL，audit 證據可保留並追蹤。",
+    };
+  }
+  if (isProductionDeployment()) {
+    return {
+      mode: "production_missing_database",
+      readyForLiveTrial: false,
+      detail: "Production 尚未設定 DATABASE_URL，禁止建立正式試用批次，避免證據只存在 demo 記憶體。",
+    };
+  }
+  return {
+    mode: "demo",
+    readyForLiveTrial: false,
+    detail: "目前是本機/demo 暫存模式，可演練 UI，但不能作為 2 週真實試用證據。",
+  };
+}
+
 function currentTrialDay(startsAt: Date, now = new Date()) {
   const elapsedMs = startOfDate(now).getTime() - startOfDate(startsAt).getTime();
   return Math.min(14, Math.max(1, Math.floor(elapsedMs / 86_400_000) + 1));
@@ -496,6 +530,10 @@ function addDays(date: Date, days: number) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
+}
+
+function isProductionDeployment(env: Record<string, string | undefined> = process.env) {
+  return env.HR_ONE_ENV === "production" || env.VERCEL_ENV === "production";
 }
 
 function canUseDatabase(
