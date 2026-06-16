@@ -14,6 +14,13 @@ export type VercelEnvPayloadItem = {
   comment: string;
 };
 
+export type VercelCliEnvCommand = {
+  command: "pnpm";
+  args: string[];
+  stdin: string;
+  redactedCommand: string;
+};
+
 export type VercelProductionEnvPlan = {
   projectId: string;
   teamId: string;
@@ -106,6 +113,28 @@ export function buildVercelEnvPayloadItem(key: string, value: string): VercelEnv
     type: isSensitiveVercelEnvKey(key) ? "sensitive" : "encrypted",
     target: ["production"],
     comment: "HR One production environment managed by repository bootstrap script.",
+  };
+}
+
+export function buildVercelCliEnvCommand(item: VercelEnvPayloadItem): VercelCliEnvCommand {
+  const sensitivityFlag = item.type === "sensitive" ? "--sensitive" : "--no-sensitive";
+  const args = [
+    "dlx",
+    "vercel@latest",
+    "env",
+    "add",
+    item.key,
+    "production",
+    sensitivityFlag,
+    "--force",
+    "--yes",
+  ];
+
+  return {
+    command: "pnpm",
+    args,
+    stdin: item.value,
+    redactedCommand: ["pnpm", ...args, "<value via stdin>"].join(" "),
   };
 }
 

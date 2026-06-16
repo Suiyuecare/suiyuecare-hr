@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildVercelCliEnvCommand,
   buildVercelProductionEnvPlan,
   isSensitiveVercelEnvKey,
   parseEnvFile,
@@ -56,6 +57,32 @@ describe("Vercel production env bootstrap", () => {
     expect(isSensitiveVercelEnvKey("HR_ONE_SESSION_SECRET")).toBe(true);
     expect(isSensitiveVercelEnvKey("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")).toBe(false);
     expect(isSensitiveVercelEnvKey("HR_ONE_ENV")).toBe(false);
+  });
+
+  it("builds CLI env add commands without putting secret values in argv", () => {
+    const command = buildVercelCliEnvCommand({
+      key: "DATABASE_URL",
+      value: "postgresql://hrone:secret@db.customer.internal:5432/hrone?schema=hr_one",
+      type: "sensitive",
+      target: ["production"],
+      comment: "test",
+    });
+
+    expect(command.command).toBe("pnpm");
+    expect(command.args).toEqual([
+      "dlx",
+      "vercel@latest",
+      "env",
+      "add",
+      "DATABASE_URL",
+      "production",
+      "--sensitive",
+      "--force",
+      "--yes",
+    ]);
+    expect(command.stdin).toContain("secret@db.customer.internal");
+    expect(command.redactedCommand).not.toContain("secret@db.customer.internal");
+    expect(command.redactedCommand).toContain("<value via stdin>");
   });
 
   it("builds a production apply plan only after the production verifier passes", () => {

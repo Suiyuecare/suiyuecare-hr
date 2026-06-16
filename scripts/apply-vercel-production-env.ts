@@ -1,17 +1,22 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  buildVercelCliEnvCommand,
   buildVercelProductionEnvPlan,
   parseEnvFile,
   summarizeVercelProductionEnvPlan,
   type VercelEnvPayloadItem,
 } from "../src/server/readiness/vercel-production-env";
 
-function main() {
+type ApplyMethod = "api" | "cli" | "auto";
+
+async function main() {
   const args = process.argv.slice(2);
   const envFile = resolve(readArg(args, "--env-file") ?? ".env.vercel.production");
   const projectId = readArg(args, "--project-id") ?? process.env.VERCEL_PROJECT_ID ?? "prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N";
   const teamId = readArg(args, "--team-id") ?? process.env.VERCEL_TEAM_ID ?? "team_LGag47eU8tKbsK6ixAmVa5Uq";
+  const method = parseApplyMethod(readArg(args, "--method") ?? process.env.HR_ONE_VERCEL_ENV_APPLY_METHOD ?? "auto");
   const dryRun = args.includes("--dry-run");
 
   if (!existsSync(envFile)) {
@@ -40,24 +45,27 @@ function main() {
   }
 
   if (dryRun) {
-    console.log("Dry run only; no Vercel API request was sent.");
+    console.log("Dry run only; no Vercel environment variable write was sent.");
     return;
   }
 
-  const token = process.env.VERCEL_TOKEN;
-  if (!token) {
-    throw new Error("Missing VERCEL_TOKEN. Create a Vercel access token with access to the target team and rerun.");
+  const resolvedMethod = resolveApplyMethod(method, Boolean(process.env.VERCEL_TOKEN));
+  if (resolvedMethod === "api") {
+    const token = process.env.VERCEL_TOKEN;
+    if (!token) {
+      throw new Error("Missing VERCEL_TOKEN. Create a Vercel access token with access to the target team and rerun.");
+    }
+
+    await createVercelProjectEnv({
+      token,
+      projectId,
+      teamId,
+      items: plan.items,
+    });
+    return;
   }
 
-  createVercelProjectEnv({
-    token,
-    projectId,
-    teamId,
-    items: plan.items,
-  }).catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  });
+  writeVercelProjectEnvWithCli(plan.items);
 }
 
 async function createVercelProjectEnv(options: {
@@ -87,9 +95,44 @@ async function createVercelProjectEnv(options: {
   console.log("Trigger a new production deployment so the new values are applied.");
 }
 
+function writeVercelProjectEnvWithCli(items: VercelEnvPayloadItem[]) {
+  for (const item of items) {
+    const command = buildVercelCliEnvCommand(item);
+    console.log(`$ ${command.redactedCommand}`);
+    const result = spawnSync(command.command, command.args, {
+      input: command.stdin,
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024 * 5,
+    });
+
+    if (result.status !== 0) {
+      throw new Error([
+        `Vercel CLI env write failed for ${item.key}.`,
+        redactResponse(result.stdout.trim()),
+        redactResponse(result.stderr.trim()),
+      ].filter(Boolean).join("\n"));
+    }
+
+    console.log(`Created or updated ${item.key} in Vercel Production.`);
+  }
+  console.log(`Created or updated ${items.length} Vercel production env variable(s).`);
+  console.log("Trigger a new production deployment so the new values are applied.");
+}
+
+function parseApplyMethod(method: string): ApplyMethod {
+  if (method === "api" || method === "cli" || method === "auto") return method;
+  throw new Error(`Unsupported --method ${method}. Use api, cli, or auto.`);
+}
+
+function resolveApplyMethod(method: ApplyMethod, hasToken: boolean): Exclude<ApplyMethod, "auto"> {
+  if (method !== "auto") return method;
+  return hasToken ? "api" : "cli";
+}
+
 function redactResponse(body: string): string {
   return body
     .replace(/postgres(?:ql)?:\/\/[^"\\\s]+/gi, "[REDACTED_DATABASE_URL]")
+    .replace(/--value\s+[^"\\\s]+/gi, "--value [REDACTED]")
     .replace(/Bearer\s+[A-Za-z0-9._-]+/g, "Bearer [REDACTED]");
 }
 
@@ -101,4 +144,7 @@ function readArg(args: string[], name: string) {
   return null;
 }
 
-main();
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});
