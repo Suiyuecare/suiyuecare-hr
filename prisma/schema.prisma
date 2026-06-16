@@ -149,6 +149,8 @@ model Company {
   notifications Notification[]
   notificationSettings CompanyNotificationSetting?
   notificationDeliveries NotificationDelivery[]
+  announcements CompanyAnnouncement[]
+  announcementReceipts EmployeeAnnouncementReceipt[]
   salaryProfiles SalaryProfile[]
   payrollComplianceProfiles PayrollComplianceProfile[]
   statutoryInsuranceRecords StatutoryInsuranceRecord[]
@@ -357,6 +359,7 @@ model Employee {
   workRuleAcknowledgements EmployeeWorkRuleAcknowledgement[]
   trainingAssignments EmployeeTrainingAssignment[]
   workplaceIncidents WorkplaceIncident[]
+  announcementReceipts EmployeeAnnouncementReceipt[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -906,6 +909,14 @@ model AttendancePolicy {
   requireOvertimeApproval      Boolean  @default(true)
   requirePunchCorrectionApproval Boolean @default(true)
   allowMobilePunch             Boolean  @default(true)
+  allowRemotePunch             Boolean  @default(true)
+  requireOfficeNetworkPunch    Boolean  @default(false)
+  allowedOfficeIpCidrsJson     Json?
+  requireGpsProximityPunch     Boolean  @default(false)
+  officeLatitude               Decimal? @db.Decimal(10, 7)
+  officeLongitude              Decimal? @db.Decimal(10, 7)
+  gpsRadiusMeters              Int      @default(300)
+  punchPolicyNote              String?
   attendanceRecordRetentionDays Int      @default(1825)
   employeeSelfServiceEnabled    Boolean  @default(true)
   employeeExportEnabled         Boolean  @default(true)
@@ -1345,6 +1356,42 @@ model NotificationDelivery {
 
   @@index([tenantId, companyId, notificationId])
   @@index([tenantId, companyId, channel, status])
+}
+
+model CompanyAnnouncement {
+  id                String                        @id @default(cuid())
+  tenantId          String
+  companyId         String
+  company           Company                       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  title             String
+  body              String
+  category          String                        @default("general")
+  status            String                        @default("published")
+  requireReceipt    Boolean                       @default(true)
+  publishedAt       DateTime                      @default(now())
+  publishedByUserId String?
+  receipts          EmployeeAnnouncementReceipt[]
+  createdAt         DateTime                      @default(now())
+  updatedAt         DateTime                      @updatedAt
+
+  @@index([tenantId, companyId, status, publishedAt])
+}
+
+model EmployeeAnnouncementReceipt {
+  id             String              @id @default(cuid())
+  tenantId       String
+  companyId      String
+  company        Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  announcementId String
+  announcement   CompanyAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  receiptHash    String
+  acknowledgedAt DateTime            @default(now())
+  source         String              @default("employee_self_service")
+
+  @@unique([announcementId, employeeId])
+  @@index([tenantId, companyId, employeeId, acknowledgedAt])
 }
 
 model CompanyPolicyDocument {

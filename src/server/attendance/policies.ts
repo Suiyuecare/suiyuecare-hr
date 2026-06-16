@@ -22,14 +22,40 @@ export type AttendancePolicyInput = {
   requireOvertimeApproval: boolean;
   requirePunchCorrectionApproval: boolean;
   allowMobilePunch: boolean;
+  allowRemotePunch?: boolean;
+  requireOfficeNetworkPunch?: boolean;
+  allowedOfficeIpCidrs?: string[];
+  requireGpsProximityPunch?: boolean;
+  officeLatitude?: number | null;
+  officeLongitude?: number | null;
+  gpsRadiusMeters?: number;
+  punchPolicyNote?: string | null;
   attendanceRecordRetentionDays: number;
   employeeSelfServiceEnabled: boolean;
   employeeExportEnabled: boolean;
   effectiveFrom: Date;
 };
 
-export type AttendancePolicyView = AttendancePolicyInput & {
+export type AttendancePolicyView = Omit<
+  AttendancePolicyInput,
+  | "allowRemotePunch"
+  | "requireOfficeNetworkPunch"
+  | "allowedOfficeIpCidrs"
+  | "requireGpsProximityPunch"
+  | "officeLatitude"
+  | "officeLongitude"
+  | "gpsRadiusMeters"
+  | "punchPolicyNote"
+> & {
   id: string;
+  allowRemotePunch: boolean;
+  requireOfficeNetworkPunch: boolean;
+  allowedOfficeIpCidrs: string[];
+  requireGpsProximityPunch: boolean;
+  officeLatitude: number | null;
+  officeLongitude: number | null;
+  gpsRadiusMeters: number;
+  punchPolicyNote: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -134,6 +160,7 @@ async function saveDbAttendancePolicySettings(
       metadata: {
         status: policy.status,
         effectiveFrom: policy.effectiveFrom.toISOString().slice(0, 10),
+        punchControls: summarizePunchControls(policy),
         thresholdsRedacted: true,
       },
     });
@@ -160,6 +187,14 @@ function saveDemoAttendancePolicySettings(
     requireOvertimeApproval: input.requireOvertimeApproval,
     requirePunchCorrectionApproval: input.requirePunchCorrectionApproval,
     allowMobilePunch: input.allowMobilePunch,
+    allowRemotePunch: input.allowRemotePunch,
+    requireOfficeNetworkPunch: input.requireOfficeNetworkPunch,
+    allowedOfficeIpCidrs: input.allowedOfficeIpCidrs,
+    requireGpsProximityPunch: input.requireGpsProximityPunch,
+    officeLatitude: input.officeLatitude,
+    officeLongitude: input.officeLongitude,
+    gpsRadiusMeters: input.gpsRadiusMeters,
+    punchPolicyNote: input.punchPolicyNote,
     attendanceRecordRetentionDays: input.attendanceRecordRetentionDays,
     employeeSelfServiceEnabled: input.employeeSelfServiceEnabled,
     employeeExportEnabled: input.employeeExportEnabled,
@@ -186,6 +221,7 @@ function saveDemoAttendancePolicySettings(
     metadata: {
       status: policy.status,
       effectiveFrom: policy.effectiveFrom.toISOString().slice(0, 10),
+      punchControls: summarizePunchControls(policy),
       thresholdsRedacted: true,
     },
   });
@@ -215,6 +251,14 @@ function normalizeAttendancePolicyInput(input: AttendancePolicyInput) {
     requireOvertimeApproval: Boolean(input.requireOvertimeApproval),
     requirePunchCorrectionApproval: Boolean(input.requirePunchCorrectionApproval),
     allowMobilePunch: Boolean(input.allowMobilePunch),
+    allowRemotePunch: input.allowRemotePunch ?? true,
+    requireOfficeNetworkPunch: Boolean(input.requireOfficeNetworkPunch),
+    allowedOfficeIpCidrs: normalizeCidrList(input.allowedOfficeIpCidrs ?? []),
+    requireGpsProximityPunch: Boolean(input.requireGpsProximityPunch),
+    officeLatitude: normalizeCoordinate(input.officeLatitude ?? null, "Office latitude", -90, 90),
+    officeLongitude: normalizeCoordinate(input.officeLongitude ?? null, "Office longitude", -180, 180),
+    gpsRadiusMeters: normalizeRadius(input.gpsRadiusMeters ?? 300),
+    punchPolicyNote: cleanOptionalText(input.punchPolicyNote ?? null, 500),
     attendanceRecordRetentionDays: normalizeRetentionDays(input.attendanceRecordRetentionDays),
     employeeSelfServiceEnabled: Boolean(input.employeeSelfServiceEnabled),
     employeeExportEnabled: Boolean(input.employeeExportEnabled),
@@ -233,6 +277,14 @@ function dbPolicyData(input: ReturnType<typeof normalizeAttendancePolicyInput>) 
     requireOvertimeApproval: input.requireOvertimeApproval,
     requirePunchCorrectionApproval: input.requirePunchCorrectionApproval,
     allowMobilePunch: input.allowMobilePunch,
+    allowRemotePunch: input.allowRemotePunch,
+    requireOfficeNetworkPunch: input.requireOfficeNetworkPunch,
+    allowedOfficeIpCidrsJson: input.allowedOfficeIpCidrs,
+    requireGpsProximityPunch: input.requireGpsProximityPunch,
+    officeLatitude: input.officeLatitude,
+    officeLongitude: input.officeLongitude,
+    gpsRadiusMeters: input.gpsRadiusMeters,
+    punchPolicyNote: input.punchPolicyNote,
     attendanceRecordRetentionDays: input.attendanceRecordRetentionDays,
     employeeSelfServiceEnabled: input.employeeSelfServiceEnabled,
     employeeExportEnabled: input.employeeExportEnabled,
@@ -251,6 +303,14 @@ function mapAttendancePolicy(row: {
   requireOvertimeApproval: boolean;
   requirePunchCorrectionApproval: boolean;
   allowMobilePunch: boolean;
+  allowRemotePunch?: boolean;
+  requireOfficeNetworkPunch?: boolean;
+  allowedOfficeIpCidrsJson?: unknown;
+  requireGpsProximityPunch?: boolean;
+  officeLatitude?: { toNumber(): number } | number | null;
+  officeLongitude?: { toNumber(): number } | number | null;
+  gpsRadiusMeters?: number;
+  punchPolicyNote?: string | null;
   attendanceRecordRetentionDays?: number;
   employeeSelfServiceEnabled?: boolean;
   employeeExportEnabled?: boolean;
@@ -269,6 +329,14 @@ function mapAttendancePolicy(row: {
     requireOvertimeApproval: row.requireOvertimeApproval,
     requirePunchCorrectionApproval: row.requirePunchCorrectionApproval,
     allowMobilePunch: row.allowMobilePunch,
+    allowRemotePunch: row.allowRemotePunch ?? true,
+    requireOfficeNetworkPunch: row.requireOfficeNetworkPunch ?? false,
+    allowedOfficeIpCidrs: readStringArray(row.allowedOfficeIpCidrsJson),
+    requireGpsProximityPunch: row.requireGpsProximityPunch ?? false,
+    officeLatitude: decimalToNumber(row.officeLatitude),
+    officeLongitude: decimalToNumber(row.officeLongitude),
+    gpsRadiusMeters: row.gpsRadiusMeters ?? 300,
+    punchPolicyNote: row.punchPolicyNote ?? null,
     attendanceRecordRetentionDays: row.attendanceRecordRetentionDays ?? minimumAttendanceRetentionDays,
     employeeSelfServiceEnabled: row.employeeSelfServiceEnabled ?? true,
     employeeExportEnabled: row.employeeExportEnabled ?? true,
@@ -291,6 +359,14 @@ function defaultAttendancePolicy(): AttendancePolicyView {
     requireOvertimeApproval: true,
     requirePunchCorrectionApproval: true,
     allowMobilePunch: true,
+    allowRemotePunch: true,
+    requireOfficeNetworkPunch: false,
+    allowedOfficeIpCidrs: ["10.0.0.0/8", "192.168.0.0/16"],
+    requireGpsProximityPunch: false,
+    officeLatitude: 25.033,
+    officeLongitude: 121.5654,
+    gpsRadiusMeters: 300,
+    punchPolicyNote: "員工可遠端打卡；若啟用辦公室網路或 GPS，系統會在打卡前提示限制。",
     attendanceRecordRetentionDays: minimumAttendanceRetentionDays,
     employeeSelfServiceEnabled: true,
     employeeExportEnabled: true,
@@ -349,6 +425,58 @@ function normalizeRetentionDays(value: number) {
   const parsed = normalizeNonNegativeInt(value, "Attendance record retention days");
   if (parsed <= 0) throw new Error("Attendance record retention days must be greater than zero.");
   return parsed;
+}
+
+function normalizeRadius(value: number) {
+  const parsed = normalizeNonNegativeInt(value, "GPS radius meters");
+  if (parsed < 50) return 50;
+  if (parsed > 5000) return 5000;
+  return parsed;
+}
+
+function normalizeCoordinate(value: number | null, label: string, min: number, max: number) {
+  if (value === null || value === undefined || value === 0) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
+    throw new Error(`${label} is outside the allowed range.`);
+  }
+  return Math.round(parsed * 10_000_000) / 10_000_000;
+}
+
+function normalizeCidrList(values: string[]) {
+  return values
+    .flatMap((value) => value.split(/[\n,]/))
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+function cleanOptionalText(value: string | null, maxLength: number) {
+  const trimmed = value?.trim() ?? "";
+  return trimmed ? trimmed.slice(0, maxLength) : null;
+}
+
+function readStringArray(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function decimalToNumber(value: { toNumber(): number } | number | null | undefined) {
+  if (typeof value === "number") return value;
+  if (!value) return null;
+  return value.toNumber();
+}
+
+function summarizePunchControls(policy: Pick<
+  AttendancePolicyView,
+  "allowRemotePunch" | "requireOfficeNetworkPunch" | "requireGpsProximityPunch" | "gpsRadiusMeters"
+>) {
+  return {
+    allowRemotePunch: policy.allowRemotePunch,
+    requireOfficeNetworkPunch: policy.requireOfficeNetworkPunch,
+    requireGpsProximityPunch: policy.requireGpsProximityPunch,
+    gpsRadiusMeters: policy.gpsRadiusMeters,
+  };
 }
 
 function startOfDate(date: Date) {

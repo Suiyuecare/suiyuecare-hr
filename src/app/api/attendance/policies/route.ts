@@ -16,6 +16,14 @@ export async function POST(request: Request) {
       requireOvertimeApproval: formData.get("requireOvertimeApproval") === "on",
       requirePunchCorrectionApproval: formData.get("requirePunchCorrectionApproval") === "on",
       allowMobilePunch: formData.get("allowMobilePunch") === "on",
+      allowRemotePunch: formData.get("allowRemotePunch") === "on",
+      requireOfficeNetworkPunch: formData.get("requireOfficeNetworkPunch") === "on",
+      allowedOfficeIpCidrs: readMultilineList(formData.get("allowedOfficeIpCidrs")),
+      requireGpsProximityPunch: formData.get("requireGpsProximityPunch") === "on",
+      officeLatitude: readNumber(formData.get("officeLatitude")) ?? null,
+      officeLongitude: readNumber(formData.get("officeLongitude")) ?? null,
+      gpsRadiusMeters: readNumber(formData.get("gpsRadiusMeters")) ?? 300,
+      punchPolicyNote: readString(formData.get("punchPolicyNote")) || null,
       attendanceRecordRetentionDays: readNumber(formData.get("attendanceRecordRetentionDays")) ?? 0,
       employeeSelfServiceEnabled: formData.get("employeeSelfServiceEnabled") === "on",
       employeeExportEnabled: formData.get("employeeExportEnabled") === "on",
@@ -39,6 +47,13 @@ function readNumber(value: FormDataEntryValue | null) {
   if (typeof value !== "string" || !value.trim()) return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function readMultilineList(value: FormDataEntryValue | null) {
+  return readString(value)
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function parseDate(value: FormDataEntryValue | null) {

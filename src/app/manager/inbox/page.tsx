@@ -22,31 +22,31 @@ export default async function ManagerInboxPage() {
   return (
     <main className="page">
       <section className="page-header">
-        <h1>Approval Inbox</h1>
-        <p>Leave, overtime, punch correction, custom form, and payroll adjustment requests are reviewed in one place.</p>
+        <h1>簽核 Inbox</h1>
+        <p>請假、加班、補打卡、自訂表單與薪資調整申請，都集中在這裡處理。</p>
       </section>
 
       <section className="grid">
         <div className="panel span-4 metric">
-          <span className="muted">Pending approvals</span>
+          <span className="muted">待簽核</span>
           <strong>{inbox.pending.length}</strong>
-          <span className="badge warning">Unified queue</span>
+          <span className="badge warning">統一佇列</span>
         </div>
         <div className="panel span-4 metric">
-          <span className="muted">Recent decisions</span>
+          <span className="muted">最近決議</span>
           <strong>{inbox.decided.length}</strong>
-          <span className="badge">{session.employee?.displayName ?? "Manager"}</span>
+          <span className="badge">{session.employee?.displayName ?? "主管"}</span>
         </div>
         <div className="panel span-4 metric">
-          <span className="muted">Notifications</span>
+          <span className="muted">通知</span>
           <strong>{inbox.notifications.length}</strong>
-          <span className="badge">In-app</span>
+          <span className="badge">系統內</span>
         </div>
 
         <section className="panel span-12">
-          <h2>Needs your review</h2>
+          <h2>需要你審核</h2>
           {inbox.pending.length === 0 ? (
-            <p className="muted">No pending approvals.</p>
+            <p className="muted">目前沒有待簽核申請。</p>
           ) : (
             <ul className="approval-list">
               {inbox.pending.map((request) => (
@@ -57,9 +57,9 @@ export default async function ManagerInboxPage() {
         </section>
 
         <section className="panel span-12">
-          <h2>Recently decided</h2>
+          <h2>最近已處理</h2>
           {inbox.decided.length === 0 ? (
-            <p className="muted">No decided requests yet.</p>
+            <p className="muted">目前沒有已處理申請。</p>
           ) : (
             <ul className="task-list">
               {inbox.decided.map((request) => (
@@ -71,7 +71,7 @@ export default async function ManagerInboxPage() {
                     <small>{request.detail}</small>
                   </span>
                   <span className={`badge ${request.status === "rejected" ? "danger" : ""}`}>
-                    {request.status}
+                    {labelStatus(request.status)}
                   </span>
                 </li>
               ))}
@@ -99,13 +99,13 @@ function ApprovalCard({
             {request.employeeName} · {request.title}
           </h3>
           <p className="muted">{request.detail}</p>
-          <p className="muted">Current step: {request.currentStepLabel ?? "Review"}</p>
+          <p className="muted">目前關卡：{request.currentStepLabel ?? "審核"}</p>
         </div>
-        <span className="badge warning">{request.status}</span>
+        <span className="badge warning">{labelStatus(request.status)}</span>
       </div>
 
       <div className="risk-box">
-        <strong>Risk summary</strong>
+        <strong>風險摘要</strong>
         <p>{request.riskSummary}</p>
       </div>
 
@@ -136,11 +136,11 @@ function ApprovalCard({
           <input type="hidden" name="requestType" value={request.type} />
           <input type="hidden" name="decision" value="approve" />
           <label>
-            Comment
-            <input name="comment" defaultValue="Approved" />
+            簽核意見
+            <input name="comment" defaultValue="核准" />
           </label>
           <button className="button primary" type="submit">
-            Approve
+            核准
           </button>
         </form>
         <form action="/api/workflows/approval" method="post" className="decision-form">
@@ -148,11 +148,11 @@ function ApprovalCard({
           <input type="hidden" name="requestType" value={request.type} />
           <input type="hidden" name="decision" value="reject" />
           <label>
-            Comment
-            <input name="comment" defaultValue="Please revise and resubmit." />
+            退回原因
+            <input name="comment" defaultValue="請補充資料後重新送出。" />
           </label>
           <button className="button" type="submit">
-            Reject
+            退回
           </button>
         </form>
       </div>
@@ -161,9 +161,17 @@ function ApprovalCard({
 }
 
 function labelForType(type: WorkflowRequest["type"]) {
-  if (type === "leave") return "Leave";
-  if (type === "overtime") return "Overtime";
-  if (type === "custom_form") return "Form";
-  if (type === "payroll_adjustment") return "Payroll";
-  return "Punch correction";
+  if (type === "leave") return "請假";
+  if (type === "overtime") return "加班";
+  if (type === "custom_form") return "表單";
+  if (type === "payroll_adjustment") return "薪資";
+  return "補打卡";
+}
+
+function labelStatus(status: string) {
+  if (status === "pending") return "簽核中";
+  if (status === "approved") return "已核准";
+  if (status === "rejected") return "已退回";
+  if (status === "cancelled") return "已取消";
+  return status;
 }

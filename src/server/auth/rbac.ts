@@ -31,6 +31,8 @@ export type Permission =
   | "training:self"
   | "incident:manage"
   | "incident:self"
+  | "announcement:manage"
+  | "announcement:self"
   | "subscription:manage"
   | "payroll:manage"
   | "payroll_adjustment:approve"
@@ -64,6 +66,8 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "training:self",
     "incident:manage",
     "incident:self",
+    "announcement:manage",
+    "announcement:self",
     "subscription:manage",
     "payroll:manage",
     "payroll_adjustment:approve",
@@ -98,6 +102,8 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "training:self",
     "incident:manage",
     "incident:self",
+    "announcement:manage",
+    "announcement:self",
     "payroll:manage",
     "ai:policy",
     "ai:form_builder",
@@ -120,6 +126,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "work_rule:self",
     "training:self",
     "incident:self",
+    "announcement:self",
     "ai:approval_summary",
   ],
   employee: [
@@ -135,6 +142,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "work_rule:self",
     "training:self",
     "incident:self",
+    "announcement:self",
   ],
 };
 

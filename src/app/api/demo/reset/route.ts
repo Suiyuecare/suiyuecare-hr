@@ -3,6 +3,7 @@ import { resetAuditDemoState } from "@/server/audit/demo-store";
 import { resetAuditEvidenceDemoState } from "@/server/audit/evidence-packages";
 import { resetAiDemoState } from "@/server/ai/demo-store";
 import { resetPolicyDocumentDemoState } from "@/server/ai/policy-docs";
+import { resetAnnouncementDemoState } from "@/server/announcements/service";
 import { resetAttendancePolicyDemoState } from "@/server/attendance/policies";
 import { resetAttendanceSignoffDemoState } from "@/server/attendance/signoffs";
 import { resetWorktimeAgreementDemoState } from "@/server/attendance/worktime-agreements";
@@ -91,6 +92,7 @@ export async function POST() {
     resetAnnualLeaveSettlementDemoState();
     resetLeavePolicyDemoState();
     resetNotificationDemoState();
+    resetAnnouncementDemoState();
     resetRuleSettingsDemoState();
     resetSecuritySettingsDemoState();
     resetSubscriptionDemoState();

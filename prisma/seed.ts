@@ -47,6 +47,8 @@ async function main() {
   await prisma.aiUsageLog.deleteMany();
   await prisma.companyPolicyDocument.deleteMany();
   await prisma.productTelemetryEvent.deleteMany();
+  await prisma.employeeAnnouncementReceipt.deleteMany();
+  await prisma.companyAnnouncement.deleteMany();
   await prisma.notificationDelivery.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.payslip.deleteMany();
@@ -1045,41 +1047,145 @@ async function main() {
     ),
   });
 
-  const equipmentForm = await prisma.formTemplate.create({
+  const defaultFormTemplates = [
+    formTemplate("請假單", "員工申請特休、病假、事假或其他假別。", "假勤", [
+      field("leave_type", "假別", "select", ["特休", "病假", "事假", "公假", "喪假", "婚假"]),
+      field("start_date", "開始日期", "date"),
+      field("end_date", "結束日期", "date"),
+      field("reason", "請假原因", "textarea"),
+      field("attachment", "附件", "file", undefined, false),
+    ]),
+    formTemplate("預先加班單", "事前申請加班時段與原因。", "假勤", [
+      field("work_date", "加班日期", "date"),
+      field("start_time", "開始時間", "text"),
+      field("end_time", "結束時間", "text"),
+      field("reason", "加班原因", "textarea"),
+    ]),
+    formTemplate("加班單", "加班完成後送出實際加班紀錄。", "假勤", [
+      field("work_date", "加班日期", "date"),
+      field("actual_start_time", "實際開始時間", "text"),
+      field("actual_end_time", "實際結束時間", "text"),
+      field("work_summary", "工作內容", "textarea"),
+    ]),
+    formTemplate("銷假單", "取消已核准或待簽核的請假申請。", "假勤", [
+      field("original_leave_no", "原請假單號", "text"),
+      field("cancel_reason", "銷假原因", "textarea"),
+    ]),
+    formTemplate("忘刷申請單", "補登忘記打卡或設備異常的出勤時間。", "出勤", [
+      field("work_date", "出勤日期", "date"),
+      field("clock_time", "補登時間", "text"),
+      field("punch_type", "補登類型", "select", ["上班", "下班"]),
+      field("reason", "原因", "textarea"),
+    ]),
+    formTemplate("出差費用申請單", "申請出差交通、住宿或雜支費用。", "費用", [
+      field("trip_date", "出差日期", "date"),
+      field("destination", "出差地點", "text"),
+      field("amount", "申請金額", "number"),
+      field("receipt", "收據附件", "file"),
+      field("reason", "出差事由", "textarea"),
+    ]),
+    formTemplate("居家遠端辦公申請單", "申請居家或遠端辦公日期與工作安排。", "出勤", [
+      field("remote_date", "遠端日期", "date"),
+      field("work_location", "工作地點", "text"),
+      field("contact_phone", "緊急聯絡電話", "text"),
+      field("work_plan", "工作安排", "textarea"),
+    ]),
+    formTemplate("人事異動單", "申請部門、職稱、主管或職務內容異動。", "人事", [
+      field("change_type", "異動類型", "select", ["部門異動", "職稱異動", "主管異動", "工作內容異動"]),
+      field("effective_date", "生效日", "date"),
+      field("change_reason", "異動原因", "textarea"),
+    ]),
+    formTemplate("薪資異動單", "申請薪資、津貼或扣項異動，需人資與老闆審核。", "薪資", [
+      field("effective_date", "生效日", "date"),
+      field("adjustment_type", "調整類型", "select", ["本薪", "津貼", "扣項", "其他"]),
+      field("business_reason", "調整原因", "textarea"),
+    ]),
+    formTemplate("離職申請表", "員工提出離職申請與交接規劃。", "人事", [
+      field("last_work_date", "預計最後工作日", "date"),
+      field("reason", "離職原因", "textarea"),
+      field("handover_plan", "交接計畫", "textarea"),
+    ]),
+    formTemplate("文件證明申請單", "申請各類公司文件或證明。", "文件", [
+      field("document_type", "文件類型", "select", ["一般證明", "服務證明", "其他"]),
+      field("purpose", "用途", "textarea"),
+    ]),
+    formTemplate("勞健保證明申請單", "申請勞保、健保相關證明文件。", "文件", [
+      field("certificate_type", "證明類型", "select", ["勞保", "健保", "勞健保"]),
+      field("purpose", "用途", "textarea"),
+    ]),
+    formTemplate("在職證明申請單", "申請在職證明。", "文件", [
+      field("language", "語言", "select", ["中文", "英文"]),
+      field("purpose", "用途", "textarea"),
+    ]),
+    formTemplate("人員晉升表", "提出員工晉升建議與理由。", "人事", [
+      field("target_title", "建議職稱", "text"),
+      field("effective_date", "建議生效日", "date"),
+      field("promotion_reason", "晉升理由", "textarea"),
+    ]),
+    formTemplate("新進人員表單", "新進人員到職資料與設備需求。", "人事", [
+      field("onboard_date", "到職日", "date"),
+      field("job_title", "職稱", "text"),
+      field("equipment_need", "設備需求", "textarea", undefined, false),
+    ]),
+    formTemplate("人員進用申請單", "主管提出新增職缺或人員進用需求。", "招募", [
+      field("position_title", "職缺名稱", "text"),
+      field("headcount", "需求人數", "number"),
+      field("hire_reason", "進用原因", "textarea"),
+    ]),
+    formTemplate("晤談紀錄單", "記錄員工關懷、績效溝通或離職晤談重點。", "人事", [
+      field("interview_type", "晤談類型", "select", ["關懷晤談", "績效溝通", "離職晤談", "其他"]),
+      field("interview_date", "晤談日期", "date"),
+      field("summary", "紀錄摘要", "textarea"),
+    ]),
+  ];
+
+  for (const templateInput of defaultFormTemplates) {
+    const template = await prisma.formTemplate.create({
+      data: {
+        tenantId: tenant.id,
+        companyId: company.id,
+        title: templateInput.title,
+        description: templateInput.description,
+        category: templateInput.category,
+        fieldsJson: templateInput.fields,
+        visibilityRulesJson: [],
+      },
+    });
+
+    await prisma.workflowTemplateStep.createMany({
+      data: workflowStepsForTemplate(template.id).map((step) => ({
+        tenantId: tenant.id,
+        companyId: company.id,
+        formTemplateId: template.id,
+        stepOrder: step.stepOrder,
+        approverType: step.approverType,
+        conditionJson: Prisma.JsonNull,
+      })),
+    });
+  }
+
+  const payrollCloseAnnouncement = await prisma.companyAnnouncement.create({
     data: {
       tenantId: tenant.id,
       companyId: company.id,
-      title: "Equipment request",
-      description: "Request work equipment or accessories.",
-      category: "Employee service",
-      fieldsJson: [
-        { id: "item", label: "Requested item", type: "text", required: true },
-        { id: "needed_by", label: "Needed by", type: "date", required: true },
-        { id: "reason", label: "Reason", type: "textarea", required: true },
-      ],
-      visibilityRulesJson: [],
+      title: "六月薪資月結與出勤補正提醒",
+      body: "請同仁於月底前確認出勤紀錄、補打卡與請假申請狀態；有缺漏請盡快送出申請。",
+      category: "薪資月結",
+      requireReceipt: true,
+      publishedByUserId: hrUser.id,
+      publishedAt: new Date("2026-06-01T01:00:00.000Z"),
     },
   });
 
-  await prisma.workflowTemplateStep.createMany({
-    data: [
-      {
-        tenantId: tenant.id,
-        companyId: company.id,
-        formTemplateId: equipmentForm.id,
-        stepOrder: 1,
-        approverType: "direct_manager",
-        conditionJson: Prisma.JsonNull,
-      },
-      {
-        tenantId: tenant.id,
-        companyId: company.id,
-        formTemplateId: equipmentForm.id,
-        stepOrder: 2,
-        approverType: "hr_admin",
-        conditionJson: Prisma.JsonNull,
-      },
-    ],
+  await prisma.employeeAnnouncementReceipt.createMany({
+    data: [hrEmployee, managerEmployee, employeeOne].map((employee) => ({
+      tenantId: tenant.id,
+      companyId: company.id,
+      announcementId: payrollCloseAnnouncement.id,
+      employeeId: employee.id,
+      receiptHash: hash(`${payrollCloseAnnouncement.id}:${employee.id}`),
+      acknowledgedAt: new Date("2026-06-01T02:00:00.000Z"),
+    })),
   });
 
   await prisma.auditLog.create({
@@ -1143,6 +1249,39 @@ function summarizeRuleValidation(validation: ReturnType<typeof validateTaiwanLab
     validatedAt: validation.validatedAt,
     fixtureSetVersion: validation.fixtureSetVersion,
   };
+}
+
+function formTemplate(
+  title: string,
+  description: string,
+  category: string,
+  fields: Array<ReturnType<typeof field>>,
+) {
+  return { title, description, category, fields };
+}
+
+function field(
+  id: string,
+  label: string,
+  type: "text" | "number" | "date" | "select" | "file" | "checkbox" | "textarea",
+  options?: string[],
+  required = true,
+) {
+  return {
+    id,
+    label,
+    type,
+    required,
+    ...(options ? { options } : {}),
+  };
+}
+
+function workflowStepsForTemplate(formTemplateId: string) {
+  const base = [{ formTemplateId, stepOrder: 1, approverType: "direct_manager" }];
+  return [
+    ...base,
+    { formTemplateId, stepOrder: 2, approverType: "hr_admin" },
+  ];
 }
 
 main()

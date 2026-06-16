@@ -32,8 +32,8 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
     return (
       <main className="page">
         <EmptyState
-          title="No seed data yet"
-          body="Run the database migration and seed commands from README before opening admin settings."
+          title="尚未建立示範資料"
+          body="請先依 README 執行資料庫 migration 與 seed 指令，再開啟管理設定。"
         />
       </main>
     );
@@ -42,133 +42,133 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
   return (
     <main className="page">
       <section className="page-header">
-        <h1>Company Settings</h1>
-        <p>Owner/admin view for tenant setup, security posture, roles, and audit readiness.</p>
+        <h1>公司設定</h1>
+        <p>老闆與管理員可在此設定租戶、資安、角色權限與稽核準備度。</p>
       </section>
 
       <section className="grid">
         {params.error ? (
           <div className="panel span-12 risk-box danger-box">
-            <strong>Unable to update settings</strong>
+            <strong>無法更新設定</strong>
             <p>{params.error}</p>
           </div>
         ) : null}
 
         <div className="panel span-4 metric">
-          <span className="muted">Tenant company</span>
+          <span className="muted">租戶公司</span>
           <strong>{overview.company.name}</strong>
           <span className="badge">{overview.company.timezone}</span>
         </div>
         <div className="panel span-4 metric">
-          <span className="muted">Audit events</span>
+          <span className="muted">稽核事件</span>
           <strong>{overview.auditCount}</strong>
-          <span className="badge">PII redacted</span>
+          <span className="badge">個資已遮蔽</span>
         </div>
         <div className="panel span-4 metric">
-          <span className="muted">Managers</span>
+          <span className="muted">主管數</span>
           <strong>{overview.managerCount}</strong>
-          <span className="badge">RBAC enabled</span>
+          <span className="badge">RBAC 已啟用</span>
         </div>
 
         <div className="panel span-6">
-          <h2>Setup wizards</h2>
+          <h2>設定精靈</h2>
           <ul className="task-list">
             <li className="task">
-              <span>Company profile</span>
-              <span className="badge">Configured</span>
+              <span>公司資料</span>
+              <span className="badge">已設定</span>
             </li>
             <li className="task">
-              <span>Departments and managers</span>
-              <span className="badge">Seeded</span>
+              <span>部門與主管</span>
+              <span className="badge">已建立</span>
             </li>
             <li className="task">
-              <span>User access</span>
+              <span>使用者權限</span>
               <a className="button" href="/settings/access">
-                Manage
+                管理
               </a>
             </li>
             <li className="task">
-              <span>Launch readiness</span>
+              <span>上線準備度</span>
               <a className="button" href="/settings/readiness">
-                Review
+                檢查
               </a>
             </li>
             <li className="task">
-              <span>Commercial subscription</span>
+              <span>商業訂閱</span>
               <a className="button" href="/settings/subscription">
-                Review
+                檢查
               </a>
             </li>
             <li className="task">
-              <span>Law rules</span>
+              <span>法規規則</span>
               <span className="badge">{laborConfig.version}</span>
             </li>
           </ul>
         </div>
 
         <div className="panel span-6">
-          <h2>Security guardrails</h2>
+          <h2>資安護欄</h2>
           <ul className="task-list">
             <li className="task">
-              <span>Admin MFA</span>
+              <span>管理員 MFA</span>
               <span className={`badge ${securitySettings.mfaRequiredForAdmins ? "" : "warning"}`}>
-                {securitySettings.mfaRequiredForAdmins ? "Required" : "Optional"}
+                {securitySettings.mfaRequiredForAdmins ? "必須" : "選用"}
               </span>
             </li>
             <li className="task">
-              <span>Employee MFA</span>
+              <span>員工 MFA</span>
               <span className={`badge ${securitySettings.mfaRequiredForEmployees ? "" : "warning"}`}>
-                {securitySettings.mfaRequiredForEmployees ? "Required" : "Optional"}
+                {securitySettings.mfaRequiredForEmployees ? "必須" : "選用"}
               </span>
             </li>
             <li className="task">
               <span>SSO</span>
               <span className={`badge ${securitySettings.ssoEnabled && ssoMetadataReady ? "" : "warning"}`}>
                 {securitySettings.ssoEnabled
-                  ? ssoMetadataReady ? securitySettings.ssoProvider ?? "Enabled" : "Metadata missing"
-                  : "Not enabled"}
+                  ? ssoMetadataReady ? securitySettings.ssoProvider ?? "已啟用" : "缺少中繼資料"
+                  : "未啟用"}
               </span>
             </li>
             <li className="task">
-              <span>Audit log console</span>
+              <span>稽核紀錄主控台</span>
               <a className="button" href="/settings/audit">
-                Open logs
+                開啟紀錄
               </a>
             </li>
             <li className="task">
-              <span>Support access</span>
+              <span>客服支援存取</span>
               <a className="button" href="/settings/support-access">
-                Manage
+                管理
               </a>
             </li>
             <li className="task">
-              <span>Privacy Center</span>
+              <span>個資中心</span>
               <a className="button" href="/settings/privacy">
-                Review
+                檢查
               </a>
             </li>
             <li className="task">
-              <span>Operational resilience</span>
+              <span>營運韌性</span>
               <a className="button" href="/settings/operational-resilience">
-                Review
+                檢查
               </a>
             </li>
             <li className="task">
-              <span>File storage</span>
+              <span>檔案儲存</span>
               <span className={`badge ${fileStorageSettings.provider === "demo_object_storage" ? "warning" : ""}`}>
                 {fileStorageSettings.provider}
               </span>
             </li>
             <li className="task">
-              <span>Notification channels</span>
+              <span>通知管道</span>
               <a className="button" href="/settings/notifications">
-                Configure
+                設定
               </a>
             </li>
             <li className="task">
-              <span>Payroll adjustment approvals</span>
+              <span>薪資調整簽核</span>
               <a className="button" href="/hr/payroll-adjustments">
-                Review
+                檢查
               </a>
             </li>
           </ul>
@@ -177,31 +177,31 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
         <section className="panel span-12" id="security-setup">
           <div className="section-heading">
             <div>
-              <h2>Security posture setup</h2>
+              <h2>登入與資安設定</h2>
               <p className="muted">
-                Configure company authentication guardrails. Provider enforcement comes after production auth integration.
+                設定公司登入護欄；正式 SSO 串接後會由供應商端強制執行。
               </p>
             </div>
-            <span className="badge">Audited</span>
+            <span className="badge">已寫入稽核</span>
           </div>
           <form action="/api/settings/security" method="post" className="mini-form">
             <div className="toggle-row">
               <label className="check-row">
                 <input name="mfaRequiredForAdmins" type="checkbox" defaultChecked={securitySettings.mfaRequiredForAdmins} />
-                Require admin MFA
+                管理員必須使用 MFA
               </label>
               <label className="check-row">
                 <input name="mfaRequiredForEmployees" type="checkbox" defaultChecked={securitySettings.mfaRequiredForEmployees} />
-                Require employee MFA
+                員工必須使用 MFA
               </label>
               <label className="check-row">
                 <input name="ssoEnabled" type="checkbox" defaultChecked={securitySettings.ssoEnabled} />
-                Enable SSO placeholder
+                啟用 SSO 佔位設定
               </label>
             </div>
             <div className="field-grid">
               <label>
-                SSO provider
+                SSO 供應商
                 <input name="ssoProvider" placeholder="Okta, Entra ID, Google" defaultValue={securitySettings.ssoProvider ?? ""} />
               </label>
               <label>
@@ -227,34 +227,34 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
                 />
               </label>
               <label>
-                Password minimum length
+                密碼最小長度
                 <input name="passwordMinLength" type="number" min="8" max="128" defaultValue={securitySettings.passwordMinLength} />
               </label>
               <label>
-                Session timeout minutes
+                工作階段逾時分鐘數
                 <input name="sessionTimeoutMinutes" type="number" min="15" defaultValue={securitySettings.sessionTimeoutMinutes} />
               </label>
               <label>
-                Idle timeout minutes
+                閒置逾時分鐘數
                 <input name="idleTimeoutMinutes" type="number" min="5" defaultValue={securitySettings.idleTimeoutMinutes} />
               </label>
             </div>
             <div className="toggle-row">
               <label className="check-row">
                 <input name="passwordRequiresNumber" type="checkbox" defaultChecked={securitySettings.passwordRequiresNumber} />
-                Require number
+                密碼需包含數字
               </label>
               <label className="check-row">
                 <input name="passwordRequiresSymbol" type="checkbox" defaultChecked={securitySettings.passwordRequiresSymbol} />
-                Require symbol
+                密碼需包含符號
               </label>
             </div>
             <label>
-              Allowed email domains
+              允許的 Email 網域
               <input name="allowedEmailDomains" defaultValue={securitySettings.allowedEmailDomains.join(", ")} />
             </label>
             <button className="button primary" type="submit">
-              Save security settings
+              儲存資安設定
             </button>
           </form>
         </section>
@@ -262,44 +262,44 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
         <section className="panel span-12" id="file-storage-setup">
           <div className="section-heading">
             <div>
-              <h2>File storage setup</h2>
+              <h2>檔案儲存設定</h2>
               <p className="muted">
-                Configure object storage policy for HR documents and future attachments. Secrets stay in the provider vault.
+                設定人資文件與未來附件的物件儲存政策；金鑰與密碼仍保留在供應商保管庫。
               </p>
             </div>
-            <span className="badge">No file bytes in DB</span>
+            <span className="badge">資料庫不存檔案內容</span>
           </div>
           <form action="/api/settings/file-storage" method="post" className="mini-form">
             <div className="field-grid">
               <label>
-                Provider
+                供應商
                 <select name="provider" defaultValue={fileStorageSettings.provider}>
-                  <option value="demo_object_storage">Demo object storage</option>
-                  <option value="s3">Amazon S3 compatible</option>
+                  <option value="demo_object_storage">示範物件儲存</option>
+                  <option value="s3">Amazon S3 相容</option>
                   <option value="r2">Cloudflare R2</option>
                   <option value="gcs">Google Cloud Storage</option>
                   <option value="azure_blob">Azure Blob</option>
-                  <option value="custom">Custom provider</option>
+                  <option value="custom">自訂供應商</option>
                 </select>
               </label>
               <label>
-                Bucket name
+                Bucket 名稱
                 <input name="bucketName" defaultValue={fileStorageSettings.bucketName} required />
               </label>
               <label>
-                Region
+                區域
                 <input name="region" defaultValue={fileStorageSettings.region ?? ""} placeholder="ap-northeast-1" />
               </label>
               <label>
-                Base prefix
+                基礎路徑前綴
                 <input name="basePrefix" defaultValue={fileStorageSettings.basePrefix} required />
               </label>
               <label>
-                KMS key reference
+                KMS 金鑰參照
                 <input name="kmsKeyRef" defaultValue={fileStorageSettings.kmsKeyRef ?? ""} placeholder="alias/hr-one-documents" />
               </label>
               <label>
-                Signed URL TTL minutes
+                簽名 URL 有效分鐘數
                 <input
                   name="signedUrlTtlMinutes"
                   type="number"
@@ -309,24 +309,24 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
                 />
               </label>
               <label>
-                Max file size MB
+                檔案大小上限 MB
                 <input name="maxFileSizeMb" type="number" min="1" max="100" defaultValue={fileStorageSettings.maxFileSizeMb} />
               </label>
               <label>
-                Retention days
+                保留天數
                 <input name="retentionDays" type="number" min="30" max="3650" defaultValue={fileStorageSettings.retentionDays} />
               </label>
               <label>
-                Verification status
+                驗證狀態
                 <select name="verificationStatus" defaultValue={fileStorageSettings.verificationStatus}>
-                  <option value="unverified">Unverified</option>
-                  <option value="verified">Verified</option>
-                  <option value="failed">Failed</option>
+                  <option value="unverified">未驗證</option>
+                  <option value="verified">已驗證</option>
+                  <option value="failed">驗證失敗</option>
                 </select>
               </label>
               <label>
-                Last verified
-                <input value={fileStorageSettings.lastVerifiedAt?.toISOString() ?? "Not verified"} readOnly />
+                上次驗證
+                <input value={fileStorageSettings.lastVerifiedAt?.toISOString() ?? "尚未驗證"} readOnly />
               </label>
             </div>
             <label className="check-row">
@@ -335,23 +335,23 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
                 type="checkbox"
                 defaultChecked={fileStorageSettings.malwareScanningRequired}
               />
-              Require malware scan before download
+              下載前必須完成惡意程式掃描
             </label>
             <label>
-              Allowed MIME types
+              允許的 MIME 類型
               <input name="allowedMimeTypes" defaultValue={fileStorageSettings.allowedMimeTypes.join(", ")} />
             </label>
             <label>
-              Verification note
+              驗證備註
               <textarea
                 name="verificationNote"
                 rows={3}
                 defaultValue={fileStorageSettings.verificationNote ?? ""}
-                placeholder="Record the external provider smoke test result. Do not paste secrets."
+                placeholder="記錄外部供應商 smoke test 結果，請勿貼上密鑰。"
               />
             </label>
             <button className="button primary" type="submit">
-              Save file storage settings
+              儲存檔案儲存設定
             </button>
           </form>
         </section>
@@ -359,40 +359,40 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
         <section className="panel span-12" id="law-rules-setup">
           <div className="section-heading">
             <div>
-              <h2>Taiwan labor rule setup</h2>
+              <h2>台灣勞動法規規則設定</h2>
               <p className="muted">
-                Versioned defaults come from official law sources. Company overrides must remain at or above legal minimums.
+                版本化預設值需來自官方法規來源；公司自訂值不得低於法定最低標準。
               </p>
             </div>
             <span className={`badge ${laborConfig.changeControl.reviewStatus === "approved" ? "" : "warning"}`}>
-              {laborConfig.changeControl.reviewStatus === "approved" ? "Reviewed" : "Review pending"}
+              {laborConfig.changeControl.reviewStatus === "approved" ? "已審核" : "待審核"}
             </span>
           </div>
           <div className="panel-subtle">
-            <strong>Rule validation</strong>
+            <strong>規則驗證</strong>
             <p className="muted">
-              {ruleValidation.passedCount}/{ruleValidation.fixtureCount} fixtures passed · {ruleValidation.fixtureSetVersion}
+              {ruleValidation.passedCount}/{ruleValidation.fixtureCount} 個測試案例通過 · {ruleValidation.fixtureSetVersion}
             </p>
             <span className={`badge ${ruleValidation.passed ? "" : "danger"}`}>
-              {ruleValidation.passed ? "Validation passed" : "Validation failed"}
+              {ruleValidation.passed ? "驗證通過" : "驗證失敗"}
             </span>
             <p className="muted">
-              Sources fresh: {sourceFreshness.freshSourceCount}/{sourceFreshness.totalSourceCount} · oldest {sourceFreshness.oldestCheckedAt ?? "missing"} · max {sourceFreshness.maxAgeDays} days
+              來源新鮮度：{sourceFreshness.freshSourceCount}/{sourceFreshness.totalSourceCount} · 最舊檢查日 {sourceFreshness.oldestCheckedAt ?? "缺漏"} · 上限 {sourceFreshness.maxAgeDays} 天
             </p>
             <span className={`badge ${sourceFreshness.passed ? "" : "warning"}`}>
-              {sourceFreshness.passed ? "Sources current" : "Source review needed"}
+              {sourceFreshness.passed ? "來源有效" : "需檢查來源"}
             </span>
           </div>
           <div className={`panel-subtle ${sourceFreshness.passed ? "success-box" : "warning-box"}`}>
             <div className="section-heading compact-heading">
               <div>
-                <h3>Legal source monitor</h3>
+                <h3>法規來源監控</h3>
                 <p className="muted">
-                  Review official Taiwan law, MOL, BLI, NHI, and tax sources before payroll, attendance, leave, or termination rules are trusted for launch.
+                  薪資、出勤、請假或離職規則上線前，需檢查台灣法規、勞動部、勞保局、健保署與稅務來源。
                 </p>
               </div>
               <span className={`badge ${sourceFreshness.passed ? "" : "warning"}`}>
-                {sourceFreshness.staleSourceCount + sourceFreshness.invalidSourceCount} needs review
+                {sourceFreshness.staleSourceCount + sourceFreshness.invalidSourceCount} 項需檢查
               </span>
             </div>
             <ul className="task-list">
@@ -407,7 +407,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
                     </span>
                     <span className="inline-actions">
                       <span className={`badge ${stale || invalid ? "warning" : ""}`}>
-                        {invalid ? "Invalid date" : stale ? "Review due" : "Fresh"}
+                        {invalid ? "日期無效" : stale ? "需檢查" : "有效"}
                       </span>
                       <span className="badge">{source.checkedAt}</span>
                     </span>
@@ -419,16 +419,16 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
           <form action="/api/settings/law-rules" method="post" className="mini-form">
             <div className="section-heading compact-heading">
               <div>
-                <h3>Change control</h3>
+                <h3>變更控管</h3>
                 <p className="muted">
-                  Every rule change keeps its reason, source, review status, and payroll recalculation flag with the rule version.
+                  每次規則變更都會保留原因、來源、審核狀態與是否需重算薪資的標記。
                 </p>
               </div>
-              <span className="badge">Audited version</span>
+              <span className="badge">版本已稽核</span>
             </div>
             <div className="field-grid">
               <label>
-                Change reason
+                變更原因
                 <textarea
                   name="changeReason"
                   rows={3}
@@ -437,7 +437,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
                 />
               </label>
               <label>
-                Source URL
+                來源 URL
                 <input
                   name="changeSourceUrl"
                   type="url"
@@ -446,18 +446,18 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
                 />
               </label>
               <label>
-                Reviewed by
+                審核人
                 <input
                   name="reviewedBy"
                   defaultValue={laborConfig.changeControl.reviewedBy ?? ""}
-                  placeholder="HR owner or legal reviewer"
+                  placeholder="人資負責人或法務審核者"
                 />
               </label>
               <label>
-                Review status
+                審核狀態
                 <select name="reviewStatus" defaultValue={laborConfig.changeControl.reviewStatus}>
-                  <option value="pending_legal_review">Pending legal review</option>
-                  <option value="approved">Approved</option>
+                  <option value="pending_legal_review">待法務審核</option>
+                  <option value="approved">已核准</option>
                 </select>
               </label>
             </div>
@@ -467,20 +467,20 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
                 type="checkbox"
                 defaultChecked={laborConfig.changeControl.requiresPayrollRecalculation}
               />
-              Mark existing payroll drafts for recalculation review
+              標記既有薪資草稿需重新試算檢查
             </label>
             <ul className="task-list">
               <li className="task">
                 <span>
-                  <strong>Last review</strong>
+                  <strong>上次審核</strong>
                   <small>
                     {laborConfig.changeControl.reviewedAt
-                      ? `${laborConfig.changeControl.reviewedAt} by ${laborConfig.changeControl.reviewedBy ?? "Unknown reviewer"}`
-                      : "No approved review timestamp yet."}
+                      ? `${laborConfig.changeControl.reviewedAt} · ${laborConfig.changeControl.reviewedBy ?? "未知審核人"}`
+                      : "尚無已核准的審核時間。"}
                   </small>
                 </span>
                 <span className={`badge ${laborConfig.changeControl.requiresPayrollRecalculation ? "warning" : ""}`}>
-                  {laborConfig.changeControl.requiresPayrollRecalculation ? "Recalculate payroll" : "No payroll impact"}
+                  {laborConfig.changeControl.requiresPayrollRecalculation ? "需重算薪資" : "不影響薪資"}
                 </span>
               </li>
             </ul>

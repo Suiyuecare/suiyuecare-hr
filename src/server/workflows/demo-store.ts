@@ -86,7 +86,7 @@ function initialState(): DemoState {
       currentYearUsedUnits: 2,
       remainingUnits: 12,
     },
-    formTemplates: [defaultFormTemplate()],
+    formTemplates: defaultFormTemplates(),
     requests: [],
     notifications: [],
     exceptions: [
@@ -509,22 +509,131 @@ function createRequest(input: {
   };
 }
 
-function defaultFormTemplate(): FormTemplateView {
+function defaultFormTemplates(): FormTemplateView[] {
+  return [
+    demoTemplate("leave", "請假單", "員工申請特休、病假、事假或其他假別。", "假勤", [
+      selectField("leave_type", "假別", ["特休", "病假", "事假", "公假", "喪假", "婚假"]),
+      field("start_date", "開始日期", "date"),
+      field("end_date", "結束日期", "date"),
+      field("reason", "請假原因", "textarea"),
+      field("attachment", "附件", "file", false),
+    ]),
+    demoTemplate("pre-overtime", "預先加班單", "事前申請加班時段與原因。", "假勤", [
+      field("work_date", "加班日期", "date"),
+      field("start_time", "開始時間", "text"),
+      field("end_time", "結束時間", "text"),
+      field("reason", "加班原因", "textarea"),
+    ]),
+    demoTemplate("overtime", "加班單", "加班完成後送出實際加班紀錄。", "假勤", [
+      field("work_date", "加班日期", "date"),
+      field("actual_start_time", "實際開始時間", "text"),
+      field("actual_end_time", "實際結束時間", "text"),
+      field("work_summary", "工作內容", "textarea"),
+    ]),
+    demoTemplate("leave-cancel", "銷假單", "取消已核准或待簽核的請假申請。", "假勤", [
+      field("original_leave_no", "原請假單號", "text"),
+      field("cancel_reason", "銷假原因", "textarea"),
+    ]),
+    demoTemplate("missed-punch", "忘刷申請單", "補登忘記打卡或設備異常的出勤時間。", "出勤", [
+      field("work_date", "出勤日期", "date"),
+      field("clock_time", "補登時間", "text"),
+      selectField("punch_type", "補登類型", ["上班", "下班"]),
+      field("reason", "原因", "textarea"),
+    ]),
+    demoTemplate("trip-expense", "出差費用申請單", "申請出差交通、住宿或雜支費用。", "費用", [
+      field("trip_date", "出差日期", "date"),
+      field("destination", "出差地點", "text"),
+      field("amount", "申請金額", "number"),
+      field("receipt", "收據附件", "file"),
+      field("reason", "出差事由", "textarea"),
+    ]),
+    demoTemplate("remote-work", "居家遠端辦公申請單", "申請居家或遠端辦公日期與工作安排。", "出勤", [
+      field("remote_date", "遠端日期", "date"),
+      field("work_location", "工作地點", "text"),
+      field("contact_phone", "緊急聯絡電話", "text"),
+      field("work_plan", "工作安排", "textarea"),
+    ]),
+    demoTemplate("people-change", "人事異動單", "申請部門、職稱、主管或職務內容異動。", "人事", [
+      selectField("change_type", "異動類型", ["部門異動", "職稱異動", "主管異動", "工作內容異動"]),
+      field("effective_date", "生效日", "date"),
+      field("change_reason", "異動原因", "textarea"),
+    ]),
+    demoTemplate("salary-change", "薪資異動單", "申請薪資、津貼或扣項異動，需人資審核。", "薪資", [
+      field("effective_date", "生效日", "date"),
+      selectField("adjustment_type", "調整類型", ["本薪", "津貼", "扣項", "其他"]),
+      field("business_reason", "調整原因", "textarea"),
+    ]),
+    demoTemplate("resignation", "離職申請表", "員工提出離職申請與交接規劃。", "人事", [
+      field("last_work_date", "預計最後工作日", "date"),
+      field("reason", "離職原因", "textarea"),
+      field("handover_plan", "交接計畫", "textarea"),
+    ]),
+    demoTemplate("document", "文件證明申請單", "申請各類公司文件或證明。", "文件", [
+      selectField("document_type", "文件類型", ["一般證明", "服務證明", "其他"]),
+      field("purpose", "用途", "textarea"),
+    ]),
+    demoTemplate("insurance-certificate", "勞健保證明申請單", "申請勞保、健保相關證明文件。", "文件", [
+      selectField("certificate_type", "證明類型", ["勞保", "健保", "勞健保"]),
+      field("purpose", "用途", "textarea"),
+    ]),
+    demoTemplate("employment-certificate", "在職證明申請單", "申請在職證明。", "文件", [
+      selectField("language", "語言", ["中文", "英文"]),
+      field("purpose", "用途", "textarea"),
+    ]),
+    demoTemplate("promotion", "人員晉升表", "提出員工晉升建議與理由。", "人事", [
+      field("target_title", "建議職稱", "text"),
+      field("effective_date", "建議生效日", "date"),
+      field("promotion_reason", "晉升理由", "textarea"),
+    ]),
+    demoTemplate("new-hire", "新進人員表單", "新進人員到職資料與設備需求。", "人事", [
+      field("onboard_date", "到職日", "date"),
+      field("job_title", "職稱", "text"),
+      field("equipment_need", "設備需求", "textarea", false),
+    ]),
+    demoTemplate("hire-request", "人員進用申請單", "主管提出新增職缺或人員進用需求。", "招募", [
+      field("position_title", "職缺名稱", "text"),
+      field("headcount", "需求人數", "number"),
+      field("hire_reason", "進用原因", "textarea"),
+    ]),
+    demoTemplate("interview", "晤談紀錄單", "記錄員工關懷、績效溝通或離職晤談重點。", "人事", [
+      selectField("interview_type", "晤談類型", ["關懷晤談", "績效溝通", "離職晤談", "其他"]),
+      field("interview_date", "晤談日期", "date"),
+      field("summary", "紀錄摘要", "textarea"),
+    ]),
+  ];
+}
+
+function demoTemplate(
+  id: string,
+  title: string,
+  description: string,
+  category: string,
+  fields: FormTemplateView["fields"],
+): FormTemplateView {
   return {
-    id: "demo-form-equipment",
-    title: "Equipment request",
-    description: "Request work equipment or accessories.",
-    category: "Employee service",
+    id: `demo-form-${id}`,
+    title,
+    description,
+    category,
     visibilityRules: [],
-    visibilitySummary: "All fields are always shown.",
+    visibilitySummary: "所有欄位都會顯示。",
     status: "active",
-    fields: [
-      { id: "item", label: "Requested item", type: "text", required: true },
-      { id: "needed_by", label: "Needed by", type: "date", required: true },
-      { id: "reason", label: "Reason", type: "textarea", required: true },
-    ],
+    fields,
     workflowSteps: [managerStep(), hrStep()],
   };
+}
+
+function field(
+  id: string,
+  label: string,
+  type: FormTemplateView["fields"][number]["type"],
+  required = true,
+) {
+  return { id, label, type, required };
+}
+
+function selectField(id: string, label: string, options: string[]) {
+  return { id, label, type: "select" as const, required: true, options };
 }
 
 function managerStep() {

@@ -23,7 +23,7 @@ export function CustomFormCard({ template, today }: CustomFormCardProps) {
       action="/api/forms/submissions"
       method="post"
       className="mini-form"
-      aria-label={`Submit ${template.title}`}
+      aria-label={`送出${template.title}`}
     >
       <input type="hidden" name="templateId" value={template.id} />
       <input type="hidden" name="taskStartedAt" value={Date.now()} />
@@ -47,7 +47,7 @@ export function CustomFormCard({ template, today }: CustomFormCardProps) {
         <p className="muted">{template.visibilitySummary}</p>
       ) : null}
       <button className="button primary" type="submit">
-        Submit form
+        送出表單
       </button>
     </form>
   );
@@ -116,14 +116,14 @@ function FormFieldInput({
           {field.label}
           <input
             name={`${field.id}__FileName`}
-            placeholder="File name"
+            placeholder="檔案名稱"
             required={field.required}
-            onChange={(event) => onValueChange(field.id, event.currentTarget.value ? "Attachment evidence provided" : "")}
+            onChange={(event) => onValueChange(field.id, event.currentTarget.value ? "已提供附件證明" : "")}
           />
         </label>
         <label>
-          Storage ref
-          <input name={`${field.id}__StorageKey`} placeholder="Optional object key" />
+          附件儲存代碼
+          <input name={`${field.id}__StorageKey`} placeholder="選填，未來由上傳功能帶入" />
           <input type="hidden" name={`${field.id}__MimeType`} value="application/pdf" />
           <input type="hidden" name={`${field.id}__ScanStatus`} value="pending" />
           <input type="hidden" name={`${field.id}__FileSizeBytes`} value="0" />

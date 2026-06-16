@@ -150,6 +150,14 @@ async function buildSnapshot(
         requireOvertimeApproval: true,
         requirePunchCorrectionApproval: true,
         allowMobilePunch: true,
+        allowRemotePunch: true,
+        requireOfficeNetworkPunch: true,
+        allowedOfficeIpCidrsJson: true,
+        requireGpsProximityPunch: true,
+        officeLatitude: true,
+        officeLongitude: true,
+        gpsRadiusMeters: true,
+        punchPolicyNote: true,
         attendanceRecordRetentionDays: true,
         employeeSelfServiceEnabled: true,
         employeeExportEnabled: true,
@@ -412,6 +420,11 @@ async function buildSnapshot(
         ? {
             ...activeAttendancePolicy,
             status: activeAttendancePolicy.status === "inactive" ? "inactive" : "active",
+            allowedOfficeIpCidrs: Array.isArray(activeAttendancePolicy.allowedOfficeIpCidrsJson)
+              ? activeAttendancePolicy.allowedOfficeIpCidrsJson.filter((item): item is string => typeof item === "string")
+              : [],
+            officeLatitude: activeAttendancePolicy.officeLatitude?.toNumber() ?? null,
+            officeLongitude: activeAttendancePolicy.officeLongitude?.toNumber() ?? null,
           }
         : null,
     ),
