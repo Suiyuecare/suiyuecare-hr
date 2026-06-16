@@ -39,7 +39,7 @@ function main() {
 
   if (!apply) {
     console.log("Dry run only; pass --apply to write these known values to Vercel Production.");
-    console.log("Operator-managed keys still require real DATABASE_URL, OIDC, vault, and restore-drill evidence before pilot use.");
+    console.log("Operator-managed keys still require real DATABASE_URL, vault references, and restore-drill evidence before pilot use.");
     return;
   }
 
@@ -67,7 +67,7 @@ function writeVercelProjectEnvWithCli(items: VercelEnvPayloadItem[]) {
     console.log(`Created or updated ${item.key} in Vercel Production.`);
   }
   console.log(`Created or updated ${items.length} known Vercel production env variable(s).`);
-  console.log("A production redeploy is still blocked until operator-managed env values are configured.");
+  console.log("A production redeploy is still blocked until DATABASE_URL, vault references, and restore-drill evidence are configured.");
 }
 
 function redactResponse(body: string): string {

@@ -7,7 +7,7 @@ export default function AuthRequiredPage() {
     <main className="page">
       <section className="page-header">
         <h1>需要正式登入</h1>
-        <p>正式試用環境已停用示範角色切換。請使用公司 SSO 或由管理員提供的正式登入入口。</p>
+        <p>正式試用環境已停用示範角色切換。請使用公司正式登入入口，或聯絡管理員協助。</p>
       </section>
 
       <section className="panel">
@@ -17,10 +17,12 @@ export default function AuthRequiredPage() {
         </p>
         {loginUrl ? (
           <a className="button primary" href={loginUrl}>
-            前往公司 SSO 登入
+            前往正式登入
           </a>
         ) : (
-          <p className="muted">目前尚未設定正式 SSO 登入網址，請聯絡系統管理員。</p>
+          <a className="button primary" href="/auth/sign-in">
+            使用公司 Email 登入
+          </a>
         )}
       </section>
     </main>

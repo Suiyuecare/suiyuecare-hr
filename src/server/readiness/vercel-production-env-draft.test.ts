@@ -27,6 +27,13 @@ describe("Vercel production env draft", () => {
       NEXT_PUBLIC_SUPABASE_URL: "https://aruncclorusswpfnpgsn.supabase.co",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_yScyXz-bOUu7W5geHggd4A_9FcGwU7M",
       DATABASE_URL: "REPLACE_WITH_SUPABASE_POSTGRES_URL_SCHEMA_HR_ONE",
+      HR_ONE_AUTH_PROVIDER: "supabase_auth",
+      HR_ONE_AUTH_ISSUER_URL: "https://aruncclorusswpfnpgsn.supabase.co/auth/v1",
+      HR_ONE_AUTH_LOGIN_URL: "https://hr.suiyuecare.com/auth/sign-in",
+      HR_ONE_AUTH_AUDIENCE: "authenticated",
+      HR_ONE_AUTH_JWKS_URL: "https://aruncclorusswpfnpgsn.supabase.co/auth/v1/.well-known/jwks.json",
+      HR_ONE_AUTH_DEFAULT_TENANT: "tenant_suiyuecare_pilot",
+      HR_ONE_AUTH_DEFAULT_COMPANY: "company_suiyuecare_pilot",
       HR_ONE_BACKUP_RESTORE_TESTED_AT: "REPLACE_WITH_RESTORE_DRILL_DATE_AFTER_2026-06-17",
     });
     expect(env.HR_ONE_SESSION_SECRET).toContain("generated-secret-1");
@@ -35,10 +42,6 @@ describe("Vercel production env draft", () => {
     expect(draftHasUnresolvedPlaceholders(text)).toBe(true);
     expect(getUnresolvedEnvPlaceholderKeys(env)).toEqual([
       "DATABASE_URL",
-      "HR_ONE_AUTH_ISSUER_URL",
-      "HR_ONE_AUTH_JWKS_URL",
-      "HR_ONE_AUTH_LOGIN_URL",
-      "HR_ONE_AUTH_PROVIDER",
       "HR_ONE_BACKUP_RESTORE_TESTED_AT",
     ]);
   });

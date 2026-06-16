@@ -201,7 +201,7 @@ function buildNextActions(options: {
     actions.push(`Fix local production env verification failures before apply: ${options.localEnvDraft.failedCheckNames.join(", ")}.`);
   }
   if (missingBootstrapKeys.length > 0) {
-    actions.push("Optionally run pnpm vercel:bootstrap-known-env -- --env-file=.env.vercel.production to prefill safe known Production env values; it will not write DATABASE_URL, OIDC URLs, vault refs, or restore-drill evidence.");
+    actions.push("Optionally run pnpm vercel:bootstrap-known-env -- --env-file=.env.vercel.production to prefill safe known Production env values; it will not write DATABASE_URL, vault refs, or restore-drill evidence.");
   } else if (missingOperatorManagedKeys.length > 0) {
     actions.push(`Known Vercel bootstrap env values are already present; fill remaining operator-managed Production values: ${missingOperatorManagedKeys.join(", ")}.`);
   }

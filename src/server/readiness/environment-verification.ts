@@ -187,7 +187,7 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
       authLoginUrlSafe,
       authLoginUrl
         ? authLoginUrlSafe
-          ? "production SSO login URL configured"
+          ? "production auth login URL configured"
           : "invalid HR_ONE_AUTH_LOGIN_URL"
         : "missing HR_ONE_AUTH_LOGIN_URL",
     ),

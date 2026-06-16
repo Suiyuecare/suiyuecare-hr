@@ -13,6 +13,11 @@ const defaultAppUrl = "https://hr.suiyuecare.com";
 const defaultProjectId = "prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N";
 const defaultSupabaseUrl = "https://aruncclorusswpfnpgsn.supabase.co";
 const defaultSupabasePublishableKey = "sb_publishable_yScyXz-bOUu7W5geHggd4A_9FcGwU7M";
+const defaultSupabaseAuthIssuerUrl = `${defaultSupabaseUrl}/auth/v1`;
+const defaultSupabaseAuthJwksUrl = `${defaultSupabaseAuthIssuerUrl}/.well-known/jwks.json`;
+const defaultAuthLoginUrl = `${defaultAppUrl}/auth/sign-in`;
+const defaultPilotTenantId = "tenant_suiyuecare_pilot";
+const defaultPilotCompanyId = "company_suiyuecare_pilot";
 
 export function buildVercelProductionEnvDraft(options: VercelProductionEnvDraftOptions = {}) {
   const secret = options.randomSecret ?? generateSecret;
@@ -32,15 +37,15 @@ export function buildVercelProductionEnvDraft(options: VercelProductionEnvDraftO
     ["HR_ONE_ENCRYPTION_KEY", secret()],
     ["HR_ONE_AUDIT_LOG_SIGNING_KEY", secret()],
     ["HR_ONE_OBJECT_STORAGE_SECRET_REF", "vault://suiyuecare/hr-one/storage"],
-    ["HR_ONE_AUTH_PROVIDER", "REPLACE_WITH_PRODUCTION_OIDC_PROVIDER"],
+    ["HR_ONE_AUTH_PROVIDER", "supabase_auth"],
     ["HR_ONE_AUTH_SESSION_SOURCE", "oidc"],
-    ["HR_ONE_AUTH_ISSUER_URL", "REPLACE_WITH_HTTPS_OIDC_ISSUER_URL"],
-    ["HR_ONE_AUTH_LOGIN_URL", "REPLACE_WITH_HTTPS_OIDC_LOGIN_URL"],
-    ["HR_ONE_AUTH_AUDIENCE", "hr-one-api"],
-    ["HR_ONE_AUTH_JWKS_URL", "REPLACE_WITH_HTTPS_OIDC_JWKS_URL"],
+    ["HR_ONE_AUTH_ISSUER_URL", defaultSupabaseAuthIssuerUrl],
+    ["HR_ONE_AUTH_LOGIN_URL", defaultAuthLoginUrl],
+    ["HR_ONE_AUTH_AUDIENCE", "authenticated"],
+    ["HR_ONE_AUTH_JWKS_URL", defaultSupabaseAuthJwksUrl],
     ["HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS", "3600"],
-    ["HR_ONE_AUTH_DEFAULT_TENANT", ""],
-    ["HR_ONE_AUTH_DEFAULT_COMPANY", ""],
+    ["HR_ONE_AUTH_DEFAULT_TENANT", defaultPilotTenantId],
+    ["HR_ONE_AUTH_DEFAULT_COMPANY", defaultPilotCompanyId],
     ["HR_ONE_AI_PROVIDER", "disabled"],
     ["HR_ONE_AI_PROMPT_STORAGE", "hashed"],
     ["HR_ONE_RATE_LIMIT_ENABLED", "true"],

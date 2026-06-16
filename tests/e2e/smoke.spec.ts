@@ -43,6 +43,18 @@ test("API middleware rate limits bursty AI requests", async ({ request }, testIn
   expect(blocked.headers()["retry-after"]).toBeTruthy();
 });
 
+test("正式登入頁提供 Supabase Email 連結入口", async ({ page }) => {
+  await page.goto("/auth/sign-in");
+
+  await expect(page.getByRole("heading", { name: "公司登入" })).toBeVisible();
+  await expect(page.getByLabel("公司 Email")).toBeVisible();
+  await expect(page.getByRole("button", { name: "寄送登入連結" })).toBeVisible();
+
+  await page.goto("/auth/callback");
+  await expect(page.getByRole("heading", { name: "登入失敗" })).toBeVisible();
+  await expect(page.getByText("登入連結沒有有效憑證，請重新寄送登入連結。")).toBeVisible();
+});
+
 test("員工前台與管理後台依角色分流", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "今日" })).toBeVisible();

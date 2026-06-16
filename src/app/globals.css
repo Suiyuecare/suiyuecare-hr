@@ -284,6 +284,15 @@ textarea {
   box-shadow: var(--shadow);
 }
 
+.auth-panel {
+  max-width: 520px;
+}
+
+.danger-text {
+  color: var(--danger);
+  font-weight: 800;
+}
+
 .panel-subtle {
   display: grid;
   gap: 6px;
