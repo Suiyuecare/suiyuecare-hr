@@ -19,37 +19,42 @@ export function CustomFormCard({ template, today }: CustomFormCardProps) {
   };
 
   return (
-    <form
-      action="/api/forms/submissions"
-      method="post"
-      className="mini-form"
-      aria-label={`送出${template.title}`}
-    >
-      <input type="hidden" name="templateId" value={template.id} />
-      <input type="hidden" name="taskStartedAt" value={Date.now()} />
-      <div>
-        <h3>{template.title}</h3>
-        <p className="muted">{template.description}</p>
-      </div>
-      <div className="field-grid">
-        {template.fields
-          .filter((field) => isVisible(field, values))
-          .map((field) => (
-            <FormFieldInput
-              key={field.id}
-              field={field}
-              value={values[field.id] ?? ""}
-              onValueChange={updateValue}
-            />
-          ))}
-      </div>
-      {template.visibilityRules.length > 0 ? (
-        <p className="muted">{template.visibilitySummary}</p>
-      ) : null}
-      <button className="button primary" type="submit">
-        送出表單
-      </button>
-    </form>
+    <details className="action-disclosure custom-form-disclosure">
+      <summary>
+        <span>
+          <strong>{template.title}</strong>
+          <small>{template.description}</small>
+        </span>
+        <span className="badge">{template.fields.length} 欄位</span>
+      </summary>
+      <form
+        action="/api/forms/submissions"
+        method="post"
+        className="mini-form"
+        aria-label={`送出${template.title}`}
+      >
+        <input type="hidden" name="templateId" value={template.id} />
+        <input type="hidden" name="taskStartedAt" value={Date.now()} />
+        <div className="field-grid">
+          {template.fields
+            .filter((field) => isVisible(field, values))
+            .map((field) => (
+              <FormFieldInput
+                key={field.id}
+                field={field}
+                value={values[field.id] ?? ""}
+                onValueChange={updateValue}
+              />
+            ))}
+        </div>
+        {template.visibilityRules.length > 0 ? (
+          <p className="muted">{template.visibilitySummary}</p>
+        ) : null}
+        <button className="button primary" type="submit">
+          送出表單
+        </button>
+      </form>
+    </details>
   );
 }
 

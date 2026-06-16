@@ -87,124 +87,154 @@ export default async function EmployeeHomePage() {
             <span className="badge">主管簽核中</span>
           </div>
 
-          <section className="panel span-12" aria-labelledby="quick-actions">
-            <h2 id="quick-actions">快速處理</h2>
+          <section className="panel span-12 employee-actions" aria-labelledby="quick-actions">
+            <div className="section-heading">
+              <div>
+                <h2 id="quick-actions">快速處理</h2>
+                <p className="muted">常用申請收在三個任務裡，展開、填寫、送出。</p>
+              </div>
+              <span className="badge">三步完成</span>
+            </div>
             <div className="form-stack">
-              <form
-                action="/api/workflows/leave"
-                method="post"
-                className="mini-form"
-                aria-label="送出請假申請"
-              >
-                <input type="hidden" name="taskStartedAt" value={taskStartedAt} />
-                <h3>請假</h3>
-                <div className="field-grid">
+              <details className="action-disclosure" open>
+                <summary>
+                  <span>
+                    <strong>請假</strong>
+                    <small>選日期、填原因，送給主管簽核。</small>
+                  </span>
+                  <span className="badge">{workspace.leaveBalance.remainingUnits} 可用</span>
+                </summary>
+                <form
+                  action="/api/workflows/leave"
+                  method="post"
+                  className="mini-form"
+                  aria-label="送出請假申請"
+                >
+                  <input type="hidden" name="taskStartedAt" value={taskStartedAt} />
+                  <div className="field-grid">
+                    <label>
+                      開始日期
+                      <input name="startDate" type="date" defaultValue={today} required />
+                    </label>
+                    <label>
+                      開始時間
+                      <input name="startTime" type="time" defaultValue="09:00" required />
+                    </label>
+                    <label>
+                      結束日期
+                      <input name="endDate" type="date" defaultValue={today} required />
+                    </label>
+                    <label>
+                      結束時間
+                      <input name="endTime" type="time" defaultValue="18:00" required />
+                    </label>
+                    <label>
+                      請假天數
+                      <input name="units" type="number" min="0.5" step="0.5" defaultValue="1" required />
+                    </label>
+                    <label>
+                      附件
+                      <input name="attachmentFileName" placeholder="診斷證明.pdf" />
+                    </label>
+                    <label>
+                      附件儲存代碼
+                      <input name="attachmentStorageKey" placeholder="選填，未來由上傳功能帶入" />
+                      <input type="hidden" name="attachmentMimeType" value="application/pdf" />
+                      <input type="hidden" name="attachmentScanStatus" value="pending" />
+                      <input type="hidden" name="attachmentFileSizeBytes" value="0" />
+                    </label>
+                  </div>
                   <label>
-                    開始日期
-                    <input name="startDate" type="date" defaultValue={today} required />
+                    請假原因
+                    <input name="reason" placeholder="家庭照顧、個人事務..." required />
                   </label>
-                  <label>
-                    開始時間
-                    <input name="startTime" type="time" defaultValue="09:00" required />
-                  </label>
-                  <label>
-                    結束日期
-                    <input name="endDate" type="date" defaultValue={today} required />
-                  </label>
-                  <label>
-                    結束時間
-                    <input name="endTime" type="time" defaultValue="18:00" required />
-                  </label>
-                  <label>
-                    請假天數
-                    <input name="units" type="number" min="0.5" step="0.5" defaultValue="1" required />
-                  </label>
-                  <label>
-                    附件
-                    <input name="attachmentFileName" placeholder="診斷證明.pdf" />
-                  </label>
-                  <label>
-                    附件儲存代碼
-                    <input name="attachmentStorageKey" placeholder="選填，未來由上傳功能帶入" />
-                    <input type="hidden" name="attachmentMimeType" value="application/pdf" />
-                    <input type="hidden" name="attachmentScanStatus" value="pending" />
-                    <input type="hidden" name="attachmentFileSizeBytes" value="0" />
-                  </label>
-                </div>
-                <label>
-                  請假原因
-                  <input name="reason" placeholder="家庭照顧、個人事務..." required />
-                </label>
-                <button className="button primary" type="submit">
-                  送出請假
-                </button>
-              </form>
+                  <button className="button primary" type="submit">
+                    送出請假
+                  </button>
+                </form>
+              </details>
 
-              <form
-                action="/api/workflows/overtime"
-                method="post"
-                className="mini-form"
-                aria-label="送出加班申請"
-              >
-                <input type="hidden" name="taskStartedAt" value={taskStartedAt} />
-                <h3>加班</h3>
-                <div className="field-grid">
+              <details className="action-disclosure">
+                <summary>
+                  <span>
+                    <strong>加班</strong>
+                    <small>填寫開始結束時間與原因。</small>
+                  </span>
+                  <span className="badge">主管簽核</span>
+                </summary>
+                <form
+                  action="/api/workflows/overtime"
+                  method="post"
+                  className="mini-form"
+                  aria-label="送出加班申請"
+                >
+                  <input type="hidden" name="taskStartedAt" value={taskStartedAt} />
+                  <div className="field-grid">
+                    <label>
+                      開始日期
+                      <input name="startDate" type="date" defaultValue={today} required />
+                    </label>
+                    <label>
+                      開始時間
+                      <input name="startTime" type="time" defaultValue="18:30" required />
+                    </label>
+                    <label>
+                      結束日期
+                      <input name="endDate" type="date" defaultValue={today} required />
+                    </label>
+                    <label>
+                      結束時間
+                      <input name="endTime" type="time" defaultValue="20:00" required />
+                    </label>
+                  </div>
                   <label>
-                    開始日期
-                    <input name="startDate" type="date" defaultValue={today} required />
+                    加班原因
+                    <input name="reason" placeholder="上線支援、客戶需求..." required />
                   </label>
-                  <label>
-                    開始時間
-                    <input name="startTime" type="time" defaultValue="18:30" required />
-                  </label>
-                  <label>
-                    結束日期
-                    <input name="endDate" type="date" defaultValue={today} required />
-                  </label>
-                  <label>
-                    結束時間
-                    <input name="endTime" type="time" defaultValue="20:00" required />
-                  </label>
-                </div>
-                <label>
-                  加班原因
-                  <input name="reason" placeholder="上線支援、客戶需求..." required />
-                </label>
-                <button className="button primary" type="submit">
-                  送出加班
-                </button>
-              </form>
+                  <button className="button primary" type="submit">
+                    送出加班
+                  </button>
+                </form>
+              </details>
 
-              <form
-                action="/api/workflows/punch-correction"
-                method="post"
-                className="mini-form"
-                aria-label="送出補打卡申請"
-              >
-                <input type="hidden" name="taskStartedAt" value={taskStartedAt} />
-                <h3>補打卡</h3>
-                <div className="field-grid">
+              <details className="action-disclosure">
+                <summary>
+                  <span>
+                    <strong>補打卡</strong>
+                    <small>補正漏刷或設備異常紀錄。</small>
+                  </span>
+                  <span className="badge">出勤修正</span>
+                </summary>
+                <form
+                  action="/api/workflows/punch-correction"
+                  method="post"
+                  className="mini-form"
+                  aria-label="送出補打卡申請"
+                >
+                  <input type="hidden" name="taskStartedAt" value={taskStartedAt} />
+                  <div className="field-grid">
+                    <label>
+                      出勤日期
+                      <input name="workDate" type="date" defaultValue={today} required />
+                    </label>
+                    <label>
+                      上班時間
+                      <input name="clockInTime" type="time" defaultValue="09:02" />
+                    </label>
+                    <label>
+                      下班時間
+                      <input name="clockOutTime" type="time" defaultValue="18:04" />
+                    </label>
+                  </div>
                   <label>
-                    出勤日期
-                    <input name="workDate" type="date" defaultValue={today} required />
+                    補打卡原因
+                    <input name="reason" placeholder="忘記手機打卡、設備異常..." required />
                   </label>
-                  <label>
-                    上班時間
-                    <input name="clockInTime" type="time" defaultValue="09:02" />
-                  </label>
-                  <label>
-                    下班時間
-                    <input name="clockOutTime" type="time" defaultValue="18:04" />
-                  </label>
-                </div>
-                <label>
-                  補打卡原因
-                  <input name="reason" placeholder="忘記手機打卡、設備異常..." required />
-                </label>
-                <button className="button primary" type="submit">
-                  送出補打卡
-                </button>
-              </form>
+                  <button className="button primary" type="submit">
+                    送出補打卡
+                  </button>
+                </form>
+              </details>
             </div>
           </section>
 
