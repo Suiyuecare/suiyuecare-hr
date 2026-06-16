@@ -389,6 +389,123 @@ textarea {
   gap: 16px;
 }
 
+.hr-command-center > .metric,
+.inbox-command-center > .metric {
+  min-height: 118px;
+  border-color: rgba(217, 119, 6, 0.18);
+}
+
+.hr-close-strip {
+  min-height: 96px;
+  border-color: rgba(217, 119, 6, 0.25);
+  background:
+    linear-gradient(135deg, rgba(23, 32, 51, 0.96), rgba(61, 33, 13, 0.94)),
+    #172033;
+}
+
+.hr-next-actions {
+  border-color: #f1c98f;
+  background:
+    linear-gradient(180deg, #fffaf2 0%, #ffffff 60%),
+    #ffffff;
+}
+
+.hr-next-actions .task {
+  background: #ffffff;
+}
+
+.hr-workspace-grid .workflow-card {
+  min-height: 220px;
+  border-color: #ead8c2;
+}
+
+.hr-toolbox .inline-actions {
+  gap: 8px;
+}
+
+.hr-toolbox .button {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.payroll-console,
+.exception-console,
+.department-console {
+  border-color: #ead8c2;
+}
+
+.payroll-track {
+  grid-template-columns: repeat(7, minmax(112px, 1fr));
+}
+
+.payroll-track .close-step {
+  position: relative;
+  min-height: 118px;
+  background: #fffaf2;
+}
+
+.payroll-track .close-step::before {
+  content: "";
+  width: 26px;
+  height: 4px;
+  border-radius: 99px;
+  background: #e6cdaa;
+}
+
+.payroll-track .close-step.done::before {
+  background: var(--success);
+}
+
+.payroll-track .close-step.blocked::before {
+  background: var(--warning);
+}
+
+.payroll-ledger-preview {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.inbox-workspace {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.inbox-queue {
+  position: sticky;
+  top: 24px;
+  background: #fffaf2;
+}
+
+.inbox-queue-list {
+  gap: 8px;
+}
+
+.inbox-queue-item {
+  min-height: 68px;
+  background: #ffffff;
+}
+
+.inbox-review-panel {
+  min-width: 0;
+}
+
+.approval-review-card {
+  border-color: #ead8c2;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #fffaf2 100%),
+    #ffffff;
+}
+
+.approval-review-card .decision-grid {
+  align-items: stretch;
+}
+
+.decided-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .workflow-card {
   display: grid;
   align-content: start;
@@ -1231,8 +1348,10 @@ legend {
   .toggle-row,
   .finance-strip,
   .workspace-grid,
+  .inbox-workspace,
   .payroll-actions,
   .payroll-preview,
+  .payroll-ledger-preview,
   .console-toolbar,
   .console-summary,
   .console-layout,
@@ -1256,6 +1375,10 @@ legend {
   }
 
   .console-sidebar {
+    position: static;
+  }
+
+  .inbox-queue {
     position: static;
   }
 
@@ -1293,6 +1416,14 @@ legend {
   }
 
   .close-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .payroll-track {
+    grid-template-columns: 1fr;
+  }
+
+  .decided-list {
     grid-template-columns: 1fr;
   }
 }

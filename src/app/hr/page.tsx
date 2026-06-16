@@ -48,7 +48,7 @@ export default async function HrDashboardPage() {
         <p>人資首頁以待處理流程與異常為核心，而不是一長串功能選單。</p>
       </section>
 
-      <section className="grid">
+      <section className="grid hr-command-center">
         <div className="panel span-4 metric">
           <span className="muted">員工數</span>
           <strong>{overview.employeeCount}</strong>
@@ -65,7 +65,7 @@ export default async function HrDashboardPage() {
           <span className={`badge ${kpiSummary.readyForSale ? "" : "warning"}`}>販售門檻</span>
         </div>
 
-        <section className="panel span-12 finance-strip">
+        <section className="panel span-12 finance-strip hr-close-strip">
           <div>
             <span className="muted">月結健康度</span>
             <strong>{closeHealth.ready}/{closeHealth.total} 已完成</strong>
@@ -82,7 +82,7 @@ export default async function HrDashboardPage() {
           </div>
         </section>
 
-        <section className="panel span-12 command-panel">
+        <section className="panel span-12 command-panel hr-next-actions">
           <div className="section-heading">
             <div>
               <h2>下一步</h2>
@@ -112,7 +112,7 @@ export default async function HrDashboardPage() {
           </ul>
         </section>
 
-        <section className="span-12 workspace-grid" aria-label="人資作業工作區">
+        <section className="span-12 workspace-grid hr-workspace-grid" aria-label="人資作業工作區">
           {workspaceGroups.map((group) => (
             <article className="panel workflow-card" key={group.id}>
               <div className="workflow-card-header">
@@ -141,7 +141,7 @@ export default async function HrDashboardPage() {
           ))}
         </section>
 
-        <section className="panel span-12">
+        <section className="panel span-12 hr-toolbox">
           <div className="section-heading">
             <div>
               <h2>員工與表單</h2>
@@ -197,7 +197,7 @@ export default async function HrDashboardPage() {
           </div>
         </section>
 
-        <section className="panel span-12">
+        <section className="panel span-12 hr-toolbox">
           <div className="section-heading">
             <div>
               <h2>出勤假勤</h2>
@@ -253,9 +253,9 @@ export default async function HrDashboardPage() {
               {focusKpis.map((kpi) => (
                 <li className="task" key={kpi.id}>
                   <span>
-                    <strong>{kpi.name}</strong>
+                    <strong>{translateKpiName(kpi.name)}</strong>
                     <small>目標 {kpi.target} · 目前 {kpi.current}</small>
-                    <small>{kpi.nextStep}</small>
+                    <small>{translateKpiNextStep(kpi.nextStep)}</small>
                   </span>
                   <span className={`badge ${kpi.status === "failing" ? "danger" : "warning"}`}>
                     {labelStatus(kpi.status)}
@@ -266,7 +266,7 @@ export default async function HrDashboardPage() {
           </section>
         ) : null}
 
-        <section className="panel span-12">
+        <section className="panel span-12 payroll-console">
           <div className="section-heading">
             <div>
               <h2>薪資月結</h2>
@@ -291,7 +291,7 @@ export default async function HrDashboardPage() {
                 合規資料
               </a>
               <a className="button" href="/hr/insurance">
-                Insurance
+                保險
               </a>
               <a className="button" href="/hr/payroll-recordkeeping">
                 工資紀錄
@@ -348,7 +348,7 @@ export default async function HrDashboardPage() {
           {payroll.checklist.ruleReview.blocksLock ? (
             <div className="risk-box danger-box">
               <strong>鎖定薪資前需完成規則檢查</strong>
-              <p>{payroll.checklist.ruleReview.detail}</p>
+              <p>{translatePayrollDetail(payroll.checklist.ruleReview.detail)}</p>
               <p className="muted">
                 啟用規則 {payroll.checklist.ruleReview.activeRuleVersion}；薪資草稿規則{" "}
                 {payroll.checklist.ruleReview.payrollRuleVersionId ?? "尚未試算"}。
@@ -357,23 +357,23 @@ export default async function HrDashboardPage() {
           ) : (
             <div className="risk-box">
               <strong>規則版本已就緒</strong>
-              <p>{payroll.checklist.ruleReview.detail}</p>
+              <p>{translatePayrollDetail(payroll.checklist.ruleReview.detail)}</p>
             </div>
           )}
 
-          <ol className="close-steps">
+          <ol className="close-steps payroll-track">
             {payroll.checklist.steps.map((step) => (
               <li key={step.step} className={`close-step ${step.status}`}>
                 <strong>
-                  {step.step}. {step.title}
+                  {step.step}. {translatePayrollStepTitle(step.title)}
                 </strong>
-                <span>{step.detail}</span>
+                <span>{translatePayrollDetail(step.detail)}</span>
               </li>
             ))}
           </ol>
 
           {payroll.run ? (
-            <div className="payroll-preview">
+            <div className="payroll-preview payroll-ledger-preview">
               <div className="metric">
                 <span className="muted">應發草稿</span>
                 <strong>{formatMoney(payroll.run.grossTotal)}</strong>
@@ -412,7 +412,7 @@ export default async function HrDashboardPage() {
           ) : null}
         </section>
 
-        <div className="panel span-8">
+        <div className="panel span-8 exception-console">
           <div className="section-heading">
             <div>
               <h2>出勤異常</h2>
@@ -430,7 +430,7 @@ export default async function HrDashboardPage() {
                 <li className="task" key={exception.id}>
                   <span>
                     <strong>{exception.employeeName}</strong>
-                    <small>{exception.exceptionType}</small>
+                    <small>{translateExceptionType(exception.exceptionType)}</small>
                   </span>
                   <span className={`badge ${exception.severity === "warning" ? "warning" : "danger"}`}>
                     {labelStatus(exception.status)}
@@ -441,12 +441,12 @@ export default async function HrDashboardPage() {
           )}
         </div>
 
-        <div className="panel span-4">
+        <div className="panel span-4 department-console">
           <h2>部門</h2>
           <ul className="task-list">
             {overview.company.departments.map((department) => (
               <li className="task" key={department.id}>
-                <span>{department.name}</span>
+                <span>{translateDepartmentName(department.name)}</span>
                 <span className="badge">{department._count.employees}</span>
               </li>
             ))}
@@ -499,8 +499,8 @@ function buildNextActions(input: {
   if (onboardingBlocker) {
     actions.push({
       id: "onboarding",
-      title: onboardingBlocker.title,
-      detail: onboardingBlocker.detail,
+      title: translateReadinessTitle(onboardingBlocker.title),
+      detail: translateReadinessDetail(onboardingBlocker.detail),
       href: onboardingBlocker.actionHref,
       label: translateActionLabel(onboardingBlocker.actionLabel),
       status: "已阻擋",
@@ -525,8 +525,8 @@ function buildNextActions(input: {
   if (blockedPayrollStep) {
     actions.push({
       id: "payroll",
-      title: blockedPayrollStep.title,
-      detail: blockedPayrollStep.detail,
+      title: translatePayrollStepTitle(blockedPayrollStep.title),
+      detail: translatePayrollDetail(blockedPayrollStep.detail),
       href: "/hr",
       label: "檢查月結",
       status: "月結步驟",
@@ -632,8 +632,68 @@ function translateActionLabel(label: string) {
     Review: "檢查",
     "Open readiness": "開啟準備度",
     "Open launch gate": "開啟上線門檻",
+    "Open labor roster": "開啟勞工名卡",
   };
   return labels[label] ?? label;
+}
+
+function translateReadinessTitle(title: string) {
+  const labels: Record<string, string> = {
+    "Labor roster profiles": "勞工名卡資料",
+    "Payment profiles": "付款資料",
+    "Salary profiles": "薪資資料",
+    "Work rules": "工作規則",
+  };
+  return labels[title] ?? title;
+}
+
+function translateReadinessDetail(detail: string) {
+  const labels: Record<string, string> = {
+    "2/5 active employee(s) have complete and verified Taiwan labor roster profiles.":
+      "5 位在職員工中，已有 2 位完成並驗證台灣勞工名卡資料。",
+    "Missing punches must be resolved.": "漏打卡需先補正，才能進入薪資鎖定。",
+  };
+  return labels[detail] ?? detail;
+}
+
+function translateKpiName(name: string) {
+  const labels: Record<string, string> = {
+    "HR monthly payroll close time reduction": "HR 每月薪資結算時間降低",
+    "Attendance exceptions auto-resolved before month end": "出勤異常月底前自動解決率",
+    "Employee mobile task completion rate": "員工手機端任務完成率",
+    "New employee first successful leave request": "新員工首次請假成功時間",
+    "Manager average leave approval time": "主管平均簽核時間",
+  };
+  return labels[name] ?? name;
+}
+
+function translateKpiNextStep(nextStep: string) {
+  const labels: Record<string, string> = {
+    "Automate remaining payroll blockers: unresolved punches, pending approvals, and payment profile gaps.":
+      "自動處理剩餘薪資阻擋項：漏打卡、待簽核與付款資料缺口。",
+    "Turn worktime compliance findings into employee/manager nudges before payroll close.":
+      "在薪資月結前，把工時合規發現轉成員工與主管提醒。",
+    "Instrument task start/complete events for punch, leave, overtime, correction, forms, and payslip views.":
+      "補齊打卡、請假、加班、補打卡、表單與薪資單瀏覽的開始/完成事件。",
+  };
+  return labels[nextStep] ?? nextStep;
+}
+
+function translateExceptionType(type: string) {
+  const labels: Record<string, string> = {
+    missing_clock_out: "缺少下班打卡",
+    missing_clock_in: "缺少上班打卡",
+    overtime_risk: "超時工時風險",
+  };
+  return labels[type] ?? type;
+}
+
+function translateDepartmentName(name: string) {
+  const labels: Record<string, string> = {
+    "People Operations": "人事營運",
+    "Product Engineering": "產品工程",
+  };
+  return labels[name] ?? name;
 }
 
 function labelPayrollItemKind(kind: string) {
@@ -641,6 +701,33 @@ function labelPayrollItemKind(kind: string) {
   if (kind === "deduction") return "扣項";
   if (kind === "employer_contribution") return "雇主負擔";
   return kind;
+}
+
+function translatePayrollStepTitle(title: string) {
+  const labels: Record<string, string> = {
+    "Attendance completeness check": "出勤完整性檢查",
+    "Pending approvals check": "待簽核檢查",
+    "Payroll calculation draft": "薪資試算草稿",
+    "Exception review": "例外審查",
+    "HR confirmation": "人資確認",
+    "Payroll lock": "薪資鎖定",
+    "Payslip generation": "薪資單產生",
+  };
+  return labels[title] ?? title;
+}
+
+function translatePayrollDetail(detail: string) {
+  const labels: Record<string, string> = {
+    "No payroll calculation has selected a rule version yet.": "尚未試算，因此薪資草稿還沒有綁定規則版本。",
+    "Missing punches must be resolved.": "漏打卡需先補正。",
+    "0 pending approval(s).": "目前沒有待簽核申請。",
+    "Calculate after blockers are clear.": "阻擋項清除後即可試算。",
+    "0 payroll exception(s).": "目前沒有薪資例外。",
+    "HR confirmation required.": "需要人資確認。",
+    "Lock prevents silent mutation.": "鎖定後不可靜默異動。",
+    "Release after lock.": "鎖定後才能發布。",
+  };
+  return labels[detail] ?? detail;
 }
 
 function labelStatus(status: string) {
