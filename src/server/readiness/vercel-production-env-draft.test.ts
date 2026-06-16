@@ -3,6 +3,7 @@ import { buildEnvironmentVerificationReport } from "@/server/readiness/environme
 import {
   buildVercelProductionEnvDraft,
   draftHasUnresolvedPlaceholders,
+  getUnresolvedEnvPlaceholderKeys,
 } from "@/server/readiness/vercel-production-env-draft";
 import { parseEnvFile } from "@/server/readiness/vercel-production-env";
 
@@ -32,6 +33,13 @@ describe("Vercel production env draft", () => {
     expect(env.HR_ONE_ENCRYPTION_KEY).toContain("generated-secret-2");
     expect(env.HR_ONE_AUDIT_LOG_SIGNING_KEY).toContain("generated-secret-3");
     expect(draftHasUnresolvedPlaceholders(text)).toBe(true);
+    expect(getUnresolvedEnvPlaceholderKeys(env)).toEqual([
+      "DATABASE_URL",
+      "HR_ONE_AUTH_ISSUER_URL",
+      "HR_ONE_AUTH_JWKS_URL",
+      "HR_ONE_AUTH_PROVIDER",
+      "HR_ONE_BACKUP_RESTORE_TESTED_AT",
+    ]);
   });
 
   it("passes production env verification after real operator-only placeholders are supplied", () => {

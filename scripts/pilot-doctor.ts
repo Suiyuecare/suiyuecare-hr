@@ -1,15 +1,21 @@
 import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { HealthReport, HealthStatus } from "../src/server/readiness/health";
+import { buildEnvironmentVerificationReport } from "../src/server/readiness/environment-verification";
 import {
   buildPilotDoctorReport,
   formatPilotDoctorReport,
   pilotDoctorPassed,
+  type PilotDoctorLocalEnvDraft,
 } from "../src/server/readiness/pilot-doctor";
 import {
   buildProductionPilotGateReport,
   buildReadinessUrl,
   redactSensitiveDetail,
 } from "../src/server/readiness/production-pilot-gate";
+import { getUnresolvedEnvPlaceholderKeys } from "../src/server/readiness/vercel-production-env-draft";
+import { parseEnvFile } from "../src/server/readiness/vercel-production-env";
 
 type VercelEnvList = {
   envs?: unknown[];
@@ -27,15 +33,23 @@ async function main() {
   const projectRef = readArg(args, "--project-ref") ?? process.env.SUPABASE_PROJECT_REF ?? "aruncclorusswpfnpgsn";
   const schemaName = readArg(args, "--schema") ?? "hr_one";
   const skipSupabase = args.includes("--skip-supabase");
+  const skipLocalEnv = args.includes("--skip-local-env");
+  const envFile = resolve(readArg(args, "--env-file") ?? ".env.vercel.production");
   const json = args.includes("--json");
 
-  const [healthReport, vercelEnvNames, supabasePilot] = await Promise.all([
+  const [healthReport, vercelEnvNames, supabasePilot, localEnvDraft] = await Promise.all([
     fetchHealthReport(buildReadinessUrl(appUrl), timeoutMs),
     Promise.resolve(readVercelProductionEnvNames()),
     Promise.resolve(skipSupabase ? {
       status: "skipped" as const,
       detail: "Supabase pilot verification skipped by --skip-supabase.",
     } : verifySupabasePilot(projectRef, schemaName)),
+    Promise.resolve(skipLocalEnv
+      ? {
+          status: "skipped" as const,
+          detail: "Local env draft check skipped by --skip-local-env.",
+        }
+      : inspectLocalEnvDraft(envFile)),
   ]);
   const productionGate = buildProductionPilotGateReport({
     appUrl,
@@ -46,6 +60,7 @@ async function main() {
     productionGate,
     vercelEnvNames,
     supabasePilot,
+    localEnvDraft,
   });
 
   if (json) {
@@ -126,6 +141,36 @@ function verifySupabasePilot(projectRef: string, schemaName: string) {
       result.stderr.trim(),
     ].filter(Boolean).join("\n")),
   };
+}
+
+function inspectLocalEnvDraft(envFile: string): PilotDoctorLocalEnvDraft {
+  if (!existsSync(envFile)) {
+    return {
+      status: "missing",
+      detail: `${envFile} does not exist`,
+    };
+  }
+
+  try {
+    const env = parseEnvFile(readFileSync(envFile, "utf8"));
+    const unresolvedPlaceholderKeys = getUnresolvedEnvPlaceholderKeys(env);
+    const verification = buildEnvironmentVerificationReport(env, "production");
+    const failedCheckNames = verification.checks.filter((check) => !check.passed).map((check) => check.name);
+    const ready = unresolvedPlaceholderKeys.length === 0 && failedCheckNames.length === 0;
+    return {
+      status: ready ? "ready" : "blocked",
+      detail: ready
+        ? `${envFile} is ready for pnpm vercel:apply-production-env dry-run`
+        : `${envFile} has ${unresolvedPlaceholderKeys.length} unresolved placeholder key(s) and ${failedCheckNames.length} failed verifier check(s)`,
+      unresolvedPlaceholderKeys,
+      failedCheckNames,
+    };
+  } catch (error) {
+    return {
+      status: "blocked",
+      detail: `Unable to inspect ${envFile}: ${redactSensitiveDetail(errorMessage(error))}`,
+    };
+  }
 }
 
 function isHealthReport(value: unknown): value is HealthReport {

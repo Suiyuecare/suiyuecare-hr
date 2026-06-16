@@ -202,10 +202,10 @@ This gate reads `/api/health/ready` from the deployed app and blocks the pilot w
 For the full pilot go/no-go view, run the doctor command:
 
 ```bash
-pnpm pilot:doctor -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one
+pnpm pilot:doctor -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production
 ```
 
-It checks Vercel Production env key presence, the live readiness endpoint, and the Supabase pilot tenant seed without printing secret values. The two-week trial should not start until this returns `ready`.
+It checks Vercel Production env key presence, the local production env draft, the live readiness endpoint, and the Supabase pilot tenant seed without printing secret values. The two-week trial should not start until this returns `ready`.
 
 12. Start the app:
 
@@ -295,7 +295,7 @@ pnpm db:supabase:seed-pilot -- --project-ref=<supabase-project-ref> --schema=hr_
 pnpm db:supabase:seed-pilot -- --project-ref=<supabase-project-ref> --schema=hr_one --apply
 pnpm vercel:create-production-env-draft
 pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --dry-run
-pnpm pilot:doctor -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one
+pnpm pilot:doctor -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production
 pnpm release:gate
 pnpm release:gate:production -- --tenant-slug=<customer-slug>
 ```

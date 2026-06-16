@@ -66,6 +66,14 @@ export function draftHasUnresolvedPlaceholders(text: string) {
   return /REPLACE_WITH_[A-Z0-9_]+/.test(text);
 }
 
+export function getUnresolvedEnvPlaceholderKeys(env: Record<string, string | undefined>) {
+  return Object.entries(env)
+    .filter((entry): entry is [string, string] => Boolean(entry[1]))
+    .filter(([, value]) => /REPLACE_WITH_[A-Z0-9_]+/.test(value))
+    .map(([key]) => key)
+    .sort();
+}
+
 function generateSecret() {
   return randomBytes(32).toString("base64url");
 }

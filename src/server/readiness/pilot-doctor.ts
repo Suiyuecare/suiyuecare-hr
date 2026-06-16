@@ -17,6 +17,13 @@ export type PilotDoctorExternalCheck = {
   detail: string;
 };
 
+export type PilotDoctorLocalEnvDraft = {
+  status: "ready" | "blocked" | "missing" | "skipped";
+  detail: string;
+  unresolvedPlaceholderKeys?: string[];
+  failedCheckNames?: string[];
+};
+
 export type PilotDoctorReport = {
   status: PilotDoctorStatus;
   checkedAt: string;
@@ -29,6 +36,7 @@ export type PilotDoctorOptions = {
   productionGate: ProductionPilotGateReport;
   vercelEnvNames: string[];
   supabasePilot: PilotDoctorExternalCheck;
+  localEnvDraft?: PilotDoctorLocalEnvDraft;
 };
 
 export const requiredProductionPilotEnvKeys = [
@@ -67,6 +75,7 @@ export function buildPilotDoctorReport(options: PilotDoctorOptions): PilotDoctor
   const missingEnvKeys = getMissingProductionPilotEnvKeys(options.vercelEnvNames);
   const checks = [
     buildVercelEnvCheck(options.vercelEnvNames, missingEnvKeys),
+    buildLocalEnvDraftCheck(options.localEnvDraft, missingEnvKeys),
     buildProductionGateCheck(options.productionGate),
     buildSupabasePilotCheck(options.supabasePilot),
   ];
@@ -74,6 +83,7 @@ export function buildPilotDoctorReport(options: PilotDoctorOptions): PilotDoctor
     missingEnvKeys,
     productionGate: options.productionGate,
     supabasePilot: options.supabasePilot,
+    localEnvDraft: options.localEnvDraft,
   });
 
   return {
@@ -125,6 +135,31 @@ function buildVercelEnvCheck(envNames: string[], missingEnvKeys: readonly string
   );
 }
 
+function buildLocalEnvDraftCheck(
+  localEnvDraft: PilotDoctorLocalEnvDraft | undefined,
+  missingEnvKeys: readonly string[],
+): PilotDoctorCheck {
+  const localDraftRequired = missingEnvKeys.length > 0;
+  if (!localDraftRequired && (!localEnvDraft || localEnvDraft.status === "missing" || localEnvDraft.status === "skipped")) {
+    return check(
+      "local production env draft",
+      true,
+      "not required because Vercel Production already has the required env keys",
+    );
+  }
+  if (!localEnvDraft || localEnvDraft.status === "missing") {
+    return check(
+      "local production env draft",
+      false,
+      localEnvDraft?.detail ?? "local .env.vercel.production draft is missing",
+    );
+  }
+  if (localEnvDraft.status === "skipped") {
+    return check("local production env draft", !localDraftRequired, localEnvDraft.detail);
+  }
+  return check("local production env draft", localEnvDraft.status === "ready", localEnvDraft.detail);
+}
+
 function buildProductionGateCheck(productionGate: ProductionPilotGateReport): PilotDoctorCheck {
   return check(
     "live production gate",
@@ -145,9 +180,19 @@ function buildNextActions(options: {
   missingEnvKeys: readonly string[];
   productionGate: ProductionPilotGateReport;
   supabasePilot: PilotDoctorExternalCheck;
+  localEnvDraft?: PilotDoctorLocalEnvDraft;
 }) {
   const actions: string[] = [];
 
+  if (options.missingEnvKeys.length > 0 && (!options.localEnvDraft || options.localEnvDraft.status === "missing")) {
+    actions.push("Run pnpm vercel:create-production-env-draft to create a gitignored .env.vercel.production draft with generated local secrets.");
+  }
+  if (options.localEnvDraft?.unresolvedPlaceholderKeys?.length) {
+    actions.push(`Replace local .env.vercel.production placeholders for: ${options.localEnvDraft.unresolvedPlaceholderKeys.join(", ")}.`);
+  }
+  if (options.localEnvDraft?.failedCheckNames?.length) {
+    actions.push(`Fix local production env verification failures before apply: ${options.localEnvDraft.failedCheckNames.join(", ")}.`);
+  }
   if (options.missingEnvKeys.length > 0) {
     actions.push("Fill .env.vercel.production with real production values and run pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --method=cli.");
   }

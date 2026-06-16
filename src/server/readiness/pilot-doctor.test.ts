@@ -37,6 +37,10 @@ describe("pilot doctor", () => {
         expectedHost: "hr.suiyuecare.com",
         healthReport: readyHealth,
       }),
+      localEnvDraft: {
+        status: "ready",
+        detail: "local draft ready",
+      },
       supabasePilot: {
         status: "passed",
         detail: "pilot seed verified",
@@ -48,7 +52,7 @@ describe("pilot doctor", () => {
     expect(report.nextActions).toEqual([]);
   });
 
-  it("blocks and points to DATABASE_URL when production env is empty", () => {
+  it("blocks and points to DATABASE_URL when production env is empty and local draft is missing", () => {
     const report = buildPilotDoctorReport({
       vercelEnvNames: [],
       productionGate: buildProductionPilotGateReport({
@@ -60,6 +64,10 @@ describe("pilot doctor", () => {
         status: "passed",
         detail: "pilot seed verified",
       },
+      localEnvDraft: {
+        status: "missing",
+        detail: ".env.vercel.production does not exist",
+      },
     });
 
     expect(report.status).toBe("blocked");
@@ -69,6 +77,41 @@ describe("pilot doctor", () => {
     });
     expect(report.nextActions).toContain(
       "Use the Supabase server-side Postgres connection string with ?schema=hr_one for DATABASE_URL; do not use the publishable key as DATABASE_URL.",
+    );
+    expect(report.nextActions).toContain(
+      "Run pnpm vercel:create-production-env-draft to create a gitignored .env.vercel.production draft with generated local secrets.",
+    );
+  });
+
+  it("reports unresolved local env draft placeholders before Vercel apply", () => {
+    const report = buildPilotDoctorReport({
+      vercelEnvNames: [],
+      productionGate: buildProductionPilotGateReport({
+        appUrl: "https://hr.suiyuecare.com",
+        expectedHost: "hr.suiyuecare.com",
+        healthReport: readyHealth,
+      }),
+      supabasePilot: {
+        status: "passed",
+        detail: "pilot seed verified",
+      },
+      localEnvDraft: {
+        status: "blocked",
+        detail: ".env.vercel.production has 2 unresolved placeholder key(s) and 2 failed verifier check(s)",
+        unresolvedPlaceholderKeys: ["DATABASE_URL", "HR_ONE_AUTH_ISSUER_URL"],
+        failedCheckNames: ["database url", "auth issuer url"],
+      },
+    });
+
+    expect(report.checks.find((check) => check.name === "local production env draft")).toMatchObject({
+      passed: false,
+      detail: ".env.vercel.production has 2 unresolved placeholder key(s) and 2 failed verifier check(s)",
+    });
+    expect(report.nextActions).toContain(
+      "Replace local .env.vercel.production placeholders for: DATABASE_URL, HR_ONE_AUTH_ISSUER_URL.",
+    );
+    expect(report.nextActions).toContain(
+      "Fix local production env verification failures before apply: database url, auth issuer url.",
     );
   });
 
