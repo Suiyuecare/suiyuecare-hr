@@ -7,6 +7,7 @@ import {
   confirmPayrollProfileImport,
   getPayrollProfileImportWorkspace,
   previewPayrollProfileImport,
+  previewPayrollProfileImportRows,
   resetPayrollProfileImportDemoState,
 } from "@/server/payroll/profile-imports";
 
@@ -99,5 +100,29 @@ NOPE,-1,non_resident,0,4,A,12,20260701`,
     );
     await expect(confirmPayrollProfileImport(hrSession, preview.id)).rejects.toThrow(/Fix invalid rows/);
     await expect(getPayrollProfileImportWorkspace(managerSession)).rejects.toThrow(/payroll:manage/);
+  });
+
+  it("previews projected payroll rows before imported employees exist in the database", () => {
+    const preview = previewPayrollProfileImportRows(
+      `employeeNo,baseSalary,taxResidency,dependentCount,bankCode,accountName,accountNumber,effectiveFrom
+P001,48000,resident,0,004,投影員工,1234567890,2026-07-01
+P999,48000,resident,0,004,未知員工,1234567890,2026-07-01`,
+      [{ id: "projected:P001", employeeNo: "P001", displayName: "投影員工" }],
+    );
+
+    expect(preview.validCount).toBe(1);
+    expect(preview.invalidCount).toBe(1);
+    expect(preview.rows[0]).toMatchObject({
+      employeeId: "projected:P001",
+      employeeName: "投影員工",
+      accountNumberLast4: "7890",
+      status: "valid",
+    });
+    expect(preview.rows[1]).toMatchObject({
+      employeeNo: "P999",
+      employeeId: null,
+      status: "invalid",
+      errors: expect.arrayContaining(["Employee number was not found."]),
+    });
   });
 });

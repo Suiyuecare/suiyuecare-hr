@@ -42,6 +42,15 @@ export type PilotIdentityImportContext = {
   existingIdentities: PilotIdentityExistingIdentity[];
 };
 
+export type PilotIdentityProjectedEmployee = {
+  id?: string | null;
+  employeeNo: string;
+  displayName: string;
+  userId?: string | null;
+  managerEmployeeNo?: string | null;
+  hasDirectReports?: boolean;
+};
+
 export type PilotIdentityImportRow = {
   rowNumber: number;
   employeeNo: string;
@@ -158,6 +167,47 @@ export async function readPilotIdentityImportContext(
       linkedEmployeeId: user.employee?.id ?? null,
     })),
     existingIdentities: identities,
+  };
+}
+
+export function projectPilotIdentityImportContext(input: {
+  context: PilotIdentityImportContext;
+  employees: PilotIdentityProjectedEmployee[];
+}): PilotIdentityImportContext {
+  const projectedManagerNos = new Set(
+    input.employees
+      .map((employee) => employee.managerEmployeeNo?.trim().toLowerCase())
+      .filter((employeeNo): employeeNo is string => Boolean(employeeNo)),
+  );
+  const employeeByNo = new Map<string, PilotIdentityEmployee>();
+
+  for (const employee of input.context.employees) {
+    const normalized = employee.employeeNo.toLowerCase();
+    employeeByNo.set(normalized, {
+      ...employee,
+      hasDirectReports: employee.hasDirectReports || projectedManagerNos.has(normalized),
+    });
+  }
+
+  for (const employee of input.employees) {
+    const employeeNo = employee.employeeNo.trim();
+    if (!employeeNo) continue;
+    const normalized = employeeNo.toLowerCase();
+    const current = employeeByNo.get(normalized) ?? null;
+    employeeByNo.set(normalized, {
+      id: employee.id?.trim() || current?.id || `projected:${employeeNo}`,
+      employeeNo,
+      displayName: employee.displayName,
+      userId: employee.userId ?? current?.userId ?? null,
+      hasDirectReports: Boolean(employee.hasDirectReports) || projectedManagerNos.has(normalized) || Boolean(current?.hasDirectReports),
+    });
+  }
+
+  return {
+    ...input.context,
+    employees: Array.from(employeeByNo.values()).sort((left, right) =>
+      left.employeeNo.localeCompare(right.employeeNo),
+    ),
   };
 }
 

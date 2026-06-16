@@ -83,6 +83,13 @@ export async function previewPayrollProfileImport(session: SessionLike, rawCsv: 
   return preview;
 }
 
+export function previewPayrollProfileImportRows(
+  rawCsv: string,
+  employees: PayrollProfileImportWorkspace["employees"],
+) {
+  return buildPreview(rawCsv, employees);
+}
+
 export async function confirmPayrollProfileImport(session: SessionLike, previewId: string) {
   assertPermission(session.role, "payroll:manage");
   const preview = getDemoState().previews.find((item) => item.id === previewId);

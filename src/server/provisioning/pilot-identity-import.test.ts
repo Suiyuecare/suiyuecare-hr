@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildPilotIdentityImportPlan,
   formatPilotIdentityImportReport,
+  projectPilotIdentityImportContext,
   toPilotIdentityCsv,
   type PilotIdentityImportContext,
 } from "@/server/provisioning/pilot-identity-import";
@@ -81,6 +82,38 @@ describe("pilot identity import", () => {
     expect(plan.checks.find((check) => check.name === "SSO configuration")).toMatchObject({
       status: "block",
     });
+  });
+
+  it("projects the not-yet-imported employee cohort before database writes", () => {
+    const projectedContext = projectPilotIdentityImportContext({
+      context: context({ employees: [] }),
+      employees: Array.from({ length: 25 }, (_, index) => {
+        const sequence = index + 1;
+        const employeeNo = `P${String(sequence).padStart(3, "0")}`;
+        return {
+          employeeNo,
+          displayName: `Projected Employee ${sequence}`,
+          managerEmployeeNo: sequence > 1 && sequence <= 6 ? "P001" : null,
+        };
+      }),
+    });
+    const plan = buildPilotIdentityImportPlan({
+      rawCsv: toPilotIdentityCsv(
+        projectedContext.employees.map((employee) => ({
+          employeeNo: employee.employeeNo,
+          email: `${employee.employeeNo.toLowerCase()}@customer.example`,
+          externalSubject: `oidc-${employee.employeeNo.toLowerCase()}`,
+        })),
+      ),
+      context: projectedContext,
+      generatedAt: new Date("2026-06-17T00:00:00.000Z"),
+    });
+
+    expect(projectedContext.employees).toHaveLength(25);
+    expect(plan.status).toBe("ready");
+    expect(plan.managerRoleCount).toBe(1);
+    expect(plan.rows.find((row) => row.employeeNo === "P001")?.roles).toEqual(["employee", "manager"]);
+    expect(plan.rows.find((row) => row.employeeNo === "P002")?.roles).toEqual(["employee"]);
   });
 });
 
