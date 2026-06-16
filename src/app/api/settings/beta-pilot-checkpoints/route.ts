@@ -3,8 +3,8 @@ import { requireTenantSession } from "@/server/auth/guards";
 import { recordBetaPilotCheckpoint } from "@/server/readiness/beta-pilot-checkpoints";
 
 export async function POST(request: Request) {
-  const formData = await request.formData();
   try {
+    const formData = await request.formData();
     await recordBetaPilotCheckpoint(await requireTenantSession({ permission: "pilot:manage" }), {
       checkpointId: readString(formData.get("checkpointId")),
       status: readString(formData.get("status")),
