@@ -63,6 +63,7 @@ export type BetaPilotPhase = {
 
 export type BetaPilotReadinessInput = {
   employeeCount: number;
+  managerCount: number;
   trialDays?: number;
   launchReport: Pick<LaunchReadinessReport, "items">;
   kpis: HrOneKpi[];
@@ -105,6 +106,7 @@ export async function getBetaPilotReadinessReport(
 
   return buildBetaPilotReadinessReport({
     employeeCount: overview?.employeeCount ?? 0,
+    managerCount: overview?.managerCount ?? 0,
     trialDays: 14,
     launchReport,
     kpis,
@@ -133,19 +135,22 @@ export function buildBetaPilotReadinessReport(input: BetaPilotReadinessInput): B
   const payrollKpiStatus = kpiStatus(kpis, "payroll_close_reduction");
   const auditKpiStatus = kpiStatus(kpis, "audit_log_coverage");
   const payrollAccessKpiStatus = kpiStatus(kpis, "unauthorized_payroll_access");
+  const cohortHasPilotSize =
+    input.employeeCount >= targetEmployeeRange.min && input.employeeCount <= targetEmployeeRange.max;
+  const cohortHasManagerLine = input.managerCount >= 1;
 
   const items: BetaPilotReadinessItem[] = [
     {
       id: "cohort_size",
       area: "Cohort",
       title: "20-50 人試用名單",
-      status: input.employeeCount >= targetEmployeeRange.min && input.employeeCount <= targetEmployeeRange.max
+      status: cohortHasPilotSize && cohortHasManagerLine
         ? "ready"
         : input.employeeCount === 0
           ? "blocked"
           : "action_required",
-      detail: `${input.employeeCount} 位員工在目前公司資料中；目標是 ${targetEmployeeRange.min}-${targetEmployeeRange.max} 人。`,
-      nextStep: "匯入實際試用員工、主管、HR 與老闆帳號，讓試用規模足以驗證日常流程但不超出 Beta 支援能力。",
+      detail: `${input.employeeCount} 位員工、${input.managerCount} 位主管在目前公司資料中；目標是 ${targetEmployeeRange.min}-${targetEmployeeRange.max} 人且至少 1 條主管簽核線。`,
+      nextStep: "匯入實際試用員工、主管、HR 與老闆帳號，並補齊員工的直屬主管，讓試用規模足以驗證日常與簽核流程。",
       actionLabel: "匯入員工",
       actionHref: "/hr/employee-import",
     },

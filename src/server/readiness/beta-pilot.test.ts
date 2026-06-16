@@ -68,6 +68,7 @@ describe("beta pilot readiness", () => {
   it("requires a 20-50 person cohort for the two-week trial", () => {
     const report = buildBetaPilotReadinessReport({
       employeeCount: 5,
+      managerCount: 1,
       launchReport: readyLaunchReport(),
       kpis: passingKpis,
       payroll: readyPayroll,
@@ -77,7 +78,7 @@ describe("beta pilot readiness", () => {
     expect(report.readyForPilot).toBe(false);
     expect(report.items.find((item) => item.id === "cohort_size")).toMatchObject({
       status: "action_required",
-      detail: "5 位員工在目前公司資料中；目標是 20-50 人。",
+      detail: "5 位員工、1 位主管在目前公司資料中；目標是 20-50 人且至少 1 條主管簽核線。",
     });
     expect(report.phases[0]).toMatchObject({
       status: "action_required",
@@ -85,9 +86,27 @@ describe("beta pilot readiness", () => {
     });
   });
 
+  it("requires at least one manager approval line for the pilot cohort", () => {
+    const report = buildBetaPilotReadinessReport({
+      employeeCount: 25,
+      managerCount: 0,
+      launchReport: readyLaunchReport(),
+      kpis: passingKpis,
+      payroll: readyPayroll,
+      flowEvidence: allFlowEvidence,
+    });
+
+    expect(report.readyForPilot).toBe(false);
+    expect(report.items.find((item) => item.id === "cohort_size")).toMatchObject({
+      status: "action_required",
+      detail: "25 位員工、0 位主管在目前公司資料中；目標是 20-50 人且至少 1 條主管簽核線。",
+    });
+  });
+
   it("blocks the pilot when tenant persistence or auth gates are blocked", () => {
     const report = buildBetaPilotReadinessReport({
       employeeCount: 25,
+      managerCount: 1,
       launchReport: readyLaunchReport([
         {
           id: "database",
@@ -113,6 +132,7 @@ describe("beta pilot readiness", () => {
   it("requires payroll dry-run and released payslip evidence before trial", () => {
     const report = buildBetaPilotReadinessReport({
       employeeCount: 25,
+      managerCount: 1,
       launchReport: readyLaunchReport(),
       kpis: passingKpis,
       payroll: {
@@ -153,6 +173,7 @@ describe("beta pilot readiness", () => {
     );
     const report = buildBetaPilotReadinessReport({
       employeeCount: 25,
+      managerCount: 1,
       launchReport: readyLaunchReport([
         {
           id: "payment_security",
@@ -175,6 +196,7 @@ describe("beta pilot readiness", () => {
   it("marks the workspace ready only when trial size, flows, payroll, and guardrails are all ready", () => {
     const report = buildBetaPilotReadinessReport({
       employeeCount: 25,
+      managerCount: 1,
       trialDays: 14,
       launchReport: readyLaunchReport(),
       kpis: passingKpis,

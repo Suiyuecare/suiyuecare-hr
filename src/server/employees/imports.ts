@@ -33,6 +33,17 @@ export type EmployeeImportPreview = {
   rows: EmployeeImportRow[];
   validCount: number;
   invalidCount: number;
+  pilotReadiness: EmployeeImportPilotReadiness;
+};
+
+export type EmployeeImportPilotReadiness = {
+  status: "ready" | "action_required" | "blocked";
+  targetMin: number;
+  targetMax: number;
+  existingEmployeeCount: number;
+  projectedEmployeeCount: number;
+  managerAssignmentCount: number;
+  issues: string[];
 };
 
 export type EmployeeImportWorkspace = {
@@ -43,10 +54,18 @@ export type EmployeeImportWorkspace = {
 
 type ImportDemoState = {
   previews: EmployeeImportPreview[];
-  importedEmployees: Array<{ id: string; employeeNo: string; displayName: string; jobTitle: string }>;
+  importedEmployees: Array<{
+    id: string;
+    employeeNo: string;
+    displayName: string;
+    jobTitle: string;
+    managerEmployeeNo: string | null;
+  }>;
 };
 
 const requiredHeaders = ["employeeNo", "displayName", "jobTitle", "departmentCode", "hireDate"] as const;
+const pilotTargetMinEmployees = 20;
+const pilotTargetMaxEmployees = 50;
 
 const globalForImports = globalThis as unknown as {
   hrOneEmployeeImportDemoState?: ImportDemoState;
@@ -114,6 +133,17 @@ async function importDbEmployees(session: SessionLike, preview: EmployeeImportPr
   const db = getDb();
   const validRows = preview.rows.filter((row) => row.status === "valid");
   const imported = await db.$transaction(async (tx) => {
+    const existingEmployees = await tx.employee.findMany({
+      where: {
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+      },
+      select: {
+        id: true,
+        employeeNo: true,
+      },
+    });
+    const employeeIdByNo = new Map(existingEmployees.map((employee) => [employee.employeeNo.toLowerCase(), employee.id]));
     const createdEmployees: Array<{ id: string; employeeNo: string; displayName: string }> = [];
     for (const row of validRows) {
       const employee = await tx.employee.create({
@@ -132,6 +162,29 @@ async function importDbEmployees(session: SessionLike, preview: EmployeeImportPr
         employeeNo: employee.employeeNo,
         displayName: employee.displayName,
       });
+      employeeIdByNo.set(employee.employeeNo.toLowerCase(), employee.id);
+    }
+
+    for (const row of validRows) {
+      if (!row.managerEmployeeNo) continue;
+      const employeeId = employeeIdByNo.get(row.employeeNo.toLowerCase());
+      const managerId = employeeIdByNo.get(row.managerEmployeeNo.toLowerCase());
+      if (!employeeId || !managerId) continue;
+      await tx.employee.update({
+        where: { id: employeeId },
+        data: { managerId },
+      });
+    }
+
+    for (const row of validRows) {
+      const employee = await tx.employee.findUniqueOrThrow({
+        where: {
+          companyId_employeeNo: {
+            companyId: session.companyId!,
+            employeeNo: row.employeeNo,
+          },
+        },
+      });
       await writeAuditLog(tx, {
         tenantId: session.tenantId!,
         companyId: session.companyId!,
@@ -146,12 +199,14 @@ async function importDbEmployees(session: SessionLike, preview: EmployeeImportPr
           displayName: employee.displayName,
           jobTitle: employee.jobTitle,
           departmentId: employee.departmentId,
+          managerId: employee.managerId,
           hireDate: employee.hireDate,
         },
         metadata: {
           source: "employee_csv_import",
           previewId: preview.id,
           rowNumber: row.rowNumber,
+          managerEmployeeNo: row.managerEmployeeNo,
         },
       });
     }
@@ -170,6 +225,9 @@ async function importDbEmployees(session: SessionLike, preview: EmployeeImportPr
       metadata: {
         importedCount: createdEmployees.length,
         invalidCount: preview.invalidCount,
+        projectedEmployeeCount: preview.pilotReadiness.projectedEmployeeCount,
+        managerAssignmentCount: preview.pilotReadiness.managerAssignmentCount,
+        pilotReadinessStatus: preview.pilotReadiness.status,
       },
     });
     return createdEmployees;
@@ -184,6 +242,7 @@ function importDemoEmployees(session: SessionLike, preview: EmployeeImportPrevie
     employeeNo: row.employeeNo,
     displayName: row.displayName,
     jobTitle: row.jobTitle,
+    managerEmployeeNo: row.managerEmployeeNo,
   }));
   state.importedEmployees.unshift(...imported);
   for (const employee of imported) {
@@ -200,6 +259,7 @@ function importDemoEmployees(session: SessionLike, preview: EmployeeImportPrevie
       metadata: {
         source: "employee_csv_import",
         previewId: preview.id,
+        managerEmployeeNo: employee.managerEmployeeNo,
       },
     });
   }
@@ -219,6 +279,9 @@ function importDemoEmployees(session: SessionLike, preview: EmployeeImportPrevie
     metadata: {
       importedCount: imported.length,
       invalidCount: preview.invalidCount,
+      projectedEmployeeCount: preview.pilotReadiness.projectedEmployeeCount,
+      managerAssignmentCount: preview.pilotReadiness.managerAssignmentCount,
+      pilotReadinessStatus: preview.pilotReadiness.status,
     },
   });
   return { importedCount: imported.length };
@@ -240,22 +303,38 @@ function buildPreview(
   }
   const departmentByCode = new Map(departments.map((department) => [department.code.toLowerCase(), department]));
   const existingEmployeeNos = new Set(employees.map((employee) => employee.employeeNo.toLowerCase()));
-  const seenEmployeeNos = new Set<string>();
-  const rows = lines.slice(1).map((line, index) => {
+  const records = lines.slice(1).map((line) => {
     const values = splitCsvLine(line);
-    const record = Object.fromEntries(headers.map((header, valueIndex) => [header, values[valueIndex]?.trim() ?? ""]));
+    return Object.fromEntries(headers.map((header, valueIndex) => [header, values[valueIndex]?.trim() ?? ""]));
+  });
+  const csvEmployeeNos = new Set(
+    records
+      .map((record) => String(record.employeeNo ?? "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const seenEmployeeNos = new Set<string>();
+  const rows = records.map((record, index) => {
     const employeeNo = record.employeeNo ?? "";
+    const normalizedEmployeeNo = employeeNo.toLowerCase();
+    const managerEmployeeNo = record.managerEmployeeNo || null;
+    const normalizedManagerEmployeeNo = managerEmployeeNo?.toLowerCase() ?? null;
     const department = departmentByCode.get((record.departmentCode ?? "").toLowerCase()) ?? null;
     const hireDate = parseDateOnly(record.hireDate ?? "");
     const errors: string[] = [];
     if (!employeeNo) errors.push("Employee number is required.");
-    if (employeeNo && existingEmployeeNos.has(employeeNo.toLowerCase())) errors.push("Employee number already exists.");
-    if (employeeNo && seenEmployeeNos.has(employeeNo.toLowerCase())) errors.push("Duplicate employee number in CSV.");
+    if (employeeNo && existingEmployeeNos.has(normalizedEmployeeNo)) errors.push("Employee number already exists.");
+    if (employeeNo && seenEmployeeNos.has(normalizedEmployeeNo)) errors.push("Duplicate employee number in CSV.");
     if (!record.displayName) errors.push("Display name is required.");
     if (!record.jobTitle) errors.push("Job title is required.");
     if (!department) errors.push("Department code was not found.");
     if (!hireDate) errors.push("Hire date must be YYYY-MM-DD.");
-    seenEmployeeNos.add(employeeNo.toLowerCase());
+    if (normalizedManagerEmployeeNo) {
+      if (normalizedManagerEmployeeNo === normalizedEmployeeNo) errors.push("Manager cannot be the same employee.");
+      if (!existingEmployeeNos.has(normalizedManagerEmployeeNo) && !csvEmployeeNos.has(normalizedManagerEmployeeNo)) {
+        errors.push("Manager employee number was not found in existing employees or CSV.");
+      }
+    }
+    seenEmployeeNos.add(normalizedEmployeeNo);
     return {
       rowNumber: index + 2,
       employeeNo,
@@ -265,11 +344,25 @@ function buildPreview(
       departmentId: department?.id ?? null,
       departmentName: department?.name ?? null,
       hireDate,
-      managerEmployeeNo: record.managerEmployeeNo || null,
+      managerEmployeeNo,
       status: errors.length === 0 ? "valid" : "invalid",
       errors,
     } satisfies EmployeeImportRow;
   });
+  const rowByEmployeeNo = new Map(rows.map((row) => [row.employeeNo.toLowerCase(), row]));
+  for (const row of rows) {
+    const normalizedManagerEmployeeNo = row.managerEmployeeNo?.toLowerCase();
+    if (
+      row.status === "valid" &&
+      normalizedManagerEmployeeNo &&
+      !existingEmployeeNos.has(normalizedManagerEmployeeNo) &&
+      rowByEmployeeNo.get(normalizedManagerEmployeeNo)?.status !== "valid"
+    ) {
+      row.errors.push("Manager employee number points to an invalid CSV row.");
+      row.status = "invalid";
+    }
+  }
+  const pilotReadiness = evaluateEmployeeImportPilotReadiness(rows, employees.length);
   return {
     id: crypto.randomUUID(),
     rawCsv,
@@ -277,6 +370,38 @@ function buildPreview(
     rows,
     validCount: rows.filter((row) => row.status === "valid").length,
     invalidCount: rows.filter((row) => row.status === "invalid").length,
+    pilotReadiness,
+  };
+}
+
+function evaluateEmployeeImportPilotReadiness(
+  rows: EmployeeImportRow[],
+  existingEmployeeCount: number,
+): EmployeeImportPilotReadiness {
+  const validRows = rows.filter((row) => row.status === "valid");
+  const invalidCount = rows.length - validRows.length;
+  const projectedEmployeeCount = existingEmployeeCount + validRows.length;
+  const managerAssignmentCount = validRows.filter((row) => row.managerEmployeeNo).length;
+  const issues: string[] = [];
+  if (validRows.length === 0) issues.push("No valid employee rows are ready to import.");
+  if (invalidCount > 0) issues.push(`${invalidCount} invalid row(s) must be fixed before this can support a pilot.`);
+  if (projectedEmployeeCount < pilotTargetMinEmployees) {
+    issues.push(`Projected employee count is ${projectedEmployeeCount}; import at least ${pilotTargetMinEmployees - projectedEmployeeCount} more employee(s) to reach a 20-person pilot.`);
+  }
+  if (projectedEmployeeCount > pilotTargetMaxEmployees) {
+    issues.push(`Projected employee count is ${projectedEmployeeCount}; split the import so the pilot stays within 50 people.`);
+  }
+  if (managerAssignmentCount === 0) {
+    issues.push("No managerEmployeeNo values were provided; manager approvals need at least one reporting line.");
+  }
+  return {
+    status: issues.length === 0 ? "ready" : validRows.length === 0 ? "blocked" : "action_required",
+    targetMin: pilotTargetMinEmployees,
+    targetMax: pilotTargetMaxEmployees,
+    existingEmployeeCount,
+    projectedEmployeeCount,
+    managerAssignmentCount,
+    issues,
   };
 }
 

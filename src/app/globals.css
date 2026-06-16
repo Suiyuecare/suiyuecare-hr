@@ -329,6 +329,22 @@ textarea {
   grid-column: span 12;
 }
 
+.compact-stat-grid {
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  margin: 18px 0;
+}
+
+.compact-stat-grid .panel-subtle {
+  margin: 0;
+}
+
+.compact-stat-grid strong {
+  color: var(--foreground);
+  font-size: 28px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
 .metric {
   display: grid;
   gap: 8px;
