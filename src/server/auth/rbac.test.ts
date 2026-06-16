@@ -18,9 +18,9 @@ describe("RBAC", () => {
     expect(normalizeRole("not-a-role")).toBe("employee");
   });
 
-  it("routes employees to the front stage and management roles to the console", () => {
+  it("routes employees, managers, and management roles to their task-first dashboards", () => {
     expect(dashboardPathForRole("employee")).toBe("/app");
-    expect(dashboardPathForRole("manager")).toBe("/console");
+    expect(dashboardPathForRole("manager")).toBe("/manager/inbox");
     expect(dashboardPathForRole("hr_admin")).toBe("/console");
     expect(dashboardPathForRole("owner")).toBe("/console");
   });

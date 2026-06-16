@@ -10,19 +10,19 @@ export default async function PayslipPage() {
     <>
       <main className="page mobile-page">
         <section className="page-header">
-          <h1>Payslip</h1>
-          <p>Only your own released payslip is visible here.</p>
+          <h1>我的薪資單</h1>
+          <p>薪資單發布後，只能查看自己的薪資資料。</p>
         </section>
 
         {accessDenied ? (
           <section className="panel">
-            <h2>Access denied</h2>
-            <p className="muted">Payslip access is limited to your own employee role or authorized payroll staff.</p>
+            <h2>無法查看薪資單</h2>
+            <p className="muted">薪資單僅限本人或授權薪資人員查看。</p>
           </section>
         ) : !payslip ? (
           <section className="panel">
-            <h2>No released payslip</h2>
-            <p className="muted">Payslips appear after HR locks payroll and releases them.</p>
+            <h2>尚無已發布薪資單</h2>
+            <p className="muted">人資完成薪資鎖定並發布後，這裡會出現你的薪資單。</p>
           </section>
         ) : (
           <section className="panel payslip">
@@ -31,20 +31,20 @@ export default async function PayslipPage() {
                 <h2>{payslip.periodLabel}</h2>
                 <p className="muted">{payslip.employeeName}</p>
               </div>
-              <span className="badge">{payslip.status}</span>
+              <span className="badge">{labelPayslipStatus(payslip.status)}</span>
             </div>
 
             <div className="payroll-preview">
               <div className="metric">
-                <span className="muted">Gross</span>
+                <span className="muted">應發</span>
                 <strong>{formatMoney(payslip.grossPay)}</strong>
               </div>
               <div className="metric">
-                <span className="muted">Deductions</span>
+                <span className="muted">扣項</span>
                 <strong>{formatMoney(payslip.deductions)}</strong>
               </div>
               <div className="metric">
-                <span className="muted">Net</span>
+                <span className="muted">實發</span>
                 <strong>{formatMoney(payslip.netPay)}</strong>
               </div>
             </div>
@@ -53,8 +53,8 @@ export default async function PayslipPage() {
               {payslip.items.map((item) => (
                 <li className="task" key={`${item.kind}-${item.code}`}>
                   <span>
-                    <strong>{item.name}</strong>
-                    <small>{item.kind}</small>
+                    <strong>{translatePayrollItemName(item.name)}</strong>
+                    <small>{labelPayrollItemKind(item.kind)}</small>
                   </span>
                   <span className={`badge ${item.kind === "deduction" ? "warning" : ""}`}>
                     {formatMoney(item.amount)}
@@ -66,11 +66,11 @@ export default async function PayslipPage() {
         )}
       </main>
 
-      <nav className="bottom-nav" aria-label="Employee mobile navigation">
-        <DashboardLink href="/app" label="Home" />
-        <DashboardLink href="/app/payslip" label="Payslip" />
-        <DashboardLink href="/manager/inbox" label="Inbox" />
-        <DashboardLink href="/hr" label="HR" />
+      <nav className="bottom-nav" aria-label="員工手機導覽">
+        <DashboardLink href="/app" label="首頁" />
+        <DashboardLink href="/app/payslip" label="薪資單" />
+        <DashboardLink href="/manager/inbox" label="簽核" />
+        <DashboardLink href="/hr" label="人資" />
       </nav>
     </>
   );
@@ -96,4 +96,34 @@ function formatMoney(value: number) {
     currency: "TWD",
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function labelPayrollItemKind(kind: string) {
+  if (kind === "earning") return "給付";
+  if (kind === "allowance") return "津貼";
+  if (kind === "overtime") return "加班費";
+  if (kind === "deduction") return "扣項";
+  if (kind === "employer_contribution") return "雇主負擔";
+  return kind;
+}
+
+function labelPayslipStatus(status: string) {
+  if (status === "released") return "已發布";
+  if (status === "draft") return "草稿";
+  return status;
+}
+
+function translatePayrollItemName(name: string) {
+  const labels: Record<string, string> = {
+    "Base salary": "本薪",
+    "Meal allowance": "伙食津貼",
+    "Welfare deduction": "福利金扣款",
+    "Overtime pay": "加班費",
+    "Labor insurance": "勞保費",
+    "National health insurance": "健保費",
+    "Income tax withholding": "所得稅扣繳",
+    "Labor pension employer contribution": "雇主提繳勞退",
+    "Occupational accident insurance": "職災保險",
+  };
+  return labels[name] ?? name;
 }

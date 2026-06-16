@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 test.beforeEach(async ({ request }) => {
   await request.post("/api/demo/reset");
@@ -103,8 +103,7 @@ test("HR 可以設定打卡方式並讓員工端看到提示", async ({ page }) 
 
 test("公告發布後員工可回傳回條", async ({ page }) => {
   await page.goto("/app");
-  await page.getByLabel("示範角色").selectOption("hr_admin");
-  await page.getByRole("button", { name: "切換" }).click();
+  await switchDemoRole(page, "hr_admin");
   await page.goto("/hr/announcements");
 
   await expect(page.getByRole("heading", { name: "公告與回條" })).toBeVisible();
@@ -115,13 +114,93 @@ test("公告發布後員工可回傳回條", async ({ page }) => {
   await page.getByRole("button", { name: "發布公告" }).click();
   await expect(page.getByText("端午連假出勤提醒")).toBeVisible();
 
-  await page.getByLabel("示範角色").selectOption("employee");
-  await page.getByRole("button", { name: "切換" }).click();
+  await switchDemoRole(page, "employee");
   await page.goto("/app/announcements");
   await expect(page.getByRole("heading", { name: "公告" })).toBeVisible();
   await expect(page.getByText("端午連假出勤提醒")).toBeVisible();
   await page.getByRole("button", { name: "我已閱讀並確認" }).first().click();
   await expect(page.getByText("已回條").first()).toBeVisible();
+});
+
+test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
+  const leaveReason = "E2E 兩週試用請假流程";
+  const approvalComment = "主管已確認排班與餘額";
+  const announcementTitle = "兩週試用公告確認";
+
+  await page.goto("/app");
+  await expect(page.getByRole("heading", { name: "今日" })).toBeVisible();
+
+  await page.getByRole("button", { name: "上班打卡" }).click();
+  await expect(page.getByText("已上班打卡").first()).toBeVisible();
+  await page.getByRole("button", { name: "下班打卡" }).click();
+  await expect(page.getByText("已完成").first()).toBeVisible();
+
+  await page.goto("/app/attendance");
+  await expect(page.getByRole("heading", { name: "出勤紀錄" })).toBeVisible();
+  await expect(page.getByText("手機").first()).toBeVisible();
+
+  await page.goto("/app");
+  const leaveForm = page.getByRole("form", { name: "送出請假申請" });
+  await leaveForm.getByLabel("請假原因").fill(leaveReason);
+  await leaveForm.getByRole("button", { name: "送出請假" }).click();
+  await expect(page.getByText(leaveReason)).toBeVisible();
+  await expect(page.getByText("簽核中").first()).toBeVisible();
+
+  await switchDemoRole(page, "manager");
+  await expect(page).toHaveURL(/\/manager\/inbox$/);
+  await expect(page.getByRole("heading", { name: "簽核 Inbox" })).toBeVisible();
+  const leaveCard = page.locator(".approval-card").filter({ hasText: leaveReason });
+  await expect(leaveCard).toBeVisible();
+  await expect(leaveCard.getByText("風險摘要")).toBeVisible();
+  await leaveCard.getByLabel("簽核意見").fill(approvalComment);
+  await leaveCard.getByRole("button", { name: "核准" }).click();
+  await expect(page.getByText("已核准").first()).toBeVisible();
+
+  await switchDemoRole(page, "employee");
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.getByText(leaveReason)).toBeVisible();
+  await expect(page.getByText(approvalComment)).toBeVisible();
+  await expect(page.getByText("已核准").first()).toBeVisible();
+
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr/announcements");
+  await page.getByLabel("標題").fill(announcementTitle);
+  await page.getByLabel("類別").fill("試用公告");
+  await page.getByLabel("公告內容").fill("請確認兩週試用期間的公告回條流程。");
+  await page.getByLabel("需要員工回傳回條").check();
+  await page.getByRole("button", { name: "發布公告" }).click();
+  await expect(page.getByText(announcementTitle)).toBeVisible();
+
+  await page.goto("/hr");
+  await expect(page.getByRole("heading", { name: "月結主控台" })).toBeVisible();
+  await page.getByRole("button", { name: "建立薪資批次" }).click();
+  await expect(page.getByText("已阻擋").first()).toBeVisible();
+  await page.getByRole("button", { name: "標記阻擋項已檢查" }).click();
+  await expect(page.getByText("草稿").first()).toBeVisible();
+  await page.getByRole("button", { name: "試算草稿" }).click();
+  await expect(page.getByText("已試算").first()).toBeVisible();
+  await page.getByRole("button", { name: "人資確認" }).click();
+  await expect(page.getByText("已確認").first()).toBeVisible();
+  await page.getByRole("button", { name: "鎖定薪資" }).click();
+  await expect(page.getByText("已鎖定").first()).toBeVisible();
+  await page.getByRole("button", { name: "發布薪資單" }).click();
+  await expect(page.getByText("已發布").first()).toBeVisible();
+
+  await switchDemoRole(page, "manager");
+  await page.goto("/app/payslip");
+  await expect(page.getByRole("heading", { name: "無法查看薪資單" })).toBeVisible();
+
+  await switchDemoRole(page, "employee");
+  await page.goto("/app/announcements");
+  await expect(page.getByText(announcementTitle)).toBeVisible();
+  await page.getByRole("button", { name: "我已閱讀並確認" }).first().click();
+  await expect(page.getByText("已回條").first()).toBeVisible();
+
+  await page.goto("/app/payslip");
+  await expect(page.getByRole("heading", { name: "我的薪資單" })).toBeVisible();
+  await expect(page.getByText("張小安")).toBeVisible();
+  await expect(page.getByText("已發布")).toBeVisible();
+  await expect(page.getByText("實發")).toBeVisible();
 });
 
 test("後台表單中心提供常用簽核樣板", async ({ page }) => {
@@ -137,3 +216,8 @@ test("後台表單中心提供常用簽核樣板", async ({ page }) => {
   await expect(page.getByText("離職申請表")).toBeVisible();
   await expect(page.getByText("在職證明申請單")).toBeVisible();
 });
+
+async function switchDemoRole(page: Page, role: "employee" | "manager" | "hr_admin" | "owner") {
+  await page.getByLabel("示範角色").selectOption(role);
+  await page.getByRole("button", { name: "切換" }).click();
+}

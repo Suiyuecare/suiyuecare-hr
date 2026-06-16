@@ -177,7 +177,7 @@ export function dashboardPathForRole(role: RoleKey) {
     case "hr_admin":
       return "/console";
     case "manager":
-      return "/console";
+      return "/manager/inbox";
     case "employee":
       return "/app";
   }
