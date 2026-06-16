@@ -1,9 +1,21 @@
+import { EmptyState } from "@/components/EmptyState";
 import { getDemoSession } from "@/server/auth/demo-session";
+import { hasPermission } from "@/server/auth/rbac";
 import { getBetaPilotReadinessReport } from "@/server/readiness/beta-pilot";
 import { getLaunchReadinessReport } from "@/server/readiness/launch";
 
 export default async function LaunchReadinessPage() {
   const session = await getDemoSession();
+  if (!hasPermission(session.role, "settings:read")) {
+    return (
+      <main className="page">
+        <EmptyState
+          title="需要管理權限"
+          body="請切換為老闆或人資管理員角色，再檢查上線與 Beta 試用準備度。"
+        />
+      </main>
+    );
+  }
   const report = await getLaunchReadinessReport(session);
   const betaPilot = await getBetaPilotReadinessReport(session, report);
 
