@@ -66,7 +66,7 @@ export async function getReadyHealth(options: HealthOptions = {}): Promise<Healt
     checks.push({
       name: "database",
       status: databaseOk ? "ok" : "fail",
-      detail: databaseOk ? "database ping succeeded" : "database ping failed",
+      detail: databaseOk ? "database ping succeeded" : buildDatabaseFailureDetail(env.DATABASE_URL),
     });
   } else {
     checks.push({
@@ -109,6 +109,34 @@ async function pingDatabase() {
   } catch {
     return false;
   }
+}
+
+function buildDatabaseFailureDetail(databaseUrl: string) {
+  const connectionPosture = classifyDatabaseConnection(databaseUrl);
+  if (connectionPosture === "supabase-direct") {
+    return "database ping failed; Supabase direct database hosts require IPv6 or the IPv4 add-on, so Vercel/serverless deployments should use a compatible pooler URL or enable IPv4.";
+  }
+  if (connectionPosture === "supabase-pooler") {
+    return "database ping failed; verify Supabase pooler username, password, mode, schema, and prepared-statement settings.";
+  }
+  return "database ping failed";
+}
+
+function classifyDatabaseConnection(databaseUrl: string) {
+  try {
+    const url = new URL(databaseUrl);
+    const host = url.hostname;
+    const port = url.port || "5432";
+    if (/^db\.[a-z0-9]+\.supabase\.co$/i.test(host) && port === "5432") {
+      return "supabase-direct";
+    }
+    if (/\.pooler\.supabase\.com$/i.test(host)) {
+      return "supabase-pooler";
+    }
+  } catch {
+    return "unknown";
+  }
+  return "unknown";
 }
 
 function summarizeStatus(statuses: HealthStatus[]): HealthStatus {

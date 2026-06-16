@@ -215,6 +215,10 @@ function buildNextActions(checks: ProductionPilotGateCheck[], healthReport: Heal
     const database = findCheck(healthReport, "database");
     if (database?.detail.includes("demo fallback") || database?.detail.includes("database is required")) {
       actions.push("Set a server-side Supabase PostgreSQL DATABASE_URL with ?schema=hr_one in Vercel Production.");
+    } else if (database?.detail.includes("Supabase direct database hosts require IPv6")) {
+      actions.push("For Vercel/serverless, replace the Supabase direct DATABASE_URL with a compatible pooler URL, or enable the Supabase IPv4 add-on for the direct host.");
+    } else if (database?.detail.includes("Supabase pooler")) {
+      actions.push("Verify the Supabase pooler username format, password, pooler mode, schema=hr_one, and prepared-statement settings.");
     } else {
       actions.push("Fix the production PostgreSQL connection until the readiness database ping succeeds.");
     }

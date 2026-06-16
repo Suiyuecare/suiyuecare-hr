@@ -92,6 +92,31 @@ describe("production pilot gate", () => {
     });
   });
 
+  it("points Vercel deployments at Supabase pooler or IPv4 when direct database ping fails", () => {
+    const report = buildProductionPilotGateReport({
+      appUrl: "https://hr.suiyuecare.com",
+      expectedHost: "hr.suiyuecare.com",
+      healthReport: {
+        ...readyHealth,
+        status: "fail",
+        checks: [
+          readyHealth.checks[0]!,
+          {
+            name: "database",
+            status: "fail",
+            detail: "database ping failed; Supabase direct database hosts require IPv6 or the IPv4 add-on, so Vercel/serverless deployments should use a compatible pooler URL or enable IPv4.",
+          },
+          readyHealth.checks[2]!,
+        ],
+      },
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.nextActions).toContain(
+      "For Vercel/serverless, replace the Supabase direct DATABASE_URL with a compatible pooler URL, or enable the Supabase IPv4 add-on for the direct host.",
+    );
+  });
+
   it("returns a blocked report instead of throwing for invalid URLs", () => {
     const report = buildProductionPilotGateReport({
       appUrl: "not-a-url",

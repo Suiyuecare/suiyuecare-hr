@@ -108,4 +108,42 @@ describe("health reports", () => {
       detail: "demo auth disabled for production runtime",
     });
   });
+
+  it("returns a safe Supabase direct connection hint when production database ping fails", async () => {
+    const report = await getReadyHealth({
+      env: {
+        ...productionEnv,
+        DATABASE_URL: "postgresql://hrone:very-secret@db.aruncclorusswpfnpgsn.supabase.co:5432/postgres?schema=hr_one",
+      },
+      now: new Date("2026-06-12T00:00:00.000Z"),
+      pingDatabase: async () => false,
+    });
+
+    const serialized = JSON.stringify(report);
+    expect(serialized).not.toContain("very-secret");
+    expect(serialized).not.toContain("aruncclorusswpfnpgsn");
+    expect(report.checks.find((check) => check.name === "database")).toMatchObject({
+      status: "fail",
+      detail: expect.stringContaining("Supabase direct database hosts require IPv6 or the IPv4 add-on"),
+    });
+  });
+
+  it("returns a safe Supabase pooler hint when pooler database ping fails", async () => {
+    const report = await getReadyHealth({
+      env: {
+        ...productionEnv,
+        DATABASE_URL: "postgresql://postgres.project:very-secret@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres?schema=hr_one",
+      },
+      now: new Date("2026-06-12T00:00:00.000Z"),
+      pingDatabase: async () => false,
+    });
+
+    const serialized = JSON.stringify(report);
+    expect(serialized).not.toContain("very-secret");
+    expect(serialized).not.toContain("aws-0-ap-northeast-2");
+    expect(report.checks.find((check) => check.name === "database")).toMatchObject({
+      status: "fail",
+      detail: "database ping failed; verify Supabase pooler username, password, mode, schema, and prepared-statement settings.",
+    });
+  });
 });

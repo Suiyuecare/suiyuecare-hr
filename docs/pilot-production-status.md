@@ -7,9 +7,10 @@ Last checked: 2026-06-17 Asia/Taipei
 - Live domain: `https://hr.suiyuecare.com`
 - GitHub repository: `Suiyuecare/suiyuecare-hr`
 - Vercel project in repo metadata: `prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N` (`suiyuecare-hr2`)
-- Latest GitHub `main` includes the production SSO login guard and the pilot doctor env handoff update.
+- Latest GitHub `main` includes the production SSO login guard, the pilot doctor env handoff update, and the expanded Supabase pilot readiness seed.
 - `suiyuecare-hr2` may lag behind GitHub `main` when Vercel deployment rate limits are active; check the latest commit status before treating `hr.suiyuecare.com` as current.
-- Vercel Production has the known bootstrap values and a server-side `DATABASE_URL`; the deployed app still needs a fresh deployment before live health can prove it is using the database.
+- Vercel Production now has all required bootstrap values, backup restore evidence, and a server-side `DATABASE_URL`.
+- The server-side `DATABASE_URL` has been rotated to a verified direct Supabase custom-role URL for `hr_one_app_runtime`; the remaining blocker is network reachability from Vercel to Supabase direct Postgres.
 - Legacy Vercel status context `Vercel - suiyuecare-hr` may still appear. Use `suiyuecare-hr2` as the active project.
 - Supabase project `aruncclorusswpfnpgsn`, private schema `hr_one`, now contains a synthetic 25-person pilot tenant with expanded trial readiness controls.
 
@@ -39,28 +40,29 @@ Passing:
 
 Blocking:
 
-- Overall readiness is `degraded`.
-- The deployed app may still be running an older build that reports a non-production environment and missing database until Vercel is redeployed.
-- Production environment verification still requires real restore-drill evidence via `HR_ONE_BACKUP_RESTORE_TESTED_AT`.
-- Manual Vercel redeploys may be delayed by the free daily deployment quota; use the next successful Git/Vercel deployment as the live proof point.
+- Overall readiness is `fail`.
+- The currently aliased production deployment was created before `HR_ONE_BACKUP_RESTORE_TESTED_AT` was added, so production must be redeployed before the live environment check can turn green.
+- Runtime database ping still fails from Vercel when using `db.aruncclorusswpfnpgsn.supabase.co:5432`.
+- Supabase's direct Postgres endpoint is IPv6-only unless the project has the IPv4 add-on. Vercel/serverless runtime needs either a compatible Supavisor pooler URL or Supabase IPv4 add-on for the direct host.
+- The custom runtime role `hr_one_app_runtime` works against the direct host, but the shared Supavisor pooler did not currently recognize `hr_one_app_runtime.aruncclorusswpfnpgsn` as a tenant/user. Do not switch production to the pooler until that pooler user path is verified.
 
 Supabase checks completed on 2026-06-17:
 
 - `pnpm db:supabase:verify-schema -- --project-ref=aruncclorusswpfnpgsn --schema=hr_one --allow-tenant-data` passed: 76 tables, 11 enum types, 48/48 migrations, browser roles blocked, 1 tenant, 1 company, 25 employees.
 - `pnpm db:supabase:seed-pilot -- --project-ref=aruncclorusswpfnpgsn --schema=hr_one --verify-only` passed: 25 active employees, 3 managers, 4 departments, 375 schedules, 11 leave policies, 275 leave balances, 25 payslips, announcement receipts, form workflow, rules, telemetry, audit coverage, browser-role isolation, and no callable public security-definer RPC exposure.
-- `pnpm db:verify:production -- --tenant-slug=suiyuecare-pilot` was run with a temporary verification login and passed every database gate except operational resilience: restore drill remains `not_tested` and verification is `pending_restore_drill`. The temporary verification login was removed after the check.
+- `pnpm db:supabase:restore-drill -- --project-ref=aruncclorusswpfnpgsn --schema=hr_one --tenant-slug=suiyuecare-pilot --tested-at=2026-06-17 --ticket=RESTORE-20260617-SCHEMA --apply` passed and recorded schema-only restore evidence without exporting tenant data.
+- `pnpm db:verify:production -- --tenant-slug=suiyuecare-pilot` was run with a temporary verification login and passed every database gate, including operational resilience. The temporary verification login was removed after the check.
+- `pnpm pilot:doctor -- --skip-local-env` passed Vercel Production env, local env draft skip, and Supabase pilot rehearsal data; it is blocked only by the live production gate.
 
 ## Required Before Real 20-50 Person Trial
 
-1. Configure Vercel Production env for the active `suiyuecare-hr2` project:
-   - confirm server-only Supabase PostgreSQL `DATABASE_URL` with `?schema=hr_one` is present
-   - confirm production OIDC/SSO provider, issuer, login URL, and JWKS settings are present
-   - confirm object storage, rate limit, and backup/KMS vault references are present
-   - add backup restore drill evidence date after a real restore drill is completed
-2. Complete a real backup restore drill and record evidence without exposing database credentials or tenant data.
-3. Redeploy Vercel Production.
-4. Confirm `https://hr.suiyuecare.com/api/health/ready` returns `ok`.
-5. Run:
+1. Choose and verify the production database network path:
+   - preferred: configure a Supabase pooler user that works for `hr_one_app_runtime` and use the transaction pooler URL with `schema=hr_one`, `connection_limit=1`, and prepared statements disabled for Prisma
+   - alternate: enable the Supabase IPv4 add-on, keep the verified direct custom-role URL, and rerun the live DB ping
+   - avoid: using broad `postgres` database credentials as the long-term app runtime credential
+2. Redeploy Vercel Production so the deployment includes the latest `DATABASE_URL` and `HR_ONE_BACKUP_RESTORE_TESTED_AT`.
+3. Confirm `https://hr.suiyuecare.com/api/health/ready` returns `ok`.
+4. Run:
 
 ```bash
 pnpm pilot:gate:production -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com
@@ -71,3 +73,14 @@ pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyue
 ```
 
 Do not invite real employees until the production gate and go/no-go report pass.
+
+## Next Foundation Phase
+
+After the live production gate passes, focus on the parts that make a 20-50 person two-week trial safe and usable:
+
+1. Split the live navigation into two clear products: mobile employee self-service at `/app` and backend management console at `/console` / `/hr`.
+2. Redesign the UI to match the Finance system's calmer visual density: stronger page hierarchy, fewer equal-weight cards, clearer status colors, and larger mobile tap targets.
+3. Create a guided company setup wizard for departments, managers, work schedules, leave policies, punch rules, announcements, and payslip release.
+4. Add a pilot invite readiness screen that proves every employee has a login identity, department, manager, schedule, leave balance, and payslip visibility rule.
+5. Add real trial evidence capture for daily completion: punches, leave submissions, manager approvals, announcement receipts, HR month-close rehearsal, payslip views, audit coverage, and unauthorized salary access attempts.
+6. Run a go/no-go report for the actual customer tenant before inviting staff, then run a daily pilot health check during the two-week trial.
