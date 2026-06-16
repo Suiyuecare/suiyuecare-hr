@@ -3,6 +3,7 @@ import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { stableHash } from "@/server/audit/redaction";
 import { assertPermission, hasPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
+import { getFallbackCompanyOverview } from "@/server/demo/fallback";
 
 type SessionLike = {
   role: RoleKey;
@@ -78,13 +79,10 @@ const defaultTrainingSettings: CompanyTrainingSettings = {
   lastReviewedAt: null,
 };
 
-const fallbackEmployees = [
-  { id: "demo-hr-employee", displayName: "林人資" },
-  { id: "demo-manager-employee", displayName: "陳主管" },
-  { id: "demo-employee-1", displayName: "張小安" },
-  { id: "demo-employee-2", displayName: "李小真" },
-  { id: "demo-employee-3", displayName: "黃小宇" },
-];
+const fallbackEmployees = getFallbackCompanyOverview().company.employees.map((employee) => ({
+  id: employee.id,
+  displayName: employee.displayName,
+}));
 
 type TrainingDemoState = {
   settings: CompanyTrainingSettings;
@@ -223,9 +221,13 @@ export function resetTrainingDemoState() {
     publishedAt: now,
   };
   globalForTraining.hrOneTrainingDemoState = {
-    settings: cloneSettings(defaultTrainingSettings),
+    settings: {
+      ...cloneSettings(defaultTrainingSettings),
+      verificationStatus: "verified",
+      lastReviewedAt: now,
+    },
     courses: [course],
-    assignments: fallbackEmployees.slice(0, 2).map((employee, index) => ({
+    assignments: fallbackEmployees.map((employee, index) => ({
       id: `demo-training-assignment-${index + 1}`,
       employeeId: employee.id,
       employeeName: employee.displayName,
@@ -233,9 +235,9 @@ export function resetTrainingDemoState() {
       courseTitle: course.title,
       courseVersion: course.version,
       estimatedMinutes: course.estimatedMinutes,
-      status: index === 0 ? "completed" : "assigned",
+      status: "completed",
       dueAt: new Date("2026-06-08T00:00:00.000Z"),
-      completedAt: index === 0 ? new Date("2026-06-02T00:00:00.000Z") : null,
+      completedAt: new Date(Date.UTC(2026, 5, 2, 1, index)),
     })),
   };
 }

@@ -4,6 +4,7 @@ import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { stableHash } from "@/server/audit/redaction";
 import { assertPermission, hasPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
+import { getFallbackCompanyOverview } from "@/server/demo/fallback";
 
 type SessionLike = {
   role: RoleKey;
@@ -90,13 +91,10 @@ const defaultPrivacySettings: CompanyPrivacySettings = {
   lastReviewedAt: null,
 };
 
-const fallbackEmployees = [
-  { id: "demo-hr-employee", displayName: "林人資" },
-  { id: "demo-manager-employee", displayName: "陳主管" },
-  { id: "demo-employee-1", displayName: "張小安" },
-  { id: "demo-employee-2", displayName: "李小真" },
-  { id: "demo-employee-3", displayName: "黃小宇" },
-];
+const fallbackEmployees = getFallbackCompanyOverview().company.employees.map((employee) => ({
+  id: employee.id,
+  displayName: employee.displayName,
+}));
 
 type PrivacyDemoState = {
   settings: CompanyPrivacySettings;
@@ -236,11 +234,15 @@ export function evaluatePrivacyReadiness(input: {
 }
 
 export function resetPrivacyDemoState() {
-  const settings = cloneSettings(defaultPrivacySettings);
+  const settings = {
+    ...cloneSettings(defaultPrivacySettings),
+    verificationStatus: "verified" as const,
+    lastReviewedAt: new Date("2026-06-01T00:00:00.000Z"),
+  };
   const policyHash = privacyPolicyHash(settings);
   globalForPrivacy.hrOnePrivacyDemoState = {
     settings,
-    consents: fallbackEmployees.slice(0, 2).map((employee, index) => ({
+    consents: fallbackEmployees.map((employee, index) => ({
       id: `demo-privacy-consent-${index + 1}`,
       employeeId: employee.id,
       employeeName: employee.displayName,

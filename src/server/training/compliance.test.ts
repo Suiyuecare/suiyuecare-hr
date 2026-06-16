@@ -40,6 +40,17 @@ describe("training compliance", () => {
     resetAuditDemoState();
   });
 
+  it("keeps the demo pilot cohort assigned and completed under the training KPI", async () => {
+    const workspace = await getTrainingWorkspace(ownerSession);
+
+    expect(workspace.readiness).toMatchObject({
+      ready: true,
+      assignedCount: 25,
+      completedCount: 25,
+      overdueCount: 0,
+    });
+  });
+
   it("blocks readiness when training is too long, unverified, unassigned, or overdue", () => {
     const readiness = evaluateTrainingReadiness({
       settings: {
@@ -110,8 +121,8 @@ describe("training compliance", () => {
     const result = await assignRequiredTraining(hrSession);
     const workspace = await getTrainingWorkspace(hrSession);
 
-    expect(result.employeeCount).toBe(5);
-    expect(workspace.assignments.length).toBeGreaterThanOrEqual(5);
+    expect(result.employeeCount).toBe(25);
+    expect(workspace.assignments.length).toBeGreaterThanOrEqual(25);
     expect(getAuditDemoState().logs.map((log) => log.entityType)).toContain("training_assignment_batch");
   });
 

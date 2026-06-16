@@ -3,6 +3,7 @@ import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { stableHash } from "@/server/audit/redaction";
 import { assertPermission, hasPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
+import { getFallbackCompanyOverview } from "@/server/demo/fallback";
 
 type SessionLike = {
   role: RoleKey;
@@ -58,13 +59,10 @@ export type WorkRulesWorkspace = {
   readiness: WorkRuleReadiness;
 };
 
-const fallbackEmployees = [
-  { id: "demo-hr-employee", displayName: "林人資" },
-  { id: "demo-manager-employee", displayName: "陳主管" },
-  { id: "demo-employee-1", displayName: "張小安" },
-  { id: "demo-employee-2", displayName: "李小真" },
-  { id: "demo-employee-3", displayName: "黃小宇" },
-];
+const fallbackEmployees = getFallbackCompanyOverview().company.employees.map((employee) => ({
+  id: employee.id,
+  displayName: employee.displayName,
+}));
 
 type WorkRulesDemoState = {
   rules: CompanyWorkRuleView[];
@@ -175,7 +173,7 @@ export function resetWorkRulesDemoState() {
   };
   globalForWorkRules.hrOneWorkRulesDemoState = {
     rules: [rule],
-    acknowledgements: fallbackEmployees.slice(0, 2).map((employee, index) => ({
+    acknowledgements: fallbackEmployees.map((employee, index) => ({
       id: `demo-work-rule-ack-${index + 1}`,
       employeeId: employee.id,
       employeeName: employee.displayName,

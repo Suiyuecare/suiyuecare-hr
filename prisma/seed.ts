@@ -182,8 +182,8 @@ async function main() {
       deletionReviewRequired: true,
       crossBorderTransferEnabled: false,
       subprocessorsJson: [],
-      verificationStatus: "unverified",
-      lastReviewedAt: null,
+      verificationStatus: "verified",
+      lastReviewedAt: new Date("2026-06-01T00:00:00.000Z"),
     },
   });
 
@@ -195,8 +195,8 @@ async function main() {
       targetCompletionDays: 7,
       maxFirstWeekMinutes: 10,
       autoAssignNewHires: true,
-      verificationStatus: "unverified",
-      lastReviewedAt: null,
+      verificationStatus: "verified",
+      lastReviewedAt: new Date("2026-06-01T00:00:00.000Z"),
     },
   });
 

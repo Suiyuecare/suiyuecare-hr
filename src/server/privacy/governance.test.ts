@@ -40,6 +40,17 @@ describe("privacy governance", () => {
     resetAuditDemoState();
   });
 
+  it("keeps the demo pilot cohort fully acknowledged for readiness", async () => {
+    const workspace = await getPrivacyWorkspace(ownerSession);
+
+    expect(workspace.readiness).toMatchObject({
+      ready: true,
+      acknowledgedCount: 25,
+      requiredEmployeeCount: 25,
+      overdueRequestCount: 0,
+    });
+  });
+
   it("requires verified notice, current acknowledgement coverage, and timely requests for readiness", () => {
     const readiness = evaluatePrivacyReadiness({
       settings: {

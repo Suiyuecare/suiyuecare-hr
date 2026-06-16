@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   evaluateWorkRuleReadiness,
+  getWorkRulesWorkspace,
+  resetWorkRulesDemoState,
   type CompanyWorkRuleView,
   type EmployeeWorkRuleAcknowledgementView,
 } from "@/server/work-rules/service";
@@ -35,6 +37,24 @@ function acknowledgement(employeeId: string): EmployeeWorkRuleAcknowledgementVie
 }
 
 describe("work rules readiness", () => {
+  it("keeps the demo pilot cohort fully acknowledged", async () => {
+    resetWorkRulesDemoState();
+    const workspace = await getWorkRulesWorkspace({
+      role: "hr_admin",
+      tenantId: "demo-tenant",
+      companyId: "demo-company",
+      user: { id: "demo-user-hr", displayName: "林人資" },
+      employee: { id: "demo-hr-employee", displayName: "林人資" },
+    });
+
+    expect(workspace.readiness).toMatchObject({
+      ready: true,
+      acknowledgedCount: 25,
+      requiredAcknowledgementCount: 25,
+      pendingReviewCount: 0,
+    });
+  });
+
   it("passes when approved active work rules are acknowledged by active employees", () => {
     const report = evaluateWorkRuleReadiness({
       rules: [rule],
