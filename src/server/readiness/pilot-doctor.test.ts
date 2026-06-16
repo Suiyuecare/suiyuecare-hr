@@ -123,6 +123,59 @@ describe("pilot doctor", () => {
     );
   });
 
+  it("does not suggest known-env bootstrap after bootstrap keys are already present", () => {
+    const missingAfterBootstrap = [
+      "DATABASE_URL",
+      "HR_ONE_OBJECT_STORAGE_SECRET_REF",
+      "HR_ONE_AUTH_PROVIDER",
+      "HR_ONE_AUTH_ISSUER_URL",
+      "HR_ONE_AUTH_LOGIN_URL",
+      "HR_ONE_AUTH_JWKS_URL",
+      "HR_ONE_RATE_LIMIT_SECRET_REF",
+      "HR_ONE_BACKUP_ENCRYPTION_KEY_REF",
+      "HR_ONE_BACKUP_RESTORE_TESTED_AT",
+    ];
+    const report = buildPilotDoctorReport({
+      vercelEnvNames: requiredProductionPilotEnvKeys.filter((key) => !missingAfterBootstrap.includes(key)),
+      productionGate: buildProductionPilotGateReport({
+        appUrl: "https://hr.suiyuecare.com",
+        expectedHost: "hr.suiyuecare.com",
+        healthReport: readyHealth,
+      }),
+      supabasePilot: {
+        status: "passed",
+        detail: "pilot seed verified",
+      },
+      localEnvDraft: {
+        status: "blocked",
+        detail: ".env.vercel.production has 6 unresolved placeholder key(s) and 6 failed verifier check(s)",
+        unresolvedPlaceholderKeys: [
+          "DATABASE_URL",
+          "HR_ONE_AUTH_ISSUER_URL",
+          "HR_ONE_AUTH_JWKS_URL",
+          "HR_ONE_AUTH_LOGIN_URL",
+          "HR_ONE_AUTH_PROVIDER",
+          "HR_ONE_BACKUP_RESTORE_TESTED_AT",
+        ],
+        failedCheckNames: [
+          "database url",
+          "database private schema",
+          "auth issuer url",
+          "auth login url",
+          "auth jwks url",
+          "restore drill evidence",
+        ],
+      },
+    });
+
+    expect(report.nextActions).not.toContain(
+      "Optionally run pnpm vercel:bootstrap-known-env -- --env-file=.env.vercel.production to prefill safe known Production env values; it will not write DATABASE_URL, OIDC URLs, vault refs, or restore-drill evidence.",
+    );
+    expect(report.nextActions).toContain(
+      "Known Vercel bootstrap env values are already present; fill remaining operator-managed Production values: DATABASE_URL, HR_ONE_OBJECT_STORAGE_SECRET_REF, HR_ONE_AUTH_PROVIDER, HR_ONE_AUTH_ISSUER_URL, HR_ONE_AUTH_LOGIN_URL, HR_ONE_AUTH_JWKS_URL, HR_ONE_RATE_LIMIT_SECRET_REF, HR_ONE_BACKUP_ENCRYPTION_KEY_REF, HR_ONE_BACKUP_RESTORE_TESTED_AT.",
+    );
+  });
+
   it("dedupes gate actions and redacts sensitive details in formatted output", () => {
     const report = buildPilotDoctorReport({
       vercelEnvNames: ["DATABASE_URL"],

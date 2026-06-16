@@ -7,8 +7,9 @@ Last checked: 2026-06-17 Asia/Taipei
 - Live domain: `https://hr.suiyuecare.com`
 - GitHub repository: `Suiyuecare/suiyuecare-hr`
 - Vercel project in repo metadata: `prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N` (`suiyuecare-hr2`)
-- Latest live verified Git commit: `092245f Refine pilot trial UI workspaces`
-- Newer commits are pushed to GitHub, but the active `suiyuecare-hr2` Vercel production deployment is currently rate-limited and must be retried after the limit resets.
+- Latest pushed Git commit: `13c83c4 Require production SSO login URL`
+- Active `suiyuecare-hr2` Vercel deployment for `13c83c4` completed successfully.
+- Vercel Production now has 22 environment variables, including the 22 known bootstrap values written through `pnpm vercel:bootstrap-known-env -- --env-file=.env.vercel.production --apply`.
 - Legacy Vercel status context `Vercel - suiyuecare-hr` may still appear. Use `suiyuecare-hr2` as the active project.
 
 ## Live UI Evidence
@@ -41,16 +42,16 @@ Blocking:
 - The deployed app is still reporting a non-production environment.
 - Production database is not configured; demo fallback is available.
 - New production readiness now also requires the `demo auth` check to report `demo auth disabled for production runtime`.
+- `pnpm pilot:doctor` reports Vercel Production env at `20/29` required keys, with these 9 keys still missing: `DATABASE_URL`, `HR_ONE_OBJECT_STORAGE_SECRET_REF`, `HR_ONE_AUTH_PROVIDER`, `HR_ONE_AUTH_ISSUER_URL`, `HR_ONE_AUTH_LOGIN_URL`, `HR_ONE_AUTH_JWKS_URL`, `HR_ONE_RATE_LIMIT_SECRET_REF`, `HR_ONE_BACKUP_ENCRYPTION_KEY_REF`, and `HR_ONE_BACKUP_RESTORE_TESTED_AT`.
+- Supabase pilot rehearsal data passes for project `aruncclorusswpfnpgsn`, schema `hr_one`.
 
 ## Required Before Real 20-50 Person Trial
 
 1. Configure Vercel Production env for the active `suiyuecare-hr2` project:
-   - `HR_ONE_ENV=production`
-   - `HR_ONE_AUTH_SESSION_SOURCE=oidc`
    - server-only Supabase PostgreSQL `DATABASE_URL` with `?schema=hr_one`
-   - production OIDC/SSO issuer, JWKS, client ID, and audience settings
-   - vault/KMS references for sensitive storage
-   - backup and restore drill evidence settings
+   - production OIDC/SSO provider, issuer, login URL, and JWKS settings
+   - object storage, rate limit, and backup/KMS vault references
+   - backup restore drill evidence date
 2. Redeploy Vercel Production.
 3. Confirm `https://hr.suiyuecare.com/api/health/ready` returns `ok`.
 4. Run:

@@ -3,6 +3,10 @@ import {
   productionPilotGatePassed,
   redactSensitiveDetail,
 } from "@/server/readiness/production-pilot-gate";
+import {
+  generatedSecretBootstrapKeys,
+  knownProductionBootstrapKeys,
+} from "@/server/readiness/vercel-production-env";
 
 export type PilotDoctorStatus = "ready" | "blocked";
 
@@ -184,6 +188,8 @@ function buildNextActions(options: {
   localEnvDraft?: PilotDoctorLocalEnvDraft;
 }) {
   const actions: string[] = [];
+  const missingBootstrapKeys = getMissingBootstrapEnvKeys(options.missingEnvKeys);
+  const missingOperatorManagedKeys = getMissingOperatorManagedEnvKeys(options.missingEnvKeys);
 
   if (options.missingEnvKeys.length > 0 && (!options.localEnvDraft || options.localEnvDraft.status === "missing")) {
     actions.push("Run pnpm vercel:create-production-env-draft to create a gitignored .env.vercel.production draft with generated local secrets.");
@@ -194,8 +200,12 @@ function buildNextActions(options: {
   if (options.localEnvDraft?.failedCheckNames?.length) {
     actions.push(`Fix local production env verification failures before apply: ${options.localEnvDraft.failedCheckNames.join(", ")}.`);
   }
-  if (options.missingEnvKeys.length > 0) {
+  if (missingBootstrapKeys.length > 0) {
     actions.push("Optionally run pnpm vercel:bootstrap-known-env -- --env-file=.env.vercel.production to prefill safe known Production env values; it will not write DATABASE_URL, OIDC URLs, vault refs, or restore-drill evidence.");
+  } else if (missingOperatorManagedKeys.length > 0) {
+    actions.push(`Known Vercel bootstrap env values are already present; fill remaining operator-managed Production values: ${missingOperatorManagedKeys.join(", ")}.`);
+  }
+  if (options.missingEnvKeys.length > 0) {
     actions.push("Fill .env.vercel.production with real production values and run pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --method=cli.");
   }
   if (options.missingEnvKeys.includes("DATABASE_URL")) {
@@ -212,6 +222,22 @@ function buildNextActions(options: {
   }
 
   return dedupe(actions.map(redactSensitiveDetail));
+}
+
+function getMissingBootstrapEnvKeys(missingEnvKeys: readonly string[]) {
+  const bootstrapKeys = new Set<string>([
+    ...knownProductionBootstrapKeys,
+    ...generatedSecretBootstrapKeys,
+  ]);
+  return missingEnvKeys.filter((key) => bootstrapKeys.has(key));
+}
+
+function getMissingOperatorManagedEnvKeys(missingEnvKeys: readonly string[]) {
+  const bootstrapKeys = new Set<string>([
+    ...knownProductionBootstrapKeys,
+    ...generatedSecretBootstrapKeys,
+  ]);
+  return missingEnvKeys.filter((key) => !bootstrapKeys.has(key));
 }
 
 function check(name: string, passed: boolean, detail: string): PilotDoctorCheck {
