@@ -275,6 +275,8 @@ pnpm db:verify
 pnpm db:verify:production -- --tenant-slug=<customer-slug>
 pnpm db:supabase:bootstrap-sql > /tmp/hr-one-supabase-bootstrap.sql
 pnpm db:supabase:verify-schema -- --project-ref=<supabase-project-ref> --schema=hr_one
+pnpm db:supabase:seed-pilot -- --project-ref=<supabase-project-ref> --schema=hr_one --verify-only
+pnpm db:supabase:seed-pilot -- --project-ref=<supabase-project-ref> --schema=hr_one --apply
 pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --dry-run
 pnpm release:gate
 pnpm release:gate:production -- --tenant-slug=<customer-slug>
@@ -292,6 +294,8 @@ pnpm db:supabase:bootstrap-sql -- --schema=hr_one > /tmp/hr-one-supabase-bootstr
 The generator creates `hr_one`, revokes browser API roles from the schema/default privileges, strips Prisma's original `public` schema bootstrap line, sets `search_path` to `hr_one`, baselines `_prisma_migrations` with the original migration checksums, and refuses destructive statements such as `DROP`, `TRUNCATE`, or `DELETE FROM`. After the SQL is applied to an empty private schema, configure Vercel production with a server-only `DATABASE_URL` that includes `?schema=hr_one`, then run future schema changes through `pnpm exec prisma migrate deploy`, followed by `pnpm db:provision:tenant`, employee/payroll imports, `pnpm db:verify:production -- --tenant-slug=<customer-slug>`, and `pnpm release:gate:production -- --tenant-slug=<customer-slug>`.
 
 After applying the bootstrap SQL, run `pnpm db:supabase:verify-schema -- --project-ref=<supabase-project-ref> --schema=hr_one`. It uses Supabase CLI linked queries to verify the private schema has HR One tables, Prisma migration baseline rows, no accidentally seeded tenant/company/employee data, and no `anon`/`authenticated` schema usage or table privileges. After provisioning a real tenant, add `--allow-tenant-data` so the same verifier still checks the schema and exposure posture without requiring empty tenant tables.
+
+For a safe 20-50 person trial rehearsal in the Suiyuecare Supabase project, use `pnpm db:supabase:seed-pilot -- --project-ref=<supabase-project-ref> --schema=hr_one --apply`. The command writes a synthetic 25-person pilot tenant into the private `hr_one` schema through Supabase CLI linked queries, then verifies the cohort, manager reporting line, RBAC assignments, attendance schedule, leave balances, salary/payment/compliance profile coverage, released payslips, announcement receipts, form workflow, rule versions, telemetry baseline, audit coverage, and browser-role isolation. It prints only aggregate counts; salary amounts, payment hashes, employee details, and private notes are not logged. This pilot seed is for operational rehearsal only and does not replace real customer employee import, SSO setup, Vercel `DATABASE_URL`, backup/restore evidence, or `pnpm db:verify:production`.
 
 To connect Vercel production to Supabase, copy `.env.vercel.production.example` to `.env.vercel.production`, fill real production values, and run `pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --dry-run`. The script runs the production environment verifier before it writes anything. When the dry run passes, rerun without `--dry-run` with `VERCEL_TOKEN` set; the script creates production project env variables through Vercel's `/v10/projects/<project>/env` API with secret-like values marked as sensitive. Vercel applies environment variable changes only to new deployments, so trigger a new production deployment after the env write succeeds.
 
@@ -345,6 +349,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `scripts/release-gate.ts`: release gate CLI that runs app quality checks and production tenant verification in sequence.
 - `scripts/build-supabase-private-schema-bootstrap.ts`: Supabase private-schema bootstrap SQL generator for deploying HR One into `hr_one` without touching an older `public` HRIS schema.
 - `scripts/verify-supabase-private-schema.ts`: Supabase CLI-backed private-schema verifier for table count, Prisma baseline, and browser-role exposure checks.
+- `scripts/apply-supabase-pilot-tenant.ts`: Supabase CLI-backed synthetic 25-person pilot tenant seed and verifier for the private `hr_one` schema.
 - `scripts/apply-vercel-production-env.ts`: Vercel production env writer that validates `.env.vercel.production` before creating project env variables.
 - `src/server/provisioning/tenant.ts`: customer tenant provisioning service and validation rules.
 - `src/server/onboarding/readiness.ts`: HR onboarding completeness checks before production tenant verification.
