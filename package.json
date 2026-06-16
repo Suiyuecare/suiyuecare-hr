@@ -32,6 +32,7 @@
     "pilot:doctor": "tsx scripts/pilot-doctor.ts",
     "pilot:acceptance": "tsx scripts/pilot-acceptance.ts",
     "pilot:handoff": "tsx scripts/pilot-handoff.ts",
+    "pilot:import-template-pack": "tsx scripts/create-pilot-import-template-pack.ts",
     "db:studio": "prisma studio"
   },
   "dependencies": {
