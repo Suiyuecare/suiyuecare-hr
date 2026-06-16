@@ -207,6 +207,14 @@ pnpm pilot:doctor -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyueca
 
 It checks Vercel Production env key presence, the local production env draft, the live readiness endpoint, and the Supabase pilot tenant seed without printing secret values. The two-week trial should not start until this returns `ready`.
 
+For an objective-by-objective acceptance matrix, run:
+
+```bash
+pnpm pilot:acceptance -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production
+```
+
+This wraps the doctor checks and demo-safe workflow rehearsal into a matrix for production readiness, real 20-50 person cohort, clock in/out, leave request, manager approval, announcement receipt, HR monthly close rehearsal, payslip viewing, and sensitive-data guardrails. Synthetic Supabase seed data is reported as rehearsal evidence only; it does not satisfy the real-company cohort requirement.
+
 12. Start the app:
 
 ```bash
@@ -296,6 +304,7 @@ pnpm db:supabase:seed-pilot -- --project-ref=<supabase-project-ref> --schema=hr_
 pnpm vercel:create-production-env-draft
 pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --dry-run
 pnpm pilot:doctor -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production
+pnpm pilot:acceptance -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production
 pnpm release:gate
 pnpm release:gate:production -- --tenant-slug=<customer-slug>
 ```
