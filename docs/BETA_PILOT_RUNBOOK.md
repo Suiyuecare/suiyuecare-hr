@@ -57,6 +57,8 @@ Goal: production data must survive deploys and must not fall back to in-memory d
 
    `vercel:bootstrap-known-env` defaults to dry-run and only lists safe known values plus generated secrets; it skips database URL, OIDC placeholders, vault references, and restore-drill evidence. Use `--apply` only when intentionally preloading those known values. The full `vercel:apply-production-env` dry run must pass before writing the complete production env to Vercel. Neither script prints secret values. When `HR_ONE_ENV=production`, demo auth, demo reset, and demo role switching fail closed; do not rely on demo role switching for production checks.
 
+   For browser/mobile access, configure the SSO gateway or callback handler to exchange a verified OIDC token through `POST /api/auth/session` with `Authorization: Bearer <token>`. HR One will set an encrypted HttpOnly `hrone_oidc_session` cookie after the token maps to an active tenant user and role. The cookie is minimal and must not be used to carry raw email, names, salary, bank, national ID, health, or private HR note data.
+
 5. Verify:
 
    ```bash

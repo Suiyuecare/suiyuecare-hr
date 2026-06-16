@@ -12,7 +12,10 @@ const publicOperationalRoutePatterns = [
   "/src/app/api/health/live/route.ts",
   "/src/app/api/health/ready/route.ts",
 ];
-const publicRoutePatterns = [...demoOnlyRoutePatterns, ...publicOperationalRoutePatterns];
+const authBootstrapRoutePatterns = [
+  "/src/app/api/auth/session/route.ts",
+];
+const publicRoutePatterns = [...demoOnlyRoutePatterns, ...publicOperationalRoutePatterns, ...authBootstrapRoutePatterns];
 
 describe("tenant isolation guardrails", () => {
   it("requires tenant session guards on non-demo API routes", () => {

@@ -6,6 +6,12 @@ import {
 } from "./demo-session";
 import { isDemoAuthAllowed } from "./demo-mode";
 import { tenantSessionFromAuthorizationHeader, type TenantSessionLike } from "./guards";
+import { resolveOidcTenantSession } from "./oidc-session";
+import {
+  oidcSessionCookiePayloadToClaims,
+  openOidcSessionCookie,
+  readOidcSessionCookieFromHeader,
+} from "./oidc-session-cookie";
 import type { RoleKey } from "./rbac";
 
 export type AppSession = TenantSessionLike;
@@ -55,8 +61,13 @@ export function canUseDemoRoleSwitcher(env: Record<string, string | undefined> =
 async function getOidcPageSession() {
   const headerStore = await headers();
   try {
-    return await tenantSessionFromAuthorizationHeader({
-      authorization: headerStore.get("authorization"),
+    const authorization = headerStore.get("authorization");
+    if (authorization) {
+      return await tenantSessionFromAuthorizationHeader({ authorization });
+    }
+    const payload = await openOidcSessionCookie(readOidcSessionCookieFromHeader(headerStore.get("cookie")));
+    return await resolveOidcTenantSession({
+      claims: oidcSessionCookiePayloadToClaims(payload),
     });
   } catch {
     redirect("/auth/required");

@@ -114,9 +114,6 @@ export async function resolveOidcTenantSession(input: {
   if (!input.claims.tenantExternalId || !input.claims.companyExternalId) {
     throw new Error("OIDC token is missing tenant or company context.");
   }
-  if (!input.claims.email) {
-    throw new Error("OIDC token is missing user email.");
-  }
   if (input.claims.emailVerified === false) {
     throw new Error("OIDC token email is not verified.");
   }
@@ -174,25 +171,27 @@ export async function resolveOidcTenantSession(input: {
       },
     },
   });
-  const user = identity?.user ?? await db.user.findUnique({
-    where: {
-      tenantId_email: {
-        tenantId: tenant.id,
-        email: input.claims.email.toLowerCase(),
-      },
-    },
-    include: {
-      employee: true,
-      userRoles: {
+  const user = identity?.user ?? (input.claims.email
+    ? await db.user.findUnique({
         where: {
-          companyId: company.id,
+          tenantId_email: {
+            tenantId: tenant.id,
+            email: input.claims.email.toLowerCase(),
+          },
         },
         include: {
-          role: true,
+          employee: true,
+          userRoles: {
+            where: {
+              companyId: company.id,
+            },
+            include: {
+              role: true,
+            },
+          },
         },
-      },
-    },
-  });
+      })
+    : null);
 
   if (identity) {
     await db.userExternalIdentity?.update({

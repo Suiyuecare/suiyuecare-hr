@@ -47,6 +47,29 @@ describe("OIDC DB-backed tenant session resolution", () => {
     expect(lastSeenUpdated).toBe(true);
   });
 
+  it("resolves browser cookie sessions by stable identity without requiring email in the cookie", async () => {
+    let emailLookupUsed = false;
+    const session = await resolveOidcTenantSession({
+      claims: {
+        ...claims,
+        email: null,
+        emailVerified: null,
+        name: null,
+        roleKeys: [],
+      },
+      db: dbFixture({
+        useExternalIdentity: true,
+        onEmailLookup: () => {
+          emailLookupUsed = true;
+        },
+      }),
+    });
+
+    expect(session.user?.email).toBe("employee@customer.example");
+    expect(session.role).toBe("employee");
+    expect(emailLookupUsed).toBe(false);
+  });
+
   it("uses HR One DB roles and user identity instead of token role claims", async () => {
     const session = await resolveOidcTenantSession({
       claims,

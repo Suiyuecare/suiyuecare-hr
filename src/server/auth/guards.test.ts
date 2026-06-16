@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { assertTenantSessionAccess, tenantSessionFromAuthorizationHeader } from "./guards";
+import {
+  assertTenantSessionAccess,
+  tenantSessionFromAuthorizationHeader,
+  tenantSessionFromOidcSessionCookie,
+} from "./guards";
+import {
+  buildOidcSessionCookiePayload,
+  sealOidcSessionCookie,
+} from "./oidc-session-cookie";
 
 const baseSession = {
   role: "employee" as const,
@@ -124,5 +132,64 @@ describe("tenant session guard", () => {
         throw new Error("should not verify");
       },
     })).rejects.toThrow(/Bearer token/);
+  });
+
+  it("builds tenant sessions from encrypted OIDC session cookies", async () => {
+    const cookie = await sealOidcSessionCookie(
+      buildOidcSessionCookiePayload({
+        claims: {
+          subject: "external-user-1",
+          issuer: "https://login.customer.example/tenant/v2.0",
+          audience: ["hr-one-api"],
+          email: "employee@hrone.test",
+          emailVerified: true,
+          name: "Employee User",
+          tenantExternalId: "tenant_1",
+          companyExternalId: "company_1",
+          employeeId: "employee_1",
+          employeeName: "Employee User",
+          roleKeys: ["employee"],
+          authAssurance: {
+            method: "sso",
+            mfaVerified: true,
+            authenticatedAt: new Date("2026-06-17T00:00:00.000Z"),
+            lastSeenAt: new Date("2026-06-17T00:00:00.000Z"),
+          },
+        },
+        env: {
+          HR_ONE_WEB_SESSION_MAX_AGE_SECONDS: "3600",
+        },
+        now: new Date("2026-06-17T00:10:00.000Z"),
+      }),
+      {
+        HR_ONE_ENCRYPTION_KEY: "encryption-key-with-at-least-32-characters",
+      },
+    );
+    const session = await tenantSessionFromOidcSessionCookie({
+      cookie,
+      env: {
+        HR_ONE_ENCRYPTION_KEY: "encryption-key-with-at-least-32-characters",
+      },
+      resolveClaims: async (claims) => ({
+        role: "employee",
+        tenantId: claims.tenantExternalId,
+        companyId: claims.companyExternalId,
+        user: {
+          id: "user_1",
+          email: "employee@hrone.test",
+          displayName: "Employee",
+        },
+        employee: {
+          id: "employee_1",
+          displayName: "Employee",
+        },
+        authAssurance: claims.authAssurance,
+      }),
+    });
+
+    await expect(assertTenantSessionAccess(session, {
+      permission: "leave:write",
+      employeeRequired: true,
+    })).resolves.toBeUndefined();
   });
 });

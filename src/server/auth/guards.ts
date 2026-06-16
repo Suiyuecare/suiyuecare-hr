@@ -6,6 +6,11 @@ import {
   type OidcVerifiedClaims,
 } from "./oidc";
 import { resolveOidcTenantSession } from "./oidc-session";
+import {
+  oidcSessionCookiePayloadToClaims,
+  openOidcSessionCookie,
+  readOidcSessionCookieFromHeader,
+} from "./oidc-session-cookie";
 import { assertAuthPolicy, type AuthAssurance } from "./policy";
 import { assertPermission, type Permission, type RoleKey } from "./rbac";
 import { getCompanySecuritySettingsForAuth } from "@/server/settings/security";
@@ -60,6 +65,21 @@ export async function tenantSessionFromAuthorizationHeader(input: {
     : resolveOidcTenantSession({
         claims,
         env: input.env,
+    });
+}
+
+export async function tenantSessionFromOidcSessionCookie(input: {
+  cookie: string | null;
+  env?: Record<string, string | undefined>;
+  resolveClaims?: (claims: OidcVerifiedClaims) => Promise<TenantSessionLike>;
+}) {
+  const payload = await openOidcSessionCookie(input.cookie, input.env ?? process.env);
+  const claims = oidcSessionCookiePayloadToClaims(payload);
+  return input.resolveClaims
+    ? input.resolveClaims(claims)
+    : resolveOidcTenantSession({
+        claims,
+        env: input.env,
       });
 }
 
@@ -88,8 +108,12 @@ export async function assertTenantSessionAccess(
 
 async function getOidcTenantSessionFromRequestHeaders() {
   const headerStore = await headers();
-  return tenantSessionFromAuthorizationHeader({
-    authorization: headerStore.get("authorization"),
+  const authorization = headerStore.get("authorization");
+  if (parseBearerToken(authorization)) {
+    return tenantSessionFromAuthorizationHeader({ authorization });
+  }
+  return tenantSessionFromOidcSessionCookie({
+    cookie: readOidcSessionCookieFromHeader(headerStore.get("cookie")),
   });
 }
 
