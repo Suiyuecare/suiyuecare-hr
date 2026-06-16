@@ -208,7 +208,7 @@ Use the role switcher in the top bar:
 - `hr_admin` opens `/hr`
 - `owner` opens `/settings`
 
-Seed data includes one tenant, one company, two departments, one owner, one HR admin, one manager, three normal employees, salary profiles, and payroll compliance profiles with resident/non-resident examples.
+Seed data includes one tenant, one company, two departments, one owner, one HR admin, one manager, and a 25-person Beta pilot employee cohort with manager reporting lines, salary profiles, leave balances, schedules, payment profiles, statutory insurance records, privacy acknowledgements, training assignments, and payroll compliance profiles with resident/non-resident examples.
 HR admins can open `/hr/forms` to create custom forms and attach manager/HR approval workflows. Employees submit active forms from `/app`; approvers process them from `/manager/inbox`.
 The form wizard supports conditional field visibility and conditional HR review in plain language: HR can keep employee forms short by showing extra fields only for specific answers, keep manager review as the first step, and only route to HR when the first submitted field matches a configured answer.
 HR admins can open `/hr/onboarding-readiness` to clear customer setup gaps before running production verification, including labor roster profile coverage and statutory insurance enrollment coverage based on the active Taiwan rule settings. They can then open `/hr/employee-import` to preview, validate, and import employee CSV data without engineering support. The employee import preview checks department codes, duplicate employee numbers, `managerEmployeeNo` reporting lines, and whether the projected company size reaches the 20-50 person Beta pilot range before HR confirms the import; employee and import audit logs include aggregate pilot-readiness metadata. After employees exist, HR can open `/hr/labor-roster` to complete Taiwan worker roster profiles and `/hr/payroll-profile-import` to batch import salary, payment destination, and payroll compliance profiles from one CSV instead of editing each employee one at a time.
@@ -322,7 +322,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 
 - `PLAN.md`: product and implementation plan.
 - `prisma/schema.prisma`: PostgreSQL data model, including salary profiles and payroll compliance profiles.
-- `prisma/seed.ts`: demo tenant/company/departments/employees/roles/rule seed.
+- `prisma/seed.ts`: demo tenant/company/departments/25-person Beta pilot cohort/roles/rule seed.
 - `prisma/provision-tenant.ts`: production customer tenant foundation CLI.
 - `prisma/verify.ts`: demo and production database readiness verification CLI.
 - `scripts/release-gate.ts`: release gate CLI that runs app quality checks and production tenant verification in sequence.

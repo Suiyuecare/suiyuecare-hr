@@ -113,8 +113,8 @@ async function main() {
       tenantId: tenant.id,
       plan: "demo",
       status: "trial",
-      seatLimit: 10,
-      activeSeatCount: 6,
+      seatLimit: 50,
+      activeSeatCount: 26,
       trialEndsAt: new Date("2026-06-27T00:00:00.000Z"),
       contractStartsAt: null,
       contractEndsAt: null,
@@ -367,15 +367,44 @@ async function main() {
     },
   });
 
+  const betaPilotEmployeeNames = [
+    "周宜庭",
+    "吳柏翰",
+    "鄭雅婷",
+    "蔡明哲",
+    "許家瑋",
+    "郭怡君",
+    "曾子豪",
+    "葉欣怡",
+    "邱俊廷",
+    "廖佳玲",
+    "賴冠宇",
+    "徐詠晴",
+    "宋承翰",
+    "潘郁婷",
+    "何孟潔",
+    "羅建宏",
+    "高庭萱",
+    "戴宇翔",
+    "施佩穎",
+    "江品皓",
+  ];
+  const userSeeds = [
+    { email: "owner@hrone.test", displayName: "王執行長", roleKey: "owner" as const },
+    { email: "hr@hrone.test", displayName: "林人資", roleKey: "hr_admin" as const },
+    { email: "manager@hrone.test", displayName: "陳主管", roleKey: "manager" as const },
+    { email: "employee1@hrone.test", displayName: "張小安", roleKey: "employee" as const },
+    { email: "employee2@hrone.test", displayName: "李小真", roleKey: "employee" as const },
+    { email: "employee3@hrone.test", displayName: "黃小宇", roleKey: "employee" as const },
+    ...betaPilotEmployeeNames.map((displayName, index) => ({
+      email: `pilot${String(index + 1).padStart(2, "0")}@hrone.test`,
+      displayName,
+      roleKey: "employee" as const,
+    })),
+  ];
+
   const users = await Promise.all(
-    [
-      ["owner@hrone.test", "王執行長", "owner"],
-      ["hr@hrone.test", "林人資", "hr_admin"],
-      ["manager@hrone.test", "陳主管", "manager"],
-      ["employee1@hrone.test", "張小安", "employee"],
-      ["employee2@hrone.test", "李小真", "employee"],
-      ["employee3@hrone.test", "黃小宇", "employee"],
-    ].map(([email, displayName]) =>
+    userSeeds.map(({ email, displayName }) =>
       prisma.user.create({
         data: {
           tenantId: tenant.id,
@@ -386,7 +415,8 @@ async function main() {
     ),
   );
 
-  const [ownerUser, hrUser, managerUser, employeeOneUser, employeeTwoUser, employeeThreeUser] = users;
+  const [ownerUser, hrUser, managerUser, employeeOneUser, employeeTwoUser, employeeThreeUser, ...betaPilotUsers] =
+    users;
 
   await prisma.userExternalIdentity.createMany({
     data: users.map((user) => ({
@@ -467,31 +497,45 @@ async function main() {
     }),
   ]);
 
+  const betaPilotEmployees = await Promise.all(
+    betaPilotUsers.map((user, index) =>
+      prisma.employee.create({
+        data: {
+          tenantId: tenant.id,
+          companyId: company.id,
+          userId: user.id,
+          departmentId: index % 5 === 0 ? peopleOps.id : product.id,
+          managerId: managerEmployee.id,
+          employeeNo: `E${String(index + 6).padStart(3, "0")}`,
+          displayName: user.displayName,
+          jobTitle: betaPilotJobTitle(index),
+          hireDate: new Date(Date.UTC(2024, index % 12, Math.min(25, index + 1))),
+        },
+      })
+    ),
+  );
+
+  const seededEmployees = [
+    hrEmployee,
+    managerEmployee,
+    employeeOne,
+    employeeTwo,
+    employeeThree,
+    ...betaPilotEmployees,
+  ];
+
   await prisma.employeePrivacyConsent.createMany({
-    data: [
-      {
-        tenantId: tenant.id,
-        companyId: company.id,
-        employeeId: hrEmployee.id,
-        consentVersion: "2026.01",
-        consentTitle: "Employee personal data collection notice",
-        policyHash: privacyPolicyHash,
-        source: "seed",
-        acceptedByUserId: hrUser.id,
-        acceptedAt: new Date("2026-06-01T01:00:00.000Z"),
-      },
-      {
-        tenantId: tenant.id,
-        companyId: company.id,
-        employeeId: managerEmployee.id,
-        consentVersion: "2026.01",
-        consentTitle: "Employee personal data collection notice",
-        policyHash: privacyPolicyHash,
-        source: "seed",
-        acceptedByUserId: managerUser.id,
-        acceptedAt: new Date("2026-06-01T01:05:00.000Z"),
-      },
-    ],
+    data: seededEmployees.map((employee, index) => ({
+      tenantId: tenant.id,
+      companyId: company.id,
+      employeeId: employee.id,
+      consentVersion: "2026.01",
+      consentTitle: "Employee personal data collection notice",
+      policyHash: privacyPolicyHash,
+      source: "seed",
+      acceptedByUserId: employee.userId ?? hrUser.id,
+      acceptedAt: new Date(Date.UTC(2026, 5, 1, 1, index)),
+    })),
   });
 
   const trainingCourse = await prisma.trainingCourse.create({
@@ -513,28 +557,17 @@ async function main() {
   });
 
   await prisma.employeeTrainingAssignment.createMany({
-    data: [
-      {
-        tenantId: tenant.id,
-        companyId: company.id,
-        employeeId: hrEmployee.id,
-        courseId: trainingCourse.id,
-        status: "completed",
-        dueAt: new Date("2026-06-08T00:00:00.000Z"),
-        completedAt: new Date("2026-06-02T00:00:00.000Z"),
-        acknowledgementHash: hash(`${hrEmployee.id}:${trainingCourse.id}:2026.01`),
-        assignedByUserId: hrUser.id,
-      },
-      {
-        tenantId: tenant.id,
-        companyId: company.id,
-        employeeId: managerEmployee.id,
-        courseId: trainingCourse.id,
-        status: "assigned",
-        dueAt: new Date("2026-06-08T00:00:00.000Z"),
-        assignedByUserId: hrUser.id,
-      },
-    ],
+    data: seededEmployees.map((employee, index) => ({
+      tenantId: tenant.id,
+      companyId: company.id,
+      employeeId: employee.id,
+      courseId: trainingCourse.id,
+      status: "completed",
+      dueAt: new Date("2026-06-08T00:00:00.000Z"),
+      completedAt: new Date(Date.UTC(2026, 5, 2, 1, index)),
+      acknowledgementHash: hash(`${employee.id}:${trainingCourse.id}:2026.01`),
+      assignedByUserId: hrUser.id,
+    })),
   });
 
   const workRule = await prisma.companyWorkRule.create({
@@ -559,7 +592,7 @@ async function main() {
   });
 
   await prisma.employeeWorkRuleAcknowledgement.createMany({
-    data: [hrEmployee, managerEmployee, employeeOne, employeeTwo, employeeThree].map((employee, index) => ({
+    data: seededEmployees.map((employee, index) => ({
       tenantId: tenant.id,
       companyId: company.id,
       employeeId: employee.id,
@@ -601,7 +634,7 @@ async function main() {
   });
 
   await prisma.employeeLaborRosterProfile.createMany({
-    data: [hrEmployee, managerEmployee, employeeOne, employeeTwo, employeeThree].map((employee, index) => {
+    data: seededEmployees.map((employee, index) => {
       const missingFields: string[] = [];
       const verificationStatus = "verified";
       return {
@@ -611,7 +644,7 @@ async function main() {
         status: "complete",
         legalNameHash: hash(`${employee.id}:legal-name:${employee.displayName}`),
         nationalIdHash: hash(`${employee.id}:national-id`),
-        birthDate: new Date(Date.UTC(1990 + index, 0, 1)),
+        birthDate: new Date(Date.UTC(1986 + (index % 20), 0, 1)),
         gender: index === 1 ? "male" : "female",
         nationality: "TW",
         registeredAddressHash: hash(`${employee.id}:registered-address`),
@@ -640,20 +673,13 @@ async function main() {
   });
 
   await Promise.all(
-    [
-      [ownerUser.id, "owner"],
-      [hrUser.id, "hr_admin"],
-      [managerUser.id, "manager"],
-      [employeeOneUser.id, "employee"],
-      [employeeTwoUser.id, "employee"],
-      [employeeThreeUser.id, "employee"],
-    ].map(([userId, roleKey]) =>
+    users.map((user, index) =>
       prisma.userRole.create({
         data: {
           tenantId: tenant.id,
           companyId: company.id,
-          userId,
-          roleId: roleByKey[roleKey].id,
+          userId: user.id,
+          roleId: roleByKey[userSeeds[index].roleKey].id,
           scopeType: "company",
           scopeId: company.id,
         },
@@ -784,7 +810,7 @@ async function main() {
   if (!leavePolicy) throw new Error("Annual leave policy seed failed.");
 
   await prisma.leaveBalance.createMany({
-    data: [hrEmployee, managerEmployee, employeeOne, employeeTwo, employeeThree].map(
+    data: seededEmployees.map(
       (employee) => ({
         tenantId: tenant.id,
         companyId: company.id,
@@ -846,7 +872,7 @@ async function main() {
   scheduledEnd.setUTCHours(10, 0, 0, 0);
 
   await prisma.workSchedule.createMany({
-    data: [hrEmployee, managerEmployee, employeeOne, employeeTwo, employeeThree].map(
+    data: seededEmployees.map(
       (employee) => ({
         tenantId: tenant.id,
         companyId: company.id,
@@ -947,74 +973,51 @@ async function main() {
   });
 
   await prisma.salaryProfile.createMany({
-    data: [
-      [hrEmployee.id, 62000, 2500, 1200],
-      [managerEmployee.id, 78000, 3000, 1800],
-      [employeeOne.id, 56000, 2000, 1000],
-      [employeeTwo.id, 54000, 2000, 1000],
-      [employeeThree.id, 58000, 2000, 1000],
-    ].map(([employeeId, baseSalary, allowance, deduction]) => ({
+    data: seededEmployees.map((employee, index) => ({
       tenantId: tenant.id,
       companyId: company.id,
-      employeeId: String(employeeId),
-      baseSalary: Number(baseSalary),
-      recurringAllowances: [{ code: "meal", name: "Meal allowance", amount: Number(allowance) }],
-      recurringDeductions: [{ code: "welfare", name: "Welfare deduction", amount: Number(deduction) }],
+      employeeId: employee.id,
+      baseSalary: baseSalaryForEmployee(employee.employeeNo),
+      recurringAllowances: [{ code: "meal", name: "Meal allowance", amount: index < 2 ? 2500 : 2000 }],
+      recurringDeductions: [{ code: "welfare", name: "Welfare deduction", amount: index < 2 ? 1200 : 1000 }],
       effectiveFrom: new Date("2026-01-01T00:00:00.000Z"),
     })),
   });
 
   await prisma.employeePaymentProfile.createMany({
-    data: [
-      [hrEmployee.id, "Lin HR", "1111"],
-      [managerEmployee.id, "Chen Manager", "2222"],
-      [employeeOne.id, "Chang Xiao An", "3333"],
-      [employeeTwo.id, "Lee Xiao Zhen", "4444"],
-      [employeeThree.id, "Huang Xiao Yu", "5555"],
-    ].map(([employeeId, accountName, suffix]) => ({
+    data: seededEmployees.map((employee, index) => ({
       tenantId: tenant.id,
       companyId: company.id,
-      employeeId: String(employeeId),
+      employeeId: employee.id,
       paymentMethod: "bank_transfer",
       bankCode: "004",
       bankBranchCode: "0123",
-      accountName: String(accountName),
-      accountNumberHash: hash(`demo-payment-${employeeId}-${suffix}`),
-      accountNumberLast4: String(suffix),
+      accountName: `HR One Demo ${employee.employeeNo}`,
+      accountNumberHash: hash(`demo-payment-${employee.id}-${index}`),
+      accountNumberLast4: String(1000 + index).slice(-4),
       effectiveFrom: new Date("2026-01-01T00:00:00.000Z"),
       createdByUserId: hrUser.id,
     })),
   });
 
   await prisma.payrollComplianceProfile.createMany({
-    data: [
-      [hrEmployee.id, "resident", 0, null, null, null, null],
-      [managerEmployee.id, "resident", 2, null, 80200, null, null],
-      [employeeOne.id, "resident", 1, null, null, null, null],
-      [employeeTwo.id, "resident", 0, null, null, null, null],
-      [employeeThree.id, "non_resident", 0, null, null, null, 0.18],
-    ].map(([
-      employeeId,
-      taxResidency,
-      dependentCount,
-      laborInsuranceMonthlyWage,
-      healthInsuranceMonthlyWage,
-      laborPensionMonthlyWage,
-      nonResidentWithholdingRate,
-    ]) => ({
+    data: seededEmployees.map((employee, index) => {
+      const nonResident = employee.employeeNo === "E005";
+      const dependentCount = index % 3;
+      return {
       tenantId: tenant.id,
       companyId: company.id,
-      employeeId: String(employeeId),
-      taxResidency: String(taxResidency),
-      dependentCount: Number(dependentCount),
-      laborInsuranceMonthlyWage: laborInsuranceMonthlyWage === null ? null : Number(laborInsuranceMonthlyWage),
-      healthInsuranceMonthlyWage: healthInsuranceMonthlyWage === null ? null : Number(healthInsuranceMonthlyWage),
-      laborPensionMonthlyWage: laborPensionMonthlyWage === null ? null : Number(laborPensionMonthlyWage),
-      incomeTaxWithholdingMethod:
-        taxResidency === "non_resident" ? "non_resident_flat" : "annualized_progressive",
-      nonResidentWithholdingRate: nonResidentWithholdingRate === null ? null : Number(nonResidentWithholdingRate),
+      employeeId: employee.id,
+      taxResidency: nonResident ? "non_resident" : "resident",
+      dependentCount,
+      laborInsuranceMonthlyWage: null,
+      healthInsuranceMonthlyWage: employee.employeeNo === "E002" ? 80200 : null,
+      laborPensionMonthlyWage: null,
+      incomeTaxWithholdingMethod: nonResident ? "non_resident_flat" : "annualized_progressive",
+      nonResidentWithholdingRate: nonResident ? 0.18 : null,
       effectiveFrom: new Date("2026-01-01T00:00:00.000Z"),
-    })),
+      };
+    }),
   });
 
   const statutoryInsuranceTypes = [
@@ -1024,7 +1027,6 @@ async function main() {
     "national_health_insurance",
     "labor_pension",
   ];
-  const seededEmployees = [hrEmployee, managerEmployee, employeeOne, employeeTwo, employeeThree];
   await prisma.statutoryInsuranceRecord.createMany({
     data: seededEmployees.flatMap((employee) =>
       statutoryInsuranceTypes.map((insuranceType) => {
@@ -1178,7 +1180,7 @@ async function main() {
   });
 
   await prisma.employeeAnnouncementReceipt.createMany({
-    data: [hrEmployee, managerEmployee, employeeOne].map((employee) => ({
+    data: seededEmployees.slice(0, 20).map((employee) => ({
       tenantId: tenant.id,
       companyId: company.id,
       announcementId: payrollCloseAnnouncement.id,
@@ -1249,6 +1251,29 @@ function summarizeRuleValidation(validation: ReturnType<typeof validateTaiwanLab
     validatedAt: validation.validatedAt,
     fixtureSetVersion: validation.fixtureSetVersion,
   };
+}
+
+function betaPilotJobTitle(index: number) {
+  const titles = [
+    "Customer Success Specialist",
+    "Operations Coordinator",
+    "Product Specialist",
+    "QA Engineer",
+    "Care Program Coordinator",
+    "Finance Assistant",
+    "People Operations Associate",
+    "Backend Engineer",
+    "Frontend Engineer",
+    "Service Designer",
+  ];
+  return titles[index % titles.length];
+}
+
+function baseSalaryForEmployee(employeeNo: string) {
+  if (employeeNo === "E001") return 62000;
+  if (employeeNo === "E002") return 78000;
+  const sequence = Number(employeeNo.replace("E", ""));
+  return 50000 + (sequence % 8) * 1500;
 }
 
 function formTemplate(

@@ -19,9 +19,10 @@ describe("labor roster", () => {
 
     const workspace = await getLaborRosterWorkspace(hrSession);
 
-    expect(workspace.coverage.employeeCount).toBe(5);
-    expect(workspace.coverage.completeCount).toBe(2);
-    expect(workspace.coverage.coverageRate).toBe(40);
+    expect(workspace.coverage.employeeCount).toBe(25);
+    expect(workspace.coverage.completeCount).toBe(25);
+    expect(workspace.coverage.verifiedCount).toBe(25);
+    expect(workspace.coverage.coverageRate).toBe(100);
     expect(JSON.stringify(workspace)).not.toContain("A123456780");
     expect(JSON.stringify(workspace)).not.toContain("Taipei demo address");
   });

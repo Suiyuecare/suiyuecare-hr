@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getFallbackCompanyOverview } from "@/server/demo/fallback";
 import type { HrOneKpi } from "@/server/kpis/hr-one";
 import type { BetaPilotCheckpointEvidence } from "./beta-pilot-checkpoints";
 import { buildBetaPilotReadinessReport } from "./beta-pilot";
@@ -66,6 +67,25 @@ const allFlowEvidence = {
 };
 
 describe("beta pilot readiness", () => {
+  it("keeps the built-in demo cohort inside the 20-50 person pilot range", () => {
+    const overview = getFallbackCompanyOverview();
+    const report = buildBetaPilotReadinessReport({
+      employeeCount: overview.employeeCount,
+      managerCount: overview.managerCount,
+      launchReport: readyLaunchReport(),
+      kpis: passingKpis,
+      payroll: readyPayroll,
+      flowEvidence: allFlowEvidence,
+    });
+
+    expect(overview.employeeCount).toBe(25);
+    expect(overview.managerCount).toBeGreaterThanOrEqual(1);
+    expect(report.items.find((item) => item.id === "cohort_size")).toMatchObject({
+      status: "ready",
+      detail: "25 位員工、1 位主管在目前公司資料中；目標是 20-50 人且至少 1 條主管簽核線。",
+    });
+  });
+
   it("requires a 20-50 person cohort for the two-week trial", () => {
     const report = buildBetaPilotReadinessReport({
       employeeCount: 5,

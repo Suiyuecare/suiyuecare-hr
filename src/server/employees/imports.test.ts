@@ -24,21 +24,21 @@ const managerSession = {
 };
 
 const pilotCsv = `employeeNo,displayName,jobTitle,departmentCode,hireDate,managerEmployeeNo
-E006,王小明,QA Engineer,ENG,2026-07-01,E002
-E007,鄭小美,HR Specialist,POPS,2026-07-01,E001
-E008,林宜庭,Frontend Engineer,ENG,2026-07-01,E002
-E009,何建宏,Backend Engineer,ENG,2026-07-01,E002
-E010,吳佩珊,Product Designer,ENG,2026-07-01,E002
-E011,劉冠廷,Customer Success,POPS,2026-07-01,E001
-E012,周庭安,QA Engineer,ENG,2026-07-01,E002
-E013,蔡宗翰,DevOps Engineer,ENG,2026-07-01,E002
-E014,洪雅雯,People Specialist,POPS,2026-07-01,E001
-E015,許哲維,Data Analyst,ENG,2026-07-01,E002
-E016,郭品妤,Project Manager,ENG,2026-07-01,E002
-E017,謝承恩,Support Specialist,POPS,2026-07-01,E001
-E018,方怡君,Content Specialist,POPS,2026-07-01,E001
-E019,廖俊廷,Mobile Engineer,ENG,2026-07-01,E002
-E020,羅佳穎,Payroll Specialist,POPS,2026-07-01,E001`;
+E026,王小明,QA Engineer,ENG,2026-07-01,E002
+E027,鄭小美,HR Specialist,POPS,2026-07-01,E001
+E028,林宜庭,Frontend Engineer,ENG,2026-07-01,E002
+E029,何建宏,Backend Engineer,ENG,2026-07-01,E002
+E030,吳佩珊,Product Designer,ENG,2026-07-01,E002
+E031,劉冠廷,Customer Success,POPS,2026-07-01,E001
+E032,周庭安,QA Engineer,ENG,2026-07-01,E002
+E033,蔡宗翰,DevOps Engineer,ENG,2026-07-01,E002
+E034,洪雅雯,People Specialist,POPS,2026-07-01,E001
+E035,許哲維,Data Analyst,ENG,2026-07-01,E002
+E036,郭品妤,Project Manager,ENG,2026-07-01,E002
+E037,謝承恩,Support Specialist,POPS,2026-07-01,E001
+E038,方怡君,Content Specialist,POPS,2026-07-01,E001
+E039,廖俊廷,Mobile Engineer,ENG,2026-07-01,E002
+E040,羅佳穎,Payroll Specialist,POPS,2026-07-01,E001`;
 
 describe("employee imports", () => {
   beforeEach(() => {
@@ -50,21 +50,21 @@ describe("employee imports", () => {
     const preview = await previewEmployeeImport(
       hrSession,
       `employeeNo,displayName,jobTitle,departmentCode,hireDate,managerEmployeeNo
-E006,王小明,QA Engineer,ENG,2026-07-01,E002`,
+E026,王小明,QA Engineer,ENG,2026-07-01,E002`,
     );
 
     expect(preview).toMatchObject({
       validCount: 1,
       invalidCount: 0,
       pilotReadiness: {
-        status: "action_required",
-        existingEmployeeCount: 5,
-        projectedEmployeeCount: 6,
+        status: "ready",
+        existingEmployeeCount: 25,
+        projectedEmployeeCount: 26,
         managerAssignmentCount: 1,
       },
     });
     expect(preview.rows[0]).toMatchObject({
-      employeeNo: "E006",
+      employeeNo: "E026",
       departmentName: "Product Engineering",
       status: "valid",
     });
@@ -76,7 +76,7 @@ E006,王小明,QA Engineer,ENG,2026-07-01,E002`,
     expect(workspace.employees).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          employeeNo: "E006",
+          employeeNo: "E026",
           displayName: "王小明",
         }),
       ]),
@@ -88,9 +88,9 @@ E006,王小明,QA Engineer,ENG,2026-07-01,E002`,
           action: "create",
           entityType: "employee_import",
           metadataJson: expect.objectContaining({
-            projectedEmployeeCount: 6,
+            projectedEmployeeCount: 26,
             managerAssignmentCount: 1,
-            pilotReadinessStatus: "action_required",
+            pilotReadinessStatus: "ready",
           }),
         }),
       ]),
@@ -104,8 +104,8 @@ E006,王小明,QA Engineer,ENG,2026-07-01,E002`,
     expect(preview.invalidCount).toBe(0);
     expect(preview.pilotReadiness).toMatchObject({
       status: "ready",
-      existingEmployeeCount: 5,
-      projectedEmployeeCount: 20,
+      existingEmployeeCount: 25,
+      projectedEmployeeCount: 40,
       managerAssignmentCount: 15,
       issues: [],
     });
@@ -117,7 +117,7 @@ E006,王小明,QA Engineer,ENG,2026-07-01,E002`,
         expect.objectContaining({
           entityType: "employee_import",
           metadataJson: expect.objectContaining({
-            projectedEmployeeCount: 20,
+            projectedEmployeeCount: 40,
             managerAssignmentCount: 15,
             pilotReadinessStatus: "ready",
           }),
@@ -148,8 +148,8 @@ E001,Duplicate,QA Engineer,NOPE,2026-07-01`,
     const preview = await previewEmployeeImport(
       hrSession,
       `employeeNo,displayName,jobTitle,departmentCode,hireDate,managerEmployeeNo
-E006,王小明,QA Engineer,ENG,2026-07-01,E999
-E007,鄭小美,HR Specialist,POPS,2026-07-01,E007`,
+E026,王小明,QA Engineer,ENG,2026-07-01,E999
+E027,鄭小美,HR Specialist,POPS,2026-07-01,E027`,
     );
 
     expect(preview.invalidCount).toBe(2);
@@ -162,8 +162,8 @@ E007,鄭小美,HR Specialist,POPS,2026-07-01,E007`,
     const preview = await previewEmployeeImport(
       hrSession,
       `employeeNo,displayName,jobTitle,departmentCode,hireDate,managerEmployeeNo
-E006,王小明,QA Engineer,ENG,2026-07-01,E007
-E007,,Team Lead,ENG,2026-07-01,E002`,
+E026,王小明,QA Engineer,ENG,2026-07-01,E027
+E027,,Team Lead,ENG,2026-07-01,E002`,
     );
 
     expect(preview.invalidCount).toBe(2);

@@ -131,11 +131,11 @@ export async function saveLaborRosterProfile(session: SessionLike, input: LaborR
 export function resetLaborRosterDemoState() {
   const overview = getFallbackCompanyOverview();
   const employees = overview.company.employees;
-  const profileInputs = employees.slice(0, 3).map((employee, index) => ({
+  const profileInputs = employees.map((employee, index) => ({
     employee,
     legalName: employee.displayName,
     nationalId: `A12345678${index}`,
-    birthDate: new Date(`199${index}-01-01T00:00:00.000Z`),
+    birthDate: new Date(Date.UTC(1986 + (index % 20), 0, 1)),
     gender: index === 1 ? "male" : "female",
     nationality: "TW",
     registeredAddress: `Taipei demo address ${index + 1}`,
@@ -143,7 +143,7 @@ export function resetLaborRosterDemoState() {
     educationSummary: "University degree on file",
     workExperienceSummary: "Prior experience reviewed",
     rosterSourceRef: "demo://labor-roster/2026.01",
-    verificationStatus: index === 2 ? "needs_review" as const : "verified" as const,
+    verificationStatus: "verified" as const,
   }));
   globalForLaborRoster.hrOneLaborRosterDemoState = {
     profiles: profileInputs.map((item, index) => buildProfileView({
@@ -155,7 +155,7 @@ export function resetLaborRosterDemoState() {
       jobTitle: item.employee.jobTitle,
       hireDate: new Date("2025-01-01T00:00:00.000Z"),
       input: item,
-      lastReviewedAt: index === 2 ? null : new Date("2026-06-01T00:00:00.000Z"),
+      lastReviewedAt: new Date("2026-06-01T00:00:00.000Z"),
     })),
   };
 }
