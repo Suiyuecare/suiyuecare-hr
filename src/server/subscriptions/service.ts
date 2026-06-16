@@ -83,6 +83,19 @@ export async function getSubscriptionWorkspace(session: SessionLike): Promise<Su
   return getDemoSubscriptionWorkspace();
 }
 
+export async function getSubscriptionReadiness(session: SessionLike): Promise<SubscriptionReadiness> {
+  assertPermission(session.role, "settings:read");
+  if (canUseDatabase(session)) {
+    try {
+      return (await getDbSubscriptionWorkspace(session as SessionLike & { tenantId: string; companyId: string }))
+        .readiness;
+    } catch {
+      return getDemoSubscriptionWorkspace().readiness;
+    }
+  }
+  return getDemoSubscriptionWorkspace().readiness;
+}
+
 export async function updateTenantSubscription(session: SessionLike, input: Partial<TenantSubscriptionView>) {
   assertPermission(session.role, "subscription:manage");
   const before = (await getSubscriptionWorkspace(session)).subscription;

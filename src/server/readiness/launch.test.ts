@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { defaultTaiwanLaborStandardsConfig } from "@/server/rules/taiwan-labor-standards";
 import type { HrOneKpi } from "@/server/kpis/hr-one";
 import { defaultFileStorageSettings } from "@/server/files/storage";
-import { buildLaunchReadinessReport } from "./launch";
+import { buildLaunchReadinessReport, getLaunchReadinessReport } from "./launch";
 
 const secureStorage = {
   ...defaultFileStorageSettings,
@@ -78,6 +78,31 @@ const passingKpis: HrOneKpi[] = [
 }));
 
 describe("launch readiness", () => {
+  it("lets HR admins read readiness without commercial subscription management permission", async () => {
+    const originalDatabaseUrl = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+
+    try {
+      const report = await getLaunchReadinessReport({
+        role: "hr_admin",
+        tenantId: "demo-tenant",
+        companyId: "demo-company",
+        user: { id: "demo-user-hr", displayName: "林人資" },
+        employee: { id: "demo-hr-employee", displayName: "林人資" },
+      });
+
+      expect(report.items.find((item) => item.id === "subscription")).toMatchObject({
+        status: "blocked",
+      });
+    } finally {
+      if (originalDatabaseUrl) {
+        process.env.DATABASE_URL = originalDatabaseUrl;
+      } else {
+        delete process.env.DATABASE_URL;
+      }
+    }
+  });
+
   it("blocks sale readiness when persistence and production storage are still demo-only", () => {
     const report = buildLaunchReadinessReport({
       databaseConfigured: false,

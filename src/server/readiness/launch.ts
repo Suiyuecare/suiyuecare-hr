@@ -22,7 +22,7 @@ import {
 } from "@/server/rules/validation";
 import type { CompanySecuritySettings } from "@/server/settings/security";
 import { getCompanySecuritySettings, hasSsoMetadata } from "@/server/settings/security";
-import { getSubscriptionWorkspace, type SubscriptionReadiness } from "@/server/subscriptions/service";
+import { getSubscriptionReadiness, type SubscriptionReadiness } from "@/server/subscriptions/service";
 import { getSupportAccessGovernance } from "@/server/support/access";
 import { getTrainingWorkspace, type TrainingReadiness } from "@/server/training/compliance";
 import { getWorkRulesWorkspace, type WorkRuleReadiness } from "@/server/work-rules/service";
@@ -83,7 +83,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     trainingWorkspace,
     operationalResilience,
     calendarWorkspace,
-    subscriptionWorkspace,
+    subscriptionReadiness,
     offboardingWorkspace,
     workRulesWorkspace,
     laborRosterWorkspace,
@@ -102,7 +102,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     getTrainingWorkspace(session),
     getOperationalResilienceReadiness(session),
     getCompanyCalendarWorkspace(session),
-    getSubscriptionWorkspace(session),
+    getSubscriptionReadiness(session),
     getOffboardingWorkspace(session),
     getWorkRulesWorkspace(session),
     getLaborRosterWorkspace(session),
@@ -149,7 +149,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     trainingReadiness: trainingWorkspace.readiness,
     operationalResilience,
     calendarReadiness: calendarWorkspace.readiness,
-    subscriptionReadiness: subscriptionWorkspace.readiness,
+    subscriptionReadiness,
     offboardingReadiness: offboardingWorkspace.readiness,
     workRuleReadiness: workRulesWorkspace.readiness,
     laborRosterReadiness: {
