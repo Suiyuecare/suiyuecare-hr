@@ -1,4 +1,4 @@
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { getPayrollAccountingSettings } from "@/server/payroll/accounting-settings";
 
 type SearchParams = Promise<{ error?: string }>;

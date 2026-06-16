@@ -1,4 +1,4 @@
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { summarizeApprovalRequest } from "@/server/ai/service";
 import { hasPermission } from "@/server/auth/rbac";
 import { getManagerInbox } from "@/server/workflows/service";

@@ -1,7 +1,7 @@
 import { DashboardLink } from "@/components/DashboardLink";
 import { CustomFormCard } from "@/components/CustomFormCard";
 import { getActiveAttendancePolicy } from "@/server/attendance/policies";
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { getEmployeeWorkspace } from "@/server/workflows/service";
 import type { WorkflowRequest } from "@/server/workflows/types";
 

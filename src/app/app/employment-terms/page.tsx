@@ -1,6 +1,6 @@
 import { DashboardLink } from "@/components/DashboardLink";
 import { EmptyState } from "@/components/EmptyState";
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { getOwnEmploymentTerms } from "@/server/employees/employment-terms";
 
 type SearchParams = Promise<{ error?: string }>;

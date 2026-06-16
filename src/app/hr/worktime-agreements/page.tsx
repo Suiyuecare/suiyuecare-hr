@@ -1,5 +1,5 @@
 import { getWorktimeAgreementReadiness, getWorktimeAgreementSettings } from "@/server/attendance/worktime-agreements";
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 
 type SearchParams = Promise<{ error?: string }>;
 

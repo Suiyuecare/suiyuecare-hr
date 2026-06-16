@@ -1,5 +1,5 @@
 import { EmptyState } from "@/components/EmptyState";
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { getUserAccessWorkspace } from "@/server/auth/access-management";
 import { roleKeys, type RoleKey } from "@/server/auth/rbac";
 

@@ -1,5 +1,5 @@
 import { EmptyState } from "@/components/EmptyState";
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { evaluateSalaryProfileMinimumWageCompliance } from "@/server/payroll/minimum-wage";
 import { getSalaryProfileWorkspace } from "@/server/payroll/salary-profiles";
 import { getTaiwanLaborStandardsConfig } from "@/server/rules/settings";

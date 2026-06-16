@@ -17,7 +17,12 @@ export type TenantSessionLike = {
   tenantId: string | null;
   companyId: string | null;
   user: { id: string; email?: string | null; displayName: string; status?: string | null } | null;
-  employee: { id: string; displayName: string } | null;
+  employee: {
+    id: string;
+    displayName: string;
+    managerId?: string | null;
+    department?: { name?: string | null } | null;
+  } | null;
   authAssurance?: AuthAssurance;
 };
 

@@ -1,4 +1,4 @@
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { getFormTemplates } from "@/server/workflows/service";
 
 export default async function HrFormsPage() {

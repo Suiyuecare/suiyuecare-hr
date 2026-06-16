@@ -1,5 +1,5 @@
 import { EmptyState } from "@/components/EmptyState";
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { getShiftTemplateSettings } from "@/server/scheduling/shift-templates";
 
 type SearchParams = Promise<{

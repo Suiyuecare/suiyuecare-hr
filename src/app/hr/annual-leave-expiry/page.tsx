@@ -1,4 +1,4 @@
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { getAnnualLeaveExpiryWorkspace } from "@/server/leave/annual-leave-expiry";
 
 type SearchParams = Promise<{

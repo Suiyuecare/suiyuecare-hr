@@ -1,5 +1,5 @@
 import { getPolicyDocuments } from "@/server/ai/policy-docs";
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 
 type SearchParams = Promise<{ error?: string }>;
 

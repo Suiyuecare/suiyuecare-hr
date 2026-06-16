@@ -1,4 +1,4 @@
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { getAttendanceSignoffCoverage } from "@/server/attendance/signoffs";
 
 export default async function AttendanceSignoffsPage() {

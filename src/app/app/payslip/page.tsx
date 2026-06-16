@@ -1,5 +1,5 @@
 import { DashboardLink } from "@/components/DashboardLink";
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { getOwnPayslip } from "@/server/payroll/service";
 
 export default async function PayslipPage() {

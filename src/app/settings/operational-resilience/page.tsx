@@ -1,4 +1,4 @@
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { getOperationalResilienceReadiness } from "@/server/readiness/operational-resilience";
 
 type SearchParams = Promise<{ error?: string }>;

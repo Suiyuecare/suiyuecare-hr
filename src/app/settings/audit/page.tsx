@@ -1,4 +1,4 @@
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { getAuditLogs } from "@/server/audit/queries";
 import { getAuditEvidenceWorkspace } from "@/server/audit/evidence-packages";
 

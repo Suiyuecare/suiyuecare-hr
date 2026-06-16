@@ -1,5 +1,5 @@
 import { EmptyState } from "@/components/EmptyState";
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { hasPermission } from "@/server/auth/rbac";
 import type { EmployeeImportPilotReadiness } from "@/server/employees/imports";
 import { getEmployeeImportWorkspace } from "@/server/employees/imports";

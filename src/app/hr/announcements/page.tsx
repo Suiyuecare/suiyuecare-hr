@@ -1,5 +1,5 @@
 import { getAnnouncementWorkspace } from "@/server/announcements/service";
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 
 type SearchParams = Promise<{ error?: string }>;
 

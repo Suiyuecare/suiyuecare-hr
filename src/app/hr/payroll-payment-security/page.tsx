@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { dashboardPathForRole, hasPermission } from "@/server/auth/rbac";
 import {
   getPayrollPaymentSecurityReadiness,

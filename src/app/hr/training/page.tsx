@@ -1,4 +1,4 @@
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { getTrainingWorkspace } from "@/server/training/compliance";
 
 type SearchParams = Promise<{

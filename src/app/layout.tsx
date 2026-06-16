@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
-import { getDemoSession } from "@/server/auth/demo-session";
+import {
+  canUseDemoRoleSwitcher,
+  getOptionalAppSession,
+} from "@/server/auth/session";
 import { evaluateAuthPolicy } from "@/server/auth/policy";
 import { roleKeys } from "@/server/auth/rbac";
 import { getCompanySecuritySettingsForAuth } from "@/server/settings/security";
@@ -16,10 +19,11 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await getDemoSession();
-  const securitySettings = await getCompanySecuritySettingsForAuth(session);
-  const authEvaluation = evaluateAuthPolicy(session, securitySettings);
-  const authAssurance = "authAssurance" in session ? session.authAssurance : undefined;
+  const session = await getOptionalAppSession();
+  const securitySettings = session ? await getCompanySecuritySettingsForAuth(session) : null;
+  const authEvaluation = session && securitySettings ? evaluateAuthPolicy(session, securitySettings) : null;
+  const authAssurance = session && "authAssurance" in session ? session.authAssurance : undefined;
+  const showDemoRoleSwitcher = Boolean(session && canUseDemoRoleSwitcher());
 
   return (
     <html lang="zh-Hant">
@@ -32,33 +36,44 @@ export default async function RootLayout({
                 <span>AI 原生人資作業系統</span>
               </Link>
               <div className="auth-assurance" aria-label="登入安全狀態">
-                <span className={`badge ${authEvaluation.allowed ? "" : "warning"}`}>
-                  {authEvaluation.allowed ? "登入已驗證" : translateAuthStatus(authEvaluation.status)}
-                </span>
-                <small>
-                  {translateAuthMethod(authAssurance?.method)} · 多因素驗證{" "}
-                  {authAssurance?.mfaVerified ? "已完成" : "未完成"}
-                </small>
+                {authEvaluation ? (
+                  <>
+                    <span className={`badge ${authEvaluation.allowed ? "" : "warning"}`}>
+                      {authEvaluation.allowed ? "登入已驗證" : translateAuthStatus(authEvaluation.status)}
+                    </span>
+                    <small>
+                      {translateAuthMethod(authAssurance?.method)} · 多因素驗證{" "}
+                      {authAssurance?.mfaVerified ? "已完成" : "未完成"}
+                    </small>
+                  </>
+                ) : (
+                  <>
+                    <span className="badge warning">需要正式登入</span>
+                    <small>production 停用示範角色切換</small>
+                  </>
+                )}
               </div>
               <nav className="topbar-nav" aria-label="主要系統切換">
                 <Link href="/app">員工前台</Link>
                 <Link href="/console">管理後台</Link>
               </nav>
-              <form action="/api/demo/switch-role" method="post" className="role-switcher">
-                <label className="muted" htmlFor="role">
-                  示範角色
-                </label>
-                <select id="role" name="role" defaultValue={session.role}>
-                  {roleKeys.map((role) => (
-                    <option key={role} value={role}>
-                      {roleLabel(role)}
-                    </option>
-                  ))}
-                </select>
-                <button className="button primary" type="submit">
-                  切換
-                </button>
-              </form>
+              {session && showDemoRoleSwitcher ? (
+                <form action="/api/demo/switch-role" method="post" className="role-switcher">
+                  <label className="muted" htmlFor="role">
+                    示範角色
+                  </label>
+                  <select id="role" name="role" defaultValue={session.role}>
+                    {roleKeys.map((role) => (
+                      <option key={role} value={role}>
+                        {roleLabel(role)}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="button primary" type="submit">
+                    切換
+                  </button>
+                </form>
+              ) : null}
             </div>
           </header>
           {children}

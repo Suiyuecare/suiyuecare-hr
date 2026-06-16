@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { filterConsoleModules, getConsoleModules } from "@/server/console/modules";
 
 type SearchParams = Promise<{ q?: string }>;

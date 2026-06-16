@@ -1,5 +1,5 @@
 import { EmptyState } from "@/components/EmptyState";
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { getPayrollExportWorkspace } from "@/server/payroll/exports";
 
 type SearchParams = Promise<{ error?: string }>;

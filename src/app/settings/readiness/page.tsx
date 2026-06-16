@@ -1,5 +1,5 @@
 import { EmptyState } from "@/components/EmptyState";
-import { getDemoSession } from "@/server/auth/demo-session";
+import { getDemoSession } from "@/server/auth/session";
 import { hasPermission } from "@/server/auth/rbac";
 import { getBetaPilotReadinessReport } from "@/server/readiness/beta-pilot";
 import type { BetaPilotCheckpointStatus, BetaPilotEvidenceType } from "@/server/readiness/beta-pilot-checkpoints";
