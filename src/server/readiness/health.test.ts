@@ -63,6 +63,10 @@ describe("health reports", () => {
       status: "degraded",
       detail: "database not configured; demo fallback available",
     });
+    expect(report.checks.find((check) => check.name === "demo auth")).toMatchObject({
+      status: "ok",
+      detail: "Demo auth is available for local development and smoke tests.",
+    });
   });
 
   it("fails production readiness without exposing secret values", async () => {
@@ -83,6 +87,10 @@ describe("health reports", () => {
       status: "fail",
       detail: "production environment verification failed",
     });
+    expect(report.checks.find((check) => check.name === "demo auth")).toMatchObject({
+      status: "ok",
+      detail: "demo auth disabled for production runtime",
+    });
   });
 
   it("passes production readiness when environment and database are available", async () => {
@@ -94,5 +102,9 @@ describe("health reports", () => {
 
     expect(report.status).toBe("ok");
     expect(healthHttpStatus(report)).toBe(200);
+    expect(report.checks.find((check) => check.name === "demo auth")).toMatchObject({
+      status: "ok",
+      detail: "demo auth disabled for production runtime",
+    });
   });
 });

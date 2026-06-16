@@ -207,6 +207,7 @@ pnpm release:gate:production -- --tenant-slug=<customer-slug>
 - `HR_ONE_DATABASE_PROVIDER=supabase_postgres`
 - `NEXT_PUBLIC_SUPABASE_URL=https://aruncclorusswpfnpgsn.supabase.co`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_yScyXz-bOUu7W5geHggd4A_9FcGwU7M`
+- `HR_ONE_AUTH_SESSION_SOURCE=oidc`; demo auth, demo reset, and demo role switching are disabled when `HR_ONE_ENV=production`.
 - All `HR_ONE_*` production secrets and vault references listed in `.env.example`.
 
 Then run `pnpm env:verify:production` in the deployment environment before running migrations and production tenant verification.
@@ -217,7 +218,7 @@ Before starting a 20-50 person two-week pilot, run the production pilot gate aga
 pnpm pilot:gate:production -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com
 ```
 
-This gate reads `/api/health/ready` from the deployed app and blocks the pilot when the site is still non-production, using demo fallback, missing the production database, or exposing sensitive health payload values. It must pass after the Vercel production env vars are configured and the production deployment is redeployed.
+This gate reads `/api/health/ready` from the deployed app and blocks the pilot when the site is still non-production, using demo fallback, exposing demo auth, missing the production database, or exposing sensitive health payload values. It must pass after the Vercel production env vars are configured and the production deployment is redeployed.
 
 For the full pilot go/no-go view, run the doctor command:
 

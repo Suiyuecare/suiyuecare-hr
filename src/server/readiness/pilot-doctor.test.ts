@@ -24,6 +24,11 @@ const readyHealth: HealthReport = {
       status: "ok",
       detail: "database ping succeeded",
     },
+    {
+      name: "demo auth",
+      status: "ok",
+      detail: "demo auth disabled for production runtime",
+    },
   ],
 };
 

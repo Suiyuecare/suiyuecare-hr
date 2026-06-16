@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { assertDemoAuthAllowed, isDemoAuthAllowed } from "@/server/auth/demo-mode";
 import {
   demoCookieOptions,
   defaultDemoAuthClaimsForRole,
@@ -11,6 +12,16 @@ import {
 import { dashboardPathForRole, normalizeRole } from "@/server/auth/rbac";
 
 export async function POST(request: Request) {
+  if (!isDemoEndpointAllowed()) {
+    return NextResponse.json(
+      { error: "Demo endpoints are disabled." },
+      {
+        status: 404,
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
+  }
+  assertDemoAuthAllowed();
   const formData = await request.formData();
   const role = normalizeRole(String(formData.get("role") ?? ""));
   const response = NextResponse.redirect(new URL(dashboardPathForRole(role), request.url), 303);
@@ -21,4 +32,8 @@ export async function POST(request: Request) {
   response.cookies.set(demoAuthenticatedAtCookie, claims.authenticatedAt, demoCookieOptions());
   response.cookies.set(demoLastSeenAtCookie, claims.lastSeenAt, demoCookieOptions());
   return response;
+}
+
+function isDemoEndpointAllowed() {
+  return isDemoAuthAllowed();
 }

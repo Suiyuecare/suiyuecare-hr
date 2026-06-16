@@ -1,4 +1,5 @@
 import { getDb } from "@/server/db/client";
+import { getDemoAuthRuntimeStatus } from "@/server/auth/demo-mode";
 import {
   buildEnvironmentVerificationReport,
   environmentVerificationPassed,
@@ -74,6 +75,19 @@ export async function getReadyHealth(options: HealthOptions = {}): Promise<Healt
       detail: production ? "database is required in production" : "database not configured; demo fallback available",
     });
   }
+
+  const demoAuthStatus = getDemoAuthRuntimeStatus(env);
+  checks.push({
+    name: "demo auth",
+    status: production
+      ? demoAuthStatus.allowed ? "fail" : "ok"
+      : demoAuthStatus.allowed ? "ok" : "degraded",
+    detail: production
+      ? demoAuthStatus.allowed
+        ? "demo auth is still enabled in production"
+        : "demo auth disabled for production runtime"
+      : demoAuthStatus.reason,
+  });
 
   const status = summarizeStatus(checks.map((check) => check.status));
   return {

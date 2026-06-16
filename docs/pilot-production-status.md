@@ -7,9 +7,9 @@ Last checked: 2026-06-17 Asia/Taipei
 - Live domain: `https://hr.suiyuecare.com`
 - GitHub repository: `Suiyuecare/suiyuecare-hr`
 - Vercel project in repo metadata: `prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N` (`suiyuecare-hr2`)
-- Latest verified Git commit: `092245f Refine pilot trial UI workspaces`
-- GitHub commit status for `Vercel - suiyuecare-hr2`: success, deployment completed
-- Legacy Vercel status context `Vercel - suiyuecare-hr`: failed because the old project is deployment-rate-limited. Use `suiyuecare-hr2` as the active project.
+- Latest live verified Git commit: `092245f Refine pilot trial UI workspaces`
+- Newer commits are pushed to GitHub, but the active `suiyuecare-hr2` Vercel production deployment is currently rate-limited and must be retried after the limit resets.
+- Legacy Vercel status context `Vercel - suiyuecare-hr` may still appear. Use `suiyuecare-hr2` as the active project.
 
 ## Live UI Evidence
 
@@ -40,11 +40,13 @@ Blocking:
 - Overall readiness is `degraded`.
 - The deployed app is still reporting a non-production environment.
 - Production database is not configured; demo fallback is available.
+- New production readiness now also requires the `demo auth` check to report `demo auth disabled for production runtime`.
 
 ## Required Before Real 20-50 Person Trial
 
 1. Configure Vercel Production env for the active `suiyuecare-hr2` project:
    - `HR_ONE_ENV=production`
+   - `HR_ONE_AUTH_SESSION_SOURCE=oidc`
    - server-only Supabase PostgreSQL `DATABASE_URL` with `?schema=hr_one`
    - production OIDC/SSO issuer, JWKS, client ID, and audience settings
    - vault/KMS references for sensitive storage

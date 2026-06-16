@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { getDb } from "@/server/db/client";
 import { getFallbackSession } from "@/server/demo/fallback";
+import { assertDemoAuthAllowed } from "./demo-mode";
 import type { AuthAssurance, AuthMethod } from "./policy";
 import { normalizeRole, type RoleKey } from "./rbac";
 
@@ -20,11 +21,13 @@ export function demoCookieOptions(env: Record<string, string | undefined> = proc
 }
 
 export async function getDemoRole(): Promise<RoleKey> {
+  assertDemoAuthAllowed();
   const cookieStore = await cookies();
   return normalizeRole(cookieStore.get(demoRoleCookie)?.value);
 }
 
 export async function getDemoSession() {
+  assertDemoAuthAllowed();
   const role = await getDemoRole();
   const authAssurance = await getDemoAuthAssurance(role);
   if (!process.env.DATABASE_URL) {

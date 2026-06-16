@@ -40,6 +40,7 @@ Goal: production data must survive deploys and must not fall back to in-memory d
    - `DATABASE_URL`, server-only, Supabase Postgres URL with `?schema=hr_one`.
    - `HR_ONE_ENV=production`
    - `HR_ONE_DATABASE_PROVIDER=supabase_postgres`
+   - `HR_ONE_AUTH_SESSION_SOURCE=oidc`
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
    - Required production secrets listed in `README.md`, stored as secret values or vault references.
@@ -53,7 +54,7 @@ Goal: production data must survive deploys and must not fall back to in-memory d
    VERCEL_TOKEN=<token> pnpm vercel:apply-production-env -- --env-file=.env.vercel.production
    ```
 
-   `vercel:bootstrap-known-env` defaults to dry-run and only lists safe known values plus generated secrets; it skips database URL, OIDC placeholders, vault references, and restore-drill evidence. Use `--apply` only when intentionally preloading those known values. The full `vercel:apply-production-env` dry run must pass before writing the complete production env to Vercel. Neither script prints secret values.
+   `vercel:bootstrap-known-env` defaults to dry-run and only lists safe known values plus generated secrets; it skips database URL, OIDC placeholders, vault references, and restore-drill evidence. Use `--apply` only when intentionally preloading those known values. The full `vercel:apply-production-env` dry run must pass before writing the complete production env to Vercel. Neither script prints secret values. When `HR_ONE_ENV=production`, demo auth, demo reset, and demo role switching fail closed; do not rely on demo role switching for production checks.
 
 5. Verify:
 
@@ -68,6 +69,7 @@ Expected evidence:
 - `hr_one` has HR One tables and a complete `_prisma_migrations` baseline.
 - `anon` and `authenticated` have no schema usage or table privileges on `hr_one`.
 - `/api/health/ready` returns `ok`.
+- `/api/health/ready` includes `demo auth: ok` with `demo auth disabled for production runtime`.
 - No database URL, salary, national ID, bank account, or health values appear in logs or command output.
 
 ## Phase 1: Pilot Tenant Foundation

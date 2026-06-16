@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { writeAuditLog } from "@/server/audit/audit";
+import { assertDemoAuthAllowed } from "@/server/auth/demo-mode";
 import { demoCookieOptions, demoRoleCookie, getDemoSession } from "@/server/auth/demo-session";
 import { dashboardPathForRole, normalizeRole } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
@@ -17,6 +18,7 @@ import {
 import type { PunchSource } from "@/server/workflows/types";
 
 export async function switchDemoRole(formData: FormData) {
+  assertDemoAuthAllowed();
   const role = normalizeRole(String(formData.get("role") ?? ""));
   const previousSession = await getDemoSession();
   const cookieStore = await cookies();

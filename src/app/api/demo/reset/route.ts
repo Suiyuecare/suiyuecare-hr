@@ -8,6 +8,7 @@ import { resetAttendancePolicyDemoState } from "@/server/attendance/policies";
 import { resetAttendanceSignoffDemoState } from "@/server/attendance/signoffs";
 import { resetWorktimeAgreementDemoState } from "@/server/attendance/worktime-agreements";
 import { resetWorktimeComplianceDemoState } from "@/server/attendance/worktime-compliance";
+import { assertDemoAuthAllowed, isDemoAuthAllowed } from "@/server/auth/demo-mode";
 import { resetCompanyCalendarDemoState } from "@/server/calendar/company-calendar";
 import { resetEmployeeDocumentDemoState } from "@/server/employees/documents";
 import { resetEmploymentTermsDemoState } from "@/server/employees/employment-terms";
@@ -56,6 +57,16 @@ import { resetDemoWorkflowState } from "@/server/workflows/demo-store";
 import { resetProductTelemetryDemoState } from "@/server/telemetry/product";
 
 export async function POST() {
+  if (!isDemoEndpointAllowed()) {
+    return NextResponse.json(
+      { error: "Demo endpoints are disabled." },
+      {
+        status: 404,
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
+  }
+  assertDemoAuthAllowed();
   if (!process.env.DATABASE_URL) {
     resetDemoWorkflowState();
     resetAccessDemoState();
@@ -113,4 +124,8 @@ export async function POST() {
   response.cookies.set(demoAuthenticatedAtCookie, claims.authenticatedAt, demoCookieOptions());
   response.cookies.set(demoLastSeenAtCookie, claims.lastSeenAt, demoCookieOptions());
   return response;
+}
+
+function isDemoEndpointAllowed() {
+  return isDemoAuthAllowed();
 }

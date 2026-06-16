@@ -47,6 +47,7 @@ export function buildProductionPilotGateReport(
     checkHealthStatus(healthReport),
     checkProductionEnvironment(healthReport),
     checkDatabaseReady(healthReport),
+    checkDemoAuthDisabled(healthReport),
     checkNoSensitiveHealthLeak(healthReport),
   ];
   const nextActions = buildNextActions(checks, healthReport);
@@ -173,6 +174,18 @@ function checkDatabaseReady(healthReport: HealthReport | null): ProductionPilotG
   );
 }
 
+function checkDemoAuthDisabled(healthReport: HealthReport | null): ProductionPilotGateCheck {
+  const demoAuth = findCheck(healthReport, "demo auth");
+  const demoAuthDisabled =
+    demoAuth?.status === "ok" &&
+    /demo auth disabled for production runtime/i.test(demoAuth.detail);
+  return check(
+    "demo auth disabled",
+    demoAuthDisabled,
+    demoAuth ? `${demoAuth.status}: ${demoAuth.detail}` : "demo auth check is missing from readiness report",
+  );
+}
+
 function checkNoSensitiveHealthLeak(healthReport: HealthReport | null): ProductionPilotGateCheck {
   if (!healthReport) return check("health payload redaction", false, "readiness payload is missing");
   const serialized = JSON.stringify(healthReport);
@@ -205,6 +218,9 @@ function buildNextActions(checks: ProductionPilotGateCheck[], healthReport: Heal
     } else {
       actions.push("Fix the production PostgreSQL connection until the readiness database ping succeeds.");
     }
+  }
+  if (failed.has("demo auth disabled")) {
+    actions.push("Disable demo auth and role switching in the production runtime before inviting pilot users.");
   }
   if (failed.has("health payload redaction")) {
     actions.push("Remove sensitive values from readiness responses before exposing production health endpoints.");
