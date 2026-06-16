@@ -170,6 +170,8 @@ model Company {
   policyDocuments CompanyPolicyDocument[]
   aiUsageLogs AiUsageLog[]
   productTelemetryEvents ProductTelemetryEvent[]
+  betaPilotTrialRuns BetaPilotTrialRun[]
+  betaPilotTrialEvents BetaPilotTrialEvent[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -309,6 +311,60 @@ model TenantSubscription {
   @@index([tenantId, status])
   @@index([tenantId, plan])
   @@index([tenantId, contractEndsAt])
+}
+
+model BetaPilotTrialRun {
+  id                      String   @id @default(cuid())
+  tenantId                String
+  companyId               String
+  company                 Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  status                  String   @default("planned")
+  targetEmployeeMin       Int      @default(20)
+  targetEmployeeMax       Int      @default(50)
+  expectedEmployeeCount   Int
+  managerCount            Int
+  startsAt                DateTime
+  endsAt                  DateTime
+  startedAt               DateTime?
+  completedAt             DateTime?
+  completedByUserId       String?
+  latestReadinessStatus   String   @default("not_started")
+  openBlockedCount        Int      @default(0)
+  openActionRequiredCount Int      @default(0)
+  evidenceSummaryHash     String?
+  notesHash               String?
+  createdByUserId         String?
+  events                  BetaPilotTrialEvent[]
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([tenantId, companyId, status])
+  @@index([tenantId, companyId, startsAt])
+  @@index([tenantId, companyId, endsAt])
+}
+
+model BetaPilotTrialEvent {
+  id              String   @id @default(cuid())
+  tenantId        String
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  trialRunId      String
+  trialRun        BetaPilotTrialRun @relation(fields: [trialRunId], references: [id], onDelete: Cascade)
+  eventType       String
+  checkpointId    String?
+  status          String
+  dayNumber       Int?
+  eventAt         DateTime @default(now())
+  evidenceRefHash String?
+  summaryHash     String?
+  metadataJson    Json
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  @@index([tenantId, companyId, trialRunId])
+  @@index([tenantId, companyId, checkpointId])
+  @@index([tenantId, companyId, eventType])
+  @@index([tenantId, companyId, eventAt])
 }
 
 model Employee {

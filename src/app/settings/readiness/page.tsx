@@ -3,6 +3,7 @@ import { getDemoSession } from "@/server/auth/demo-session";
 import { hasPermission } from "@/server/auth/rbac";
 import { getBetaPilotReadinessReport } from "@/server/readiness/beta-pilot";
 import type { BetaPilotCheckpointStatus, BetaPilotEvidenceType } from "@/server/readiness/beta-pilot-checkpoints";
+import { getBetaPilotTrialWorkspace } from "@/server/readiness/beta-pilot-trial-run";
 import { getLaunchReadinessReport } from "@/server/readiness/launch";
 
 type SearchParams = Promise<{ error?: string; success?: string }>;
@@ -21,6 +22,7 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
   }
   const report = await getLaunchReadinessReport(session);
   const betaPilot = await getBetaPilotReadinessReport(session, report);
+  const trialWorkspace = await getBetaPilotTrialWorkspace(session, betaPilot);
 
   return (
     <main className="page">
@@ -38,6 +40,12 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
         <div className="panel success-panel">
           <strong>Beta 試用流程演練完成</strong>
           <p>已跑過打卡、請假簽核、公告回條、HR 月結預演與員工薪資單查看；checkpoint 會顯示最新 hash 證據。</p>
+        </div>
+      ) : null}
+      {success === "beta-trial-run" ? (
+        <div className="panel success-panel">
+          <strong>試用批次已同步</strong>
+          <p>已依目前 readiness 與 20-50 人試用名單建立或更新批次，並寫入 hash-only audit log。</p>
         </div>
       ) : null}
       {success?.startsWith("beta-final-review") ? (
@@ -77,6 +85,92 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
           <strong>{betaPilot.blockedCount}</strong>
           <span className={`badge ${betaPilot.blockedCount > 0 ? "danger" : ""}`}>hard gate</span>
         </div>
+
+        <section className="panel span-12">
+          <div className="section-heading">
+            <div>
+              <h2>試用批次</h2>
+              <p className="muted">
+                把 20-50 人、2 週試用變成可追蹤批次；每次同步只保存 readiness 摘要 hash、狀態與人數，不保存薪資、身分證、銀行帳號或私人備註原文。
+              </p>
+            </div>
+            <span className={`badge ${trialWorkspace.readyForPilot ? "" : trialWorkspace.openBlockedCount ? "danger" : "warning"}`}>
+              {readinessStatusLabel(trialWorkspace.readinessStatus)}
+            </span>
+          </div>
+          <div className="trial-summary-grid">
+            <div className="trial-summary-stat">
+              <span className="muted">批次狀態</span>
+              <strong>{trialWorkspace.trialRun ? trialStatusLabel(trialWorkspace.trialRun.status) : "尚未建立"}</strong>
+              <span className="badge">{trialWorkspace.trialRun ? `第 ${trialWorkspace.trialRun.currentDay} 天` : "planned"}</span>
+            </div>
+            <div className="trial-summary-stat">
+              <span className="muted">試用人數</span>
+              <strong>{trialWorkspace.trialRun?.expectedEmployeeCount ?? trialWorkspace.employeeCount}</strong>
+              <span className={`badge ${(trialWorkspace.trialRun?.expectedEmployeeCount ?? trialWorkspace.employeeCount) >= 20 && (trialWorkspace.trialRun?.expectedEmployeeCount ?? trialWorkspace.employeeCount) <= 50 ? "" : "warning"}`}>
+                目標 20-50
+              </span>
+            </div>
+            <div className="trial-summary-stat">
+              <span className="muted">主管數</span>
+              <strong>{trialWorkspace.trialRun?.managerCount ?? trialWorkspace.managerCount}</strong>
+              <span className={`badge ${(trialWorkspace.trialRun?.managerCount ?? trialWorkspace.managerCount) > 0 ? "" : "danger"}`}>
+                簽核負責人
+              </span>
+            </div>
+            <div className="trial-summary-stat">
+              <span className="muted">批次事件</span>
+              <strong>{trialWorkspace.trialRun?.eventCount ?? 0}</strong>
+              <span className="badge">audit snapshots</span>
+            </div>
+          </div>
+          <div className="task-list">
+            <div className="task">
+              <span>
+                <strong>試用期間</strong>
+                <small>
+                  {formatDate(trialWorkspace.trialRun?.startsAt ?? trialWorkspace.suggestedStartsAt)}
+                  {" - "}
+                  {formatDate(trialWorkspace.trialRun?.endsAt ?? trialWorkspace.suggestedEndsAt)}
+                </small>
+                <small>
+                  {trialWorkspace.trialRun?.lastEventAt
+                    ? `最後同步 ${formatDateTime(trialWorkspace.trialRun.lastEventAt)}`
+                    : "建立批次後，系統會保留每次 readiness 同步的 hash-only 證據。"}
+                </small>
+                {trialWorkspace.trialRun?.evidenceSummaryHash ? (
+                  <small>證據摘要 hash · {shortHash(trialWorkspace.trialRun.evidenceSummaryHash)}</small>
+                ) : null}
+              </span>
+              <span className="inline-actions">
+                <span className={`badge ${trialWorkspace.openBlockedCount ? "danger" : trialWorkspace.openActionRequiredCount ? "warning" : ""}`}>
+                  {trialWorkspace.openBlockedCount} blocker / {trialWorkspace.openActionRequiredCount} 待處理
+                </span>
+              </span>
+            </div>
+          </div>
+          {hasPermission(session.role, "pilot:manage") ? (
+            <form action="/api/settings/beta-pilot-trial-run" method="post" className="mini-form compact-form">
+              <div className="field-grid">
+                <label>
+                  試用開始日
+                  <input
+                    name="startsAt"
+                    type="date"
+                    defaultValue={formatInputDate(trialWorkspace.trialRun?.startsAt ?? trialWorkspace.suggestedStartsAt)}
+                  />
+                </label>
+                <label>
+                  HR 備註代碼
+                  <input name="notes" placeholder="例如 PILOT-2026-06-A；內容只存 hash，請勿輸入個資或薪資。" />
+                </label>
+              </div>
+              <button className="button primary" type="submit">
+                建立/同步試用批次
+              </button>
+            </form>
+          ) : null}
+        </section>
 
         <section className="panel span-12" id="pilot-runbook">
           <div className="section-heading">
@@ -380,6 +474,20 @@ function statusLabel(status: string) {
   return status;
 }
 
+function readinessStatusLabel(status: string) {
+  if (status === "ready") return "可開始試用";
+  if (status === "blocked") return "有阻擋項";
+  return "需先處理";
+}
+
+function trialStatusLabel(status: string) {
+  if (status === "active") return "試用中";
+  if (status === "completed") return "已結案";
+  if (status === "blocked") return "阻擋中";
+  if (status === "cancelled") return "已取消";
+  return "準備中";
+}
+
 function checkpointStatusLabel(status: BetaPilotCheckpointStatus) {
   if (status === "verified") return "已驗證";
   if (status === "blocked") return "阻擋";
@@ -420,4 +528,16 @@ function formatDateTime(date: Date) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function formatDate(date: Date) {
+  return new Intl.DateTimeFormat("zh-TW", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function formatInputDate(date: Date) {
+  return date.toISOString().slice(0, 10);
 }
