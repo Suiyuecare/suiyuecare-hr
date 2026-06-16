@@ -9,8 +9,9 @@ Last checked: 2026-06-17 Asia/Taipei
 - Vercel project in repo metadata: `prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N` (`suiyuecare-hr2`)
 - Latest GitHub `main` includes the production SSO login guard and the pilot doctor env handoff update.
 - `suiyuecare-hr2` may lag behind GitHub `main` when Vercel deployment rate limits are active; check the latest commit status before treating `hr.suiyuecare.com` as current.
-- Vercel Production now has 22 environment variables, including the 22 known bootstrap values written through `pnpm vercel:bootstrap-known-env -- --env-file=.env.vercel.production --apply`.
+- Vercel Production has the known bootstrap values and a server-side `DATABASE_URL`; the deployed app still needs a fresh deployment before live health can prove it is using the database.
 - Legacy Vercel status context `Vercel - suiyuecare-hr` may still appear. Use `suiyuecare-hr2` as the active project.
+- Supabase project `aruncclorusswpfnpgsn`, private schema `hr_one`, now contains a synthetic 25-person pilot tenant with expanded trial readiness controls.
 
 ## Live UI Evidence
 
@@ -39,22 +40,27 @@ Passing:
 Blocking:
 
 - Overall readiness is `degraded`.
-- The deployed app is still reporting a non-production environment.
-- Production database is not configured; demo fallback is available.
-- New production readiness now also requires the `demo auth` check to report `demo auth disabled for production runtime`.
-- `pnpm pilot:doctor` reports Vercel Production env at `20/29` required keys, with these 9 keys still missing: `DATABASE_URL`, `HR_ONE_OBJECT_STORAGE_SECRET_REF`, `HR_ONE_AUTH_PROVIDER`, `HR_ONE_AUTH_ISSUER_URL`, `HR_ONE_AUTH_LOGIN_URL`, `HR_ONE_AUTH_JWKS_URL`, `HR_ONE_RATE_LIMIT_SECRET_REF`, `HR_ONE_BACKUP_ENCRYPTION_KEY_REF`, and `HR_ONE_BACKUP_RESTORE_TESTED_AT`.
-- Supabase pilot rehearsal data passes for project `aruncclorusswpfnpgsn`, schema `hr_one`.
+- The deployed app may still be running an older build that reports a non-production environment and missing database until Vercel is redeployed.
+- Production environment verification still requires real restore-drill evidence via `HR_ONE_BACKUP_RESTORE_TESTED_AT`.
+- Manual Vercel redeploys may be delayed by the free daily deployment quota; use the next successful Git/Vercel deployment as the live proof point.
+
+Supabase checks completed on 2026-06-17:
+
+- `pnpm db:supabase:verify-schema -- --project-ref=aruncclorusswpfnpgsn --schema=hr_one --allow-tenant-data` passed: 76 tables, 11 enum types, 48/48 migrations, browser roles blocked, 1 tenant, 1 company, 25 employees.
+- `pnpm db:supabase:seed-pilot -- --project-ref=aruncclorusswpfnpgsn --schema=hr_one --verify-only` passed: 25 active employees, 3 managers, 4 departments, 375 schedules, 11 leave policies, 275 leave balances, 25 payslips, announcement receipts, form workflow, rules, telemetry, audit coverage, browser-role isolation, and no callable public security-definer RPC exposure.
+- `pnpm db:verify:production -- --tenant-slug=suiyuecare-pilot` was run with a temporary verification login and passed every database gate except operational resilience: restore drill remains `not_tested` and verification is `pending_restore_drill`. The temporary verification login was removed after the check.
 
 ## Required Before Real 20-50 Person Trial
 
 1. Configure Vercel Production env for the active `suiyuecare-hr2` project:
-   - server-only Supabase PostgreSQL `DATABASE_URL` with `?schema=hr_one`
-   - production OIDC/SSO provider, issuer, login URL, and JWKS settings
-   - object storage, rate limit, and backup/KMS vault references
-   - backup restore drill evidence date
-2. Redeploy Vercel Production.
-3. Confirm `https://hr.suiyuecare.com/api/health/ready` returns `ok`.
-4. Run:
+   - confirm server-only Supabase PostgreSQL `DATABASE_URL` with `?schema=hr_one` is present
+   - confirm production OIDC/SSO provider, issuer, login URL, and JWKS settings are present
+   - confirm object storage, rate limit, and backup/KMS vault references are present
+   - add backup restore drill evidence date after a real restore drill is completed
+2. Complete a real backup restore drill and record evidence without exposing database credentials or tenant data.
+3. Redeploy Vercel Production.
+4. Confirm `https://hr.suiyuecare.com/api/health/ready` returns `ok`.
+5. Run:
 
 ```bash
 pnpm pilot:gate:production -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com

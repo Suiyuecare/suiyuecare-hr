@@ -20,8 +20,8 @@ const readySnapshot: SupabasePilotTenantVerificationSnapshot = {
   attendancePolicyCount: 1,
   shiftTemplateCount: 1,
   workScheduleCount: 375,
-  leavePolicyCount: 3,
-  leaveBalanceCount: 75,
+  leavePolicyCount: 11,
+  leaveBalanceCount: 275,
   salaryProfileCount: 25,
   payrollComplianceProfileCount: 25,
   statutoryInsuranceReadyEmployeeCount: 25,
@@ -33,15 +33,30 @@ const readySnapshot: SupabasePilotTenantVerificationSnapshot = {
   announcementReceiptCount: 25,
   formTemplateCount: 1,
   workflowStepCount: 2,
+  calendarDayCount: 2,
+  approvedCalendarReviewCount: 1,
+  completeLaborRosterProfileCount: 25,
+  approvedPolicyDocumentCount: 4,
+  activeWorkRuleCount: 1,
+  workRuleAcknowledgementCount: 25,
+  verifiedFileStorageCount: 1,
+  externalNotificationSettingCount: 1,
+  verifiedPayrollPaymentSecurityCount: 1,
+  readyWorktimeAgreementCount: 1,
+  commercialSubscriptionCount: 1,
+  backupPostureConfiguredCount: 1,
   activeRuleVersionCount: 3,
   telemetryEventCount: 29,
   betaPilotTrialRunCount: 1,
-  auditLogCount: 8,
+  auditLogCount: 11,
   auditEntityTypes: [
     "employee",
+    "employee_import",
+    "employee_labor_roster_profile",
     "employee_payment_profile",
     "law_rule",
     "payroll_compliance_profile",
+    "payroll_profile_import",
     "payroll_run",
     "payslip",
     "pilot_seed",
@@ -66,11 +81,14 @@ describe("Supabase pilot tenant seed", () => {
       managerCount: 3,
       departmentCount: 4,
       releasedPayslipCount: 25,
-      auditLogCount: 8,
+      auditLogCount: 11,
     });
     expect(plan.sql).toContain('SET search_path TO "hr_one";');
     expect(plan.sql).toContain('"PayrollRun"');
     expect(plan.sql).toContain('"AuditLog"');
+    expect(plan.sql).toContain('"CompanyCalendarReview"');
+    expect(plan.sql).toContain('"EmployeeLaborRosterProfile"');
+    expect(plan.sql).toContain('"CompanyPayrollPaymentSecuritySetting"');
     expect(plan.sql).not.toContain("public.");
     expect(plan.sql).not.toContain("national_id=");
   });
