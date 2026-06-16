@@ -80,6 +80,8 @@ export async function recordBetaPilotAutomatedEvidence(
     evidenceType: BetaPilotEvidenceType;
     evidenceRef: string;
     requiredEvidenceTypes?: BetaPilotEvidenceType[];
+    statusOverride?: BetaPilotCheckpointStatus;
+    metadata?: Record<string, unknown>;
   },
 ) {
   const requiredEvidenceTypes = input.requiredEvidenceTypes ?? [input.evidenceType];
@@ -88,7 +90,8 @@ export async function recordBetaPilotAutomatedEvidence(
     .filter((evidenceType) => requiredEvidenceTypes.includes(evidenceType));
   const missingEvidenceTypes = requiredEvidenceTypes
     .filter((evidenceType) => !fulfilledEvidenceTypes.includes(evidenceType));
-  const status: BetaPilotCheckpointStatus = missingEvidenceTypes.length === 0 ? "verified" : "in_progress";
+  const status: BetaPilotCheckpointStatus = input.statusOverride ??
+    (missingEvidenceTypes.length === 0 ? "verified" : "in_progress");
   return writeCheckpointEvidence(session, {
     checkpointId: input.checkpointId,
     status,
@@ -102,6 +105,7 @@ export async function recordBetaPilotAutomatedEvidence(
       requiredEvidenceTypes,
       fulfilledEvidenceTypes,
       missingEvidenceTypes,
+      ...(input.metadata ?? {}),
     },
   });
 }

@@ -140,6 +140,14 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
                 <a className="button" href={step.actionHref}>
                   {step.actionLabel}
                 </a>
+                {step.id === "preflight" ? (
+                  <form action="/api/settings/beta-pilot-access-review" method="post" className="mini-form compact-form">
+                    <span className="muted">自動檢查薪資與個資防漏，不讀取薪資金額或銀行帳號。</span>
+                    <button className="button primary" type="submit">
+                      跑權限防漏檢查
+                    </button>
+                  </form>
+                ) : null}
                 <form action="/api/settings/beta-pilot-checkpoints" method="post" className="mini-form compact-form">
                   <input type="hidden" name="checkpointId" value={step.id} />
                   <div className="field-grid">
