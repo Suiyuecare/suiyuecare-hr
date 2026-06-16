@@ -1,4 +1,5 @@
 import { getDb } from "@/server/db/client";
+import { canViewPayslip } from "@/server/payroll/service";
 import { redactSensitiveDetail } from "@/server/readiness/production-pilot-gate";
 
 export type PilotInviteReadinessStatus = "ready" | "action_required" | "blocked";
@@ -21,6 +22,11 @@ export type PilotInviteReadinessSnapshot = {
   managerRoleAssignmentCount: number;
   employeesWithoutManagerCount: number;
   employeesWithoutDepartmentCount: number;
+  scheduledEmployeeCount: number;
+  leaveBalanceEmployeeCount: number;
+  payslipSelfServiceEnabled: boolean;
+  payslipVisibilityRuleSafe: boolean;
+  releasedPayslipEmployeeCount: number;
 };
 
 export type PilotInviteReadinessInput = {
@@ -39,6 +45,9 @@ export type PilotInviteReadinessReport = {
   checkedAt: string;
   activeEmployeeCount: number;
   managerWithDirectReportsCount: number;
+  scheduledEmployeeCount: number;
+  leaveBalanceEmployeeCount: number;
+  releasedPayslipEmployeeCount: number;
   blockers: number;
   warnings: number;
   checks: PilotInviteReadinessCheck[];
@@ -107,13 +116,52 @@ export async function readPilotInviteReadinessSnapshotFromDatabase(
     },
   });
 
-  const activeEmployeeIds = new Set(activeEmployees.map((employee) => employee.id));
+  const activeEmployeeIdSet = new Set(activeEmployees.map((employee) => employee.id));
+  const activeEmployeeIds = [...activeEmployeeIdSet];
   const managersWithDirectReports = activeEmployees.filter((employee) =>
-    employee.managerId && activeEmployeeIds.has(employee.managerId),
+    employee.managerId && activeEmployeeIdSet.has(employee.managerId),
   );
   const managerIds = new Set(managersWithDirectReports.map((employee) => employee.managerId as string));
   const managerEmployees = activeEmployees.filter((employee) => managerIds.has(employee.id));
   const allowedEmailDomains = parseAllowedEmailDomains(company.securitySettings?.allowedEmailDomainsJson);
+  const [scheduledEmployees, leaveBalanceEmployees, payrollRecordkeeping, releasedPayslips] =
+    await Promise.all([
+      db.workSchedule.findMany({
+        where: {
+          tenantId: tenant.id,
+          companyId: company.id,
+          employeeId: { in: activeEmployeeIds },
+          workDate: trialWindowFilter(),
+        },
+        select: { employeeId: true },
+        distinct: ["employeeId"],
+      }),
+      db.leaveBalance.findMany({
+        where: {
+          tenantId: tenant.id,
+          companyId: company.id,
+          employeeId: { in: activeEmployeeIds },
+          leavePolicy: { status: "active" },
+        },
+        select: { employeeId: true },
+        distinct: ["employeeId"],
+      }),
+      db.companyPayrollRecordkeepingSetting.findUnique({
+        where: { companyId: company.id },
+        select: { employeePayslipEnabled: true },
+      }),
+      db.payslip.findMany({
+        where: {
+          tenantId: tenant.id,
+          companyId: company.id,
+          employeeId: { in: activeEmployeeIds },
+          status: "released",
+          payrollRun: { status: "released" },
+        },
+        select: { employeeId: true },
+        distinct: ["employeeId"],
+      }),
+    ]);
 
   return {
     tenantFound: true,
@@ -133,6 +181,11 @@ export async function readPilotInviteReadinessSnapshotFromDatabase(
     managerRoleAssignmentCount: managerEmployees.filter((employee) => hasRole(employee, "manager")).length,
     employeesWithoutManagerCount: activeEmployees.filter((employee) => !employee.managerId).length,
     employeesWithoutDepartmentCount: activeEmployees.filter((employee) => !employee.departmentId).length,
+    scheduledEmployeeCount: scheduledEmployees.length,
+    leaveBalanceEmployeeCount: leaveBalanceEmployees.length,
+    payslipSelfServiceEnabled: payrollRecordkeeping?.employeePayslipEnabled ?? true,
+    payslipVisibilityRuleSafe: verifyPayslipVisibilityRule(),
+    releasedPayslipEmployeeCount: releasedPayslips.length,
   };
 }
 
@@ -184,6 +237,32 @@ export function buildPilotInviteReadinessReport(
       "every active employee has a department",
       `${snapshot.employeesWithoutDepartmentCount} active employee(s) without department`,
     ),
+    check(
+      "14-day schedule coverage",
+      snapshot.activeEmployeeCount > 0 &&
+        snapshot.scheduledEmployeeCount === snapshot.activeEmployeeCount,
+      `${snapshot.scheduledEmployeeCount}/${snapshot.activeEmployeeCount} active employee(s) with work schedules in the first 14 days`,
+    ),
+    check(
+      "leave balance coverage",
+      snapshot.activeEmployeeCount > 0 &&
+        snapshot.leaveBalanceEmployeeCount === snapshot.activeEmployeeCount,
+      `${snapshot.leaveBalanceEmployeeCount}/${snapshot.activeEmployeeCount} active employee(s) with at least one active leave balance`,
+    ),
+    check(
+      "payslip visibility rule",
+      snapshot.payslipSelfServiceEnabled && snapshot.payslipVisibilityRuleSafe,
+      snapshot.payslipSelfServiceEnabled && snapshot.payslipVisibilityRuleSafe
+        ? "employee self-service payslip access is enabled and self-only RBAC is enforced"
+        : "employee payslip self-service is disabled or self-only RBAC is not safe",
+    ),
+    warnIf(
+      "released payslip rehearsal coverage",
+      snapshot.activeEmployeeCount > 0 &&
+        snapshot.releasedPayslipEmployeeCount === snapshot.activeEmployeeCount,
+      `${snapshot.releasedPayslipEmployeeCount}/${snapshot.activeEmployeeCount} active employee(s) have released payslip rehearsal evidence`,
+      `${snapshot.releasedPayslipEmployeeCount}/${snapshot.activeEmployeeCount} active employee(s) have released payslip rehearsal evidence; complete this before Day 7 payroll rehearsal`,
+    ),
   ];
   const blockers = checks.filter((item) => item.status === "block").length;
   const warnings = checks.filter((item) => item.status === "warn").length;
@@ -193,6 +272,9 @@ export function buildPilotInviteReadinessReport(
     checkedAt: (input.checkedAt ?? new Date()).toISOString(),
     activeEmployeeCount: snapshot.activeEmployeeCount,
     managerWithDirectReportsCount: snapshot.managerWithDirectReportsCount,
+    scheduledEmployeeCount: snapshot.scheduledEmployeeCount,
+    leaveBalanceEmployeeCount: snapshot.leaveBalanceEmployeeCount,
+    releasedPayslipEmployeeCount: snapshot.releasedPayslipEmployeeCount,
     blockers,
     warnings,
     checks: checks.map((item) => ({
@@ -214,6 +296,7 @@ export function formatPilotInviteReadinessMarkdown(report: PilotInviteReadinessR
     `Checked at: ${report.checkedAt}`,
     `Status: ${report.status}`,
     `Cohort: ${report.activeEmployeeCount} active employee(s), ${report.managerWithDirectReportsCount} manager(s) with direct reports`,
+    `Coverage: ${report.scheduledEmployeeCount} scheduled / ${report.leaveBalanceEmployeeCount} leave balance / ${report.releasedPayslipEmployeeCount} released payslip rehearsal`,
     `Result: ${report.blockers} blocker(s), ${report.warnings} warning(s)`,
     "",
     "## Checks",
@@ -255,6 +338,11 @@ export function unknownSnapshot(
     managerRoleAssignmentCount: 0,
     employeesWithoutManagerCount: 0,
     employeesWithoutDepartmentCount: 0,
+    scheduledEmployeeCount: 0,
+    leaveBalanceEmployeeCount: 0,
+    payslipSelfServiceEnabled: false,
+    payslipVisibilityRuleSafe: false,
+    releasedPayslipEmployeeCount: 0,
   };
 }
 
@@ -349,9 +437,50 @@ function nextActionForCheck(name: string) {
       return "Configure allowed company email domains and fix linked user emails outside those domains.";
     case "department coverage":
       return "Assign every active employee to a department before the first invitation.";
+    case "14-day schedule coverage":
+      return "Publish work schedules for every active pilot employee covering the first 14 trial days.";
+    case "leave balance coverage":
+      return "Create at least one active leave balance for every active pilot employee.";
+    case "payslip visibility rule":
+      return "Enable employee payslip self-service and keep the self-only payslip RBAC rule enforced.";
+    case "released payslip rehearsal coverage":
+      return "Complete a payroll release rehearsal so every active pilot employee has released payslip evidence before Day 7.";
     default:
       return `Fix invite readiness check: ${name}.`;
   }
+}
+
+function trialWindowFilter() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 14);
+  return {
+    gte: start,
+    lt: end,
+  };
+}
+
+function verifyPayslipVisibilityRule() {
+  const employee = {
+    role: "employee" as const,
+    tenantId: "readiness-tenant",
+    companyId: "readiness-company",
+    user: { id: "readiness-employee-user", displayName: "Readiness Employee" },
+    employee: { id: "readiness-employee", displayName: "Readiness Employee" },
+  };
+  const manager = {
+    role: "manager" as const,
+    tenantId: "readiness-tenant",
+    companyId: "readiness-company",
+    user: { id: "readiness-manager-user", displayName: "Readiness Manager" },
+    employee: { id: "readiness-manager", displayName: "Readiness Manager" },
+  };
+  return (
+    canViewPayslip(employee, "readiness-employee") &&
+    !canViewPayslip(employee, "readiness-other-employee") &&
+    !canViewPayslip(manager, "readiness-employee")
+  );
 }
 
 function hasRole(employee: EmployeeWithUser, roleKey: string) {

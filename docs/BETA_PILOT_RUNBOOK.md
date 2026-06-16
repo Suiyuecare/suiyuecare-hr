@@ -192,6 +192,8 @@ Recommended sequence:
    pnpm pilot:invite-readiness -- --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-invite-readiness.md
    ```
 
+   HR admins can also review the same gate from `/settings/pilot-invite-readiness` before sending invitations. The screen shows aggregate counts and statuses only.
+
 17. Run the start/stop go-no-go report before inviting employees:
 
    ```bash
@@ -206,7 +208,7 @@ Expected evidence:
 - HR onboarding readiness has no blocker for the pilot company.
 - `pilot:acceptance` reports `real_customer` cohort evidence from aggregate active employee and manager counts.
 - `pilot:import-preflight` returns `ready` and the Markdown report contains no names, emails, SSO subjects, salary amounts, bank accounts, national IDs, health data, or private HR notes.
-- `pilot:invite-readiness` returns `ready` only when all active employees have active linked users, employee roles, required SSO identities, allowed email-domain coverage, departments, and every manager with direct reports has login plus manager role coverage.
+- `pilot:invite-readiness` returns `ready` only when all active employees have active linked users, employee roles, required SSO identities, allowed email-domain coverage, departments, 14-day schedule coverage, leave balance coverage, self-only payslip visibility rules, and every manager with direct reports has login plus manager role coverage.
 - `pilot:go-no-go` returns `ready_to_start` only when production acceptance, Day 0 status, import preflight, invite readiness, and pilot evidence scan are all acceptable.
 - `pnpm pilot:evidence-scan -- --path=<pilot-evidence-folder> --recursive` passes before any generated pilot report is shared outside the implementation team.
 
@@ -217,6 +219,7 @@ Goal: prove real users can complete core HR work without permission leaks.
 Preflight:
 
 - Run `/settings/readiness`.
+- Run `/settings/pilot-invite-readiness`.
 - Create the persisted 20-50 person trial run.
 - Complete the access review checkpoint.
 - Confirm unauthorized payroll access tests pass.

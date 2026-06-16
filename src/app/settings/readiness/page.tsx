@@ -460,6 +460,15 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
               </span>
               <span className="badge danger">Launch gate</span>
             </li>
+            <li className="task">
+              <span>
+                <strong>6. Verify invite readiness</strong>
+                <small>pnpm pilot:invite-readiness -- --tenant-slug=&lt;customer-slug&gt;</small>
+              </span>
+              <a className="button" href="/settings/pilot-invite-readiness">
+                開啟畫面
+              </a>
+            </li>
           </ul>
         </section>
       </section>

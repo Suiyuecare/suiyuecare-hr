@@ -44,12 +44,14 @@ const modules: ConsoleModule[] = [
         title: "管理工具",
         links: [
           { label: "人資權限管理", href: "/settings/access", permission: "settings:write" },
+          { label: "試用邀請就緒", href: "/settings/pilot-invite-readiness", badge: "New", permission: "settings:read" },
         ],
       },
     ],
     pinned: [
       { label: "公司資料", href: "/settings", permission: "settings:read" },
       { label: "職務管理", href: "/hr/employee-lifecycle", permission: "employee:write" },
+      { label: "試用邀請就緒", href: "/settings/pilot-invite-readiness", permission: "settings:read" },
     ],
   },
   {

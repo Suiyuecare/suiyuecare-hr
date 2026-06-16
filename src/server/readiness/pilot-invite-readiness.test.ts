@@ -17,10 +17,17 @@ describe("pilot invite readiness", () => {
       status: "ready",
       activeEmployeeCount: 25,
       managerWithDirectReportsCount: 3,
+      scheduledEmployeeCount: 25,
+      leaveBalanceEmployeeCount: 25,
+      releasedPayslipEmployeeCount: 25,
       blockers: 0,
       warnings: 0,
     });
     expect(report.checks.map((check) => check.status)).toEqual([
+      "pass",
+      "pass",
+      "pass",
+      "pass",
       "pass",
       "pass",
       "pass",
@@ -89,6 +96,40 @@ describe("pilot invite readiness", () => {
     expect(markdown).not.toContain("56000");
   });
 
+  it("blocks missing schedules, leave balances, and unsafe payslip visibility", () => {
+    const report = buildPilotInviteReadinessReport({
+      snapshot: inviteSnapshot({
+        scheduledEmployeeCount: 20,
+        leaveBalanceEmployeeCount: 22,
+        payslipSelfServiceEnabled: false,
+        payslipVisibilityRuleSafe: false,
+        releasedPayslipEmployeeCount: 8,
+      }),
+      checkedAt: new Date("2026-06-17T00:00:00.000Z"),
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.checks.find((check) => check.name === "14-day schedule coverage")).toMatchObject({
+      status: "block",
+    });
+    expect(report.checks.find((check) => check.name === "leave balance coverage")).toMatchObject({
+      status: "block",
+    });
+    expect(report.checks.find((check) => check.name === "payslip visibility rule")).toMatchObject({
+      status: "block",
+    });
+    expect(report.checks.find((check) => check.name === "released payslip rehearsal coverage")).toMatchObject({
+      status: "warn",
+    });
+    expect(report.nextActions).toEqual(
+      expect.arrayContaining([
+        "Publish work schedules for every active pilot employee covering the first 14 trial days.",
+        "Create at least one active leave balance for every active pilot employee.",
+        "Enable employee payslip self-service and keep the self-only payslip RBAC rule enforced.",
+      ]),
+    );
+  });
+
   it("blocks unknown tenant or company snapshots", () => {
     const report = buildPilotInviteReadinessReport({
       snapshot: inviteSnapshot({
@@ -136,6 +177,11 @@ function inviteSnapshot(
     managerRoleAssignmentCount: 3,
     employeesWithoutManagerCount: 3,
     employeesWithoutDepartmentCount: 0,
+    scheduledEmployeeCount: 25,
+    leaveBalanceEmployeeCount: 25,
+    payslipSelfServiceEnabled: true,
+    payslipVisibilityRuleSafe: true,
+    releasedPayslipEmployeeCount: 25,
     ...overrides,
   };
 }

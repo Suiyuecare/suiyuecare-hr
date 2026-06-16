@@ -7,20 +7,21 @@ Last checked: 2026-06-17 Asia/Taipei
 - Live domain: `https://hr.suiyuecare.com`
 - GitHub repository: `Suiyuecare/suiyuecare-hr`
 - Vercel project in repo metadata: `prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N` (`suiyuecare-hr2`)
-- Latest GitHub `main` includes the production SSO login guard, the pilot doctor env handoff update, and the expanded Supabase pilot readiness seed.
+- Latest GitHub `main` includes the production SSO login guard, the pilot doctor env handoff update, the expanded Supabase pilot readiness seed, and the `/settings/pilot-invite-readiness` management screen.
 - `suiyuecare-hr2` may lag behind GitHub `main` when Vercel deployment rate limits are active; check the latest commit status before treating `hr.suiyuecare.com` as current.
 - Vercel Production now has all required bootstrap values, backup restore evidence, and a server-side `DATABASE_URL`.
 - The server-side `DATABASE_URL` has been rotated to a verified direct Supabase custom-role URL for `hr_one_app_runtime`; the remaining blocker is network reachability from Vercel to Supabase direct Postgres.
 - Legacy Vercel status context `Vercel - suiyuecare-hr` may still appear. Use `suiyuecare-hr2` as the active project.
 - Supabase project `aruncclorusswpfnpgsn`, private schema `hr_one`, now contains a synthetic 25-person pilot tenant with expanded trial readiness controls.
 
-## Live UI Evidence
+## UI Evidence
 
-The live site serves the new pilot UI:
+GitHub `main` contains the new pilot UI. The live site may lag behind `main` while Vercel deployment rate limits or production readiness blockers are active:
 
 - `/app` includes the employee mobile task cards: `主要任務`, `今日常用任務`, and `薪資單`.
 - `/console` includes the backend pilot flow strip: `兩週試用核心流程`, `打卡 · 請假 · 薪資單`, `HR 月結`, and `安全上線`.
 - `/hr`, after switching to the HR demo role, includes the updated module board: `後台模組`, `員工與任用`, `打卡與假勤`, `月結與發薪`, `表單與公告`, and `分析與稽核`.
+- `/settings/pilot-invite-readiness` shows the pre-invitation gate for login identity, role coverage, manager lines, 14-day schedules, leave balances, and self-only payslip visibility without exposing names, emails, salaries, bank accounts, SSO subjects, or private notes.
 
 ## Production Gate Result
 
@@ -69,6 +70,7 @@ pnpm pilot:gate:production -- --url=https://hr.suiyuecare.com --expected-host=hr
 pnpm db:supabase:verify-schema -- --project-ref=aruncclorusswpfnpgsn --schema=hr_one --allow-tenant-data
 pnpm db:verify:production -- --tenant-slug=<customer-slug>
 pnpm pilot:customer-import -- --tenant-slug=<customer-slug> --employee-csv=<employee.csv> --identity-csv=<identity.csv> --payroll-csv=<payroll.csv> --output=/tmp/hr-one-pilot-customer-import.md
+pnpm pilot:invite-readiness -- --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-invite-readiness.md
 pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --employee-csv=<employee.csv> --identity-csv=<identity.csv> --payroll-csv=<payroll.csv> --evidence-path=<pilot-evidence-folder> --recursive --output=/tmp/hr-one-pilot-go-no-go.md
 ```
 
@@ -78,9 +80,7 @@ Do not invite real employees until the production gate and go/no-go report pass.
 
 After the live production gate passes, focus on the parts that make a 20-50 person two-week trial safe and usable:
 
-1. Split the live navigation into two clear products: mobile employee self-service at `/app` and backend management console at `/console` / `/hr`.
-2. Redesign the UI to match the Finance system's calmer visual density: stronger page hierarchy, fewer equal-weight cards, clearer status colors, and larger mobile tap targets.
-3. Create a guided company setup wizard for departments, managers, work schedules, leave policies, punch rules, announcements, and payslip release.
-4. Add a pilot invite readiness screen that proves every employee has a login identity, department, manager, schedule, leave balance, and payslip visibility rule.
-5. Add real trial evidence capture for daily completion: punches, leave submissions, manager approvals, announcement receipts, HR month-close rehearsal, payslip views, audit coverage, and unauthorized salary access attempts.
-6. Run a go/no-go report for the actual customer tenant before inviting staff, then run a daily pilot health check during the two-week trial.
+1. Complete the production database network path and redeploy once Vercel quota allows it.
+2. Create a guided company setup wizard for departments, managers, work schedules, leave policies, punch rules, announcements, and payslip release.
+3. Add real trial evidence capture for daily completion: punches, leave submissions, manager approvals, announcement receipts, HR month-close rehearsal, payslip views, audit coverage, and unauthorized salary access attempts.
+4. Run `pilot:invite-readiness` and `pilot:go-no-go` for the actual customer tenant before inviting staff, then run a daily pilot health check during the two-week trial.
