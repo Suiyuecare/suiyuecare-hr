@@ -46,12 +46,15 @@ Goal: production data must survive deploys and must not fall back to in-memory d
 5. Verify:
 
    ```bash
+   pnpm db:supabase:verify-schema -- --project-ref=<supabase-project-ref> --schema=hr_one
    pnpm env:verify:production
    curl -fsS https://hr.suiyuecare.com/api/health/ready
    ```
 
 Expected evidence:
 
+- `hr_one` has HR One tables and a complete `_prisma_migrations` baseline.
+- `anon` and `authenticated` have no schema usage or table privileges on `hr_one`.
 - `/api/health/ready` returns `ok`.
 - No database URL, salary, national ID, bank account, or health values appear in logs or command output.
 

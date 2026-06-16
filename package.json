@@ -20,6 +20,7 @@
     "db:verify": "tsx prisma/verify.ts",
     "db:verify:production": "tsx prisma/verify.ts --mode production",
     "db:supabase:bootstrap-sql": "tsx scripts/build-supabase-private-schema-bootstrap.ts",
+    "db:supabase:verify-schema": "tsx scripts/verify-supabase-private-schema.ts",
     "env:verify": "tsx scripts/verify-env.ts",
     "env:verify:production": "tsx scripts/verify-env.ts --mode production",
     "release:gate": "tsx scripts/release-gate.ts",

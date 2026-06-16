@@ -274,6 +274,7 @@ pnpm env:verify:production
 pnpm db:verify
 pnpm db:verify:production -- --tenant-slug=<customer-slug>
 pnpm db:supabase:bootstrap-sql > /tmp/hr-one-supabase-bootstrap.sql
+pnpm db:supabase:verify-schema -- --project-ref=<supabase-project-ref> --schema=hr_one
 pnpm release:gate
 pnpm release:gate:production -- --tenant-slug=<customer-slug>
 ```
@@ -288,6 +289,8 @@ pnpm db:supabase:bootstrap-sql -- --schema=hr_one > /tmp/hr-one-supabase-bootstr
 ```
 
 The generator creates `hr_one`, revokes browser API roles from the schema/default privileges, strips Prisma's original `public` schema bootstrap line, sets `search_path` to `hr_one`, baselines `_prisma_migrations` with the original migration checksums, and refuses destructive statements such as `DROP`, `TRUNCATE`, or `DELETE FROM`. After the SQL is applied to an empty private schema, configure Vercel production with a server-only `DATABASE_URL` that includes `?schema=hr_one`, then run future schema changes through `pnpm exec prisma migrate deploy`, followed by `pnpm db:provision:tenant`, employee/payroll imports, `pnpm db:verify:production -- --tenant-slug=<customer-slug>`, and `pnpm release:gate:production -- --tenant-slug=<customer-slug>`.
+
+After applying the bootstrap SQL, run `pnpm db:supabase:verify-schema -- --project-ref=<supabase-project-ref> --schema=hr_one`. It uses Supabase CLI linked queries to verify the private schema has HR One tables, Prisma migration baseline rows, no accidentally seeded tenant/company/employee data, and no `anon`/`authenticated` schema usage or table privileges. After provisioning a real tenant, add `--allow-tenant-data` so the same verifier still checks the schema and exposure posture without requiring empty tenant tables.
 
 `pnpm db:verify` validates the demo seed foundation. `pnpm db:verify:production -- --tenant-slug=<customer-slug>` is the launch gate for a real customer tenant; it requires non-demo tenant/company identity, verified commercial subscription terms, assigned owner/hr_admin/manager/employee roles, production SSO metadata, stable SSO issuer/subject bindings for privileged users, non-default email domains, verified object storage with KMS and malware scanning, verified operational resilience settings with encrypted backup retention and a recent passed restore drill, verified payroll payment token vault/KMS/customer bank format posture, external summary-only notifications, approved annual Taiwan holiday/makeup-workday calendar review, active and reviewed Taiwan statutory leave policies, approved work rules/employee handbook acknowledgement coverage, complete and verified labor roster profiles for every active employee, approved AI policy sources for sourced Copilot answers, approved Taiwan rule change control, passing validation evidence for every active rule version, executable Taiwan rule-engine checks for minimum wage, working time, overtime, and annual leave, fresh official source review evidence for active rule versions, no pending payroll recalculation requirement, no unapproved active support access grants, no expired support access grants still marked approved, current salary/payment/compliance/statutory-insurance profile coverage for every active employee, completed or waived offboarding tasks for every termination event, no payroll compliance override below the configured labor insurance/NHI/labor pension salary grade tables, categorized audit evidence for employee import plus salary, payment, payroll compliance, payroll-profile import, and labor roster profile events, and KPI telemetry baseline. `pnpm release:gate:production -- --tenant-slug=<customer-slug>` wraps this production database gate with schema validation, typecheck, lint, unit tests, E2E smoke tests, and production build so release approval cannot skip app-level checks.
 
@@ -338,6 +341,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `prisma/verify.ts`: demo and production database readiness verification CLI.
 - `scripts/release-gate.ts`: release gate CLI that runs app quality checks and production tenant verification in sequence.
 - `scripts/build-supabase-private-schema-bootstrap.ts`: Supabase private-schema bootstrap SQL generator for deploying HR One into `hr_one` without touching an older `public` HRIS schema.
+- `scripts/verify-supabase-private-schema.ts`: Supabase CLI-backed private-schema verifier for table count, Prisma baseline, and browser-role exposure checks.
 - `src/server/provisioning/tenant.ts`: customer tenant provisioning service and validation rules.
 - `src/server/onboarding/readiness.ts`: HR onboarding completeness checks before production tenant verification.
 - `src/server/readiness/health.ts`: liveness/readiness health report service used by operational probe endpoints.
