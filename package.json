@@ -31,6 +31,7 @@
     "pilot:gate:production": "tsx scripts/verify-production-pilot-gate.ts",
     "pilot:doctor": "tsx scripts/pilot-doctor.ts",
     "pilot:acceptance": "tsx scripts/pilot-acceptance.ts",
+    "pilot:handoff": "tsx scripts/pilot-handoff.ts",
     "db:studio": "prisma studio"
   },
   "dependencies": {

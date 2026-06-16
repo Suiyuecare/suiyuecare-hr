@@ -215,6 +215,14 @@ pnpm pilot:acceptance -- --url=https://hr.suiyuecare.com --expected-host=hr.suiy
 
 This wraps the doctor checks and demo-safe workflow rehearsal into a matrix for production readiness, real 20-50 person cohort, clock in/out, leave request, manager approval, announcement receipt, HR monthly close rehearsal, payslip viewing, and sensitive-data guardrails. Synthetic Supabase seed data is reported as rehearsal evidence only; it does not satisfy the real-company cohort requirement.
 
+To create a redacted Markdown handoff for the pilot team, run:
+
+```bash
+pnpm pilot:handoff -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production --output=/tmp/hr-one-pilot-handoff.md
+```
+
+The handoff is derived from `pilot:acceptance` and is safe to review with HR/operations, but it should still be checked before sharing outside the pilot team.
+
 12. Start the app:
 
 ```bash
@@ -305,6 +313,7 @@ pnpm vercel:create-production-env-draft
 pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --dry-run
 pnpm pilot:doctor -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production
 pnpm pilot:acceptance -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production
+pnpm pilot:handoff -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --output=/tmp/hr-one-pilot-handoff.md
 pnpm release:gate
 pnpm release:gate:production -- --tenant-slug=<customer-slug>
 ```
