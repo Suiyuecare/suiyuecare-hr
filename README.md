@@ -191,6 +191,14 @@ pnpm release:gate:production -- --tenant-slug=<customer-slug>
 
 Then run `pnpm env:verify:production` in the deployment environment before running migrations and production tenant verification.
 
+Before starting a 20-50 person two-week pilot, run the production pilot gate against the live domain:
+
+```bash
+pnpm pilot:gate:production -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com
+```
+
+This gate reads `/api/health/ready` from the deployed app and blocks the pilot when the site is still non-production, using demo fallback, missing the production database, or exposing sensitive health payload values. It must pass after the Vercel production env vars are configured and the production deployment is redeployed.
+
 12. Start the app:
 
 ```bash
