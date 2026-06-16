@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { HrOneKpi } from "@/server/kpis/hr-one";
+import type { BetaPilotCheckpointEvidence } from "./beta-pilot-checkpoints";
 import { buildBetaPilotReadinessReport } from "./beta-pilot";
 import type { LaunchReadinessItem } from "./launch";
 
@@ -223,6 +224,22 @@ describe("beta pilot readiness", () => {
     expect(report.blockedCount).toBe(0);
     expect(report.actionRequiredCount).toBe(0);
     expect(report.phases.every((phase) => phase.status === "ready")).toBe(true);
+    expect(report.runbook.every((step) => step.status === "action_required")).toBe(true);
+  });
+
+  it("marks the runbook ready when gate evidence and checkpoint evidence are verified", () => {
+    const report = buildBetaPilotReadinessReport({
+      employeeCount: 25,
+      managerCount: 1,
+      trialDays: 14,
+      launchReport: readyLaunchReport(),
+      kpis: passingKpis,
+      payroll: readyPayroll,
+      flowEvidence: allFlowEvidence,
+      checkpoints: verifiedCheckpoints(),
+    });
+
+    expect(report.readyForPilot).toBe(true);
     expect(report.runbook.map((step) => step.id)).toEqual([
       "preflight",
       "day_1",
@@ -251,4 +268,60 @@ function readyLaunchReport(overrides: Array<Pick<LaunchReadinessItem, "id" | "st
       };
     }),
   };
+}
+
+function verifiedCheckpoints(): BetaPilotCheckpointEvidence[] {
+  const now = new Date("2026-06-16T00:00:00.000Z");
+  return [
+    {
+      checkpointId: "preflight",
+      status: "verified",
+      evidenceType: "access_review",
+      evidenceRefHash: "hash-preflight",
+      reviewerNoteHash: null,
+      nextStepHash: null,
+      actorName: "林人資",
+      recordedAt: now,
+    },
+    {
+      checkpointId: "day_1",
+      status: "verified",
+      evidenceType: "announcement_receipt",
+      evidenceRefHash: "hash-day-1",
+      reviewerNoteHash: null,
+      nextStepHash: null,
+      actorName: "林人資",
+      recordedAt: now,
+    },
+    {
+      checkpointId: "day_3",
+      status: "verified",
+      evidenceType: "approval_flow",
+      evidenceRefHash: "hash-day-3",
+      reviewerNoteHash: null,
+      nextStepHash: null,
+      actorName: "林人資",
+      recordedAt: now,
+    },
+    {
+      checkpointId: "day_7",
+      status: "verified",
+      evidenceType: "payroll_rehearsal",
+      evidenceRefHash: "hash-day-7",
+      reviewerNoteHash: null,
+      nextStepHash: null,
+      actorName: "林人資",
+      recordedAt: now,
+    },
+    {
+      checkpointId: "day_14",
+      status: "verified",
+      evidenceType: "audit_export",
+      evidenceRefHash: "hash-day-14",
+      reviewerNoteHash: null,
+      nextStepHash: null,
+      actorName: "林人資",
+      recordedAt: now,
+    },
+  ];
 }

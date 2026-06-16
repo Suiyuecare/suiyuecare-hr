@@ -2,10 +2,13 @@ import { EmptyState } from "@/components/EmptyState";
 import { getDemoSession } from "@/server/auth/demo-session";
 import { hasPermission } from "@/server/auth/rbac";
 import { getBetaPilotReadinessReport } from "@/server/readiness/beta-pilot";
+import type { BetaPilotCheckpointStatus, BetaPilotEvidenceType } from "@/server/readiness/beta-pilot-checkpoints";
 import { getLaunchReadinessReport } from "@/server/readiness/launch";
 
-export default async function LaunchReadinessPage() {
-  const session = await getDemoSession();
+type SearchParams = Promise<{ error?: string }>;
+
+export default async function LaunchReadinessPage({ searchParams }: { searchParams: SearchParams }) {
+  const [{ error }, session] = await Promise.all([searchParams, getDemoSession()]);
   if (!hasPermission(session.role, "settings:read")) {
     return (
       <main className="page">
@@ -25,6 +28,12 @@ export default async function LaunchReadinessPage() {
         <h1>上線與試用準備度</h1>
         <p>把 HR One 從展示環境推進到 20-50 人、2 週可試用的客戶導入狀態。</p>
       </section>
+      {error ? (
+        <div className="panel danger-panel">
+          <strong>無法更新試用 checkpoint</strong>
+          <p>{error}</p>
+        </div>
+      ) : null}
 
       <section className="grid">
         <div className="panel span-3 metric">
@@ -50,7 +59,7 @@ export default async function LaunchReadinessPage() {
           <span className={`badge ${betaPilot.blockedCount > 0 ? "danger" : ""}`}>hard gate</span>
         </div>
 
-        <section className="panel span-12">
+        <section className="panel span-12" id="pilot-runbook">
           <div className="section-heading">
             <div>
               <h2>2 週試用 Gate</h2>
@@ -121,9 +130,58 @@ export default async function LaunchReadinessPage() {
                 </span>
                 <span>{step.checklist.join(" / ")}</span>
                 <span>{step.openItems.length ? `待處理：${step.openItems.map((item) => item.title).join("、")}` : step.evidence}</span>
+                <span>
+                  Checkpoint · {checkpointStatusLabel(step.checkpoint?.status ?? "not_started")}
+                  {step.checkpoint
+                    ? ` · ${evidenceTypeLabel(step.checkpoint.evidenceType)} · ${formatDateTime(step.checkpoint.recordedAt)} · ${step.checkpoint.actorName}`
+                    : ""}
+                </span>
+                {step.checkpoint?.evidenceRefHash ? <span>證據 hash · {shortHash(step.checkpoint.evidenceRefHash)}</span> : null}
                 <a className="button" href={step.actionHref}>
                   {step.actionLabel}
                 </a>
+                <form action="/api/settings/beta-pilot-checkpoints" method="post" className="mini-form compact-form">
+                  <input type="hidden" name="checkpointId" value={step.id} />
+                  <div className="field-grid">
+                    <label>
+                      狀態
+                      <select name="status" defaultValue={step.checkpoint?.status ?? "in_progress"}>
+                        <option value="in_progress">處理中</option>
+                        <option value="verified">已驗證</option>
+                        <option value="blocked">阻擋</option>
+                        <option value="not_started">未開始</option>
+                      </select>
+                    </label>
+                    <label>
+                      證據類型
+                      <select name="evidenceType" defaultValue={step.checkpoint?.evidenceType ?? defaultEvidenceType(step.id)}>
+                        <option value="smoke_test">Smoke test</option>
+                        <option value="announcement_receipt">公告回條</option>
+                        <option value="approval_flow">簽核流程</option>
+                        <option value="payroll_rehearsal">月結預演</option>
+                        <option value="payslip_access">薪資單查看</option>
+                        <option value="access_review">權限檢查</option>
+                        <option value="audit_export">Audit 匯出</option>
+                        <option value="backup_restore">備份還原</option>
+                      </select>
+                    </label>
+                    <label>
+                      證據代碼
+                      <input name="evidenceRef" placeholder="例如 TICKET-123 或 smoke-2026-06-16" />
+                    </label>
+                    <label>
+                      下一步
+                      <input name="nextStep" placeholder="只填代碼或短句，內容會以 hash 保存" />
+                    </label>
+                  </div>
+                  <label>
+                    驗證摘要
+                    <textarea name="reviewerNote" rows={2} placeholder="請避免輸入姓名、薪資、身分證、銀行帳號或健康資料；系統只保存 hash。" />
+                  </label>
+                  <button className="button primary" type="submit">
+                    記錄 checkpoint
+                  </button>
+                </form>
               </li>
             ))}
           </ol>
@@ -273,4 +331,46 @@ function badgeClass(status: string) {
 function statusLabel(status: string) {
   if (status === "action_required") return "Action required";
   return status;
+}
+
+function checkpointStatusLabel(status: BetaPilotCheckpointStatus) {
+  if (status === "verified") return "已驗證";
+  if (status === "blocked") return "阻擋";
+  if (status === "in_progress") return "處理中";
+  return "未開始";
+}
+
+function evidenceTypeLabel(type: BetaPilotEvidenceType) {
+  const labels: Record<BetaPilotEvidenceType, string> = {
+    smoke_test: "Smoke test",
+    announcement_receipt: "公告回條",
+    approval_flow: "簽核流程",
+    payroll_rehearsal: "月結預演",
+    payslip_access: "薪資單查看",
+    access_review: "權限檢查",
+    audit_export: "Audit 匯出",
+    backup_restore: "備份還原",
+  };
+  return labels[type];
+}
+
+function defaultEvidenceType(stepId: string): BetaPilotEvidenceType {
+  if (stepId === "day_1") return "announcement_receipt";
+  if (stepId === "day_3") return "approval_flow";
+  if (stepId === "day_7") return "payroll_rehearsal";
+  if (stepId === "day_14") return "audit_export";
+  return "access_review";
+}
+
+function shortHash(hash: string) {
+  return `${hash.slice(0, 10)}...`;
+}
+
+function formatDateTime(date: Date) {
+  return new Intl.DateTimeFormat("zh-TW", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }

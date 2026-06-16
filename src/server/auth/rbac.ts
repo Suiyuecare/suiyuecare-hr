@@ -23,6 +23,7 @@ export type Permission =
   | "form:submit"
   | "settings:read"
   | "settings:write"
+  | "pilot:manage"
   | "audit:read"
   | "privacy:manage"
   | "privacy:self"
@@ -59,6 +60,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "form:manage",
     "settings:read",
     "settings:write",
+    "pilot:manage",
     "audit:read",
     "privacy:manage",
     "privacy:self",
@@ -96,6 +98,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "form:manage",
     "form:submit",
     "settings:read",
+    "pilot:manage",
     "audit:read",
     "privacy:manage",
     "privacy:self",

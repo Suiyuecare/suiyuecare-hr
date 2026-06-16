@@ -3,6 +3,10 @@ import { getCompanyOverview } from "@/server/dashboard/queries";
 import { getHrOneKpis, type HrOneKpi } from "@/server/kpis/hr-one";
 import { getPayrollDashboard } from "@/server/payroll/service";
 import type { PayrollCloseChecklist, PayrollRunView } from "@/server/payroll/types";
+import {
+  getBetaPilotCheckpointEvidence,
+  type BetaPilotCheckpointEvidence,
+} from "./beta-pilot-checkpoints";
 import { getLaunchReadinessReport, type LaunchReadinessItem, type LaunchReadinessReport } from "./launch";
 
 type SessionLike = {
@@ -72,6 +76,7 @@ export type BetaPilotRunbookStep = {
   objective: string;
   checklist: string[];
   evidence: string;
+  checkpoint: BetaPilotCheckpointEvidence | null;
   openItems: Array<Pick<BetaPilotReadinessItem, "title" | "status" | "nextStep">>;
   actionLabel: string;
   actionHref: string;
@@ -91,6 +96,7 @@ export type BetaPilotReadinessInput = {
     checklist: Pick<PayrollCloseChecklist, "attendanceComplete" | "pendingApprovalCount" | "exceptionCount" | "canLock">;
   };
   flowEvidence?: Partial<BetaPilotFlowEvidence>;
+  checkpoints?: Array<BetaPilotCheckpointEvidence | null>;
 };
 
 const targetEmployeeRange = {
@@ -113,10 +119,11 @@ export async function getBetaPilotReadinessReport(
   session: SessionLike,
   existingLaunchReport?: LaunchReadinessReport,
 ) {
-  const [overview, launchReport, kpis] = await Promise.all([
+  const [overview, launchReport, kpis, checkpoints] = await Promise.all([
     getCompanyOverview(),
     existingLaunchReport ? Promise.resolve(existingLaunchReport) : getLaunchReadinessReport(session),
     getHrOneKpis(),
+    getBetaPilotCheckpointEvidence(session),
   ]);
   const payroll = await getPilotPayrollSnapshot(session);
 
@@ -128,6 +135,7 @@ export async function getBetaPilotReadinessReport(
     kpis,
     payroll,
     flowEvidence: envFlowEvidence(),
+    checkpoints,
   });
 }
 
@@ -304,7 +312,7 @@ export function buildBetaPilotReadinessReport(input: BetaPilotReadinessInput): B
     blockedCount,
     items,
     phases,
-    runbook: buildPilotRunbook(items),
+    runbook: buildPilotRunbook(items, input.checkpoints ?? []),
   };
 }
 
@@ -393,7 +401,15 @@ function buildPilotPhases(items: BetaPilotReadinessItem[]): BetaPilotPhase[] {
   ];
 }
 
-function buildPilotRunbook(items: BetaPilotReadinessItem[]): BetaPilotRunbookStep[] {
+function buildPilotRunbook(
+  items: BetaPilotReadinessItem[],
+  checkpoints: Array<BetaPilotCheckpointEvidence | null>,
+): BetaPilotRunbookStep[] {
+  const checkpointById = new Map(
+    checkpoints
+      .filter((checkpoint): checkpoint is BetaPilotCheckpointEvidence => Boolean(checkpoint))
+      .map((checkpoint) => [checkpoint.checkpointId, checkpoint]),
+  );
   return [
     runbookStep({
       id: "preflight",
@@ -410,6 +426,7 @@ function buildPilotRunbook(items: BetaPilotReadinessItem[]): BetaPilotRunbookSte
       evidence: "員工數、主管數、登入 gate、audit KPI、未授權薪資存取 KPI 都在 readiness 中可追溯。",
       actionLabel: "檢查試用 Gate",
       actionHref: "/settings/readiness",
+      checkpoint: checkpointById.get("preflight") ?? null,
       items,
     }),
     runbookStep({
@@ -427,6 +444,7 @@ function buildPilotRunbook(items: BetaPilotReadinessItem[]): BetaPilotRunbookSte
       evidence: "公告回條 smoke、手機任務 KPI、通知 gate 都在 readiness 中反映。",
       actionLabel: "發布公告",
       actionHref: "/hr/announcements",
+      checkpoint: checkpointById.get("day_1") ?? null,
       items,
     }),
     runbookStep({
@@ -444,6 +462,7 @@ function buildPilotRunbook(items: BetaPilotReadinessItem[]): BetaPilotRunbookSte
       evidence: "打卡 smoke、請假簽核 smoke、主管 Inbox smoke 與請假/簽核 KPI 都在同一個 gate 中顯示。",
       actionLabel: "開啟主管 Inbox",
       actionHref: "/manager/inbox",
+      checkpoint: checkpointById.get("day_3") ?? null,
       items,
     }),
     runbookStep({
@@ -461,6 +480,7 @@ function buildPilotRunbook(items: BetaPilotReadinessItem[]): BetaPilotRunbookSte
       evidence: "payroll item、pending approval、exception、lock/release、payslip self-view 都在 payroll gate 中可追蹤。",
       actionLabel: "開啟月結",
       actionHref: "/hr",
+      checkpoint: checkpointById.get("day_7") ?? null,
       items,
     }),
     runbookStep({
@@ -478,6 +498,7 @@ function buildPilotRunbook(items: BetaPilotReadinessItem[]): BetaPilotRunbookSte
       evidence: "第 14 天不看單一功能完成，而是看 readiness 是否仍有 blocker 或敏感資料風險。",
       actionLabel: "回到試用 Gate",
       actionHref: "/settings/readiness",
+      checkpoint: checkpointById.get("day_14") ?? null,
       items,
     }),
   ];
@@ -494,6 +515,7 @@ function runbookStep(input: {
   evidence: string;
   actionLabel: string;
   actionHref: string;
+  checkpoint: BetaPilotCheckpointEvidence | null;
   items: BetaPilotReadinessItem[];
 }): BetaPilotRunbookStep {
   const openItems = input.items
@@ -503,9 +525,9 @@ function runbookStep(input: {
       status: item.status,
       nextStep: item.nextStep,
     }));
-  const status = openItems.some((item) => item.status === "blocked")
+  const status = openItems.some((item) => item.status === "blocked") || input.checkpoint?.status === "blocked"
     ? "blocked"
-    : openItems.length > 0
+    : openItems.length > 0 || input.checkpoint?.status !== "verified"
       ? "action_required"
       : "ready";
   const firstOpenItem = input.items.find((item) => input.itemIds.includes(item.id) && item.status !== "ready");
@@ -519,6 +541,7 @@ function runbookStep(input: {
     objective: input.objective,
     checklist: input.checklist,
     evidence: input.evidence,
+    checkpoint: input.checkpoint,
     openItems,
     actionLabel: firstOpenItem?.actionLabel ?? input.actionLabel,
     actionHref: firstOpenItem?.actionHref ?? input.actionHref,

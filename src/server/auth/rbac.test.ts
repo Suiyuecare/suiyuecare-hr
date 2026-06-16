@@ -49,4 +49,11 @@ describe("RBAC", () => {
     expect(hasPermission("owner", "attendance_policy:manage")).toBe(true);
     expect(hasPermission("manager", "attendance_policy:manage")).toBe(false);
   });
+
+  it("lets HR and owners record beta pilot checkpoints while blocking employees", () => {
+    expect(hasPermission("owner", "pilot:manage")).toBe(true);
+    expect(hasPermission("hr_admin", "pilot:manage")).toBe(true);
+    expect(hasPermission("manager", "pilot:manage")).toBe(false);
+    expect(hasPermission("employee", "pilot:manage")).toBe(false);
+  });
 });
