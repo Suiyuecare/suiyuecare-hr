@@ -6,12 +6,13 @@ This runbook is the execution checklist for turning HR One from a demo-ready app
 
 - Production URL: `https://hr.suiyuecare.com`
 - Public liveness check: `/api/health/live` returns `ok`.
-- Public readiness check: `/api/health/ready` is still `degraded` because the production deployment does not have a database configured.
+- Public readiness check: `/api/health/ready` is still `degraded` because Vercel Production has not been configured with the required production environment variables and database connection.
 - Supabase project: `aruncclorusswpfnpgsn`
-- Supabase private schema: `hr_one` exists.
+- Supabase private schema: `hr_one` exists and has a verified synthetic pilot rehearsal tenant.
 - Supabase private schema exposure: `anon` and `authenticated` do not have `USAGE` on `hr_one`.
-- Supabase private schema relation count: `0`, so HR One tables have not yet been bootstrapped.
-- GitHub `main` includes the private-schema SQL generator and Prisma migration baseline support.
+- Supabase pilot rehearsal data: 25 active employees, 3 managers with direct reports, 4 departments, attendance schedules, leave balances, salary/payment/statutory profile coverage, released payroll rehearsal, 25 payslips, announcement receipts, starter form workflow, active rule versions, telemetry baseline, and audit coverage.
+- Vercel Production env: currently blocked until the 28 required production keys are written and the app is redeployed.
+- GitHub `main` includes the private-schema SQL generator, Prisma migration baseline support, pilot acceptance matrix, daily pilot status gate, handoff generator, and 20-50 person import template pack.
 
 Do not call the product production-pilot-ready until `/api/health/ready` is `ok` in production and a non-demo tenant passes production verification.
 
@@ -46,7 +47,7 @@ Goal: production data must survive deploys and must not fall back to in-memory d
    Prepare and apply the values with:
 
    ```bash
-   cp .env.vercel.production.example .env.vercel.production
+   pnpm vercel:create-production-env-draft
    pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --dry-run
    VERCEL_TOKEN=<token> pnpm vercel:apply-production-env -- --env-file=.env.vercel.production
    ```
@@ -157,6 +158,11 @@ Preflight:
 - Create the persisted 20-50 person trial run.
 - Complete the access review checkpoint.
 - Confirm unauthorized payroll access tests pass.
+- Run the daily status gate for Day 0:
+
+  ```bash
+  pnpm pilot:daily-status -- --day=0 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --output=/tmp/hr-one-pilot-day-0.md
+  ```
 
 Day 1:
 
@@ -164,12 +170,14 @@ Day 1:
 - Employees acknowledge announcement.
 - Employees clock in/out from mobile.
 - Employees submit at least one leave request.
+- Run `pnpm pilot:daily-status -- --day=1 ... --output=/tmp/hr-one-pilot-day-1.md`.
 
 Day 3:
 
 - Managers approve/reject from one Inbox.
 - HR clears attendance exceptions.
 - Employees verify request timelines and notifications.
+- Run `pnpm pilot:daily-status -- --day=3 ... --output=/tmp/hr-one-pilot-day-3.md`.
 
 Day 7:
 
@@ -178,16 +186,19 @@ Day 7:
 - HR previews payroll items.
 - HR releases a test payslip only when permitted.
 - Employees view their own released payslip.
+- Run `pnpm pilot:daily-status -- --day=7 ... --output=/tmp/hr-one-pilot-day-7.md`.
 
 Day 14:
 
 - HR runs final readiness review.
 - Export or review redacted audit evidence.
 - Confirm no unresolved security, payroll, or attendance blockers remain.
+- Run `pnpm pilot:daily-status -- --day=14 ... --final-review=verified --output=/tmp/hr-one-pilot-day-14.md` only after the final review checkpoint is genuinely verified.
 
 Expected evidence:
 
 - Trial run and checkpoint records are persisted in PostgreSQL.
+- Daily status reports are redacted and contain only aggregate or hash-only evidence references.
 - Audit logs exist for create, approve, reject, payroll close, payslip release, and sensitive settings.
 - Employees cannot see other employees' payslips.
 - Managers cannot see subordinate salary unless explicitly granted.
