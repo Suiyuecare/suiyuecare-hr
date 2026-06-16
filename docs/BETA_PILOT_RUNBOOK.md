@@ -163,6 +163,7 @@ Expected evidence:
 - HR onboarding readiness has no blocker for the pilot company.
 - `pilot:acceptance` reports `real_customer` cohort evidence from aggregate active employee and manager counts.
 - `pilot:import-preflight` returns `ready` and the Markdown report contains no names, salary amounts, bank accounts, national IDs, health data, or private HR notes.
+- `pnpm pilot:evidence-scan -- --path=<pilot-evidence-folder> --recursive` passes before any generated pilot report is shared outside the implementation team.
 
 ## Phase 3: Two-Week Trial Operations
 
@@ -210,11 +211,13 @@ Day 14:
 - Export or review redacted audit evidence.
 - Confirm no unresolved security, payroll, or attendance blockers remain.
 - Run `pnpm pilot:daily-status -- --day=14 ... --tenant-slug=<customer-slug> --final-review=verified --output=/tmp/hr-one-pilot-day-14.md` only after the final review checkpoint is genuinely verified.
+- Run `pnpm pilot:evidence-scan -- --path=<pilot-evidence-folder> --recursive` and fix every finding before the final handoff.
 
 Expected evidence:
 
 - Trial run and checkpoint records are persisted in PostgreSQL.
 - Daily status reports are redacted and contain only aggregate or hash-only evidence references.
+- Evidence scan passes for the pilot report folder and reports zero sensitive-value findings.
 - Audit logs exist for create, approve, reject, payroll close, payslip release, and sensitive settings.
 - Employees cannot see other employees' payslips.
 - Managers cannot see subordinate salary unless explicitly granted.
