@@ -199,6 +199,14 @@ pnpm pilot:gate:production -- --url=https://hr.suiyuecare.com --expected-host=hr
 
 This gate reads `/api/health/ready` from the deployed app and blocks the pilot when the site is still non-production, using demo fallback, missing the production database, or exposing sensitive health payload values. It must pass after the Vercel production env vars are configured and the production deployment is redeployed.
 
+For the full pilot go/no-go view, run the doctor command:
+
+```bash
+pnpm pilot:doctor -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one
+```
+
+It checks Vercel Production env key presence, the live readiness endpoint, and the Supabase pilot tenant seed without printing secret values. The two-week trial should not start until this returns `ready`.
+
 12. Start the app:
 
 ```bash
@@ -286,6 +294,7 @@ pnpm db:supabase:verify-schema -- --project-ref=<supabase-project-ref> --schema=
 pnpm db:supabase:seed-pilot -- --project-ref=<supabase-project-ref> --schema=hr_one --verify-only
 pnpm db:supabase:seed-pilot -- --project-ref=<supabase-project-ref> --schema=hr_one --apply
 pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --dry-run
+pnpm pilot:doctor -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one
 pnpm release:gate
 pnpm release:gate:production -- --tenant-slug=<customer-slug>
 ```
