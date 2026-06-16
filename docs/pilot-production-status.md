@@ -7,8 +7,8 @@ Last checked: 2026-06-17 Asia/Taipei
 - Live domain: `https://hr.suiyuecare.com`
 - GitHub repository: `Suiyuecare/suiyuecare-hr`
 - Vercel project in repo metadata: `prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N` (`suiyuecare-hr2`)
-- Latest pushed Git commit: `13c83c4 Require production SSO login URL`
-- Active `suiyuecare-hr2` Vercel deployment for `13c83c4` completed successfully.
+- Latest GitHub `main` includes the production SSO login guard and the pilot doctor env handoff update.
+- `suiyuecare-hr2` may lag behind GitHub `main` when Vercel deployment rate limits are active; check the latest commit status before treating `hr.suiyuecare.com` as current.
 - Vercel Production now has 22 environment variables, including the 22 known bootstrap values written through `pnpm vercel:bootstrap-known-env -- --env-file=.env.vercel.production --apply`.
 - Legacy Vercel status context `Vercel - suiyuecare-hr` may still appear. Use `suiyuecare-hr2` as the active project.
 
