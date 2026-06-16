@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   buildVercelCliEnvCommand,
+  buildVercelKnownProductionEnvPlan,
   buildVercelProductionEnvPlan,
   isSensitiveVercelEnvKey,
   parseEnvFile,
+  summarizeVercelKnownProductionEnvPlan,
   summarizeVercelProductionEnvPlan,
 } from "@/server/readiness/vercel-production-env";
+import { buildVercelProductionEnvDraft } from "@/server/readiness/vercel-production-env-draft";
 
 const productionEnv = {
   HR_ONE_ENV: "production",
@@ -117,5 +120,54 @@ describe("Vercel production env bootstrap", () => {
       passed: false,
       detail: "set DATABASE_URL query parameter schema=hr_one",
     });
+  });
+
+  it("builds a partial known-env bootstrap plan while deferring operator-managed values", () => {
+    const draft = buildVercelProductionEnvDraft({
+      now: new Date("2026-06-17T00:00:00.000Z"),
+      randomSecret: () => "generated-secret-with-more-than-32-characters",
+    });
+    const plan = buildVercelKnownProductionEnvPlan({
+      env: parseEnvFile(draft),
+      projectId: "prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N",
+      teamId: "team_LGag47eU8tKbsK6ixAmVa5Uq",
+    });
+    const keys = plan.items.map((item) => item.key);
+    const summary = summarizeVercelKnownProductionEnvPlan(plan);
+
+    expect(keys).toContain("HR_ONE_ENV");
+    expect(keys).toContain("NEXT_PUBLIC_SUPABASE_URL");
+    expect(keys).toContain("HR_ONE_SESSION_SECRET");
+    expect(keys).not.toContain("DATABASE_URL");
+    expect(keys).not.toContain("HR_ONE_AUTH_ISSUER_URL");
+    expect(keys).not.toContain("HR_ONE_OBJECT_STORAGE_SECRET_REF");
+    expect(plan.skippedPlaceholderKeys).toEqual([
+      "DATABASE_URL",
+      "HR_ONE_AUTH_ISSUER_URL",
+      "HR_ONE_AUTH_JWKS_URL",
+      "HR_ONE_AUTH_PROVIDER",
+      "HR_ONE_BACKUP_RESTORE_TESTED_AT",
+    ]);
+    expect(plan.operatorManagedKeys).toEqual([
+      "HR_ONE_BACKUP_ENCRYPTION_KEY_REF",
+      "HR_ONE_OBJECT_STORAGE_SECRET_REF",
+      "HR_ONE_RATE_LIMIT_SECRET_REF",
+    ]);
+    expect(summary).toContain("22 bootstrap variable(s): 3 sensitive, 19 encrypted");
+  });
+
+  it("does not include generated secret values in known-env command text", () => {
+    const plan = buildVercelKnownProductionEnvPlan({
+      env: {
+        HR_ONE_SESSION_SECRET: "generated-secret-with-more-than-32-characters",
+      },
+      projectId: "prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N",
+      teamId: "team_LGag47eU8tKbsK6ixAmVa5Uq",
+    });
+    const command = buildVercelCliEnvCommand(plan.items[0]!);
+
+    expect(command.stdin).toContain("generated-secret");
+    expect(command.redactedCommand).not.toContain("generated-secret");
+    expect(command.redactedCommand).toContain("<value via stdin>");
   });
 });

@@ -194,6 +194,7 @@ function buildNextActions(options: {
     actions.push(`Fix local production env verification failures before apply: ${options.localEnvDraft.failedCheckNames.join(", ")}.`);
   }
   if (options.missingEnvKeys.length > 0) {
+    actions.push("Optionally run pnpm vercel:bootstrap-known-env -- --env-file=.env.vercel.production to prefill safe known Production env values; it will not write DATABASE_URL, OIDC URLs, vault refs, or restore-drill evidence.");
     actions.push("Fill .env.vercel.production with real production values and run pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --method=cli.");
   }
   if (options.missingEnvKeys.includes("DATABASE_URL")) {

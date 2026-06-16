@@ -81,6 +81,9 @@ describe("pilot doctor", () => {
     expect(report.nextActions).toContain(
       "Run pnpm vercel:create-production-env-draft to create a gitignored .env.vercel.production draft with generated local secrets.",
     );
+    expect(report.nextActions).toContain(
+      "Optionally run pnpm vercel:bootstrap-known-env -- --env-file=.env.vercel.production to prefill safe known Production env values; it will not write DATABASE_URL, OIDC URLs, vault refs, or restore-drill evidence.",
+    );
   });
 
   it("reports unresolved local env draft placeholders before Vercel apply", () => {

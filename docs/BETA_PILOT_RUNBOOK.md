@@ -48,11 +48,12 @@ Goal: production data must survive deploys and must not fall back to in-memory d
 
    ```bash
    pnpm vercel:create-production-env-draft
+   pnpm vercel:bootstrap-known-env -- --env-file=.env.vercel.production
    pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --dry-run
    VERCEL_TOKEN=<token> pnpm vercel:apply-production-env -- --env-file=.env.vercel.production
    ```
 
-   The dry run must pass before writing to Vercel. The script does not print secret values.
+   `vercel:bootstrap-known-env` defaults to dry-run and only lists safe known values plus generated secrets; it skips database URL, OIDC placeholders, vault references, and restore-drill evidence. Use `--apply` only when intentionally preloading those known values. The full `vercel:apply-production-env` dry run must pass before writing the complete production env to Vercel. Neither script prints secret values.
 
 5. Verify:
 
