@@ -143,7 +143,10 @@ export function buildBetaPilotReadinessReport(input: BetaPilotReadinessInput): B
   const trialDays = input.trialDays ?? 14;
   const launchItems = new Map(input.launchReport.items.map((item) => [item.id, item]));
   const kpis = new Map(input.kpis.map((kpi) => [kpi.id, kpi]));
-  const flowEvidence = { ...defaultFlowEvidence, ...input.flowEvidence };
+  const flowEvidence = applyCheckpointFlowEvidence(
+    { ...defaultFlowEvidence, ...input.flowEvidence },
+    input.checkpoints ?? [],
+  );
   const payrollRunRehearsed =
     Boolean(input.payroll.runStatus) &&
     input.payroll.runStatus !== "blocked" &&
@@ -357,6 +360,39 @@ function envFlowEvidence(): Partial<BetaPilotFlowEvidence> {
     announcementReceiptSmokePassed: true,
     payrollCloseSmokePassed: true,
     payslipViewSmokePassed: true,
+  };
+}
+
+function applyCheckpointFlowEvidence(
+  flowEvidence: BetaPilotFlowEvidence,
+  checkpoints: Array<BetaPilotCheckpointEvidence | null>,
+): BetaPilotFlowEvidence {
+  const checkpointById = new Map(
+    checkpoints
+      .filter((checkpoint): checkpoint is BetaPilotCheckpointEvidence => Boolean(checkpoint))
+      .map((checkpoint) => [checkpoint.checkpointId, checkpoint]),
+  );
+  const preflight = checkpointById.get("preflight");
+  const day1 = checkpointById.get("day_1");
+  const day3 = checkpointById.get("day_3");
+  const day7 = checkpointById.get("day_7");
+  return {
+    ...flowEvidence,
+    roleDashboardSmokePassed:
+      flowEvidence.roleDashboardSmokePassed ||
+      (preflight?.status === "verified" && preflight.evidenceType === "access_review"),
+    employeeMobileSmokePassed: flowEvidence.employeeMobileSmokePassed || day1?.status === "verified",
+    announcementReceiptSmokePassed:
+      flowEvidence.announcementReceiptSmokePassed ||
+      (day1?.status === "verified" && day1.evidenceType === "announcement_receipt"),
+    clockInOutSmokePassed: flowEvidence.clockInOutSmokePassed || day3?.status === "verified",
+    leaveApprovalSmokePassed: flowEvidence.leaveApprovalSmokePassed || day3?.status === "verified",
+    managerInboxSmokePassed: flowEvidence.managerInboxSmokePassed || day3?.status === "verified",
+    payrollCloseSmokePassed:
+      flowEvidence.payrollCloseSmokePassed ||
+      day7?.status === "verified" ||
+      (day7?.status === "in_progress" && day7.evidenceType === "payroll_rehearsal"),
+    payslipViewSmokePassed: flowEvidence.payslipViewSmokePassed || day7?.status === "verified",
   };
 }
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { explainPayrollException } from "@/server/ai/service";
-import { resetAuditDemoState } from "@/server/audit/demo-store";
+import { getAuditDemoState, resetAuditDemoState } from "@/server/audit/demo-store";
 import {
   resetRuleSettingsDemoState,
   updateTaiwanLaborStandardsConfig,
@@ -16,8 +16,14 @@ import {
 } from "./demo-store";
 import {
   canViewPayslip,
+  confirmPayrollRun,
+  createPayrollRun,
   getOwnPayslip,
   getPayrollDashboard,
+  lockPayrollRun,
+  recalculatePayrollRun,
+  releasePayrollPayslips,
+  resolvePayrollBlockers,
 } from "./service";
 
 const hrSession = {
@@ -80,6 +86,40 @@ describe("payroll access matrix", () => {
     expect(canViewPayslip(employeeSession, "demo-employee-2")).toBe(false);
     expect(canViewPayslip(managerSession, "demo-employee-1")).toBe(false);
     expect(canViewPayslip(hrSession, "demo-employee-1")).toBe(true);
+  });
+
+  it("records day 7 beta pilot evidence after payroll release and employee payslip access", async () => {
+    await createPayrollRun(hrSession);
+    await resolvePayrollBlockers(hrSession);
+    await recalculatePayrollRun(hrSession);
+    await confirmPayrollRun(hrSession);
+    await lockPayrollRun(hrSession);
+    await releasePayrollPayslips(hrSession);
+
+    expect(getAuditDemoState().logs[0]).toMatchObject({
+      entityType: "beta_pilot_checkpoint",
+      entityId: "day_7",
+      metadataJson: expect.objectContaining({
+        checkpointStatus: "in_progress",
+        evidenceType: "payroll_rehearsal",
+        missingEvidenceTypes: ["payslip_access"],
+      }),
+    });
+
+    const payslip = await getOwnPayslip(employeeSession);
+
+    expect(payslip?.employeeId).toBe("demo-employee-1");
+    expect(getAuditDemoState().logs[0]).toMatchObject({
+      entityType: "beta_pilot_checkpoint",
+      entityId: "day_7",
+      metadataJson: expect.objectContaining({
+        checkpointStatus: "verified",
+        evidenceType: "payslip_access",
+        fulfilledEvidenceTypes: ["payroll_rehearsal", "payslip_access"],
+        missingEvidenceTypes: [],
+      }),
+    });
+    expect(JSON.stringify(getAuditDemoState().logs)).not.toMatch(/56000|62000|78000/);
   });
 
   it("blocks managers from self-service payslip access in the single-role demo", async () => {

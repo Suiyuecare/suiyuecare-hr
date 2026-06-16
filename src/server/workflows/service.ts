@@ -6,6 +6,7 @@ import { hasPermission, roleKeys, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
 import { sendNotificationInTransaction, type NotificationEventType } from "@/server/notifications/service";
 import { listPayrollAdjustments, type PayrollAdjustmentView } from "@/server/payroll/adjustments";
+import { recordBetaPilotAutomatedEvidence } from "@/server/readiness/beta-pilot-checkpoints";
 import { recordProductTelemetryEvent } from "@/server/telemetry/product";
 import {
   flattenFormAttachments,
@@ -27,6 +28,7 @@ import {
   decideDemoApproval,
   getDemoEmployeeWorkspace,
   getDemoFormTemplates,
+  getDemoWorkflowState,
   getDemoManagerInbox,
   submitDemoCustomForm,
   submitDemoLeave,
@@ -305,6 +307,7 @@ export async function clockAttendance(
 ) {
   if (!canUseDatabase(session)) {
     clockDemo(input.source, input.direction);
+    await recordAttendanceCheckpoint(session, input.direction);
     return;
   }
 
@@ -381,6 +384,7 @@ export async function clockAttendance(
       },
     });
   });
+  await recordAttendanceCheckpoint(session, input.direction);
 }
 
 export async function createLeaveRequest(
@@ -592,10 +596,16 @@ export async function decideApproval(
 ) {
   if (!canUseDatabase(session)) {
     decideDemoApproval(input);
+    await recordApprovalCheckpoint(
+      session,
+      input.requestId,
+      getDemoWorkflowState().requests.find((request) => request.id === input.requestId)?.type ?? null,
+    );
     return;
   }
 
   const db = getDb();
+  let decidedRequestType: RequestType | null = null;
   await db.$transaction(async (tx) => {
     const task = await tx.approvalTask.findFirstOrThrow({
       where: {
@@ -603,6 +613,7 @@ export async function decideApproval(
         approverEmployeeId: session.employee!.id,
       },
     });
+    decidedRequestType = task.requestType;
     const nextStatus = nextApprovalStatus(task.status, input.action);
     await tx.approvalTask.update({
       where: { id: task.id },
@@ -740,6 +751,7 @@ export async function decideApproval(
       },
     });
   });
+  await recordApprovalCheckpoint(session, input.requestId, decidedRequestType);
   await recordApprovalTelemetry(session, input.requestId, input.action);
 }
 
@@ -1508,6 +1520,42 @@ function summarizeFormValues(fields: FormField[], values: Record<string, string>
     .slice(0, 3)
     .map((field) => `${field.label}: ${values[field.id] ?? "-"}`)
     .join(" · ");
+}
+
+async function recordAttendanceCheckpoint(session: SessionLike, direction: "in" | "out") {
+  if (direction !== "out") {
+    return;
+  }
+  try {
+    await recordBetaPilotAutomatedEvidence(session, {
+      checkpointId: "day_3",
+      evidenceType: "smoke_test",
+      evidenceRef: `attendance_clock_out:${session.employee?.id ?? "unknown"}:${startOfToday().toISOString()}`,
+      requiredEvidenceTypes: ["smoke_test", "approval_flow"],
+    });
+  } catch {
+    // Pilot evidence is advisory and must never block attendance.
+  }
+}
+
+async function recordApprovalCheckpoint(
+  session: SessionLike,
+  requestId: string,
+  requestType: RequestType | null,
+) {
+  if (requestType !== "leave") {
+    return;
+  }
+  try {
+    await recordBetaPilotAutomatedEvidence(session, {
+      checkpointId: "day_3",
+      evidenceType: "approval_flow",
+      evidenceRef: `approval_flow:${requestType}:${requestId}`,
+      requiredEvidenceTypes: ["smoke_test", "approval_flow"],
+    });
+  } catch {
+    // Pilot evidence is advisory and must never block approval decisions.
+  }
 }
 
 async function recordMobileTaskTelemetry(

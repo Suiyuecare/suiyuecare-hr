@@ -1,5 +1,6 @@
 import { assertPermission, hasPermission } from "@/server/auth/rbac";
 import type { RoleKey } from "@/server/auth/rbac";
+import { recordBetaPilotAutomatedEvidence } from "@/server/readiness/beta-pilot-checkpoints";
 import {
   confirmDbPayrollRun,
   createDbPayrollRun,
@@ -105,9 +106,12 @@ export async function lockPayrollRun(session: SessionLike) {
 export async function releasePayrollPayslips(session: SessionLike) {
   assertPermission(session.role, "payroll:manage");
   if (canUseDatabase(session)) {
-    return releaseDbPayslips(session);
+    const run = await releaseDbPayslips(session);
+    await recordPayrollCheckpoint(session, "payroll_rehearsal", `payroll_release:${run?.id ?? "none"}`);
+    return run;
   }
   releaseDemoPayslips();
+  await recordPayrollCheckpoint(session, "payroll_rehearsal", "payroll_release:demo");
 }
 
 export async function getOwnPayslip(session: SessionLike): Promise<PayslipView | null> {
@@ -116,9 +120,34 @@ export async function getOwnPayslip(session: SessionLike): Promise<PayslipView |
     throw new Error("Unauthorized payslip access.");
   }
   if (canUseDatabase(session)) {
-    return getDbEmployeePayslip(session, session.employee.id);
+    const payslip = await getDbEmployeePayslip(session, session.employee.id);
+    if (payslip) {
+      await recordPayrollCheckpoint(session, "payslip_access", `payslip_access:${payslip.id}`);
+    }
+    return payslip;
   }
-  return getDemoEmployeePayslip(session.employee.id);
+  const payslip = getDemoEmployeePayslip(session.employee.id);
+  if (payslip) {
+    await recordPayrollCheckpoint(session, "payslip_access", `payslip_access:${payslip.id}`);
+  }
+  return payslip;
+}
+
+async function recordPayrollCheckpoint(
+  session: SessionLike,
+  evidenceType: "payroll_rehearsal" | "payslip_access",
+  evidenceRef: string,
+) {
+  try {
+    await recordBetaPilotAutomatedEvidence(session, {
+      checkpointId: "day_7",
+      evidenceType,
+      evidenceRef,
+      requiredEvidenceTypes: ["payroll_rehearsal", "payslip_access"],
+    });
+  } catch {
+    // Pilot evidence must never block payroll release or employee payslip reads.
+  }
 }
 
 function canUseDatabase(session: SessionLike): session is DbPayrollSession {

@@ -3,6 +3,7 @@ import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { stableHash } from "@/server/audit/redaction";
 import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
+import { recordBetaPilotAutomatedEvidence } from "@/server/readiness/beta-pilot-checkpoints";
 
 type SessionLike = {
   role: RoleKey;
@@ -64,10 +65,24 @@ export async function publishAnnouncement(session: SessionLike, input: {
 export async function acknowledgeAnnouncement(session: SessionLike, announcementId: string) {
   assertPermission(session.role, "announcement:self");
   if (!session.employee?.id) throw new Error("Employee context is required.");
-  if (canUseDatabase(session)) {
-    return acknowledgeDbAnnouncement(session as SessionLike & { tenantId: string; companyId: string }, announcementId);
+  const receiptId = canUseDatabase(session)
+    ? await acknowledgeDbAnnouncement(session as SessionLike & { tenantId: string; companyId: string }, announcementId)
+    : acknowledgeDemoAnnouncement(session, announcementId);
+  await recordAnnouncementReceiptCheckpoint(session, receiptId);
+  return receiptId;
+}
+
+async function recordAnnouncementReceiptCheckpoint(session: SessionLike, receiptId: string) {
+  try {
+    await recordBetaPilotAutomatedEvidence(session, {
+      checkpointId: "day_1",
+      evidenceType: "announcement_receipt",
+      evidenceRef: `announcement_receipt:${receiptId}`,
+      requiredEvidenceTypes: ["announcement_receipt"],
+    });
+  } catch {
+    // Beta pilot evidence must never interrupt employee acknowledgement.
   }
-  return acknowledgeDemoAnnouncement(session, announcementId);
 }
 
 async function getDbAnnouncementWorkspace(session: SessionLike & { tenantId: string; companyId: string }) {

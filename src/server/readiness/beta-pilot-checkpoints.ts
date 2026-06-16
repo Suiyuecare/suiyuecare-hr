@@ -1,9 +1,17 @@
 import { writeAuditLog } from "@/server/audit/audit";
-import { writeDemoAuditLog } from "@/server/audit/demo-store";
+import { getAuditDemoState, writeDemoAuditLog } from "@/server/audit/demo-store";
 import { getAuditLogs } from "@/server/audit/queries";
 import { stableHash } from "@/server/audit/redaction";
 import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
+
+type ActorSessionLike = {
+  role?: string;
+  tenantId?: string | null;
+  companyId?: string | null;
+  user?: { id: string; displayName: string } | null;
+  employee?: { id: string; displayName: string } | null;
+};
 
 type SessionLike = {
   role: RoleKey;
@@ -65,6 +73,39 @@ export type RecordBetaPilotCheckpointInput = {
 
 const checkpointEntityType = "beta_pilot_checkpoint";
 
+export async function recordBetaPilotAutomatedEvidence(
+  session: ActorSessionLike,
+  input: {
+    checkpointId: BetaPilotCheckpointId;
+    evidenceType: BetaPilotEvidenceType;
+    evidenceRef: string;
+    requiredEvidenceTypes?: BetaPilotEvidenceType[];
+  },
+) {
+  const requiredEvidenceTypes = input.requiredEvidenceTypes ?? [input.evidenceType];
+  const existingEvidenceTypes = await getRecordedEvidenceTypes(session, input.checkpointId);
+  const fulfilledEvidenceTypes = [...new Set([...existingEvidenceTypes, input.evidenceType])]
+    .filter((evidenceType) => requiredEvidenceTypes.includes(evidenceType));
+  const missingEvidenceTypes = requiredEvidenceTypes
+    .filter((evidenceType) => !fulfilledEvidenceTypes.includes(evidenceType));
+  const status: BetaPilotCheckpointStatus = missingEvidenceTypes.length === 0 ? "verified" : "in_progress";
+  return writeCheckpointEvidence(session, {
+    checkpointId: input.checkpointId,
+    status,
+    evidenceType: input.evidenceType,
+    evidenceRefHash: hashOptionalText(input.evidenceRef),
+    reviewerNoteHash: null,
+    nextStepHash: null,
+    source: "beta_pilot_automated_evidence",
+    metadata: {
+      automated: true,
+      requiredEvidenceTypes,
+      fulfilledEvidenceTypes,
+      missingEvidenceTypes,
+    },
+  });
+}
+
 export async function getBetaPilotCheckpointEvidence(session: SessionLike) {
   assertPermission(session.role, "settings:read");
   const latestByCheckpoint = new Map<BetaPilotCheckpointId, BetaPilotCheckpointEvidence>();
@@ -99,27 +140,53 @@ export async function recordBetaPilotCheckpoint(
   const evidenceRefHash = hashOptionalText(input.evidenceRef);
   const reviewerNoteHash = hashOptionalText(input.reviewerNote);
   const nextStepHash = hashOptionalText(input.nextStep);
-  const after: BetaPilotCheckpointEvidence = {
+  return writeCheckpointEvidence(session, {
     checkpointId,
     status,
     evidenceType,
     evidenceRefHash,
     reviewerNoteHash,
     nextStepHash,
+    source: "beta_pilot_runbook",
+    metadata: {},
+  });
+}
+
+async function writeCheckpointEvidence(
+  session: ActorSessionLike,
+  input: {
+    checkpointId: BetaPilotCheckpointId;
+    status: BetaPilotCheckpointStatus;
+    evidenceType: BetaPilotEvidenceType;
+    evidenceRefHash: string | null;
+    reviewerNoteHash: string | null;
+    nextStepHash: string | null;
+    source: "beta_pilot_runbook" | "beta_pilot_automated_evidence";
+    metadata: Record<string, unknown>;
+  },
+) {
+  const after: BetaPilotCheckpointEvidence = {
+    checkpointId: input.checkpointId,
+    status: input.status,
+    evidenceType: input.evidenceType,
+    evidenceRefHash: input.evidenceRefHash,
+    reviewerNoteHash: input.reviewerNoteHash,
+    nextStepHash: input.nextStepHash,
     actorName: session.employee?.displayName ?? session.user?.displayName ?? "System",
     recordedAt: new Date(),
   };
   const metadata = {
-    source: "beta_pilot_runbook",
-    checkpointId,
-    checkpointStatus: status,
-    evidenceType,
-    evidenceRefHash,
-    reviewerNoteHash,
-    nextStepHash,
-    hasEvidenceRef: Boolean(evidenceRefHash),
-    hasReviewerNote: Boolean(reviewerNoteHash),
-    hasNextStep: Boolean(nextStepHash),
+    source: input.source,
+    checkpointId: input.checkpointId,
+    checkpointStatus: input.status,
+    evidenceType: input.evidenceType,
+    evidenceRefHash: input.evidenceRefHash,
+    reviewerNoteHash: input.reviewerNoteHash,
+    nextStepHash: input.nextStepHash,
+    hasEvidenceRef: Boolean(input.evidenceRefHash),
+    hasReviewerNote: Boolean(input.reviewerNoteHash),
+    hasNextStep: Boolean(input.nextStepHash),
+    ...input.metadata,
   };
 
   if (canUseDatabase(session)) {
@@ -131,21 +198,21 @@ export async function recordBetaPilotCheckpoint(
         actorEmployeeId: session.employee?.id,
         action: "update",
         entityType: checkpointEntityType,
-        entityId: checkpointId,
+        entityId: input.checkpointId,
         after,
         metadata,
       });
       return after;
     } catch {
-      return recordDemoCheckpoint(session, checkpointId, after, metadata);
+      return recordDemoCheckpoint(session, input.checkpointId, after, metadata);
     }
   }
 
-  return recordDemoCheckpoint(session, checkpointId, after, metadata);
+  return recordDemoCheckpoint(session, input.checkpointId, after, metadata);
 }
 
 function recordDemoCheckpoint(
-  session: SessionLike,
+  session: ActorSessionLike,
   checkpointId: BetaPilotCheckpointId,
   after: BetaPilotCheckpointEvidence,
   metadata: Record<string, unknown>,
@@ -163,6 +230,49 @@ function recordDemoCheckpoint(
     metadata,
   });
   return after;
+}
+
+async function getRecordedEvidenceTypes(
+  session: ActorSessionLike,
+  checkpointId: BetaPilotCheckpointId,
+) {
+  const evidenceTypes = new Set<BetaPilotEvidenceType>();
+  if (canUseDatabase(session)) {
+    try {
+      const logs = await getDb().auditLog.findMany({
+        where: {
+          tenantId: session.tenantId,
+          companyId: session.companyId,
+          entityType: checkpointEntityType,
+          entityId: checkpointId,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      });
+      for (const log of logs) {
+        const evidenceType = normalizeEvidenceType(readMetadata(log.metadataJson).evidenceType);
+        evidenceTypes.add(evidenceType);
+      }
+      return [...evidenceTypes];
+    } catch {
+      return getDemoRecordedEvidenceTypes(session, checkpointId);
+    }
+  }
+  return getDemoRecordedEvidenceTypes(session, checkpointId);
+}
+
+function getDemoRecordedEvidenceTypes(
+  session: ActorSessionLike,
+  checkpointId: BetaPilotCheckpointId,
+) {
+  const evidenceTypes = new Set<BetaPilotEvidenceType>();
+  for (const log of getAuditDemoState().logs) {
+    if (log.tenantId !== (session.tenantId ?? "demo-tenant")) continue;
+    if (log.companyId !== (session.companyId ?? "demo-company")) continue;
+    if (log.entityType !== checkpointEntityType || log.entityId !== checkpointId) continue;
+    evidenceTypes.add(normalizeEvidenceType(log.metadataJson.evidenceType));
+  }
+  return [...evidenceTypes];
 }
 
 function normalizeCheckpointId(value: unknown): BetaPilotCheckpointId | null {
@@ -196,8 +306,15 @@ function readNullableString(value: unknown) {
   return typeof value === "string" && value ? value : null;
 }
 
+function readMetadata(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
 function canUseDatabase(
-  session: SessionLike,
-): session is SessionLike & { tenantId: string; companyId: string } {
+  session: ActorSessionLike,
+): session is ActorSessionLike & { tenantId: string; companyId: string } {
   return Boolean(process.env.DATABASE_URL && session.tenantId && session.companyId);
 }

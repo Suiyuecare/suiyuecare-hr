@@ -249,6 +249,44 @@ describe("beta pilot readiness", () => {
     ]);
     expect(report.runbook.every((step) => step.status === "ready")).toBe(true);
   });
+
+  it("uses verified checkpoints as product-flow evidence for the pilot gate", () => {
+    const report = buildBetaPilotReadinessReport({
+      employeeCount: 25,
+      managerCount: 1,
+      trialDays: 14,
+      launchReport: readyLaunchReport(),
+      kpis: passingKpis,
+      payroll: readyPayroll,
+      flowEvidence: {
+        roleDashboardSmokePassed: false,
+        employeeMobileSmokePassed: false,
+        clockInOutSmokePassed: false,
+        leaveApprovalSmokePassed: false,
+        managerInboxSmokePassed: false,
+        announcementReceiptSmokePassed: false,
+        payrollCloseSmokePassed: false,
+        payslipViewSmokePassed: false,
+      },
+      checkpoints: verifiedCheckpoints(),
+    });
+
+    expect(report.items.find((item) => item.id === "employee_frontstage")).toMatchObject({
+      status: "ready",
+    });
+    expect(report.items.find((item) => item.id === "attendance_leave_approval")).toMatchObject({
+      status: "ready",
+    });
+    expect(report.items.find((item) => item.id === "announcements")).toMatchObject({
+      status: "ready",
+    });
+    expect(report.items.find((item) => item.id === "payroll_dry_run")).toMatchObject({
+      status: "ready",
+    });
+    expect(report.items.find((item) => item.id === "payslip_access")).toMatchObject({
+      status: "ready",
+    });
+  });
 });
 
 function readyLaunchReport(overrides: Array<Pick<LaunchReadinessItem, "id" | "status" | "detail">> = []) {

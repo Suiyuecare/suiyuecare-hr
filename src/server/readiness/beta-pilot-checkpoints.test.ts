@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { getAuditDemoState, resetAuditDemoState } from "@/server/audit/demo-store";
 import {
   getBetaPilotCheckpointEvidence,
+  recordBetaPilotAutomatedEvidence,
   recordBetaPilotCheckpoint,
 } from "./beta-pilot-checkpoints";
 
@@ -82,5 +83,45 @@ describe("beta pilot checkpoints", () => {
       status: "verified",
       evidenceType: "announcement_receipt",
     })).rejects.toThrow(/pilot:manage/);
+  });
+
+  it("lets trusted workflows promote checkpoints only after required evidence is complete", async () => {
+    await recordBetaPilotAutomatedEvidence(employeeSession, {
+      checkpointId: "day_3",
+      evidenceType: "smoke_test",
+      evidenceRef: "CLOCK-OUT-001",
+      requiredEvidenceTypes: ["smoke_test", "approval_flow"],
+    });
+
+    expect(getAuditDemoState().logs[0]).toMatchObject({
+      entityType: "beta_pilot_checkpoint",
+      entityId: "day_3",
+      metadataJson: expect.objectContaining({
+        source: "beta_pilot_automated_evidence",
+        automated: true,
+        checkpointStatus: "in_progress",
+        missingEvidenceTypes: ["approval_flow"],
+      }),
+    });
+
+    await recordBetaPilotAutomatedEvidence(employeeSession, {
+      checkpointId: "day_3",
+      evidenceType: "approval_flow",
+      evidenceRef: "LEAVE-APPROVAL-001",
+      requiredEvidenceTypes: ["smoke_test", "approval_flow"],
+    });
+
+    const latest = getAuditDemoState().logs[0];
+    expect(latest).toMatchObject({
+      entityType: "beta_pilot_checkpoint",
+      entityId: "day_3",
+      metadataJson: expect.objectContaining({
+        checkpointStatus: "verified",
+        fulfilledEvidenceTypes: ["smoke_test", "approval_flow"],
+        missingEvidenceTypes: [],
+      }),
+    });
+    expect(JSON.stringify(getAuditDemoState().logs)).not.toContain("CLOCK-OUT-001");
+    expect(JSON.stringify(getAuditDemoState().logs)).not.toContain("LEAVE-APPROVAL-001");
   });
 });

@@ -55,6 +55,15 @@ describe("company announcements", () => {
       expect.arrayContaining([
         expect.objectContaining({ entityType: "company_announcement" }),
         expect.objectContaining({ entityType: "company_announcement_receipt" }),
+        expect.objectContaining({
+          entityType: "beta_pilot_checkpoint",
+          entityId: "day_1",
+          metadataJson: expect.objectContaining({
+            source: "beta_pilot_automated_evidence",
+            checkpointStatus: "verified",
+            evidenceType: "announcement_receipt",
+          }),
+        }),
       ]),
     );
     expect(JSON.stringify(auditLogs)).not.toContain("請確認缺卡與請假申請");
