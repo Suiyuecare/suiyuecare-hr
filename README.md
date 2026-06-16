@@ -22,6 +22,8 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 - 重新排版前端/後台 UI：比照 Finance 系統調整色彩、資訊密度、卡片層級、文字大小、主視覺與後台模組入口，避免「很多功能但不好用」。
 - 做 2 週小規模實測：追蹤第一次請假時間、主管簽核時間、手機端任務完成率、出勤異常解決率、薪資月結演練時間與權限/敏感資料測試。
 
+Current live production-pilot status and blockers are tracked in [`docs/pilot-production-status.md`](docs/pilot-production-status.md).
+
 ## MVP Workflows
 
 - Employee clock in/out with punch source.
