@@ -8,6 +8,10 @@ import {
   type PilotAcceptanceFinalReview,
   type PilotAcceptanceRehearsalEvidence,
 } from "../src/server/readiness/pilot-acceptance";
+import {
+  readPilotCohortFromDatabase,
+  unknownCohort,
+} from "../src/server/readiness/pilot-cohort";
 import type { PilotDoctorReport } from "../src/server/readiness/pilot-doctor";
 import { redactSensitiveDetail } from "../src/server/readiness/production-pilot-gate";
 
@@ -21,7 +25,7 @@ async function main() {
     : mapRehearsal(await runDemoRehearsal());
   const report = buildPilotAcceptanceReport({
     doctor,
-    cohort: parseCohort(args),
+    cohort: await readCohort(args),
     rehearsal,
     finalReview: parseFinalReview(args),
   });
@@ -104,6 +108,21 @@ function parseCohort(args: string[]): PilotAcceptanceCohort {
     employeeCount: readIntegerArg(args, "--employee-count") ?? (source === "synthetic" ? 25 : null),
     managerCount: readIntegerArg(args, "--manager-count") ?? (source === "synthetic" ? 3 : null),
   };
+}
+
+async function readCohort(args: string[]): Promise<PilotAcceptanceCohort> {
+  const tenantSlug = readArg(args, "--tenant-slug");
+  if (!tenantSlug) return parseCohort(args);
+  try {
+    return await readPilotCohortFromDatabase({
+      tenantSlug,
+      companyId: readArg(args, "--company-id"),
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Could not read pilot cohort from database: ${redactSensitiveDetail(message)}`);
+    return unknownCohort();
+  }
 }
 
 function parseFinalReview(args: string[]): PilotAcceptanceFinalReview {

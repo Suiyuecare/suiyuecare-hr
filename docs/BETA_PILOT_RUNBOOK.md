@@ -141,12 +141,18 @@ Recommended sequence:
 5. Review statutory insurance from `/hr/insurance`.
 6. Configure announcements, notifications, and work rules.
 7. Run production verification again.
+8. Run the acceptance matrix with the real tenant slug so cohort evidence comes from PostgreSQL, not manual CLI counts:
+
+   ```bash
+   pnpm pilot:acceptance -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug>
+   ```
 
 Expected evidence:
 
 - Employee import audit log has aggregate counts only.
 - Salary/payment changes have audit logs without raw salary or bank account values.
 - HR onboarding readiness has no blocker for the pilot company.
+- `pilot:acceptance` reports `real_customer` cohort evidence from aggregate active employee and manager counts.
 
 ## Phase 3: Two-Week Trial Operations
 
@@ -161,7 +167,7 @@ Preflight:
 - Run the daily status gate for Day 0:
 
   ```bash
-  pnpm pilot:daily-status -- --day=0 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --output=/tmp/hr-one-pilot-day-0.md
+  pnpm pilot:daily-status -- --day=0 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-0.md
   ```
 
 Day 1:
@@ -170,14 +176,14 @@ Day 1:
 - Employees acknowledge announcement.
 - Employees clock in/out from mobile.
 - Employees submit at least one leave request.
-- Run `pnpm pilot:daily-status -- --day=1 ... --output=/tmp/hr-one-pilot-day-1.md`.
+- Run `pnpm pilot:daily-status -- --day=1 ... --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-1.md`.
 
 Day 3:
 
 - Managers approve/reject from one Inbox.
 - HR clears attendance exceptions.
 - Employees verify request timelines and notifications.
-- Run `pnpm pilot:daily-status -- --day=3 ... --output=/tmp/hr-one-pilot-day-3.md`.
+- Run `pnpm pilot:daily-status -- --day=3 ... --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-3.md`.
 
 Day 7:
 
@@ -186,14 +192,14 @@ Day 7:
 - HR previews payroll items.
 - HR releases a test payslip only when permitted.
 - Employees view their own released payslip.
-- Run `pnpm pilot:daily-status -- --day=7 ... --output=/tmp/hr-one-pilot-day-7.md`.
+- Run `pnpm pilot:daily-status -- --day=7 ... --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-7.md`.
 
 Day 14:
 
 - HR runs final readiness review.
 - Export or review redacted audit evidence.
 - Confirm no unresolved security, payroll, or attendance blockers remain.
-- Run `pnpm pilot:daily-status -- --day=14 ... --final-review=verified --output=/tmp/hr-one-pilot-day-14.md` only after the final review checkpoint is genuinely verified.
+- Run `pnpm pilot:daily-status -- --day=14 ... --tenant-slug=<customer-slug> --final-review=verified --output=/tmp/hr-one-pilot-day-14.md` only after the final review checkpoint is genuinely verified.
 
 Expected evidence:
 

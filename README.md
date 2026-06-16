@@ -210,15 +210,15 @@ It checks Vercel Production env key presence, the local production env draft, th
 For an objective-by-objective acceptance matrix, run:
 
 ```bash
-pnpm pilot:acceptance -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production
+pnpm pilot:acceptance -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug>
 ```
 
-This wraps the doctor checks and demo-safe workflow rehearsal into a matrix for production readiness, real 20-50 person cohort, clock in/out, leave request, manager approval, announcement receipt, HR monthly close rehearsal, payslip viewing, and sensitive-data guardrails. Synthetic Supabase seed data is reported as rehearsal evidence only; it does not satisfy the real-company cohort requirement.
+This wraps the doctor checks and demo-safe workflow rehearsal into a matrix for production readiness, real 20-50 person cohort, clock in/out, leave request, manager approval, announcement receipt, HR monthly close rehearsal, payslip viewing, and sensitive-data guardrails. When `--tenant-slug` is provided, the real-company cohort is read from PostgreSQL as aggregate counts only; employee names, salaries, bank accounts, and private HR fields are not returned. Synthetic Supabase seed data is reported as rehearsal evidence only; it does not satisfy the real-company cohort requirement.
 
 To create a redacted Markdown handoff for the pilot team, run:
 
 ```bash
-pnpm pilot:handoff -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production --output=/tmp/hr-one-pilot-handoff.md
+pnpm pilot:handoff -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-handoff.md
 ```
 
 The handoff is derived from `pilot:acceptance` and is safe to review with HR/operations, but it should still be checked before sharing outside the pilot team.
@@ -226,7 +226,7 @@ The handoff is derived from `pilot:acceptance` and is safe to review with HR/ope
 During the two-week trial, run the redacted daily status check for preflight, day 1, day 3, day 7, and day 14:
 
 ```bash
-pnpm pilot:daily-status -- --day=1 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production --output=/tmp/hr-one-pilot-day-1.md
+pnpm pilot:daily-status -- --day=1 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-1.md
 ```
 
 The daily status report maps the acceptance matrix to the active trial day, flags blockers, separates demo rehearsal from production evidence, and repeats the privacy guardrails for payroll, bank, national ID, health, database URL, and private HR note data.
@@ -328,9 +328,9 @@ pnpm db:supabase:seed-pilot -- --project-ref=<supabase-project-ref> --schema=hr_
 pnpm vercel:create-production-env-draft
 pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --dry-run
 pnpm pilot:doctor -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production
-pnpm pilot:acceptance -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production
-pnpm pilot:handoff -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --output=/tmp/hr-one-pilot-handoff.md
-pnpm pilot:daily-status -- --day=1 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --output=/tmp/hr-one-pilot-day-1.md
+pnpm pilot:acceptance -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug>
+pnpm pilot:handoff -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-handoff.md
+pnpm pilot:daily-status -- --day=1 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-1.md
 pnpm pilot:import-template-pack -- --output=/tmp/hr-one-pilot-import-template --cohort-size=25 --force
 pnpm release:gate
 pnpm release:gate:production -- --tenant-slug=<customer-slug>
@@ -353,7 +353,7 @@ For a safe 20-50 person trial rehearsal in the Suiyuecare Supabase project, use 
 
 For a real customer's HR data collection, use `pnpm pilot:import-template-pack -- --output=/tmp/hr-one-pilot-import-template --cohort-size=25 --force` to generate employee and payroll profile CSV templates. The generated rows are synthetic placeholders only. HR must replace them from approved source records, import employees first, import payroll profiles second, and treat the completed payroll/payment CSV as sensitive data.
 
-During the two-week pilot, use `pnpm pilot:daily-status -- --day=<0-14> ...` as the daily operating gate. Day 0 checks preflight, Day 1 checks employee rollout and announcements, Day 3 checks leave and manager approvals, Day 7 checks payroll rehearsal and payslip access, and Day 14 checks final review. The report is redacted and should contain only aggregate or hash-only evidence references.
+During the two-week pilot, use `pnpm pilot:daily-status -- --day=<0-14> ... --tenant-slug=<customer-slug>` as the daily operating gate. Day 0 checks preflight, Day 1 checks employee rollout and announcements, Day 3 checks leave and manager approvals, Day 7 checks payroll rehearsal and payslip access, and Day 14 checks final review. The report is redacted and should contain only aggregate or hash-only evidence references.
 
 To connect Vercel production to Supabase, run `pnpm vercel:create-production-env-draft` to create a gitignored `.env.vercel.production` draft with generated local secrets, then replace every `REPLACE_WITH_*` placeholder with real production values. At minimum this requires the server-side Supabase Postgres `DATABASE_URL` with `?schema=hr_one`, production OIDC issuer/JWKS details, and real backup/restore drill evidence. Then run `pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --dry-run`. The script runs the production environment verifier before it writes anything. When the dry run passes, rerun without `--dry-run`; by default it uses `VERCEL_TOKEN` with Vercel's `/v10/projects/<project>/env` API when a token is present, otherwise it uses the logged-in Vercel CLI session (`pnpm dlx vercel@latest env add`). You can force either path with `--method=api` or `--method=cli`. Secret-like values are marked as sensitive and CLI writes pass values through stdin so database URLs and secrets are not printed in command arguments. Vercel applies environment variable changes only to new deployments, so trigger a new production deployment after the env write succeeds.
 
@@ -416,6 +416,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `src/server/readiness/health.ts`: liveness/readiness health report service used by operational probe endpoints.
 - `src/server/readiness/operational-resilience.ts`: backup, retention, restore drill, RTO/RPO, verification, and audit service used by launch readiness.
 - `src/server/readiness/pilot-daily-status.ts`: daily trial phase mapping, blocker summary, production-evidence reminders, and privacy guardrails.
+- `src/server/readiness/pilot-cohort.ts`: aggregate-only real customer cohort reader for pilot acceptance.
 - `src/server/readiness/pilot-import-template.ts`: safe synthetic employee and payroll import template pack builder.
 - `src/server/subscriptions/service.ts`: owner-only customer subscription posture, commercial readiness checks, and redacted audit logging.
 - `src/server/auth/rbac.ts`: RBAC permissions.

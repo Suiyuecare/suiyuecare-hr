@@ -42,6 +42,8 @@ function runPilotAcceptance(args: string[]): PilotAcceptanceReport {
     ...forwardArg(args, "--project-ref"),
     ...forwardArg(args, "--schema"),
     ...forwardArg(args, "--env-file"),
+    ...forwardArg(args, "--tenant-slug"),
+    ...forwardArg(args, "--company-id"),
     ...forwardArg(args, "--cohort-source"),
     ...forwardArg(args, "--employee-count"),
     ...forwardArg(args, "--manager-count"),
