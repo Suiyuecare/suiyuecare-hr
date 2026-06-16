@@ -1,5 +1,6 @@
 import { EmptyState } from "@/components/EmptyState";
 import { getDemoSession } from "@/server/auth/demo-session";
+import { hasPermission } from "@/server/auth/rbac";
 import type { EmployeeImportPilotReadiness } from "@/server/employees/imports";
 import { getEmployeeImportWorkspace } from "@/server/employees/imports";
 
@@ -24,6 +25,16 @@ E020,羅佳穎,Payroll Specialist,POPS,2026-07-01,E001`;
 
 export default async function EmployeeImportPage({ searchParams }: { searchParams: SearchParams }) {
   const [{ error, imported, preview }, session] = await Promise.all([searchParams, getDemoSession()]);
+  if (!hasPermission(session.role, "employee:write")) {
+    return (
+      <main className="page">
+        <EmptyState
+          title="需要人資權限"
+          body="請切換為人資管理員或老闆角色，再匯入試用員工、部門與主管線。"
+        />
+      </main>
+    );
+  }
   const workspace = await getEmployeeImportWorkspace(session);
 
   return (
