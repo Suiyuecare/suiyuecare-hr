@@ -1,3 +1,5 @@
+import { isSafeAuthLoginUrl } from "@/server/auth/login-url";
+
 export type EnvironmentVerificationMode = "local" | "production";
 
 export type EnvironmentVerificationCheck = {
@@ -76,6 +78,8 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
   const supabasePublishableKey = read(env, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
   const aiProvider = read(env, "HR_ONE_AI_PROVIDER");
   const aiEnabled = Boolean(aiProvider && aiProvider !== "disabled");
+  const authLoginUrl = read(env, "HR_ONE_AUTH_LOGIN_URL");
+  const authLoginUrlSafe = isSafeAuthLoginUrl(authLoginUrl);
   const authMaxTokenAgeSeconds = readInteger(env, "HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS");
   const rawPromptStorage = read(env, "HR_ONE_AI_PROMPT_STORAGE") === "raw";
   const backupRetentionDays = readInteger(env, "HR_ONE_BACKUP_RETENTION_DAYS");
@@ -177,6 +181,15 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
       "auth issuer url",
       isHttpsUrl(read(env, "HR_ONE_AUTH_ISSUER_URL")),
       read(env, "HR_ONE_AUTH_ISSUER_URL") ? "HTTPS issuer configured" : "missing HR_ONE_AUTH_ISSUER_URL",
+    ),
+    check(
+      "auth login url",
+      authLoginUrlSafe,
+      authLoginUrl
+        ? authLoginUrlSafe
+          ? "production SSO login URL configured"
+          : "invalid HR_ONE_AUTH_LOGIN_URL"
+        : "missing HR_ONE_AUTH_LOGIN_URL",
     ),
     check(
       "auth audience",

@@ -37,6 +37,7 @@ describe("Vercel production env draft", () => {
       "DATABASE_URL",
       "HR_ONE_AUTH_ISSUER_URL",
       "HR_ONE_AUTH_JWKS_URL",
+      "HR_ONE_AUTH_LOGIN_URL",
       "HR_ONE_AUTH_PROVIDER",
       "HR_ONE_BACKUP_RESTORE_TESTED_AT",
     ]);
@@ -52,6 +53,7 @@ describe("Vercel production env draft", () => {
       DATABASE_URL: "postgresql://hrone:secret@db.suiyuecare.internal:5432/postgres?schema=hr_one",
       HR_ONE_AUTH_PROVIDER: "entra_id",
       HR_ONE_AUTH_ISSUER_URL: "https://login.suiyuecare.com/hr-one/v2.0",
+      HR_ONE_AUTH_LOGIN_URL: "https://login.suiyuecare.com/hr-one/oauth2/v2.0/authorize",
       HR_ONE_AUTH_JWKS_URL: "https://login.suiyuecare.com/hr-one/keys",
       HR_ONE_BACKUP_RESTORE_TESTED_AT: "2026-06-16",
     };

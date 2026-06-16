@@ -41,6 +41,7 @@ Goal: production data must survive deploys and must not fall back to in-memory d
    - `HR_ONE_ENV=production`
    - `HR_ONE_DATABASE_PROVIDER=supabase_postgres`
    - `HR_ONE_AUTH_SESSION_SOURCE=oidc`
+   - `HR_ONE_AUTH_LOGIN_URL`, HTTPS company SSO login URL for unauthenticated production visitors.
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
    - Required production secrets listed in `README.md`, stored as secret values or vault references.

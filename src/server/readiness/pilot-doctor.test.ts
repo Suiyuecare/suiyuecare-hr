@@ -105,21 +105,21 @@ describe("pilot doctor", () => {
       },
       localEnvDraft: {
         status: "blocked",
-        detail: ".env.vercel.production has 2 unresolved placeholder key(s) and 2 failed verifier check(s)",
-        unresolvedPlaceholderKeys: ["DATABASE_URL", "HR_ONE_AUTH_ISSUER_URL"],
-        failedCheckNames: ["database url", "auth issuer url"],
+        detail: ".env.vercel.production has 3 unresolved placeholder key(s) and 3 failed verifier check(s)",
+        unresolvedPlaceholderKeys: ["DATABASE_URL", "HR_ONE_AUTH_ISSUER_URL", "HR_ONE_AUTH_LOGIN_URL"],
+        failedCheckNames: ["database url", "auth issuer url", "auth login url"],
       },
     });
 
     expect(report.checks.find((check) => check.name === "local production env draft")).toMatchObject({
       passed: false,
-      detail: ".env.vercel.production has 2 unresolved placeholder key(s) and 2 failed verifier check(s)",
+      detail: ".env.vercel.production has 3 unresolved placeholder key(s) and 3 failed verifier check(s)",
     });
     expect(report.nextActions).toContain(
-      "Replace local .env.vercel.production placeholders for: DATABASE_URL, HR_ONE_AUTH_ISSUER_URL.",
+      "Replace local .env.vercel.production placeholders for: DATABASE_URL, HR_ONE_AUTH_ISSUER_URL, HR_ONE_AUTH_LOGIN_URL.",
     );
     expect(report.nextActions).toContain(
-      "Fix local production env verification failures before apply: database url, auth issuer url.",
+      "Fix local production env verification failures before apply: database url, auth issuer url, auth login url.",
     );
   });
 

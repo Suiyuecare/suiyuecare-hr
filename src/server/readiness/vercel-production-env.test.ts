@@ -26,6 +26,7 @@ const productionEnv = {
   HR_ONE_AUTH_PROVIDER: "entra_id",
   HR_ONE_AUTH_SESSION_SOURCE: "oidc",
   HR_ONE_AUTH_ISSUER_URL: "https://login.customer.co/customer/v2.0",
+  HR_ONE_AUTH_LOGIN_URL: "https://login.customer.co/customer/oauth2/v2.0/authorize",
   HR_ONE_AUTH_AUDIENCE: "hr-one-api",
   HR_ONE_AUTH_JWKS_URL: "https://login.customer.co/customer/keys",
   HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS: "3600",
@@ -140,11 +141,13 @@ describe("Vercel production env bootstrap", () => {
     expect(keys).toContain("HR_ONE_SESSION_SECRET");
     expect(keys).not.toContain("DATABASE_URL");
     expect(keys).not.toContain("HR_ONE_AUTH_ISSUER_URL");
+    expect(keys).not.toContain("HR_ONE_AUTH_LOGIN_URL");
     expect(keys).not.toContain("HR_ONE_OBJECT_STORAGE_SECRET_REF");
     expect(plan.skippedPlaceholderKeys).toEqual([
       "DATABASE_URL",
       "HR_ONE_AUTH_ISSUER_URL",
       "HR_ONE_AUTH_JWKS_URL",
+      "HR_ONE_AUTH_LOGIN_URL",
       "HR_ONE_AUTH_PROVIDER",
       "HR_ONE_BACKUP_RESTORE_TESTED_AT",
     ]);

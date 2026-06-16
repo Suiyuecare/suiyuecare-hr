@@ -20,6 +20,7 @@ const productionEnv = {
   HR_ONE_AUTH_PROVIDER: "entra_id",
   HR_ONE_AUTH_SESSION_SOURCE: "oidc",
   HR_ONE_AUTH_ISSUER_URL: "https://login.customer.co/customer/v2.0",
+  HR_ONE_AUTH_LOGIN_URL: "https://login.customer.co/customer/oauth2/v2.0/authorize",
   HR_ONE_AUTH_AUDIENCE: "hr-one-api",
   HR_ONE_AUTH_JWKS_URL: "https://login.customer.co/customer/keys",
   HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS: "3600",
@@ -68,6 +69,23 @@ describe("environment verification", () => {
     expect(report.checks.find((item) => item.name === "public app url")).toMatchObject({ passed: false });
     expect(report.checks.find((item) => item.name === "HR_ONE_SESSION_SECRET")).toMatchObject({ passed: false });
     expect(report.checks.find((item) => item.name === "HR_ONE_ENCRYPTION_KEY")).toMatchObject({ passed: false });
+  });
+
+  it("requires a production SSO login URL", () => {
+    const report = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        HR_ONE_AUTH_LOGIN_URL: "http://localhost:3000/login",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+
+    expect(environmentVerificationPassed(report)).toBe(false);
+    expect(report.checks.find((item) => item.name === "auth login url")).toMatchObject({
+      passed: false,
+      detail: "invalid HR_ONE_AUTH_LOGIN_URL",
+    });
   });
 
   it("requires Vercel and Supabase production bindings when selected", () => {

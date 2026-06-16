@@ -17,6 +17,7 @@ const productionEnv = {
   HR_ONE_AUTH_PROVIDER: "entra_id",
   HR_ONE_AUTH_SESSION_SOURCE: "oidc",
   HR_ONE_AUTH_ISSUER_URL: "https://login.customer.co/customer/v2.0",
+  HR_ONE_AUTH_LOGIN_URL: "https://login.customer.co/customer/oauth2/v2.0/authorize",
   HR_ONE_AUTH_AUDIENCE: "hr-one-api",
   HR_ONE_AUTH_JWKS_URL: "https://login.customer.co/customer/keys",
   HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS: "3600",

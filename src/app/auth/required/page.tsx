@@ -1,4 +1,8 @@
+import { getSafeAuthLoginUrl } from "@/server/auth/login-url";
+
 export default function AuthRequiredPage() {
+  const loginUrl = getSafeAuthLoginUrl();
+
   return (
     <main className="page">
       <section className="page-header">
@@ -11,6 +15,13 @@ export default function AuthRequiredPage() {
         <p className="muted">
           HR One 在 production 只接受已驗證的 tenant session；這能避免員工、主管、人資或薪資資料被錯誤的示範身分讀取。
         </p>
+        {loginUrl ? (
+          <a className="button primary" href={loginUrl}>
+            前往公司 SSO 登入
+          </a>
+        ) : (
+          <p className="muted">目前尚未設定正式 SSO 登入網址，請聯絡系統管理員。</p>
+        )}
       </section>
     </main>
   );
