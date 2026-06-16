@@ -5,20 +5,8 @@ export type SecurityHeader = {
 
 export type SecurityHeaderOptions = {
   production: boolean;
+  connectSrc?: string[];
 };
-
-const cspReportOnly = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  "object-src 'none'",
-  "frame-ancestors 'none'",
-  "form-action 'self'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
-  "connect-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-  "style-src 'self' 'unsafe-inline'",
-].join("; ");
 
 export function buildSecurityHeaders(options: SecurityHeaderOptions): SecurityHeader[] {
   const headers: SecurityHeader[] = [
@@ -29,7 +17,7 @@ export function buildSecurityHeaders(options: SecurityHeaderOptions): SecurityHe
     { key: "Permissions-Policy", value: buildPermissionsPolicy() },
     { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
     { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
-    { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
+    { key: "Content-Security-Policy-Report-Only", value: buildCspReportOnly(options) },
   ];
 
   if (options.production) {
@@ -40,6 +28,33 @@ export function buildSecurityHeaders(options: SecurityHeaderOptions): SecurityHe
   }
 
   return headers;
+}
+
+function buildCspReportOnly(options: SecurityHeaderOptions) {
+  const connectSrc = ["'self'", ...normalizeConnectSrc(options.connectSrc ?? [])].join(" ");
+  return [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    `connect-src ${connectSrc}`,
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "style-src 'self' 'unsafe-inline'",
+  ].join("; ");
+}
+
+function normalizeConnectSrc(values: string[]) {
+  return [...new Set(values.flatMap((value) => {
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:" ? [url.origin] : [];
+    } catch {
+      return [];
+    }
+  }))];
 }
 
 function buildPermissionsPolicy() {

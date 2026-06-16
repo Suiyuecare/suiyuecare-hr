@@ -6,7 +6,10 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/(.*)",
-        headers: buildSecurityHeaders({ production: process.env.HR_ONE_ENV === "production" }),
+        headers: buildSecurityHeaders({
+          production: process.env.HR_ONE_ENV === "production",
+          connectSrc: [process.env.NEXT_PUBLIC_SUPABASE_URL].filter((value): value is string => Boolean(value)),
+        }),
       },
     ];
   },
