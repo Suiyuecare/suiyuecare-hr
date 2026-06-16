@@ -53,12 +53,33 @@ test("員工前台與管理後台依角色分流", async ({ page }) => {
   await page.getByRole("button", { name: "切換" }).click();
   await expect(page).toHaveURL(/\/console$/);
   await expect(page.getByRole("heading", { name: "管理後台" })).toBeVisible();
-  await expect(page.getByText("公司管理", { exact: true })).toBeVisible();
-  await expect(page.getByText("人事建檔", { exact: true })).toBeVisible();
-  await expect(page.getByText("出勤管理", { exact: true })).toBeVisible();
-  await expect(page.getByText("薪資作業", { exact: true })).toBeVisible();
-  await expect(page.getByText("表單設定", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("公告發布", { exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation").getByText("公司管理", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "人事建檔" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "出勤管理", level: 3 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "薪資作業" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "表單設定" }).first()).toBeVisible();
+  await expect(page.getByText("公告發布", { exact: true }).first()).toBeVisible();
+});
+
+test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) => {
+  await page.goto("/app");
+  await page.getByLabel("示範角色").selectOption("hr_admin");
+  await page.getByRole("button", { name: "切換" }).click();
+
+  await expect(page).toHaveURL(/\/console$/);
+  await expect(page.getByLabel("後台摘要").getByText("可用模組")).toBeVisible();
+  await expect(page.getByLabel("後台模組導覽").getByText("薪資管理", { exact: true })).toBeVisible();
+
+  await page.getByLabel("搜尋功能").fill("薪資");
+  await page.getByRole("button", { name: "搜尋" }).click();
+  await expect(page).toHaveURL(/\/console\?q=%E8%96%AA%E8%B3%87$/);
+  await expect(page.getByRole("heading", { name: "薪資管理" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "薪資作業" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "公告中心" })).toHaveCount(0);
+
+  await page.getByRole("link", { name: "清除" }).click();
+  await expect(page).toHaveURL(/\/console$/);
+  await expect(page.getByRole("heading", { name: "公告中心" })).toBeVisible();
 });
 
 test("HR 可以設定打卡方式並讓員工端看到提示", async ({ page }) => {

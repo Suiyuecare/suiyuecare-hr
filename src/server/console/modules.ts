@@ -4,6 +4,10 @@ export type ConsoleModule = {
   id: string;
   title: string;
   badge?: string;
+  permission?: ConsoleLink["permission"];
+  summary: string;
+  primary: ConsoleLink;
+  statusLabel: string;
   sections: ConsoleSection[];
   pinned: ConsoleLink[];
 };
@@ -25,6 +29,9 @@ const modules: ConsoleModule[] = [
   {
     id: "company",
     title: "公司管理",
+    summary: "維護公司組織、規章、權限與基本資料。",
+    primary: { label: "開啟公司設定", href: "/settings", permission: "settings:read" },
+    statusLabel: "基礎設定",
     sections: [
       {
         title: "公司管理",
@@ -48,6 +55,9 @@ const modules: ConsoleModule[] = [
   {
     id: "people",
     title: "人事管理",
+    summary: "處理員工資料、人事異動、離職復職與訓練發展。",
+    primary: { label: "開啟員工資料", href: "/hr/employee-lifecycle", permission: "employee:read" },
+    statusLabel: "人員作業",
     sections: [
       {
         title: "人事建檔",
@@ -79,6 +89,9 @@ const modules: ConsoleModule[] = [
   {
     id: "attendance",
     title: "出勤管理",
+    summary: "管理打卡、假勤、特休、工時規則與出勤異常。",
+    primary: { label: "開啟出勤政策", href: "/hr/attendance-policies", permission: "settings:read" },
+    statusLabel: "打卡假勤",
     sections: [
       {
         title: "出勤管理",
@@ -106,6 +119,9 @@ const modules: ConsoleModule[] = [
   {
     id: "scheduling",
     title: "排班管理",
+    summary: "維護班別、排班規則、發布設定與人力配置。",
+    primary: { label: "開啟排班設定", href: "/hr/shift-templates", permission: "settings:read" },
+    statusLabel: "排班作業",
     sections: [
       {
         title: "排班作業",
@@ -127,6 +143,10 @@ const modules: ConsoleModule[] = [
   {
     id: "payroll",
     title: "薪資管理",
+    permission: "payroll:manage",
+    summary: "處理薪資資料、加扣項、保險所得稅、發薪與匯出。",
+    primary: { label: "開啟薪資月結", href: "/hr", permission: "payroll:manage" },
+    statusLabel: "薪資月結",
     sections: [
       {
         title: "薪資作業",
@@ -163,6 +183,9 @@ const modules: ConsoleModule[] = [
   {
     id: "forms",
     title: "表單簽核",
+    summary: "設定表單、簽核流程、查詢申請與通知代理。",
+    primary: { label: "開啟表單中心", href: "/hr/forms", permission: "form:manage" },
+    statusLabel: "統一 Inbox",
     sections: [
       {
         title: "表單設定",
@@ -195,6 +218,9 @@ const modules: ConsoleModule[] = [
   {
     id: "reports",
     title: "報表工具",
+    summary: "查看人事、出勤、薪酬分析與自訂報表。",
+    primary: { label: "開啟 KPI 報表", href: "/hr/kpis", permission: "dashboard:hr" },
+    statusLabel: "分析報表",
     sections: [
       {
         title: "自訂報表",
@@ -225,6 +251,9 @@ const modules: ConsoleModule[] = [
   {
     id: "announcements",
     title: "公告中心",
+    summary: "發布公告並追蹤員工回條與閱讀狀態。",
+    primary: { label: "發布公告", href: "/hr/announcements", permission: "announcement:manage" },
+    statusLabel: "回條追蹤",
     sections: [
       {
         title: "公告作業",
@@ -243,7 +272,10 @@ const modules: ConsoleModule[] = [
 ];
 
 export function getConsoleModules(role: RoleKey) {
+  if (role === "employee") return [];
+
   return modules
+    .filter((module) => !module.permission || hasPermission(role, module.permission))
     .map((module) => ({
       ...module,
       sections: module.sections
@@ -253,7 +285,34 @@ export function getConsoleModules(role: RoleKey) {
         }))
         .filter((section) => section.links.length > 0),
       pinned: module.pinned.filter((link) => canSeeLink(role, link)),
+      primary: canSeeLink(role, module.primary)
+        ? module.primary
+        : module.sections.flatMap((section) => section.links).find((link) => canSeeLink(role, link)) ?? module.primary,
     }))
+    .filter((module) => module.sections.length > 0 || module.pinned.length > 0);
+}
+
+export function filterConsoleModules(modules: ConsoleModule[], query: string) {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return modules;
+
+  return modules
+    .map((module) => {
+      const moduleMatches = `${module.title} ${module.summary} ${module.statusLabel}`.toLowerCase().includes(normalized);
+      const sections = module.sections
+        .map((section) => {
+          const sectionMatches = section.title.toLowerCase().includes(normalized);
+          return {
+            ...section,
+            links: moduleMatches || sectionMatches
+              ? section.links
+              : section.links.filter((link) => `${link.label} ${link.badge ?? ""}`.toLowerCase().includes(normalized)),
+          };
+        })
+        .filter((section) => section.links.length > 0);
+      const pinned = module.pinned.filter((link) => `${link.label} ${link.badge ?? ""}`.toLowerCase().includes(normalized));
+      return moduleMatches ? module : { ...module, sections, pinned };
+    })
     .filter((module) => module.sections.length > 0 || module.pinned.length > 0);
 }
 

@@ -760,11 +760,37 @@ legend {
   white-space: nowrap;
 }
 
+.console-toolbar {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(420px, 1.2fr);
+  align-items: end;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.console-search {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.console-search > div {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto auto;
+  gap: 8px;
+}
+
+.console-search input {
+  min-height: 44px;
+}
+
 .console-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  margin-bottom: 18px;
 }
 
 .console-summary > div {
@@ -781,6 +807,49 @@ legend {
   line-height: 1;
 }
 
+.console-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.console-sidebar {
+  position: sticky;
+  top: 84px;
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.console-sidebar strong {
+  font-size: 18px;
+}
+
+.console-sidebar nav {
+  display: grid;
+  gap: 6px;
+}
+
+.console-sidebar a {
+  display: grid;
+  gap: 3px;
+  border-radius: 8px;
+  padding: 9px 10px;
+}
+
+.console-sidebar a:hover {
+  background: #f2f6f4;
+}
+
+.console-sidebar small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .console-module-stack {
   display: grid;
   gap: 18px;
@@ -793,13 +862,38 @@ legend {
   padding: 22px 24px 20px;
 }
 
+.console-module-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.console-module-header h2 {
+  margin: 3px 0 6px;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.console-module-header p {
+  max-width: 680px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.console-module-header .button {
+  min-width: 150px;
+}
+
 .console-module-main {
   display: grid;
   grid-template-columns: repeat(4, minmax(160px, 1fr));
   gap: 44px 64px;
 }
 
-.console-section h2 {
+.console-section h3 {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -923,7 +1017,10 @@ legend {
   .workspace-grid,
   .payroll-actions,
   .payroll-preview,
+  .console-toolbar,
   .console-summary,
+  .console-layout,
+  .console-search > div,
   .console-module-main,
   .console-pinned ul {
     grid-template-columns: 1fr;
@@ -940,6 +1037,22 @@ legend {
 
   .console-module {
     padding: 18px 16px;
+  }
+
+  .console-sidebar {
+    position: static;
+  }
+
+  .console-sidebar nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .console-module-header {
+    flex-direction: column;
+  }
+
+  .console-module-header .button {
+    width: 100%;
   }
 
   .console-section a {

@@ -1,11 +1,20 @@
 import Link from "next/link";
 import { getDemoSession } from "@/server/auth/demo-session";
-import { getConsoleModules } from "@/server/console/modules";
+import { filterConsoleModules, getConsoleModules } from "@/server/console/modules";
 
-export default async function ConsolePage() {
+type SearchParams = Promise<{ q?: string }>;
+
+export default async function ConsolePage({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
+  const query = params.q ?? "";
   const session = await getDemoSession();
-  const modules = getConsoleModules(session.role);
-  const pinnedCount = modules.reduce((sum, module) => sum + module.pinned.length, 0);
+  const allModules = getConsoleModules(session.role);
+  const modules = filterConsoleModules(allModules, query);
+  const pinnedCount = allModules.reduce((sum, module) => sum + module.pinned.length, 0);
+  const linkCount = allModules.reduce(
+    (sum, module) => sum + module.sections.reduce((sectionSum, section) => sectionSum + section.links.length, 0),
+    0,
+  );
 
   return (
     <main className="page console-page">
@@ -25,64 +34,120 @@ export default async function ConsolePage() {
         </div>
       </section>
 
-      <section className="console-summary" aria-label="後台摘要">
-        <div>
-          <span className="muted">可用模組</span>
-          <strong>{modules.length}</strong>
-        </div>
-        <div>
-          <span className="muted">釘選工具</span>
-          <strong>{pinnedCount}</strong>
-        </div>
-        <div>
-          <span className="muted">目前角色</span>
-          <strong>{roleLabel(session.role)}</strong>
+      <section className="console-toolbar" aria-label="後台工具列">
+        <form className="console-search" action="/console">
+          <label htmlFor="console-search-input">搜尋功能</label>
+          <div>
+            <input
+              id="console-search-input"
+              name="q"
+              type="search"
+              placeholder="搜尋薪資、打卡、公告、表單..."
+              defaultValue={query}
+            />
+            <button className="button primary" type="submit">
+              搜尋
+            </button>
+            {query ? (
+              <Link className="button" href="/console">
+                清除
+              </Link>
+            ) : null}
+          </div>
+        </form>
+        <div className="console-summary" aria-label="後台摘要">
+          <div>
+            <span className="muted">可用模組</span>
+            <strong>{allModules.length}</strong>
+          </div>
+          <div>
+            <span className="muted">功能入口</span>
+            <strong>{linkCount}</strong>
+          </div>
+          <div>
+            <span className="muted">釘選捷徑</span>
+            <strong>{pinnedCount}</strong>
+          </div>
+          <div>
+            <span className="muted">目前角色</span>
+            <strong>{roleLabel(session.role)}</strong>
+          </div>
         </div>
       </section>
 
-      <section className="console-module-stack" aria-label="後台功能模組">
-        {modules.map((module) => (
-          <article className="console-module" key={module.id}>
-            <div className="console-module-main">
-              {module.sections.map((section) => (
-                <section className="console-section" key={`${module.id}-${section.title}`}>
-                  <h2>
-                    {section.title}
-                    {section.badge ? <span className="console-new-badge">{section.badge}</span> : null}
-                  </h2>
+      <div className="console-layout">
+        <aside className="console-sidebar" aria-label="後台模組導覽">
+          <strong>模組</strong>
+          <nav>
+            {allModules.map((module) => (
+              <a href={`#${module.id}`} key={module.id}>
+                <span>{module.title}</span>
+                <small>{module.statusLabel}</small>
+              </a>
+            ))}
+          </nav>
+        </aside>
+
+        <section className="console-module-stack" aria-label="後台功能模組">
+          {modules.length === 0 ? (
+            <div className="panel">
+              <h2>找不到符合的功能</h2>
+              <p className="muted">請換一個關鍵字，或清除搜尋後查看全部後台模組。</p>
+            </div>
+          ) : null}
+          {modules.map((module) => (
+            <article className="console-module" id={module.id} key={module.id}>
+              <div className="console-module-header">
+                <div>
+                  <span className="muted">{module.statusLabel}</span>
+                  <h2>{module.title}</h2>
+                  <p>{module.summary}</p>
+                </div>
+                <Link className="button primary" href={module.primary.href}>
+                  {module.primary.label}
+                </Link>
+              </div>
+              <div className="console-module-main">
+                {module.sections.map((section) => (
+                  <section className="console-section" key={`${module.id}-${section.title}`}>
+                    <h3>
+                      {section.title}
+                      {section.badge ? <span className="console-new-badge">{section.badge}</span> : null}
+                    </h3>
+                    <ul>
+                      {section.links.map((link) => (
+                        <li key={`${module.id}-${section.title}-${link.label}`}>
+                          <Link href={link.href}>
+                            {link.label}
+                            {link.badge ? <span className="console-new-badge">{link.badge}</span> : null}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+              {module.pinned.length > 0 ? (
+                <div className="console-pinned">
+                  <button type="button" className="console-collapse" aria-label={`${module.title} 收合`}>
+                    收合⌃
+                  </button>
                   <ul>
-                    {section.links.map((link) => (
-                      <li key={`${module.id}-${section.title}-${link.label}`}>
+                    {module.pinned.map((link) => (
+                      <li key={`${module.id}-pinned-${link.label}`}>
                         <Link href={link.href}>
+                          <span aria-hidden="true">⌘</span>
                           {link.label}
-                          {link.badge ? <span className="console-new-badge">{link.badge}</span> : null}
                         </Link>
                       </li>
                     ))}
                   </ul>
-                </section>
-              ))}
-            </div>
-            {module.pinned.length > 0 ? (
-              <div className="console-pinned">
-                <button type="button" className="console-collapse" aria-label={`${module.title} 收合`}>
-                  收合⌃
-                </button>
-                <ul>
-                  {module.pinned.map((link) => (
-                    <li key={`${module.id}-pinned-${link.label}`}>
-                      <Link href={link.href}>
-                        <span aria-hidden="true">⌘</span>
-                        {link.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </article>
-        ))}
-      </section>
+                </div>
+              ) : null}
+            </article>
+          ))}
+        </section>
+      </div>
     </main>
   );
 }
