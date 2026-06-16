@@ -49,6 +49,7 @@ export type BetaPilotReadinessReport = {
   blockedCount: number;
   items: BetaPilotReadinessItem[];
   phases: BetaPilotPhase[];
+  runbook: BetaPilotRunbookStep[];
 };
 
 export type BetaPilotPhase = {
@@ -57,6 +58,21 @@ export type BetaPilotPhase = {
   status: BetaPilotReadinessStatus;
   itemIds: string[];
   summary: string;
+  actionLabel: string;
+  actionHref: string;
+};
+
+export type BetaPilotRunbookStep = {
+  id: string;
+  timing: string;
+  title: string;
+  owner: "Owner" | "HR" | "Manager" | "Employee" | "Owner + HR" | "HR + Manager";
+  status: BetaPilotReadinessStatus;
+  itemIds: string[];
+  objective: string;
+  checklist: string[];
+  evidence: string;
+  openItems: Array<Pick<BetaPilotReadinessItem, "title" | "status" | "nextStep">>;
   actionLabel: string;
   actionHref: string;
 };
@@ -278,6 +294,7 @@ export function buildBetaPilotReadinessReport(input: BetaPilotReadinessInput): B
   const readyCount = items.filter((item) => item.status === "ready").length;
   const actionRequiredCount = items.filter((item) => item.status === "action_required").length;
   const blockedCount = items.filter((item) => item.status === "blocked").length;
+  const phases = buildPilotPhases(items);
   return {
     readyForPilot: blockedCount === 0 && actionRequiredCount === 0,
     trialDays,
@@ -286,7 +303,8 @@ export function buildBetaPilotReadinessReport(input: BetaPilotReadinessInput): B
     actionRequiredCount,
     blockedCount,
     items,
-    phases: buildPilotPhases(items),
+    phases,
+    runbook: buildPilotRunbook(items),
   };
 }
 
@@ -373,6 +391,138 @@ function buildPilotPhases(items: BetaPilotReadinessItem[]): BetaPilotPhase[] {
       items,
     }),
   ];
+}
+
+function buildPilotRunbook(items: BetaPilotReadinessItem[]): BetaPilotRunbookStep[] {
+  return [
+    runbookStep({
+      id: "preflight",
+      timing: "試用前 3-5 天",
+      title: "建立試用名單、登入與權限防線",
+      owner: "Owner + HR",
+      itemIds: ["cohort_size", "tenant_auth", "sensitive_data_guardrails"],
+      objective: "確認 20-50 人、主管線、HR/主管/員工角色分流與薪資/個資防漏都可用。",
+      checklist: [
+        "匯入員工、主管、HR 與老闆帳號",
+        "確認員工前台與管理後台依角色分流",
+        "跑 payroll access 與 audit guardrail 檢查",
+      ],
+      evidence: "員工數、主管數、登入 gate、audit KPI、未授權薪資存取 KPI 都在 readiness 中可追溯。",
+      actionLabel: "檢查試用 Gate",
+      actionHref: "/settings/readiness",
+      items,
+    }),
+    runbookStep({
+      id: "day_1",
+      timing: "第 1 天",
+      title: "員工手機上線與公告回條",
+      owner: "HR",
+      itemIds: ["employee_frontstage", "announcements"],
+      objective: "讓員工用手機完成今日卡、打卡入口、通知與試用公告回條。",
+      checklist: [
+        "發布試用公告",
+        "確認員工可從手機進入前台",
+        "確認公告回條與通知紀錄保留",
+      ],
+      evidence: "公告回條 smoke、手機任務 KPI、通知 gate 都在 readiness 中反映。",
+      actionLabel: "發布公告",
+      actionHref: "/hr/announcements",
+      items,
+    }),
+    runbookStep({
+      id: "day_3",
+      timing: "第 3 天",
+      title: "打卡、請假與主管簽核修正",
+      owner: "HR + Manager",
+      itemIds: ["attendance_leave_approval"],
+      objective: "跑員工打卡、請假送出、主管 Inbox 核准/駁回、員工看狀態的完整閉環。",
+      checklist: [
+        "至少一位員工完成 clock in/out",
+        "至少一筆請假由主管 Inbox 核准或駁回",
+        "HR 檢查出勤異常是否能在月底前處理",
+      ],
+      evidence: "打卡 smoke、請假簽核 smoke、主管 Inbox smoke 與請假/簽核 KPI 都在同一個 gate 中顯示。",
+      actionLabel: "開啟主管 Inbox",
+      actionHref: "/manager/inbox",
+      items,
+    }),
+    runbookStep({
+      id: "day_7",
+      timing: "第 7 天",
+      title: "HR 月結與薪資預演",
+      owner: "HR",
+      itemIds: ["payroll_dry_run", "payslip_access"],
+      objective: "HR 先清出勤異常與待簽核，再產生薪資草稿、鎖定、發布試用薪資單。",
+      checklist: [
+        "建立月結批次",
+        "待簽核與出勤異常歸零後重新試算",
+        "發布薪資單並確認員工只能看自己的薪資單",
+      ],
+      evidence: "payroll item、pending approval、exception、lock/release、payslip self-view 都在 payroll gate 中可追蹤。",
+      actionLabel: "開啟月結",
+      actionHref: "/hr",
+      items,
+    }),
+    runbookStep({
+      id: "day_14",
+      timing: "第 14 天",
+      title: "試用回顧與正式上線判斷",
+      owner: "Owner + HR",
+      itemIds: ["two_week_operating_loop", "hr_self_service", "sensitive_data_guardrails"],
+      objective: "確認兩週內的 HR 自助、audit、權限與營運韌性足以支撐下一家客戶。",
+      checklist: [
+        "檢查試用 KPI 與待處理 gate",
+        "確認 HR 可自行調整表單與政策",
+        "匯出 audit evidence 並檢查備份/還原證據",
+      ],
+      evidence: "第 14 天不看單一功能完成，而是看 readiness 是否仍有 blocker 或敏感資料風險。",
+      actionLabel: "回到試用 Gate",
+      actionHref: "/settings/readiness",
+      items,
+    }),
+  ];
+}
+
+function runbookStep(input: {
+  id: string;
+  timing: string;
+  title: string;
+  owner: BetaPilotRunbookStep["owner"];
+  itemIds: string[];
+  objective: string;
+  checklist: string[];
+  evidence: string;
+  actionLabel: string;
+  actionHref: string;
+  items: BetaPilotReadinessItem[];
+}): BetaPilotRunbookStep {
+  const openItems = input.items
+    .filter((item) => input.itemIds.includes(item.id) && item.status !== "ready")
+    .map((item) => ({
+      title: item.title,
+      status: item.status,
+      nextStep: item.nextStep,
+    }));
+  const status = openItems.some((item) => item.status === "blocked")
+    ? "blocked"
+    : openItems.length > 0
+      ? "action_required"
+      : "ready";
+  const firstOpenItem = input.items.find((item) => input.itemIds.includes(item.id) && item.status !== "ready");
+  return {
+    id: input.id,
+    timing: input.timing,
+    title: input.title,
+    owner: input.owner,
+    status,
+    itemIds: input.itemIds,
+    objective: input.objective,
+    checklist: input.checklist,
+    evidence: input.evidence,
+    openItems,
+    actionLabel: firstOpenItem?.actionLabel ?? input.actionLabel,
+    actionHref: firstOpenItem?.actionHref ?? input.actionHref,
+  };
 }
 
 function pilotPhase(input: {

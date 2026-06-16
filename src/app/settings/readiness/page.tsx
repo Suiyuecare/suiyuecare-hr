@@ -98,6 +98,37 @@ export default async function LaunchReadinessPage() {
           </ul>
         </section>
 
+        <section className="panel span-12">
+          <div className="section-heading">
+            <div>
+              <h2>2 週試用操作台</h2>
+              <p className="muted">
+                把試用切成試用前、第 1 天、第 3 天、第 7 天、第 14 天，HR 照順序清掉 blocker，就能驗證日常流程與薪資安全。
+              </p>
+            </div>
+            <span className={`badge ${betaPilot.runbook.some((step) => step.status === "blocked") ? "danger" : betaPilot.runbook.some((step) => step.status === "action_required") ? "warning" : ""}`}>
+              {betaPilot.runbook.filter((step) => step.status === "ready").length}/{betaPilot.runbook.length} ready
+            </span>
+          </div>
+          <ol className="close-steps">
+            {betaPilot.runbook.map((step) => (
+              <li key={step.id} className={`close-step ${step.status === "ready" ? "done" : step.status}`}>
+                <strong>
+                  {step.timing} · {step.title}
+                </strong>
+                <span>
+                  {step.owner} · {step.objective}
+                </span>
+                <span>{step.checklist.join(" / ")}</span>
+                <span>{step.openItems.length ? `待處理：${step.openItems.map((item) => item.title).join("、")}` : step.evidence}</span>
+                <a className="button" href={step.actionHref}>
+                  {step.actionLabel}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </section>
+
         <div className="panel span-3 metric">
           <span className="muted">Launch Ready</span>
           <strong>{report.readyCount}</strong>

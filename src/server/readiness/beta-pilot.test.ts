@@ -80,6 +80,13 @@ describe("beta pilot readiness", () => {
       status: "action_required",
       detail: "5 位員工、1 位主管在目前公司資料中；目標是 20-50 人且至少 1 條主管簽核線。",
     });
+    expect(report.runbook.find((step) => step.id === "preflight")).toMatchObject({
+      status: "action_required",
+      actionHref: "/hr/employee-import",
+      openItems: expect.arrayContaining([
+        expect.objectContaining({ title: "20-50 人試用名單" }),
+      ]),
+    });
     expect(report.phases[0]).toMatchObject({
       status: "action_required",
       actionHref: "/hr/employee-import",
@@ -159,6 +166,14 @@ describe("beta pilot readiness", () => {
       status: "blocked",
       actionHref: "/hr",
     });
+    expect(report.runbook.find((step) => step.id === "day_7")).toMatchObject({
+      timing: "第 7 天",
+      status: "blocked",
+      actionHref: "/hr",
+      openItems: expect.arrayContaining([
+        expect.objectContaining({ title: "HR 月結與薪資預演", status: "blocked" }),
+      ]),
+    });
     expect(report.items.find((item) => item.id === "payslip_access")).toMatchObject({
       status: "action_required",
       actionHref: "/app/payslip",
@@ -208,6 +223,14 @@ describe("beta pilot readiness", () => {
     expect(report.blockedCount).toBe(0);
     expect(report.actionRequiredCount).toBe(0);
     expect(report.phases.every((phase) => phase.status === "ready")).toBe(true);
+    expect(report.runbook.map((step) => step.id)).toEqual([
+      "preflight",
+      "day_1",
+      "day_3",
+      "day_7",
+      "day_14",
+    ]);
+    expect(report.runbook.every((step) => step.status === "ready")).toBe(true);
   });
 });
 
