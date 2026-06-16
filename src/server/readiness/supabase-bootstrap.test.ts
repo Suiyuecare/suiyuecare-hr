@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   assertSafeMigrationSql,
+  buildDeterministicMigrationId,
+  buildPrismaMigrationBaselineSql,
   buildSupabasePrivateSchemaBootstrapSql,
   normalizePrivateSchemaName,
 } from "@/server/readiness/supabase-bootstrap";
@@ -27,6 +29,8 @@ describe("Supabase private schema bootstrap", () => {
     expect(sql).toContain('SET search_path TO "hr_one";');
     expect(sql).toContain('REVOKE ALL ON SCHEMA "hr_one" FROM anon;');
     expect(sql).toContain('CREATE TABLE "Tenant"');
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS "_prisma_migrations"');
+    expect(sql).toContain("'20260612000000_init'");
     expect(sql).not.toContain('CREATE SCHEMA IF NOT EXISTS "public"');
   });
 
@@ -52,5 +56,27 @@ describe("Supabase private schema bootstrap", () => {
         },
       ],
     })).toThrow(/public schema references/);
+  });
+
+  it("builds deterministic Prisma migration baseline rows from original migration SQL", () => {
+    const migrations = [
+      {
+        name: "20260612000000_init",
+        sql: 'CREATE TABLE "Tenant" ("id" TEXT NOT NULL);',
+      },
+      {
+        name: "20260612001000_followup",
+        sql: 'ALTER TABLE "Tenant" ADD COLUMN "name" TEXT NOT NULL;',
+      },
+    ];
+    const baseline = buildPrismaMigrationBaselineSql(migrations, new Date("2026-06-17T00:00:00.000Z"));
+
+    expect(baseline).toContain('CREATE TABLE IF NOT EXISTS "_prisma_migrations"');
+    expect(baseline).toContain('ON CONFLICT ("id") DO NOTHING;');
+    expect(baseline).toContain("'20260612000000_init'");
+    expect(baseline).toContain("'20260612001000_followup'");
+    expect(buildDeterministicMigrationId(migrations[0].name, "a".repeat(64))).toMatch(
+      /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/,
+    );
   });
 });

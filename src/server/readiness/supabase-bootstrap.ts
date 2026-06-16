@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 export type PrismaMigrationInput = {
   name: string;
   sql: string;
@@ -48,6 +50,7 @@ export function buildSupabasePrivateSchemaBootstrapSql(
     ...sections,
     "",
     `SET search_path TO "${schemaName}";`,
+    buildPrismaMigrationBaselineSql(options.migrations, generatedAt),
     "-- HR One private schema bootstrap complete.",
     "",
   ].join("\n");
@@ -83,6 +86,53 @@ export function assertSafeMigrationSql(sql: string, migrationName = "migration")
   }
 }
 
+export function buildPrismaMigrationBaselineSql(migrations: PrismaMigrationInput[], appliedAt: Date): string {
+  const appliedAtLiteral = sqlStringLiteral(appliedAt.toISOString());
+  const rows = migrations.map((migration) => {
+    const checksum = createHash("sha256").update(migration.sql).digest("hex");
+    const id = buildDeterministicMigrationId(migration.name, checksum);
+    return [
+      sqlStringLiteral(id),
+      sqlStringLiteral(checksum),
+      `${appliedAtLiteral}::timestamptz`,
+      sqlStringLiteral(migration.name),
+      "NULL",
+      "NULL",
+      `${appliedAtLiteral}::timestamptz`,
+      "1",
+    ].join(", ");
+  });
+
+  return [
+    "-- Baseline Prisma migration history so future prisma migrate deploy runs do not replay this bootstrap.",
+    'CREATE TABLE IF NOT EXISTS "_prisma_migrations" (',
+    '    "id" VARCHAR(36) PRIMARY KEY NOT NULL,',
+    '    "checksum" VARCHAR(64) NOT NULL,',
+    '    "finished_at" TIMESTAMPTZ,',
+    '    "migration_name" VARCHAR(255) NOT NULL,',
+    '    "logs" TEXT,',
+    '    "rolled_back_at" TIMESTAMPTZ,',
+    '    "started_at" TIMESTAMPTZ NOT NULL DEFAULT now(),',
+    '    "applied_steps_count" INTEGER NOT NULL DEFAULT 0',
+    ");",
+    'INSERT INTO "_prisma_migrations" ("id", "checksum", "finished_at", "migration_name", "logs", "rolled_back_at", "started_at", "applied_steps_count") VALUES',
+    rows.map((row) => `(${row})`).join(",\n"),
+    'ON CONFLICT ("id") DO NOTHING;',
+    "",
+  ].join("\n");
+}
+
+export function buildDeterministicMigrationId(migrationName: string, checksum: string): string {
+  const hash = createHash("sha256").update(`${migrationName}:${checksum}`).digest("hex");
+  return [
+    hash.slice(0, 8),
+    hash.slice(8, 12),
+    hash.slice(12, 16),
+    hash.slice(16, 20),
+    hash.slice(20, 32),
+  ].join("-");
+}
+
 function rewriteMigrationForPrivateSchema(sql: string, schemaName: string): string {
   return sql
     .replace(/^\s*-- CreateSchema\s*\r?\n\s*CREATE SCHEMA IF NOT EXISTS "public";\s*/m, "")
@@ -105,4 +155,8 @@ function assertNoPublicSchemaReferences(sql: string, migrationName: string): voi
 
 function stripBlockCommentsPreservingLines(sql: string): string {
   return sql.replace(/\/\*[\s\S]*?\*\//g, (match) => "\n".repeat(match.split(/\r?\n/).length - 1));
+}
+
+function sqlStringLiteral(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
 }
