@@ -196,19 +196,15 @@ export function resetPayrollProfileImportDemoState() {
 
 async function listEmployees(session: SessionLike) {
   if (canUseDatabase(session)) {
-    try {
-      const employees = await getDb().employee.findMany({
-        where: { tenantId: session.tenantId!, companyId: session.companyId!, employmentStatus: "active" },
-        orderBy: { employeeNo: "asc" },
-      });
-      return employees.map((employee) => ({
-        id: employee.id,
-        employeeNo: employee.employeeNo,
-        displayName: employee.displayName,
-      }));
-    } catch {
-      return demoEmployees();
-    }
+    const employees = await getDb().employee.findMany({
+      where: { tenantId: session.tenantId!, companyId: session.companyId!, employmentStatus: "active" },
+      orderBy: { employeeNo: "asc" },
+    });
+    return employees.map((employee) => ({
+      id: employee.id,
+      employeeNo: employee.employeeNo,
+      displayName: employee.displayName,
+    }));
   }
   return demoEmployees();
 }

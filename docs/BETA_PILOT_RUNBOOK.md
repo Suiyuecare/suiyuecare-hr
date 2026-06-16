@@ -12,7 +12,7 @@ This runbook is the execution checklist for turning HR One from a demo-ready app
 - Supabase private schema exposure: `anon` and `authenticated` do not have `USAGE` on `hr_one`.
 - Supabase pilot rehearsal data: 25 active employees, 3 managers with direct reports, 4 departments, attendance schedules, leave balances, salary/payment/statutory profile coverage, released payroll rehearsal, 25 payslips, announcement receipts, starter form workflow, active rule versions, telemetry baseline, and audit coverage.
 - Vercel Production env: currently blocked until the 28 required production keys are written and the app is redeployed.
-- GitHub `main` includes the private-schema SQL generator, Prisma migration baseline support, pilot acceptance matrix, daily pilot status gate, handoff generator, identity import gate, invite readiness gate, go/no-go start gate, trial completion gate, and 20-50 person import template pack.
+- GitHub `main` includes the private-schema SQL generator, Prisma migration baseline support, pilot acceptance matrix, daily pilot status gate, handoff generator, customer import orchestrator, identity import gate, invite readiness gate, go/no-go start gate, trial completion gate, and 20-50 person import template pack.
 
 Do not call the product production-pilot-ready until `/api/health/ready` is `ok` in production and a non-demo tenant passes production verification.
 
@@ -143,38 +143,50 @@ Recommended sequence:
    pnpm pilot:import-preflight -- --employee-csv=/secure/customer/employee-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --output=/tmp/hr-one-pilot-import-preflight.md
    ```
 
-4. Import employees from `/hr/employee-import` only after preflight returns `ready`.
-5. Dry-run the identity import:
+4. If HR wants one production-only import sequence, dry-run the customer import orchestrator:
+
+   ```bash
+   pnpm pilot:customer-import -- --tenant-slug=<customer-slug> --employee-csv=/secure/customer/employee-import.csv --identity-csv=/secure/customer/identity-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --output=/tmp/hr-one-pilot-customer-import.md
+   ```
+
+5. Apply the orchestrated import only after the dry-run is verified:
+
+   ```bash
+   pnpm pilot:customer-import -- --tenant-slug=<customer-slug> --employee-csv=/secure/customer/employee-import.csv --identity-csv=/secure/customer/identity-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --apply --output=/tmp/hr-one-pilot-customer-import-applied.md
+   ```
+
+6. If HR uses the staged UI/CLI path instead, import employees from `/hr/employee-import` only after preflight returns `ready`.
+7. Dry-run the identity import:
 
    ```bash
    pnpm pilot:identity-import -- --tenant-slug=<customer-slug> --csv=/secure/customer/identity-import.csv --output=/tmp/hr-one-pilot-identity-import.md
    ```
 
-6. Apply the identity import only after the dry-run is `ready`:
+8. Apply the identity import only after the dry-run is `ready`:
 
    ```bash
    pnpm pilot:identity-import -- --tenant-slug=<customer-slug> --csv=/secure/customer/identity-import.csv --apply --output=/tmp/hr-one-pilot-identity-import-applied.md
    ```
 
-7. Complete onboarding gaps from `/hr/onboarding-readiness`.
-8. Import salary/payment/compliance data from `/hr/payroll-profile-import`.
-9. Review labor roster from `/hr/labor-roster`.
-10. Review statutory insurance from `/hr/insurance`.
-11. Configure announcements, notifications, and work rules.
-12. Run production verification again.
-13. Run the acceptance matrix with the real tenant slug so cohort evidence comes from PostgreSQL, not manual CLI counts:
+9. Complete onboarding gaps from `/hr/onboarding-readiness`.
+10. Import salary/payment/compliance data from `/hr/payroll-profile-import` if the orchestrated import was not used.
+11. Review labor roster from `/hr/labor-roster`.
+12. Review statutory insurance from `/hr/insurance`.
+13. Configure announcements, notifications, and work rules.
+14. Run production verification again.
+15. Run the acceptance matrix with the real tenant slug so cohort evidence comes from PostgreSQL, not manual CLI counts:
 
    ```bash
    pnpm pilot:acceptance -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug>
    ```
 
-14. Run the invite readiness check after employee users and SSO identities are linked:
+16. Run the invite readiness check after employee users and SSO identities are linked:
 
    ```bash
    pnpm pilot:invite-readiness -- --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-invite-readiness.md
    ```
 
-15. Run the start/stop go-no-go report before inviting employees:
+17. Run the start/stop go-no-go report before inviting employees:
 
    ```bash
    pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --employee-csv=/secure/customer/employee-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --evidence-path=/tmp/hr-one-pilot-evidence --recursive --output=/tmp/hr-one-pilot-go-no-go.md
