@@ -3,6 +3,7 @@ import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { stableHash } from "@/server/audit/redaction";
 import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
+import { getFallbackCompanyOverview } from "@/server/demo/fallback";
 import { recordBetaPilotAutomatedEvidence } from "@/server/readiness/beta-pilot-checkpoints";
 
 type SessionLike = {
@@ -184,7 +185,7 @@ async function acknowledgeDbAnnouncement(
 
 function getDemoAnnouncementWorkspace(session: SessionLike) {
   const state = getDemoState();
-  const employeeCount = 5;
+  const employeeCount = getDemoEmployeeCount();
   return {
     announcements: state.announcements.map((announcement) => {
       const receipts = state.receipts.filter((receipt) => receipt.announcementId === announcement.id);
@@ -205,7 +206,7 @@ function publishDemoAnnouncement(session: SessionLike, input: ReturnType<typeof 
     status: "published",
     publishedAt: new Date(),
     receiptCount: 0,
-    employeeCount: 5,
+    employeeCount: getDemoEmployeeCount(),
     acknowledgedByCurrentEmployee: false,
   };
   getDemoState().announcements.unshift(announcement);
@@ -279,6 +280,7 @@ function readStatus(status: string): AnnouncementView["status"] {
 
 export function resetAnnouncementDemoState() {
   const publishedAt = new Date("2026-06-01T01:00:00.000Z");
+  const employeeCount = getDemoEmployeeCount();
   globalForAnnouncements.hrOneAnnouncementDemoState = {
     announcements: [{
       id: "demo-announcement-1",
@@ -289,7 +291,7 @@ export function resetAnnouncementDemoState() {
       requireReceipt: true,
       publishedAt,
       receiptCount: 0,
-      employeeCount: 5,
+      employeeCount,
       acknowledgedByCurrentEmployee: false,
     }],
     receipts: [],
@@ -299,6 +301,10 @@ export function resetAnnouncementDemoState() {
 function getDemoState() {
   if (!globalForAnnouncements.hrOneAnnouncementDemoState) resetAnnouncementDemoState();
   return globalForAnnouncements.hrOneAnnouncementDemoState!;
+}
+
+function getDemoEmployeeCount() {
+  return getFallbackCompanyOverview().employeeCount;
 }
 
 function canUseDatabase(session: SessionLike) {

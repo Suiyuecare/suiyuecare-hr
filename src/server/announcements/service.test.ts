@@ -40,6 +40,7 @@ describe("company announcements", () => {
     expect(announcement).toMatchObject({
       title: "月底出勤補正提醒",
       requireReceipt: true,
+      employeeCount: 25,
       acknowledgedByCurrentEmployee: false,
     });
 

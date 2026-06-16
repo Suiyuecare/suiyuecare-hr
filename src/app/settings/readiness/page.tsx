@@ -5,10 +5,10 @@ import { getBetaPilotReadinessReport } from "@/server/readiness/beta-pilot";
 import type { BetaPilotCheckpointStatus, BetaPilotEvidenceType } from "@/server/readiness/beta-pilot-checkpoints";
 import { getLaunchReadinessReport } from "@/server/readiness/launch";
 
-type SearchParams = Promise<{ error?: string }>;
+type SearchParams = Promise<{ error?: string; success?: string }>;
 
 export default async function LaunchReadinessPage({ searchParams }: { searchParams: SearchParams }) {
-  const [{ error }, session] = await Promise.all([searchParams, getDemoSession()]);
+  const [{ error, success }, session] = await Promise.all([searchParams, getDemoSession()]);
   if (!hasPermission(session.role, "settings:read")) {
     return (
       <main className="page">
@@ -32,6 +32,12 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
         <div className="panel danger-panel">
           <strong>無法更新試用 checkpoint</strong>
           <p>{error}</p>
+        </div>
+      ) : null}
+      {success === "beta-rehearsal" ? (
+        <div className="panel success-panel">
+          <strong>Beta 試用流程演練完成</strong>
+          <p>已跑過打卡、請假簽核、公告回條、HR 月結預演與員工薪資單查看；checkpoint 會顯示最新 hash 證據。</p>
         </div>
       ) : null}
 
@@ -67,10 +73,22 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
                 目標是讓一家公司 20-50 人實際試用 2 週，完成打卡、請假、簽核、公告、HR 月結預演、薪資單查看，且不發生權限與敏感資料外洩。
               </p>
             </div>
-            <span className={`badge ${betaPilot.readyForPilot ? "" : betaPilot.blockedCount ? "danger" : "warning"}`}>
-              {betaPilot.readyForPilot ? "可開始試用" : "尚未可試用"}
-            </span>
+            <div className="inline-actions">
+              <span className={`badge ${betaPilot.readyForPilot ? "" : betaPilot.blockedCount ? "danger" : "warning"}`}>
+                {betaPilot.readyForPilot ? "可開始試用" : "尚未可試用"}
+              </span>
+              {hasPermission(session.role, "pilot:manage") ? (
+                <form action="/api/settings/beta-pilot-rehearsal" method="post" className="compact-form">
+                  <button className="button primary" type="submit">
+                    跑 Beta 演練
+                  </button>
+                </form>
+              ) : null}
+            </div>
           </div>
+          <p className="muted">
+            Demo 模式會自動串接員工端與後台流程；正式資料庫模式會保守阻擋，避免對真實客戶資料產生假操作。
+          </p>
           <ol className="close-steps">
             {betaPilot.phases.map((phase) => (
               <li key={phase.step} className={`close-step ${phase.status === "ready" ? "done" : phase.status}`}>
