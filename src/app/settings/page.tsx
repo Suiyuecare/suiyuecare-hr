@@ -100,6 +100,12 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
               </a>
             </li>
             <li className="task">
+              <span>試用每日戰情</span>
+              <a className="button" href="/settings/pilot-operations">
+                開啟
+              </a>
+            </li>
+            <li className="task">
               <span>商業訂閱</span>
               <a className="button" href="/settings/subscription">
                 檢查

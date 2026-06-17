@@ -195,6 +195,9 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
                   </button>
                 </form>
               ) : null}
+              <a className="button" href="/settings/pilot-operations">
+                每日戰情
+              </a>
             </div>
           </div>
           <p className="muted">
@@ -244,8 +247,13 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
                 把試用切成試用前、第 1 天、第 3 天、第 7 天、第 14 天，HR 照順序清掉 blocker，就能驗證日常流程與薪資安全。
               </p>
             </div>
-            <span className={`badge ${betaPilot.runbook.some((step) => step.status === "blocked") ? "danger" : betaPilot.runbook.some((step) => step.status === "action_required") ? "warning" : ""}`}>
-              {betaPilot.runbook.filter((step) => step.status === "ready").length}/{betaPilot.runbook.length} ready
+            <span className="inline-actions">
+              <a className="button" href="/settings/pilot-operations">
+                開啟每日戰情
+              </a>
+              <span className={`badge ${betaPilot.runbook.some((step) => step.status === "blocked") ? "danger" : betaPilot.runbook.some((step) => step.status === "action_required") ? "warning" : ""}`}>
+                {betaPilot.runbook.filter((step) => step.status === "ready").length}/{betaPilot.runbook.length} ready
+              </span>
             </span>
           </div>
           <ol className="close-steps">

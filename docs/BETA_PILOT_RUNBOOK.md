@@ -192,7 +192,7 @@ Recommended sequence:
    pnpm pilot:invite-readiness -- --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-invite-readiness.md
    ```
 
-   HR admins can also review the same gate from `/settings/pilot-invite-readiness` before sending invitations. The screen shows aggregate counts and statuses only.
+   HR admins can also review the same gate from `/settings/pilot-invite-readiness` before sending invitations. The screen shows aggregate counts and statuses only. Use `/settings/pilot-operations` during the trial to record Day 0, Day 1, Day 3, Day 7, and Day 14 evidence without storing raw sensitive data.
 
 17. Run the start/stop go-no-go report before inviting employees:
 
@@ -220,6 +220,7 @@ Preflight:
 
 - Run `/settings/readiness`.
 - Run `/settings/pilot-invite-readiness`.
+- Open `/settings/pilot-operations` and use it as the daily war room for checkpoint evidence.
 - Create the persisted 20-50 person trial run.
 - Complete the access review checkpoint.
 - Confirm unauthorized payroll access tests pass.
@@ -237,6 +238,7 @@ Day 1:
 - Employees acknowledge announcement.
 - Employees clock in/out from mobile.
 - Employees submit at least one leave request.
+- Record the announcement receipt and smoke-test evidence in `/settings/pilot-operations`.
 - Run `pnpm pilot:daily-status -- --day=1 ... --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-1.md`.
 
 Day 3:

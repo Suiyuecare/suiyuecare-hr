@@ -15,6 +15,23 @@ describe("console modules", () => {
     expect(results.flatMap((module) => module.sections).some((section) => section.title === "薪資作業")).toBe(true);
   });
 
+  it("surfaces pilot operation pages for HR admins", () => {
+    const modules = getConsoleModules("hr_admin");
+    const companyModule = modules.find((module) => module.id === "company");
+
+    expect(companyModule?.sections.flatMap((section) => section.links)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "試用邀請就緒", href: "/settings/pilot-invite-readiness" }),
+        expect.objectContaining({ label: "試用每日戰情", href: "/settings/pilot-operations" }),
+      ]),
+    );
+    expect(filterConsoleModules(modules, "戰情").flatMap((module) => module.pinned)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "試用每日戰情", href: "/settings/pilot-operations" }),
+      ]),
+    );
+  });
+
   it("hides payroll management from managers by default", () => {
     const modules = getConsoleModules("manager");
 

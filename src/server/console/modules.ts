@@ -45,6 +45,7 @@ const modules: ConsoleModule[] = [
         links: [
           { label: "人資權限管理", href: "/settings/access", permission: "settings:write" },
           { label: "試用邀請就緒", href: "/settings/pilot-invite-readiness", badge: "New", permission: "settings:read" },
+          { label: "試用每日戰情", href: "/settings/pilot-operations", badge: "New", permission: "settings:read" },
         ],
       },
     ],
@@ -52,6 +53,7 @@ const modules: ConsoleModule[] = [
       { label: "公司資料", href: "/settings", permission: "settings:read" },
       { label: "職務管理", href: "/hr/employee-lifecycle", permission: "employee:write" },
       { label: "試用邀請就緒", href: "/settings/pilot-invite-readiness", permission: "settings:read" },
+      { label: "試用每日戰情", href: "/settings/pilot-operations", permission: "settings:read" },
     ],
   },
   {

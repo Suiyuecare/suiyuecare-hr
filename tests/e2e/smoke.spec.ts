@@ -97,6 +97,11 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page).toHaveURL(/\/settings\/pilot-invite-readiness/);
   await expect(page.getByRole("heading", { name: "試用邀請就緒" })).toBeVisible();
   await expect(page.getByText(/不輸出個資、薪資、銀行帳號/)).toBeVisible();
+
+  await page.goto("/settings/pilot-operations");
+  await expect(page.getByRole("heading", { name: "試用每日戰情" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "每日 checkpoint" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "記錄每日證據" }).first()).toBeVisible();
 });
 
 test("HR 可以設定打卡方式並讓員工端看到提示", async ({ page }) => {
