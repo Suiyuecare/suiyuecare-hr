@@ -7,8 +7,8 @@ Last checked: 2026-06-17 Asia/Taipei
 - Live domain: `https://hr.suiyuecare.com`
 - GitHub repository: `Suiyuecare/suiyuecare-hr`
 - Vercel project in repo metadata: `prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N` (`suiyuecare-hr2`)
-- Latest GitHub `main` includes the production SSO login guard, the pilot doctor env handoff update, the expanded Supabase pilot readiness seed, the `/settings/company-setup` guided setup wizard, the `/settings/pilot-invite-readiness` management screen, and the `/settings/pilot-operations` daily trial war room.
-- `suiyuecare-hr2` may lag behind GitHub `main` when Vercel deployment rate limits are active; check the latest commit status before treating `hr.suiyuecare.com` as current.
+- Latest GitHub `main` includes the production SSO login guard, the pilot doctor env handoff update, the expanded Supabase pilot readiness seed, the `/settings/company-setup` guided setup wizard, the `/settings/pilot-invite-readiness` management screen, and the `/settings/pilot-operations` daily trial war room with Today Gate.
+- `suiyuecare-hr2` deployed commit `c676142` on 2026-06-17. Legacy `suiyuecare-hr` status context may still fail separately and should not be treated as the active production project.
 - Vercel Production now has all required bootstrap values, backup restore evidence, and a server-side `DATABASE_URL`.
 - The server-side `DATABASE_URL` has been rotated to a verified direct Supabase custom-role URL for `hr_one_app_runtime`; the remaining blocker is network reachability from Vercel to Supabase direct Postgres.
 - Legacy Vercel status context `Vercel - suiyuecare-hr` may still appear. Use `suiyuecare-hr2` as the active project.
@@ -44,7 +44,7 @@ Passing:
 Blocking:
 
 - Overall readiness is `fail`.
-- The currently aliased production deployment was created before `HR_ONE_BACKUP_RESTORE_TESTED_AT` was added, so production must be redeployed before the live environment check can turn green.
+- The active deployment now includes the stricter Supabase/Vercel database network environment gate. Because production still uses the direct Supabase host without the IPv4 add-on attestation, the environment check fails closed instead of allowing a known-unreachable database path.
 - Runtime database ping still fails from Vercel when using `db.aruncclorusswpfnpgsn.supabase.co:5432`.
 - Supabase's direct Postgres endpoint is IPv6-only unless the project has the IPv4 add-on. Vercel/serverless runtime needs either a compatible Supavisor pooler URL or Supabase IPv4 add-on for the direct host.
 - The custom runtime role `hr_one_app_runtime` works against the direct host, but the shared Supavisor pooler did not currently recognize `hr_one_app_runtime.aruncclorusswpfnpgsn` as a tenant/user. Do not switch production to the pooler until that pooler user path is verified.
@@ -63,7 +63,7 @@ Supabase checks completed on 2026-06-17:
    - preferred: configure a Supabase pooler user that works for `hr_one_app_runtime` and use the transaction pooler URL with `pgbouncer=true&connection_limit=1&schema=hr_one`
    - alternate: enable the Supabase IPv4 add-on, keep the verified direct custom-role URL, set `HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true`, and rerun the live DB ping
    - avoid: using broad `postgres` database credentials as the long-term app runtime credential
-2. Redeploy Vercel Production so the deployment includes the latest `DATABASE_URL` and `HR_ONE_BACKUP_RESTORE_TESTED_AT`.
+2. Redeploy Vercel Production after changing the database network path so the deployment receives the corrected `DATABASE_URL` or `HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true` attestation.
 3. Confirm `https://hr.suiyuecare.com/api/health/ready` returns `ok`.
 4. Run:
 
@@ -82,7 +82,7 @@ Do not invite real employees until the production gate and go/no-go report pass.
 
 After the live production gate passes, focus on the parts that make a 20-50 person two-week trial safe and usable:
 
-1. Complete the production database network path and redeploy once Vercel quota allows it.
+1. Complete the production database network path and redeploy after setting the corrected Supabase pooler URL or IPv4 add-on attestation.
 2. Use `/settings/company-setup` to clear departments, managers, work schedules, leave policies, punch rules, announcements, and payslip release blockers for the actual customer tenant.
 3. Use `/settings/pilot-operations` to capture real trial evidence for daily completion: punches, leave submissions, manager approvals, announcement receipts, HR month-close rehearsal, payslip views, audit coverage, and unauthorized salary access attempts.
 4. Run `pilot:invite-readiness` and `pilot:go-no-go` for the actual customer tenant before inviting staff, then run a daily pilot health check during the two-week trial.

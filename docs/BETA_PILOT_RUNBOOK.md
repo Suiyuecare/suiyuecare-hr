@@ -11,8 +11,8 @@ This runbook is the execution checklist for turning HR One from a demo-ready app
 - Supabase private schema: `hr_one` exists and has a verified synthetic pilot rehearsal tenant.
 - Supabase private schema exposure: `anon` and `authenticated` do not have `USAGE` on `hr_one`.
 - Supabase pilot rehearsal data: 25 active employees, 3 managers with direct reports, 4 departments, attendance schedules, leave balances, salary/payment/statutory profile coverage, released payroll rehearsal, 25 payslips, announcement receipts, starter form workflow, active rule versions, telemetry baseline, and audit coverage.
-- Vercel Production env: currently blocked until the 28 required production keys are written and the app is redeployed.
-- GitHub `main` includes the private-schema SQL generator, Prisma migration baseline support, pilot acceptance matrix, daily pilot status gate, handoff generator, customer import orchestrator, identity import gate, invite readiness gate, go/no-go start gate, trial completion gate, and 20-50 person import template pack.
+- Vercel Production env: required bootstrap values are present, but the live readiness gate is blocked until the server-side `DATABASE_URL` uses a Vercel-compatible Supabase network path: transaction pooler with `pgbouncer=true&connection_limit=1&schema=hr_one`, or direct host plus the Supabase IPv4 add-on and `HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true`.
+- GitHub `main` includes the private-schema SQL generator, Prisma migration baseline support, pilot acceptance matrix, daily pilot status gate, daily operations Today Gate, handoff generator, customer import orchestrator, identity import gate, invite readiness gate, go/no-go start gate, trial completion gate, and 20-50 person import template pack.
 
 Do not call the product production-pilot-ready until `/api/health/ready` is `ok` in production and a non-demo tenant passes production verification.
 
