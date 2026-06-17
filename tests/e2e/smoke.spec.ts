@@ -89,6 +89,22 @@ test("員工可以從手機首頁快速送出請假", async ({ page }) => {
   await expect(page.getByText("簽核中").first()).toBeVisible();
 });
 
+test("主管可以從 Inbox 快速核准請假", async ({ page }) => {
+  await page.goto("/app");
+  await page.getByRole("form", { name: "快速請假 上午半天" }).getByRole("button", { name: "送出" }).click();
+  await expect(page.getByText("簽核中").first()).toBeVisible();
+
+  await switchDemoRole(page, "manager");
+  const leaveCard = page.locator(".approval-card").filter({ hasText: "快速請假" });
+  await expect(leaveCard).toBeVisible();
+  await leaveCard.getByRole("button", { name: "快速核准" }).click();
+  await expect(page.getByText("已核准").first()).toBeVisible();
+
+  await switchDemoRole(page, "employee");
+  await expect(page.getByText("快速核准：已確認排班與餘額。")).toBeVisible();
+  await expect(page.getByText("已核准").first()).toBeVisible();
+});
+
 test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) => {
   await page.goto("/app");
   await page.getByLabel("示範角色").selectOption("hr_admin");
@@ -173,7 +189,7 @@ test("公告發布後員工可回傳回條", async ({ page }) => {
 
 test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   const leaveReason = "E2E 兩週試用請假流程";
-  const approvalComment = "主管已確認排班與餘額";
+  const approvalComment = "快速核准：已確認排班與餘額。";
   const announcementTitle = "兩週試用公告確認";
 
   await page.goto("/app");
@@ -200,9 +216,9 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "簽核 Inbox" })).toBeVisible();
   const leaveCard = page.locator(".approval-card").filter({ hasText: leaveReason });
   await expect(leaveCard).toBeVisible();
-  await expect(leaveCard.getByText("風險摘要")).toBeVisible();
-  await leaveCard.getByLabel("簽核意見").fill(approvalComment);
-  await leaveCard.getByRole("button", { name: "核准" }).click();
+  await expect(leaveCard.getByText("風險摘要", { exact: true })).toBeVisible();
+  await expect(leaveCard.getByLabel(/快速簽核/)).toBeVisible();
+  await leaveCard.getByRole("button", { name: "快速核准" }).click();
   await expect(page.getByText("已核准").first()).toBeVisible();
 
   await switchDemoRole(page, "employee");

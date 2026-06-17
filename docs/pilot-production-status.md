@@ -1,13 +1,13 @@
 # HR One Production Pilot Status
 
-Last checked: 2026-06-17 12:55 Asia/Taipei
+Last checked: 2026-06-17 13:01 Asia/Taipei
 
 ## Current State
 
 - Live domain: `https://hr.suiyuecare.com`
 - GitHub repository: `Suiyuecare/suiyuecare-hr`
 - Vercel project in repo metadata: `prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N` (`suiyuecare-hr2`)
-- GitHub `main` includes the production SSO login guard, the pilot doctor env handoff update, the expanded Supabase pilot readiness seed, the `/settings/company-setup` guided setup wizard, the `/settings/pilot-invite-readiness` management screen, the `/settings/pilot-operations` daily trial war room with Today Gate, the `/console` two-week trial Gate summary, employee 60-second quick leave presets, the redacted `pilot:morning-brief` command, the `pilot:workflow-readiness` core-flow evidence matrix, Finance-style pilot workspace UI refinements, stricter trial completion gating that requires zero blockers and zero warnings, and a go/no-go start gate that now embeds core workflow readiness.
+- GitHub `main` includes the production SSO login guard, the pilot doctor env handoff update, the expanded Supabase pilot readiness seed, the `/settings/company-setup` guided setup wizard, the `/settings/pilot-invite-readiness` management screen, the `/settings/pilot-operations` daily trial war room with Today Gate, the `/console` two-week trial Gate summary, employee 60-second quick leave presets, manager 15-second quick approval actions, the redacted `pilot:morning-brief` command, the `pilot:workflow-readiness` core-flow evidence matrix, Finance-style pilot workspace UI refinements, stricter trial completion gating that requires zero blockers and zero warnings, and a go/no-go start gate that now embeds core workflow readiness.
 - Active Vercel project `suiyuecare-hr2` deployed GitHub `main` commit `0435a71` successfully on 2026-06-17 12:50 Asia/Taipei. Legacy `suiyuecare-hr` is rate limited and should not be treated as the active production project.
 - Vercel Production now has all required bootstrap values, backup restore evidence, and a server-side `DATABASE_URL`.
 - The server-side `DATABASE_URL` has been rotated to a verified direct Supabase custom-role URL for `hr_one_app_runtime`; the remaining blocker is network reachability from Vercel to Supabase direct Postgres.
@@ -23,6 +23,7 @@ GitHub `main` contains the new pilot UI. The live site may lag behind `main` whi
 - `/app` now includes `60 秒請假` presets for full-day, morning half-day, and afternoon half-day leave. They use the existing audited leave request endpoint, manager approval flow, notifications, and telemetry instead of bypassing workflow controls.
 - `/console` includes the backend pilot flow strip and the new Finance-style command board for `今日戰情`, `待簽核`, and `上線 Gate`.
 - `/console` now also shows a data-driven `兩週試用 Gate` that summarizes Day 0, Day 1, Day 3, Day 7, and Day 14 checkpoint status, missing evidence count, next action, and hash-only evidence posture without exposing employee names or salary data.
+- `/manager/inbox` now includes `15 秒簽核` quick approve and needs-more-information actions after the risk summary. These submit through the shared audited approval route and keep the full comment form for non-standard reviews.
 - `/hr`, after switching to the HR demo role, includes the new HR close command band for `出勤`, `簽核`, `薪資`, and `安全`, plus the updated module board: `後台模組`, `員工與任用`, `打卡與假勤`, `月結與發薪`, `表單與公告`, and `分析與稽核`.
 - `/settings/company-setup` gives HR a guided setup wizard for company structure, user access, schedules, punch policy, leave balances, manager Inbox, announcements, payroll/payslip readiness, and audit/privacy coverage without exposing raw sensitive data. It now includes audited setup actions for 14-day schedules, leave balance synchronization, trial announcements, and demo payroll rehearsal; production payroll blockers still require HR review.
 - `/settings/pilot-invite-readiness` shows the pre-invitation gate for login identity, role coverage, manager lines, 14-day schedules, leave balances, and self-only payslip visibility without exposing names, emails, salaries, bank accounts, SSO subjects, or private notes.

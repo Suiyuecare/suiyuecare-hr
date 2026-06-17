@@ -7,7 +7,7 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 ## 中文功能盤點
 
 - 前端員工日常使用：手機優先首頁、今日班表與打卡狀態、上下班打卡、60 秒快速請假、加班、補打卡、公告簽收、表單送出、申請進度時間軸、薪資單自助查看、員工訓練與公司規章確認。
-- 主管工作台：統一簽核 Inbox，可處理請假、加班、補打卡與自訂表單，卡片顯示風險摘要、申請脈絡、簽核意見與員工通知。
+- 主管工作台：統一簽核 Inbox，可處理請假、加班、補打卡與自訂表單，卡片顯示風險摘要、申請脈絡、15 秒快速核准/需補件、簽核意見與員工通知。
 - HR 後台：員工匯入、人事主檔、組織與部門、任用異動、文件庫、出勤例外、班表、假勤政策、薪資設定、薪資月結、薪資單釋出、公告、表單建置、工作規則、訓練、勞健保/勞退與台灣法規規則管理。
 - 老闆/Owner 管理：公司設定、RBAC 權限、訂閱與商務狀態、資安設定、支援存取授權、備份還原證據、上線 readiness、audit log 與勞檢證據包。
 - AI Copilot 安全層：政策 Q&A、表單草稿、簽核摘要、薪資異常解釋；只做輔助與來源引用，不做招募拒絕、裁員、薪資、績效或懲戒決策。
@@ -29,6 +29,7 @@ Current live production-pilot status and blockers are tracked in [`docs/pilot-pr
 - Employee clock in/out with punch source.
 - Daily Today Card with shift, punch status, leave balance, and pending requests.
 - 60-second quick leave presets on the employee mobile home page for full-day, morning half-day, and afternoon half-day leave. These presets still submit through the audited leave request, manager approval, notification, and telemetry flow.
+- 15-second manager approval actions in the unified Inbox. Quick approve and needs-more-information buttons still submit through the shared approval endpoint, write approval events/audit logs, notify employees, and preserve the full comment form for non-standard cases.
 - HR command center with Next Actions that prioritizes onboarding, attendance, payroll close, and launch-readiness handoff before showing functional menus.
 - HR employee CSV import wizard with preview validation, department-code mapping, managerEmployeeNo reporting-line checks, 20-50 person Beta pilot readiness scoring, confirmation step, RBAC, and audit logs.
 - HR onboarding readiness workspace that turns customer setup gaps into missing employee, manager, labor roster, salary, payment, payroll compliance, statutory insurance enrollment, time setup, and Taiwan rule action lists before production verification.

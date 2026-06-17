@@ -148,6 +148,31 @@ function ApprovalCard({
         <p>{request.riskSummary}</p>
       </div>
 
+      <div className="quick-approval-row" aria-label={`${request.title} 快速簽核`}>
+        <div>
+          <span className="muted">15 秒簽核</span>
+          <strong>確認風險摘要後可直接處理</strong>
+        </div>
+        <form action="/api/workflows/approval" method="post">
+          <input type="hidden" name="requestId" value={request.id} />
+          <input type="hidden" name="requestType" value={request.type} />
+          <input type="hidden" name="decision" value="approve" />
+          <input type="hidden" name="comment" value={quickApprovalComment(request.type)} />
+          <button className="button primary" type="submit">
+            快速核准
+          </button>
+        </form>
+        <form action="/api/workflows/approval" method="post">
+          <input type="hidden" name="requestId" value={request.id} />
+          <input type="hidden" name="requestType" value={request.type} />
+          <input type="hidden" name="decision" value="reject" />
+          <input type="hidden" name="comment" value="請補充資料後重新送出。" />
+          <button className="button" type="submit">
+            需補件
+          </button>
+        </form>
+      </div>
+
       {summary ? (
         <div className="ai-summary-box">
           <strong>{summary.label}</strong>
@@ -213,4 +238,12 @@ function labelStatus(status: string) {
   if (status === "rejected") return "已退回";
   if (status === "cancelled") return "已取消";
   return status;
+}
+
+function quickApprovalComment(type: WorkflowRequest["type"]) {
+  if (type === "leave") return "快速核准：已確認排班與餘額。";
+  if (type === "overtime") return "快速核准：已確認加班原因與工時風險。";
+  if (type === "punch_correction") return "快速核准：已確認補打卡原因。";
+  if (type === "custom_form") return "快速核准：已確認申請內容。";
+  return "快速核准：已確認敏感變更內容。";
 }

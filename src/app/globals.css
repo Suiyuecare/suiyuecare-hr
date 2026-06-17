@@ -706,6 +706,38 @@ textarea {
   align-items: stretch;
 }
 
+.quick-approval-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #cfe3dc;
+  border-radius: 8px;
+  background: #f8fffc;
+  padding: 12px;
+}
+
+.quick-approval-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.quick-approval-row strong {
+  color: var(--foreground);
+  font-size: 16px;
+  font-weight: 1000;
+  line-height: 1.25;
+}
+
+.quick-approval-row form {
+  margin: 0;
+}
+
+.quick-approval-row .button {
+  min-width: 108px;
+}
+
 .decided-list {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -2474,7 +2506,8 @@ legend {
   .console-layout,
   .console-search > div,
   .console-module-main,
-  .console-pinned ul {
+  .console-pinned ul,
+  .quick-approval-row {
     grid-template-columns: 1fr;
   }
 
@@ -2521,6 +2554,10 @@ legend {
 
   .console-pilot-gate-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quick-approval-row .button {
+    width: 100%;
   }
 
   .console-lane {
