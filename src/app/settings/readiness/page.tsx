@@ -185,6 +185,9 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
               </p>
             </div>
             <div className="inline-actions">
+              <a className="button" href="/settings/company-setup">
+                導入精靈
+              </a>
               <span className={`badge ${betaPilot.readyForPilot ? "" : betaPilot.blockedCount ? "danger" : "warning"}`}>
                 {betaPilot.readyForPilot ? "可開始試用" : "尚未可試用"}
               </span>
@@ -433,6 +436,15 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
             <span className="badge">Required</span>
           </div>
           <ul className="task-list">
+            <li className="task">
+              <span>
+                <strong>0. Complete company setup wizard</strong>
+                <small>確認公司、員工、帳號、班表、打卡、假別、公告與薪資單設定。</small>
+              </span>
+              <a className="button" href="/settings/company-setup">
+                開啟精靈
+              </a>
+            </li>
             <li className="task">
               <span>
                 <strong>1. Apply migrations</strong>

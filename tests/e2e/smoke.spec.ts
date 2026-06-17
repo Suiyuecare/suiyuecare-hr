@@ -28,14 +28,18 @@ test("API middleware rate limits bursty AI requests", async ({ request }, testIn
     "x-forwarded-for": uniqueClient,
   };
 
-  const responses = await Promise.all(Array.from({ length: 70 }, () =>
-    request.post("/api/ai/policy", {
+  let blocked;
+  for (let index = 0; index < 80; index += 1) {
+    const response = await request.post("/api/ai/policy", {
       form: { question: "leave policy" },
       headers,
       maxRedirects: 0,
-    }),
-  ));
-  const blocked = responses.find((response) => response.status() === 429);
+    });
+    if (response.status() === 429) {
+      blocked = response;
+      break;
+    }
+  }
 
   expect(blocked).toBeTruthy();
   if (!blocked) throw new Error("Expected at least one AI request to be rate limited.");
@@ -93,7 +97,13 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page).toHaveURL(/\/console$/);
   await expect(page.getByRole("heading", { name: "公告中心" })).toBeVisible();
 
-  await page.getByRole("link", { name: /試用邀請就緒/ }).first().click();
+  await page.goto("/settings/company-setup");
+  await expect(page.getByRole("heading", { name: "公司導入精靈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "導入步驟" })).toBeVisible();
+  await expect(page.locator(".close-step").filter({ hasText: "打卡與出勤規則" })).toBeVisible();
+  await expect(page.locator(".close-step").filter({ hasText: "HR 月結預演與薪資單" })).toBeVisible();
+
+  await page.getByRole("link", { name: "邀請就緒" }).click();
   await expect(page).toHaveURL(/\/settings\/pilot-invite-readiness/);
   await expect(page.getByRole("heading", { name: "試用邀請就緒" })).toBeVisible();
   await expect(page.getByText(/不輸出個資、薪資、銀行帳號/)).toBeVisible();

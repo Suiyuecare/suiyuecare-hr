@@ -7,7 +7,7 @@ Last checked: 2026-06-17 Asia/Taipei
 - Live domain: `https://hr.suiyuecare.com`
 - GitHub repository: `Suiyuecare/suiyuecare-hr`
 - Vercel project in repo metadata: `prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N` (`suiyuecare-hr2`)
-- Latest GitHub `main` includes the production SSO login guard, the pilot doctor env handoff update, the expanded Supabase pilot readiness seed, the `/settings/pilot-invite-readiness` management screen, and the `/settings/pilot-operations` daily trial war room.
+- Latest GitHub `main` includes the production SSO login guard, the pilot doctor env handoff update, the expanded Supabase pilot readiness seed, the `/settings/company-setup` guided setup wizard, the `/settings/pilot-invite-readiness` management screen, and the `/settings/pilot-operations` daily trial war room.
 - `suiyuecare-hr2` may lag behind GitHub `main` when Vercel deployment rate limits are active; check the latest commit status before treating `hr.suiyuecare.com` as current.
 - Vercel Production now has all required bootstrap values, backup restore evidence, and a server-side `DATABASE_URL`.
 - The server-side `DATABASE_URL` has been rotated to a verified direct Supabase custom-role URL for `hr_one_app_runtime`; the remaining blocker is network reachability from Vercel to Supabase direct Postgres.
@@ -21,6 +21,7 @@ GitHub `main` contains the new pilot UI. The live site may lag behind `main` whi
 - `/app` includes the employee mobile task cards: `主要任務`, `今日常用任務`, and `薪資單`.
 - `/console` includes the backend pilot flow strip: `兩週試用核心流程`, `打卡 · 請假 · 薪資單`, `HR 月結`, and `安全上線`.
 - `/hr`, after switching to the HR demo role, includes the updated module board: `後台模組`, `員工與任用`, `打卡與假勤`, `月結與發薪`, `表單與公告`, and `分析與稽核`.
+- `/settings/company-setup` gives HR a guided setup wizard for company structure, user access, schedules, punch policy, leave balances, manager Inbox, announcements, payroll/payslip readiness, and audit/privacy coverage without exposing raw sensitive data.
 - `/settings/pilot-invite-readiness` shows the pre-invitation gate for login identity, role coverage, manager lines, 14-day schedules, leave balances, and self-only payslip visibility without exposing names, emails, salaries, bank accounts, SSO subjects, or private notes.
 - `/settings/pilot-operations` shows Day 0, Day 1, Day 3, Day 7, and Day 14 checkpoint coverage, missing evidence, next actions, and hash-only evidence forms for the 20-50 person trial.
 
@@ -82,7 +83,7 @@ Do not invite real employees until the production gate and go/no-go report pass.
 After the live production gate passes, focus on the parts that make a 20-50 person two-week trial safe and usable:
 
 1. Complete the production database network path and redeploy once Vercel quota allows it.
-2. Create a guided company setup wizard for departments, managers, work schedules, leave policies, punch rules, announcements, and payslip release.
+2. Use `/settings/company-setup` to clear departments, managers, work schedules, leave policies, punch rules, announcements, and payslip release blockers for the actual customer tenant.
 3. Use `/settings/pilot-operations` to capture real trial evidence for daily completion: punches, leave submissions, manager approvals, announcement receipts, HR month-close rehearsal, payslip views, audit coverage, and unauthorized salary access attempts.
 4. Run `pilot:invite-readiness` and `pilot:go-no-go` for the actual customer tenant before inviting staff, then run a daily pilot health check during the two-week trial.
-5. Build the guided company setup wizard for departments, managers, work schedules, leave policies, punch rules, announcements, and payslip release so HR can onboard without engineering support.
+5. Add guided one-click setup actions where safe, starting with schedule generation, leave-balance sync, announcement template creation, and payslip rehearsal release.

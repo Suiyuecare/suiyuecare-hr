@@ -88,6 +88,12 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
               </a>
             </li>
             <li className="task">
+              <span>公司導入精靈</span>
+              <a className="button" href="/settings/company-setup">
+                開始
+              </a>
+            </li>
+            <li className="task">
               <span>上線準備度</span>
               <a className="button" href="/settings/readiness">
                 檢查
