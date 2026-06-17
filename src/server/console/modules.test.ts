@@ -24,11 +24,17 @@ describe("console modules", () => {
         expect.objectContaining({ label: "公司導入精靈", href: "/settings/company-setup" }),
         expect.objectContaining({ label: "試用邀請就緒", href: "/settings/pilot-invite-readiness" }),
         expect.objectContaining({ label: "試用每日戰情", href: "/settings/pilot-operations" }),
+        expect.objectContaining({ label: "試用 Go/No-Go", href: "/settings/pilot-go-no-go" }),
       ]),
     );
     expect(filterConsoleModules(modules, "戰情").flatMap((module) => module.pinned)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ label: "試用每日戰情", href: "/settings/pilot-operations" }),
+      ]),
+    );
+    expect(filterConsoleModules(modules, "Go").flatMap((module) => module.pinned)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "試用 Go/No-Go", href: "/settings/pilot-go-no-go" }),
       ]),
     );
   });

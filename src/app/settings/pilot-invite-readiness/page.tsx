@@ -298,8 +298,10 @@ export default async function PilotInviteReadinessPage({
               ))
             ) : (
               <li className="task">
-                <span>可以進入 pilot:go-no-go，並由 HR 確認正式發邀請時間。</span>
-                <span className="badge">ready</span>
+                <span>可以進入 Go/No-Go 快照，並由 HR 確認正式 CLI 報告與發邀請時間。</span>
+                <Link className="button primary" href={`/settings/pilot-go-no-go?tenantSlug=${encodeURIComponent(tenantSlug)}`}>
+                  開啟 Go/No-Go
+                </Link>
               </li>
             )}
           </ul>

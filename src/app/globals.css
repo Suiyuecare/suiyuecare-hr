@@ -1734,6 +1734,59 @@ legend {
   background: #f0fdf4;
 }
 
+.go-no-go-check-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.go-no-go-check-card {
+  display: grid;
+  align-content: space-between;
+  gap: 12px;
+  min-height: 238px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.go-no-go-check-card h3,
+.go-no-go-check-card p {
+  margin: 0;
+}
+
+.go-no-go-check-card h3 {
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.go-no-go-check-card p,
+.go-no-go-check-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 780;
+  line-height: 1.42;
+}
+
+.go-no-go-check-card.block {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.go-no-go-check-card.warn {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.go-no-go-check-card.pass {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
 .close-step.blocked {
   border-color: #fed7aa;
   background: #fff8e8;
@@ -2767,6 +2820,7 @@ legend {
   .payroll-runway,
   .pilot-invite-flow,
   .invite-prep-grid,
+  .go-no-go-check-grid,
   .payroll-actions,
   .payroll-preview,
   .payroll-ledger-preview,
@@ -2806,6 +2860,7 @@ legend {
   .payroll-day7-action,
   .payroll-runway-stage,
   .invite-prep-card,
+  .go-no-go-check-card,
   .pilot-invite-flow .close-step {
     min-height: auto;
   }

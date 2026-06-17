@@ -171,6 +171,16 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(todayTaskBoard.getByText("決定是否發邀請")).toBeVisible();
   await expect(page.getByRole("heading", { name: "每日 checkpoint" })).toBeVisible();
   await expect(page.getByRole("button", { name: "記錄每日證據" }).first()).toBeVisible();
+
+  await page.goto("/settings/pilot-go-no-go");
+  await expect(page.getByRole("heading", { name: "試用 Go/No-Go" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "尚未可以發出試用邀請" })).toBeVisible();
+  const goNoGoChecks = page.getByLabel("Go/No-Go 檢查");
+  await expect(goNoGoChecks.getByRole("heading", { name: "正式環境驗收" })).toBeVisible();
+  await expect(goNoGoChecks.getByRole("heading", { name: "匯入預檢" })).toBeVisible();
+  await expect(goNoGoChecks.getByRole("heading", { name: "證據安全掃描" })).toBeVisible();
+  await expect(page.getByText("Production acceptance")).toBeVisible();
+  await expect(page.getByText("Customer import preflight")).toBeVisible();
 });
 
 test("HR 可以設定打卡方式並讓員工端看到提示", async ({ page }) => {
