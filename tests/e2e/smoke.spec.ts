@@ -140,6 +140,13 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page).toHaveURL(/\/settings\/pilot-invite-readiness/);
   await expect(page.getByRole("heading", { name: "試用邀請就緒" })).toBeVisible();
   await expect(page.getByText(/不輸出個資、薪資、銀行帳號/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "邀請前核心流程 Gate" })).toBeVisible();
+  const inviteFlow = page.locator(".pilot-invite-flow");
+  const day7Gate = inviteFlow.locator(".close-step").filter({ hasText: "第 7 天" });
+  await expect(day7Gate.getByText("HR 月結預演與薪資單查看")).toBeVisible();
+  await expect(day7Gate.getByText(/必要證據：.*薪資單查看/)).toBeVisible();
+  const preflightGate = inviteFlow.locator(".close-step").filter({ hasText: "試用前" });
+  await expect(preflightGate.getByText(/必要證據：.*權限防漏/)).toBeVisible();
 
   await page.goto("/settings/pilot-operations");
   await expect(page.getByRole("heading", { name: "試用每日戰情" })).toBeVisible();

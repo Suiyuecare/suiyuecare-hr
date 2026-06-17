@@ -1647,6 +1647,25 @@ legend {
   background: #eefaf6;
 }
 
+.pilot-invite-flow {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.pilot-invite-flow .close-step {
+  min-height: 168px;
+  background: #ffffff;
+}
+
+.pilot-invite-flow .close-step.in_progress {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.pilot-invite-flow .close-step.blocked {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
 .close-step.blocked {
   border-color: #fed7aa;
   background: #fff8e8;
@@ -2623,6 +2642,7 @@ legend {
   .inbox-workspace,
   .payroll-day7-guide,
   .payroll-runway,
+  .pilot-invite-flow,
   .payroll-actions,
   .payroll-preview,
   .payroll-ledger-preview,
@@ -2660,7 +2680,8 @@ legend {
   .hr-close-command-copy,
   .hr-close-command-card,
   .payroll-day7-action,
-  .payroll-runway-stage {
+  .payroll-runway-stage,
+  .pilot-invite-flow .close-step {
     min-height: auto;
   }
 

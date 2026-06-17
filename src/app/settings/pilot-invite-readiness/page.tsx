@@ -6,6 +6,12 @@ import {
   buildPilotInviteReadinessReport,
   readPilotInviteReadinessSnapshotFromDatabase,
 } from "@/server/readiness/pilot-invite-readiness";
+import {
+  getPilotOperationsReport,
+  type PilotOperationsPhaseStatus,
+  type PilotOperationsStatus,
+} from "@/server/readiness/pilot-operations";
+import type { BetaPilotEvidenceType } from "@/server/readiness/beta-pilot-checkpoints";
 
 type SearchParams = Promise<{
   tenantSlug?: string;
@@ -36,6 +42,7 @@ export default async function PilotInviteReadinessPage({
     companyId,
   });
   const report = buildPilotInviteReadinessReport({ snapshot });
+  const operationsReport = await getPilotOperationsReport(session);
 
   return (
     <main className="page">
@@ -86,6 +93,54 @@ export default async function PilotInviteReadinessPage({
             可請假
           </span>
         </div>
+
+        <section className={`panel span-12 risk-box ${operationsStatusBoxClass(operationsReport.status)}`}>
+          <div className="section-heading">
+            <div>
+              <h2>邀請前核心流程 Gate</h2>
+              <p className="muted">
+                發邀請前先確認 Day 0 到 Day 14 的證據路徑：打卡、請假、主管簽核、公告、月結預演、薪資單查看與權限防漏都不能只靠口頭確認。
+              </p>
+            </div>
+            <div className="inline-actions">
+              <span className={`badge ${operationsReport.blockedPhaseCount ? "danger" : operationsReport.inProgressPhaseCount ? "warning" : ""}`}>
+                {operationsReport.completedPhaseCount}/5 checkpoint
+              </span>
+              <Link className="button" href="/settings/pilot-operations">
+                開啟每日戰情
+              </Link>
+            </div>
+          </div>
+          <ol className="close-steps pilot-invite-flow">
+            {operationsReport.phases.map((phase) => (
+              <li key={phase.checkpointId} className={`close-step ${phase.status === "verified" ? "done" : phase.status}`}>
+                <strong>{phase.timing}</strong>
+                <span>{phase.title}</span>
+                <span>
+                  必要證據：{phase.requiredEvidenceTypes.map(evidenceTypeLabel).join("、")}
+                </span>
+                <span>
+                  缺少：{phase.missingEvidenceTypes.length ? phase.missingEvidenceTypes.map(evidenceTypeLabel).join("、") : "無"}
+                </span>
+                <span className={`badge ${phase.status === "blocked" ? "danger" : phase.status === "in_progress" ? "warning" : ""}`}>
+                  {phaseStatusLabel(phase.status)}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <div className="task-list">
+            <div className="task">
+              <span>
+                <strong>今日先處理：{operationsReport.todayGate.timing} · {operationsReport.todayGate.title}</strong>
+                <small>{operationsReport.todayGate.nextStep}</small>
+                <small>證據只存 hash-only 代碼；不要貼姓名、Email、薪資、身分證、銀行帳號、健康資料或私人 HR 備註。</small>
+              </span>
+              <Link className="button primary" href={operationsReport.todayGate.actionHref}>
+                {operationsReport.todayGate.actionLabel}
+              </Link>
+            </div>
+          </div>
+        </section>
 
         <section className="panel span-8">
           <div className="section-heading">
@@ -297,4 +352,31 @@ function statusLabel(status: string) {
   if (status === "block") return "阻擋";
   if (status === "warn") return "提醒";
   return "通過";
+}
+
+function operationsStatusBoxClass(status: PilotOperationsStatus) {
+  if (status === "blocked") return "danger-box";
+  if (status === "complete") return "success-box";
+  return "";
+}
+
+function phaseStatusLabel(status: PilotOperationsPhaseStatus) {
+  if (status === "verified") return "已驗證";
+  if (status === "in_progress") return "補證據";
+  if (status === "blocked") return "阻擋";
+  return "未開始";
+}
+
+function evidenceTypeLabel(type: BetaPilotEvidenceType) {
+  const labels: Record<BetaPilotEvidenceType, string> = {
+    smoke_test: "打卡 smoke",
+    announcement_receipt: "公告回條",
+    approval_flow: "請假/簽核",
+    payroll_rehearsal: "月結預演",
+    payslip_access: "薪資單查看",
+    access_review: "權限防漏",
+    audit_export: "audit 匯出",
+    backup_restore: "備份還原",
+  };
+  return labels[type];
 }
