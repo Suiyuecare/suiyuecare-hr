@@ -820,6 +820,65 @@ textarea {
   box-shadow: 0 18px 44px rgba(15, 23, 42, 0.16);
 }
 
+.employee-pilot-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.employee-flow-step {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-height: 106px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+}
+
+.employee-flow-step span {
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.employee-flow-step strong {
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.employee-flow-step small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.employee-flow-step.focus {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.employee-flow-step.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.employee-flow-step.ready {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.employee-flow-step:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .employee-hero .muted {
   color: rgba(255, 255, 255, 0.72);
 }
@@ -970,7 +1029,7 @@ textarea {
   border-radius: 8px;
   background: #ffffff;
   padding: 16px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
 }
 
 .employee-action-card strong {
@@ -1433,6 +1492,73 @@ legend {
   margin-bottom: 18px;
 }
 
+.console-command-board {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.25fr) repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.console-command-copy,
+.console-command-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 132px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+}
+
+.console-command-copy {
+  border-color: #151a20;
+  background: #151a20;
+  color: #ffffff;
+}
+
+.console-command-copy .muted {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.console-command-copy strong {
+  max-width: 520px;
+  font-size: 23px;
+  font-weight: 1000;
+  line-height: 1.25;
+}
+
+.console-command-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.console-command-card strong {
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.console-command-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.4;
+}
+
+.console-command-card.focus {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.console-command-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .console-lane {
   display: grid;
   align-content: start;
@@ -1645,6 +1771,7 @@ legend {
 .console-module-stack {
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 .console-module {
@@ -1661,6 +1788,10 @@ legend {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 22px;
+}
+
+.console-module-header > div {
+  min-width: 0;
 }
 
 .console-module-header h2 {
@@ -1683,8 +1814,8 @@ legend {
 
 .console-module-main {
   display: grid;
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
-  gap: 30px 44px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 26px 28px;
 }
 
 .console-section h3 {
@@ -1715,10 +1846,12 @@ legend {
   align-items: center;
   gap: 8px;
   min-height: 36px;
+  max-width: 100%;
   color: var(--foreground);
   font-size: 21px;
   font-weight: 850;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .console-section a:hover,
@@ -1782,6 +1915,94 @@ legend {
   grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
   gap: 16px;
   margin: -4px 0 18px;
+}
+
+.hr-close-command-band {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.15fr) repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: -4px 0 18px;
+}
+
+.hr-close-command-copy,
+.hr-close-command-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 132px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+}
+
+.hr-close-command-copy {
+  border-color: #151a20;
+  background: #151a20;
+  color: #ffffff;
+}
+
+.hr-close-command-copy .muted {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.hr-close-command-copy strong {
+  font-size: 26px;
+  font-weight: 1000;
+  line-height: 1.1;
+}
+
+.hr-close-command-copy small {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.hr-close-command-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.hr-close-command-card strong {
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.hr-close-command-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.4;
+}
+
+.hr-close-command-card.focus {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.hr-close-command-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.hr-close-command-card.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.hr-close-command-card.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.hr-close-command-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .pilot-trial-copy {
@@ -1995,11 +2216,14 @@ legend {
   .toggle-row,
   .finance-strip,
   .employee-hero,
+  .employee-pilot-strip,
   .employee-command-grid,
   .leave-balance-strip,
   .admin-module-grid,
+  .console-command-board,
   .console-product-lanes,
   .pilot-operating-strip,
+  .hr-close-command-band,
   .pilot-trial-board,
   .pilot-trial-steps,
   .trial-summary-grid,
@@ -2030,6 +2254,14 @@ legend {
   }
 
   .employee-hero-status {
+    min-height: auto;
+  }
+
+  .employee-flow-step,
+  .console-command-copy,
+  .console-command-card,
+  .hr-close-command-copy,
+  .hr-close-command-card {
     min-height: auto;
   }
 

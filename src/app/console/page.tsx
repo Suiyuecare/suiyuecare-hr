@@ -47,6 +47,28 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
         </Link>
       </section>
 
+      <section className="console-command-board" aria-label="試用後台指揮板">
+        <div className="console-command-copy">
+          <span className="muted">Finance-style 操作台</span>
+          <strong>先看今日能不能跑，再處理打卡、簽核、公告、月結與安全 Gate。</strong>
+        </div>
+        <Link className="console-command-card focus" href="/settings/pilot-operations">
+          <span>今日戰情</span>
+          <strong>Day 0-14 checkpoint</strong>
+          <small>只存彙總與 hash-only 證據</small>
+        </Link>
+        <Link className="console-command-card" href="/manager/inbox">
+          <span>待簽核</span>
+          <strong>統一 Inbox</strong>
+          <small>主管不用進深層選單</small>
+        </Link>
+        <Link className="console-command-card" href="/settings/readiness">
+          <span>上線 Gate</span>
+          <strong>權限與敏感資料</strong>
+          <small>未通過就不邀請員工</small>
+        </Link>
+      </section>
+
       <section className="pilot-operating-strip" aria-label="兩週試用核心流程">
         <Link href="/app">
           <span>員工日常</span>

@@ -69,6 +69,34 @@ export default async function HrDashboardPage() {
         <p>人資首頁以待處理流程與異常為核心，而不是一長串功能選單。</p>
       </section>
 
+      <section className="hr-close-command-band" aria-label="HR 月結任務帶">
+        <div className="hr-close-command-copy">
+          <span className="muted">HR 月結預演</span>
+          <strong>{closeHealth.ready}/{closeHealth.total} 步完成</strong>
+          <small>出勤、簽核、薪資草稿、鎖定與薪資單發布都要留下 audit。</small>
+        </div>
+        <a className={`hr-close-command-card ${pendingExceptionCount ? "danger" : "ready"}`} href="/hr/attendance-exceptions">
+          <span>01 出勤</span>
+          <strong>{pendingExceptionCount ? `${pendingExceptionCount} 筆異常` : "已清空"}</strong>
+          <small>月底前先處理漏打卡與工時風險</small>
+        </a>
+        <a className="hr-close-command-card focus" href="/manager/inbox">
+          <span>02 簽核</span>
+          <strong>統一 Inbox</strong>
+          <small>請假、加班、補打卡集中處理</small>
+        </a>
+        <a className={`hr-close-command-card ${payroll.run?.status === "released" ? "ready" : ""}`} href="/hr">
+          <span>03 薪資</span>
+          <strong>{labelStatus(payroll.run?.status ?? "not started")}</strong>
+          <small>HR 確認後才能鎖定與發布</small>
+        </a>
+        <a className={`hr-close-command-card ${kpiSummary.readyForSale ? "ready" : "warning"}`} href="/settings/readiness">
+          <span>04 安全</span>
+          <strong>{kpiSummary.readyForSale ? "接近通過" : "需檢查"}</strong>
+          <small>薪資權限、audit 與敏感資料防漏</small>
+        </a>
+      </section>
+
       <section className="pilot-trial-board" aria-label="兩週試用指揮列">
         <div className="pilot-trial-copy">
           <span className="muted">20-50 人試用</span>

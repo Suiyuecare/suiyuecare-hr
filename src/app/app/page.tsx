@@ -21,6 +21,38 @@ export default async function EmployeeHomePage() {
     workspace.attendance.clockOutAt,
     workspace.notifications.some((notification) => notification.status === "unread") ? null : true,
   ].filter(Boolean).length;
+  const employeeFlow = [
+    {
+      step: "01",
+      title: "打卡",
+      detail: workspace.attendance.clockInAt ? `已於 ${clockInDisplay} 上班` : "先完成上班打卡",
+      href: "/app/attendance",
+      state: workspace.attendance.clockInAt ? "done" : "focus",
+    },
+    {
+      step: "02",
+      title: "申請",
+      detail: pendingRequests.length ? `${pendingRequests.length} 筆等待主管` : "請假、加班、補打卡",
+      href: "#quick-actions",
+      state: pendingRequests.length ? "focus" : "ready",
+    },
+    {
+      step: "03",
+      title: "公告",
+      detail: workspace.notifications.some((notification) => notification.status === "unread")
+        ? "有未讀通知"
+        : "通知已讀",
+      href: "/app/announcements",
+      state: workspace.notifications.some((notification) => notification.status === "unread") ? "focus" : "done",
+    },
+    {
+      step: "04",
+      title: "薪資單",
+      detail: "發布後本人查看",
+      href: "/app/payslip",
+      state: "ready",
+    },
+  ];
 
   return (
     <>
@@ -68,6 +100,16 @@ export default async function EmployeeHomePage() {
               </span>
             </div>
           </div>
+        </section>
+
+        <section className="employee-pilot-strip" aria-label="今日試用流程">
+          {employeeFlow.map((item) => (
+            <a className={`employee-flow-step ${item.state}`} href={item.href} key={item.step}>
+              <span>{item.step}</span>
+              <strong>{item.title}</strong>
+              <small>{item.detail}</small>
+            </a>
+          ))}
         </section>
 
         <section className="grid">
