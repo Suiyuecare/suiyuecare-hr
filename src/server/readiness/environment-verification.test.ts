@@ -6,7 +6,7 @@ import {
 
 const productionEnv = {
   HR_ONE_ENV: "production",
-  DATABASE_URL: "postgresql://hrone:secret@db.customer.internal:5432/hrone?schema=hr_one",
+  DATABASE_URL: "postgresql://postgres.aruncclorusswpfnpgsn:secret@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&schema=hr_one",
   HR_ONE_APP_URL: "https://hr.customer.co",
   HR_ONE_DEPLOYMENT_TARGET: "vercel",
   VERCEL_PROJECT_ID: "prj_Ueh6m200Y21GRuTjXKWZxTWc6IQa",
@@ -130,7 +130,7 @@ describe("environment verification", () => {
     const report = buildEnvironmentVerificationReport(
       {
         ...productionEnv,
-        DATABASE_URL: "postgresql://hrone:secret@db.customer.internal:5432/hrone",
+        DATABASE_URL: "postgresql://postgres.aruncclorusswpfnpgsn:secret@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1",
       },
       "production",
       new Date("2026-06-12T00:00:00.000Z"),
@@ -140,6 +140,58 @@ describe("environment verification", () => {
     expect(report.checks.find((item) => item.name === "database private schema")).toMatchObject({
       passed: false,
       detail: "set DATABASE_URL query parameter schema=hr_one",
+    });
+  });
+
+  it("blocks Supabase direct hosts on Vercel unless the IPv4 add-on is explicitly attested", () => {
+    const report = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        DATABASE_URL: "postgresql://postgres:secret@db.aruncclorusswpfnpgsn.supabase.co:5432/postgres?schema=hr_one",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+
+    expect(environmentVerificationPassed(report)).toBe(false);
+    expect(report.checks.find((item) => item.name === "Supabase Vercel database network")).toMatchObject({
+      passed: false,
+      detail: "Vercel/serverless requires Supabase pooler URL or HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true",
+    });
+  });
+
+  it("allows Supabase direct hosts only with explicit IPv4 add-on posture", () => {
+    const report = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        DATABASE_URL: "postgresql://postgres:secret@db.aruncclorusswpfnpgsn.supabase.co:5432/postgres?schema=hr_one",
+        HR_ONE_SUPABASE_IPV4_ADDON_ENABLED: "true",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+
+    expect(environmentVerificationPassed(report)).toBe(true);
+    expect(report.checks.find((item) => item.name === "Supabase Vercel database network")).toMatchObject({
+      passed: true,
+      detail: "Supabase direct host allowed by explicit IPv4 add-on attestation",
+    });
+  });
+
+  it("requires Prisma pooler flags for Supabase transaction pooler on Vercel", () => {
+    const report = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        DATABASE_URL: "postgresql://postgres.aruncclorusswpfnpgsn:secret@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?schema=hr_one",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+
+    expect(environmentVerificationPassed(report)).toBe(false);
+    expect(report.checks.find((item) => item.name === "Supabase Prisma pooler params")).toMatchObject({
+      passed: false,
+      detail: "Supabase transaction pooler requires pgbouncer=true and connection_limit=1 for Prisma on Vercel",
     });
   });
 

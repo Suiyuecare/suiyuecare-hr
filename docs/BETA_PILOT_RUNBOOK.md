@@ -6,7 +6,7 @@ This runbook is the execution checklist for turning HR One from a demo-ready app
 
 - Production URL: `https://hr.suiyuecare.com`
 - Public liveness check: `/api/health/live` returns `ok`.
-- Public readiness check: `/api/health/ready` is still `degraded` because Vercel Production has not been configured with the required production environment variables and database connection.
+- Public readiness check: `/api/health/ready` is still blocked until Vercel Production uses a Supabase-compatible database connection. For Vercel + Prisma this should be the Supabase Transaction Pooler URL on port `6543` with `pgbouncer=true&connection_limit=1&schema=hr_one`, or a direct host only when the Supabase IPv4 add-on is enabled.
 - Supabase project: `aruncclorusswpfnpgsn`
 - Supabase private schema: `hr_one` exists and has a verified synthetic pilot rehearsal tenant.
 - Supabase private schema exposure: `anon` and `authenticated` do not have `USAGE` on `hr_one`.
@@ -37,7 +37,7 @@ Goal: production data must survive deploys and must not fall back to in-memory d
 
 4. Configure Vercel production environment variables:
 
-   - `DATABASE_URL`, server-only, Supabase Postgres URL with `?schema=hr_one`.
+   - `DATABASE_URL`, server-only, Supabase Transaction Pooler URL with `pgbouncer=true&connection_limit=1&schema=hr_one`. Do not use the direct `db.<project-ref>.supabase.co:5432` host on Vercel unless the Supabase IPv4 add-on is enabled and `HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true` is set.
    - `HR_ONE_ENV=production`
    - `HR_ONE_DATABASE_PROVIDER=supabase_postgres`
    - `HR_ONE_AUTH_SESSION_SOURCE=oidc`

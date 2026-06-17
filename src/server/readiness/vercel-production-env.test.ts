@@ -12,7 +12,7 @@ import { buildVercelProductionEnvDraft } from "@/server/readiness/vercel-product
 
 const productionEnv = {
   HR_ONE_ENV: "production",
-  DATABASE_URL: "postgresql://hrone:secret@db.customer.internal:5432/hrone?schema=hr_one",
+  DATABASE_URL: "postgresql://postgres.aruncclorusswpfnpgsn:secret@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&schema=hr_one",
   HR_ONE_APP_URL: "https://hr.suiyuecare.com",
   HR_ONE_DEPLOYMENT_TARGET: "vercel",
   VERCEL_PROJECT_ID: "prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N",
@@ -66,7 +66,7 @@ describe("Vercel production env bootstrap", () => {
   it("builds CLI env add commands without putting secret values in argv", () => {
     const command = buildVercelCliEnvCommand({
       key: "DATABASE_URL",
-      value: "postgresql://hrone:secret@db.customer.internal:5432/hrone?schema=hr_one",
+      value: "postgresql://postgres.aruncclorusswpfnpgsn:secret@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&schema=hr_one",
       type: "sensitive",
       target: ["production"],
       comment: "test",
@@ -84,8 +84,8 @@ describe("Vercel production env bootstrap", () => {
       "--force",
       "--yes",
     ]);
-    expect(command.stdin).toContain("secret@db.customer.internal");
-    expect(command.redactedCommand).not.toContain("secret@db.customer.internal");
+    expect(command.stdin).toContain("secret@aws-0-ap-northeast-1.pooler.supabase.com");
+    expect(command.redactedCommand).not.toContain("secret@aws-0-ap-northeast-1.pooler.supabase.com");
     expect(command.redactedCommand).toContain("<value via stdin>");
   });
 
@@ -109,7 +109,7 @@ describe("Vercel production env bootstrap", () => {
     const plan = buildVercelProductionEnvPlan({
       env: {
         ...productionEnv,
-        DATABASE_URL: "postgresql://hrone:secret@db.customer.internal:5432/hrone",
+        DATABASE_URL: "postgresql://postgres.aruncclorusswpfnpgsn:secret@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1",
       },
       projectId: "prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N",
       teamId: "team_LGag47eU8tKbsK6ixAmVa5Uq",

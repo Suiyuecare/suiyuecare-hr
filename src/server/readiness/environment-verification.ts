@@ -1,4 +1,9 @@
 import { isSafeAuthLoginUrl } from "@/server/auth/login-url";
+import {
+  classifyDatabaseConnection,
+  hasPrismaTransactionPoolerParams,
+  isSupabasePoolerConnection,
+} from "@/server/readiness/database-url";
 
 export type EnvironmentVerificationMode = "local" | "production";
 
@@ -73,6 +78,7 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
   const appUrl = read(env, "HR_ONE_APP_URL") ?? read(env, "NEXT_PUBLIC_APP_URL");
   const deploymentTarget = read(env, "HR_ONE_DEPLOYMENT_TARGET");
   const databaseProvider = read(env, "HR_ONE_DATABASE_PROVIDER");
+  const supabaseIpv4AddonEnabled = read(env, "HR_ONE_SUPABASE_IPV4_ADDON_ENABLED") === "true";
   const vercelProjectId = read(env, "VERCEL_PROJECT_ID");
   const supabaseUrl = read(env, "NEXT_PUBLIC_SUPABASE_URL");
   const supabasePublishableKey = read(env, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
@@ -138,6 +144,26 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
           ? "schema=hr_one configured"
           : "set DATABASE_URL query parameter schema=hr_one"
         : "not required for this database provider",
+    ),
+    check(
+      "Supabase Vercel database network",
+      databaseProvider !== "supabase_postgres" ||
+        deploymentTarget !== "vercel" ||
+        isSupabasePoolerConnection(databaseUrl) ||
+        (classifyDatabaseConnection(databaseUrl) === "supabase-direct" && supabaseIpv4AddonEnabled),
+      supabaseVercelDatabaseNetworkDetail({
+        databaseProvider,
+        deploymentTarget,
+        databaseUrl,
+        supabaseIpv4AddonEnabled,
+      }),
+    ),
+    check(
+      "Supabase Prisma pooler params",
+      databaseProvider !== "supabase_postgres" ||
+        deploymentTarget !== "vercel" ||
+        hasPrismaTransactionPoolerParams(databaseUrl),
+      supabasePrismaPoolerDetail({ databaseProvider, deploymentTarget, databaseUrl }),
     ),
     check(
       "Supabase project url",
@@ -299,6 +325,52 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
         : "missing or invalid HR_ONE_BACKUP_RESTORE_TESTED_AT",
     ),
   ];
+}
+
+function supabaseVercelDatabaseNetworkDetail(input: {
+  databaseProvider: string | null;
+  deploymentTarget: string | null;
+  databaseUrl: string | null;
+  supabaseIpv4AddonEnabled: boolean;
+}) {
+  if (input.databaseProvider !== "supabase_postgres" || input.deploymentTarget !== "vercel") {
+    return "not required for this provider/target";
+  }
+  const posture = classifyDatabaseConnection(input.databaseUrl);
+  if (isSupabasePoolerConnection(input.databaseUrl)) {
+    return `${formatDatabasePosture(posture)} configured for Vercel IPv4/serverless`;
+  }
+  if (posture === "supabase-direct" && input.supabaseIpv4AddonEnabled) {
+    return "Supabase direct host allowed by explicit IPv4 add-on attestation";
+  }
+  if (posture === "supabase-direct") {
+    return "Vercel/serverless requires Supabase pooler URL or HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true";
+  }
+  if (posture === "invalid") return "invalid DATABASE_URL";
+  return "DATABASE_URL is not a recognized Supabase connection string";
+}
+
+function supabasePrismaPoolerDetail(input: {
+  databaseProvider: string | null;
+  deploymentTarget: string | null;
+  databaseUrl: string | null;
+}) {
+  if (input.databaseProvider !== "supabase_postgres" || input.deploymentTarget !== "vercel") {
+    return "not required for this provider/target";
+  }
+  if (classifyDatabaseConnection(input.databaseUrl) !== "supabase-pooler-transaction") {
+    return "not required unless Supabase transaction pooler is used";
+  }
+  return hasPrismaTransactionPoolerParams(input.databaseUrl)
+    ? "transaction pooler has Prisma pgbouncer=true and connection_limit=1"
+    : "Supabase transaction pooler requires pgbouncer=true and connection_limit=1 for Prisma on Vercel";
+}
+
+function formatDatabasePosture(posture: ReturnType<typeof classifyDatabaseConnection>) {
+  if (posture === "supabase-pooler-session") return "Supabase session pooler";
+  if (posture === "supabase-pooler-transaction") return "Supabase transaction pooler";
+  if (posture === "supabase-pooler-unknown") return "Supabase pooler";
+  return posture;
 }
 
 function secretCheck(env: Record<string, string | undefined>, key: string) {

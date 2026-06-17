@@ -60,8 +60,8 @@ Supabase checks completed on 2026-06-17:
 ## Required Before Real 20-50 Person Trial
 
 1. Choose and verify the production database network path:
-   - preferred: configure a Supabase pooler user that works for `hr_one_app_runtime` and use the transaction pooler URL with `schema=hr_one`, `connection_limit=1`, and prepared statements disabled for Prisma
-   - alternate: enable the Supabase IPv4 add-on, keep the verified direct custom-role URL, and rerun the live DB ping
+   - preferred: configure a Supabase pooler user that works for `hr_one_app_runtime` and use the transaction pooler URL with `pgbouncer=true&connection_limit=1&schema=hr_one`
+   - alternate: enable the Supabase IPv4 add-on, keep the verified direct custom-role URL, set `HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true`, and rerun the live DB ping
    - avoid: using broad `postgres` database credentials as the long-term app runtime credential
 2. Redeploy Vercel Production so the deployment includes the latest `DATABASE_URL` and `HR_ONE_BACKUP_RESTORE_TESTED_AT`.
 3. Confirm `https://hr.suiyuecare.com/api/health/ready` returns `ok`.

@@ -26,7 +26,7 @@ describe("Vercel production env draft", () => {
       HR_ONE_DATABASE_PROVIDER: "supabase_postgres",
       NEXT_PUBLIC_SUPABASE_URL: "https://aruncclorusswpfnpgsn.supabase.co",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_yScyXz-bOUu7W5geHggd4A_9FcGwU7M",
-      DATABASE_URL: "REPLACE_WITH_SUPABASE_POSTGRES_URL_SCHEMA_HR_ONE",
+      DATABASE_URL: "REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE",
       HR_ONE_AUTH_PROVIDER: "supabase_auth",
       HR_ONE_AUTH_ISSUER_URL: "https://aruncclorusswpfnpgsn.supabase.co/auth/v1",
       HR_ONE_AUTH_LOGIN_URL: "https://hr.suiyuecare.com/auth/sign-in",
@@ -53,7 +53,7 @@ describe("Vercel production env draft", () => {
     });
     const env = {
       ...parseEnvFile(text),
-      DATABASE_URL: "postgresql://hrone:secret@db.suiyuecare.internal:5432/postgres?schema=hr_one",
+      DATABASE_URL: "postgresql://postgres.aruncclorusswpfnpgsn:secret@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&schema=hr_one",
       HR_ONE_AUTH_PROVIDER: "entra_id",
       HR_ONE_AUTH_ISSUER_URL: "https://login.suiyuecare.com/hr-one/v2.0",
       HR_ONE_AUTH_LOGIN_URL: "https://login.suiyuecare.com/hr-one/oauth2/v2.0/authorize",

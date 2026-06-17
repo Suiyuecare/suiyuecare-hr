@@ -3,7 +3,7 @@ import { getLiveHealth, getReadyHealth, healthHttpStatus } from "@/server/readin
 
 const productionEnv = {
   HR_ONE_ENV: "production",
-  DATABASE_URL: "postgresql://hrone:secret@db.customer.internal:5432/hrone?schema=hr_one",
+  DATABASE_URL: "postgresql://postgres.aruncclorusswpfnpgsn:secret@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&schema=hr_one",
   HR_ONE_APP_URL: "https://hr.customer.co",
   HR_ONE_DEPLOYMENT_TARGET: "vercel",
   VERCEL_PROJECT_ID: "prj_Ueh6m200Y21GRuTjXKWZxTWc6IQa",
@@ -132,7 +132,7 @@ describe("health reports", () => {
     const report = await getReadyHealth({
       env: {
         ...productionEnv,
-        DATABASE_URL: "postgresql://postgres.project:very-secret@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres?schema=hr_one",
+        DATABASE_URL: "postgresql://postgres.project:very-secret@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&schema=hr_one",
       },
       now: new Date("2026-06-12T00:00:00.000Z"),
       pingDatabase: async () => false,
