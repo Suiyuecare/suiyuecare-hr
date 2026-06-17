@@ -202,6 +202,18 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(completionGate.getByRole("heading", { name: "Day 14 audit 結案" })).toBeVisible();
   await expect(completionGate.getByRole("heading", { name: "證據隱私掃描" })).toBeVisible();
   await expect(page.getByText("Redacted handoff package")).toBeVisible();
+
+  await page.goto("/settings/pilot-evidence");
+  await expect(page.getByRole("heading", { name: "試用證據包", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "尚未可以交付試用證據包" })).toBeVisible();
+  const evidenceGate = page.getByLabel("試用證據包 Gate");
+  await expect(evidenceGate.getByRole("heading", { name: "試用批次" })).toBeVisible();
+  await expect(evidenceGate.getByRole("heading", { name: "開跑 Go/No-Go" })).toBeVisible();
+  await expect(evidenceGate.getByRole("heading", { name: "證據隱私掃描" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "補 audit evidence package" })).toBeVisible();
+  await page.getByRole("button", { name: "產生 audit package" }).click();
+  await expect(page).toHaveURL(/\/settings\/pilot-evidence\?success=audit-evidence/);
+  await expect(page.getByText("Audit evidence package 已產生")).toBeVisible();
 });
 
 test("HR 可以設定打卡方式並讓員工端看到提示", async ({ page }) => {

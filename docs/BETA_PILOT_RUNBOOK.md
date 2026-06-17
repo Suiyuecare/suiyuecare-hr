@@ -286,6 +286,7 @@ Day 14:
 - Export or review redacted audit evidence.
 - Confirm no unresolved security, payroll, or attendance blockers remain.
 - Open `/settings/pilot-completion` to review the Day 14 redacted closeout Gate before generating the final handoff.
+- Open `/settings/pilot-evidence` to assemble the redacted pilot evidence package checklist and generate the audit evidence package from the same screen.
 - Run `pnpm pilot:morning-brief -- --day=14 ... --tenant-slug=<customer-slug> --final-review=verified --output=/tmp/hr-one-pilot-morning-day-14.md` before the final review.
 - Run `pnpm pilot:workflow-readiness -- --require-production-evidence ... --tenant-slug=<customer-slug> --final-review=verified --output=/tmp/hr-one-pilot-workflow-readiness-day-14.md` and require `production_ready` before final handoff.
 - Run `pnpm pilot:daily-status -- --day=14 ... --tenant-slug=<customer-slug> --final-review=verified --output=/tmp/hr-one-pilot-day-14.md` only after the final review checkpoint is genuinely verified.
@@ -302,6 +303,7 @@ Expected evidence:
 - Daily status reports are redacted and contain only aggregate or hash-only evidence references.
 - Workflow readiness reports show production evidence for clock in/out, leave request, manager approval, announcement receipt, payroll rehearsal, payslip access, and preflight access review before final handoff.
 - Evidence scan passes for the pilot report folder and reports zero sensitive-value findings.
+- `/settings/pilot-evidence` shows the evidence package as blocked until the persisted trial run, Go/No-Go report, checkpoint evidence, audit package, completion review, evidence privacy scan, and redacted handoff are all present.
 - `pilot:trial-completion` reports `completed` only when preflight access review, Day 1 announcement receipt, Day 3 clock/leave/manager approval evidence, Day 7 payroll rehearsal plus payslip access, Day 14 final review, KPI status, and evidence privacy scan are all acceptable with zero blockers and zero warnings. `--skip-evidence-scan` is diagnostic only and cannot approve final handoff.
 - Audit logs exist for create, approve, reject, payroll close, payslip release, and sensitive settings.
 - Employees cannot see other employees' payslips.

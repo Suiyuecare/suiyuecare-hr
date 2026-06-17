@@ -77,6 +77,9 @@ export default async function PilotCompletionPage() {
               <Link className="button" href="/settings/pilot-operations">
                 回每日戰情
               </Link>
+              <Link className="button" href="/settings/pilot-evidence">
+                整理證據包
+              </Link>
               <Link className="button primary" href="/hr/kpis">
                 查看 KPI
               </Link>

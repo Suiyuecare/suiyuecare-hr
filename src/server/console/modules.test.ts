@@ -27,6 +27,7 @@ describe("console modules", () => {
         expect.objectContaining({ label: "試用每日戰情", href: "/settings/pilot-operations" }),
         expect.objectContaining({ label: "試用 Go/No-Go", href: "/settings/pilot-go-no-go" }),
         expect.objectContaining({ label: "試用結案檢查", href: "/settings/pilot-completion" }),
+        expect.objectContaining({ label: "試用證據包", href: "/settings/pilot-evidence" }),
       ]),
     );
     expect(filterConsoleModules(modules, "戰情").flatMap((module) => module.pinned)).toEqual(
@@ -47,6 +48,11 @@ describe("console modules", () => {
     expect(filterConsoleModules(modules, "結案").flatMap((module) => module.pinned)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ label: "試用結案檢查", href: "/settings/pilot-completion" }),
+      ]),
+    );
+    expect(filterConsoleModules(modules, "證據").flatMap((module) => module.pinned)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "試用證據包", href: "/settings/pilot-evidence" }),
       ]),
     );
   });

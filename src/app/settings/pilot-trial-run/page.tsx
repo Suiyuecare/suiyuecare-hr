@@ -231,6 +231,7 @@ export default async function PilotTrialRunPage({ searchParams }: { searchParams
             <TrialLinkCard href="/settings/pilot-go-no-go" title="開跑 Go/No-Go" detail="發邀請前確認正式環境、匯入預檢、核心流程與 evidence scan 都可接受。" />
             <TrialLinkCard href="/settings/pilot-operations" title="每日戰情" detail="Day 0、Day 1、Day 3、Day 7、Day 14 收 hash-only checkpoint 證據。" />
             <TrialLinkCard href="/settings/pilot-completion" title="試用結案檢查" detail="Day 14 檢查 KPI、audit、權限與證據隱私，通過後才討論擴大試用。" />
+            <TrialLinkCard href="/settings/pilot-evidence" title="試用證據包" detail="整理 redacted reports、audit package、handoff 與 evidence scan 缺口，通過後才可交付。" />
           </div>
         </section>
       </section>
