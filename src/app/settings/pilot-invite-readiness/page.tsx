@@ -48,9 +48,15 @@ export default async function PilotInviteReadinessPage({
   const report = buildPilotInviteReadinessReport({ snapshot });
   const operationsReport = await getPilotOperationsReport(session);
   const preflightPhase = operationsReport.phases.find((phase) => phase.checkpointId === "preflight");
-  const inviteGate = buildInviteGate({ report, preflightPhase });
-  const inviteNextActions = buildInviteNextActions(report.nextActions, inviteGate.preflightAccessReviewReady);
+  const productionDatabaseGateReady = false;
+  const inviteGate = buildInviteGate({ report, preflightPhase, productionDatabaseGateReady });
+  const inviteNextActions = buildInviteNextActions(
+    report.nextActions,
+    inviteGate.preflightAccessReviewReady,
+    productionDatabaseGateReady,
+  );
   const preparationAreas = [
+    buildProductionDatabasePreparationArea(productionDatabaseGateReady),
     ...report.preparationAreas,
     buildPreflightPreparationArea(inviteGate.preflightAccessReviewReady),
   ];
@@ -91,7 +97,8 @@ export default async function PilotInviteReadinessPage({
                 {companyId ? ` · 公司 ${companyId}` : ""}。報表只保留彙總數字與狀態，不輸出個資、薪資、銀行帳號、SSO subject 或私人備註。
               </p>
               <p className="muted">
-                {inviteGate.detail} Preflight 權限防漏：{inviteGate.preflightAccessReviewReady ? "已驗證" : "未完成"}。
+                {inviteGate.detail} 正式資料庫 Gate：{productionDatabaseGateReady ? "已驗證" : "需 CLI 報告"}。
+                Preflight 權限防漏：{inviteGate.preflightAccessReviewReady ? "已驗證" : "未完成"}。
               </p>
             </div>
             <span className={`badge ${inviteGate.blockers ? "danger" : inviteGate.warnings ? "warning" : ""}`}>
@@ -344,19 +351,26 @@ type InviteGateStatus = "ready" | "action_required" | "blocked";
 const preflightAccessReviewAction =
   "Run the preflight access review before sending employee invitations.";
 
+const productionDatabaseGateAction =
+  "Run the production database gate and full Go/No-Go before sending employee invitations.";
+
 function buildInviteGate(input: {
   report: ReturnType<typeof buildPilotInviteReadinessReport>;
   preflightPhase: PilotOperationsPhase | undefined;
+  productionDatabaseGateReady: boolean;
 }) {
   const preflightAccessReviewReady = isPreflightAccessReviewReady(input.preflightPhase);
-  const blockers = input.report.blockers + (preflightAccessReviewReady ? 0 : 1);
+  const blockers =
+    input.report.blockers +
+    (input.productionDatabaseGateReady ? 0 : 1) +
+    (preflightAccessReviewReady ? 0 : 1);
   const warnings = input.report.warnings;
   const status: InviteGateStatus = blockers > 0 ? "blocked" : warnings > 0 ? "action_required" : "ready";
 
   return {
     status,
     title: inviteGateTitle(status),
-    detail: inviteGateDetail(input.report, preflightAccessReviewReady),
+    detail: inviteGateDetail(input.report, preflightAccessReviewReady, input.productionDatabaseGateReady),
     blockers,
     warnings,
     preflightAccessReviewReady,
@@ -380,7 +394,11 @@ function inviteGateTitle(status: InviteGateStatus) {
 function inviteGateDetail(
   report: ReturnType<typeof buildPilotInviteReadinessReport>,
   preflightAccessReviewReady: boolean,
+  productionDatabaseGateReady: boolean,
 ) {
+  if (!productionDatabaseGateReady) {
+    return "正式資料庫 Gate 與 Go/No-Go CLI 報告尚未附上；即使名單看似完成，仍不能發出真實員工邀請。";
+  }
   if (report.blockers > 0 && !preflightAccessReviewReady) {
     return "名單、登入、角色、主管線、班表或薪資單可見性仍有 blocker，且發邀請前權限防漏尚未完成。";
   }
@@ -396,9 +414,35 @@ function inviteGateDetail(
   return "名單、登入、角色、主管線、班表、假勤餘額、薪資單可見性與權限防漏都已通過。";
 }
 
-function buildInviteNextActions(actions: string[], preflightAccessReviewReady: boolean) {
-  const nextActions = preflightAccessReviewReady ? actions : [preflightAccessReviewAction, ...actions];
+function buildInviteNextActions(
+  actions: string[],
+  preflightAccessReviewReady: boolean,
+  productionDatabaseGateReady: boolean,
+) {
+  const gateActions = [
+    ...(productionDatabaseGateReady ? [] : [productionDatabaseGateAction]),
+    ...(preflightAccessReviewReady ? [] : [preflightAccessReviewAction]),
+  ];
+  const nextActions = [...gateActions, ...actions];
   return [...new Set(nextActions)];
+}
+
+function buildProductionDatabasePreparationArea(productionDatabaseGateReady: boolean) {
+  return {
+    id: "production_database_gate",
+    title: "正式資料庫 Gate",
+    status: productionDatabaseGateReady ? "ready" : "blocked",
+    readyCount: productionDatabaseGateReady ? 1 : 0,
+    targetLabel: "hard gate",
+    gapCount: productionDatabaseGateReady ? 0 : 1,
+    detail: productionDatabaseGateReady
+      ? "正式資料庫與 production env draft 已由 redacted CLI 報告驗證。"
+      : "Browser UI 不核准發邀請；需先保存 redacted production database gate 與 Go/No-Go 報告。",
+    nextStep: productionDatabaseGateReady
+      ? "正式資料庫 Gate 已完成，請保留報告到試用 evidence folder。"
+      : "先跑 production database gate 與 Go/No-Go；live DB 與 env draft 都 ready 才能發邀請。",
+    href: "/settings/production-database",
+  } as const;
 }
 
 function buildPreflightPreparationArea(preflightAccessReviewReady: boolean) {
@@ -509,6 +553,8 @@ function nextActionLabel(action: string) {
       "第 7 天前完成薪資單釋出演練，讓每位有效員工都有薪資單查看證據。",
     [preflightAccessReviewAction]:
       "發第一封邀請前，先由 Owner/HR 跑 preflight 權限防漏，確認員工、主管與 HR 的薪資資料邊界。",
+    [productionDatabaseGateAction]:
+      "發第一封邀請前，先保存 production database gate 與 Go/No-Go redacted 報告，確認正式資料庫、env draft、匯入、流程與證據掃描都通過。",
   };
   return labels[action] ?? action;
 }
