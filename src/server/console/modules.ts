@@ -45,6 +45,7 @@ const modules: ConsoleModule[] = [
         links: [
           { label: "人資權限管理", href: "/settings/access", permission: "settings:write" },
           { label: "公司導入精靈", href: "/settings/company-setup", badge: "New", permission: "settings:read" },
+          { label: "正式環境資料庫 Gate", href: "/settings/production-database", badge: "Blocker", permission: "settings:read" },
           { label: "試用批次控制台", href: "/settings/pilot-trial-run", badge: "New", permission: "settings:read" },
           { label: "試用 CSV 預檢", href: "/settings/pilot-import-preflight", badge: "New", permission: "settings:read" },
           { label: "試用邀請就緒", href: "/settings/pilot-invite-readiness", badge: "New", permission: "settings:read" },
@@ -59,6 +60,7 @@ const modules: ConsoleModule[] = [
       { label: "公司資料", href: "/settings", permission: "settings:read" },
       { label: "職務管理", href: "/hr/employee-lifecycle", permission: "employee:write" },
       { label: "公司導入精靈", href: "/settings/company-setup", permission: "settings:read" },
+      { label: "正式環境資料庫 Gate", href: "/settings/production-database", permission: "settings:read" },
       { label: "試用批次控制台", href: "/settings/pilot-trial-run", permission: "settings:read" },
       { label: "試用 CSV 預檢", href: "/settings/pilot-import-preflight", permission: "settings:read" },
       { label: "試用邀請就緒", href: "/settings/pilot-invite-readiness", permission: "settings:read" },

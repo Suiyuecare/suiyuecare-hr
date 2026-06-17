@@ -70,6 +70,8 @@ Goal: production data must survive deploys and must not fall back to in-memory d
    curl -fsS https://hr.suiyuecare.com/api/health/ready
    ```
 
+   Owner/HR can also open `/settings/production-database` to see the same hard blocker in the management UI. The page explains whether the current root cause is a Supabase direct-host network path, pooler configuration, missing `DATABASE_URL`, production env posture, or an unreachable health endpoint. It never displays the actual database URL or secret values.
+
 Expected evidence:
 
 - `hr_one` has HR One tables and a complete `_prisma_migrations` baseline.
@@ -77,6 +79,7 @@ Expected evidence:
 - `/api/health/ready` returns `ok`.
 - `/api/health/ready` includes `demo auth: ok` with `demo auth disabled for production runtime`.
 - No database URL, salary, national ID, bank account, or health values appear in logs or command output.
+- `/settings/production-database` reports `Production database 已可用` before HR starts inviting real employees.
 
 ## Phase 1: Pilot Tenant Foundation
 

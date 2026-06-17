@@ -22,6 +22,7 @@ describe("console modules", () => {
     expect(companyModule?.sections.flatMap((section) => section.links)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ label: "公司導入精靈", href: "/settings/company-setup" }),
+        expect.objectContaining({ label: "正式環境資料庫 Gate", href: "/settings/production-database" }),
         expect.objectContaining({ label: "試用批次控制台", href: "/settings/pilot-trial-run" }),
         expect.objectContaining({ label: "試用 CSV 預檢", href: "/settings/pilot-import-preflight" }),
         expect.objectContaining({ label: "試用邀請就緒", href: "/settings/pilot-invite-readiness" }),
@@ -39,6 +40,11 @@ describe("console modules", () => {
     expect(filterConsoleModules(modules, "批次").flatMap((module) => module.pinned)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ label: "試用批次控制台", href: "/settings/pilot-trial-run" }),
+      ]),
+    );
+    expect(filterConsoleModules(modules, "資料庫").flatMap((module) => module.pinned)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "正式環境資料庫 Gate", href: "/settings/production-database" }),
       ]),
     );
     expect(filterConsoleModules(modules, "CSV").flatMap((module) => module.pinned)).toEqual(

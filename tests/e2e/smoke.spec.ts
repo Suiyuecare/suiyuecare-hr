@@ -207,6 +207,13 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByText("Customer import preflight")).toBeVisible();
   await expect(page.getByRole("link", { name: "預檢 CSV" })).toBeVisible();
 
+  await page.goto("/settings/production-database");
+  await expect(page.getByRole("heading", { name: "正式環境資料庫 Gate" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Production database/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "修復路線" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "路線 A：Supabase Transaction Pooler" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "必跑命令" })).toBeVisible();
+
   await page.goto("/settings/pilot-completion");
   await expect(page.getByRole("heading", { name: "試用結案檢查" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "尚未可以結案" })).toBeVisible();

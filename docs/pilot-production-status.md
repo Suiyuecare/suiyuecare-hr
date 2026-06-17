@@ -26,6 +26,7 @@ GitHub `main` contains the new pilot UI. The live site may lag behind `main` whi
 - `/manager/inbox` now includes `15 秒簽核` quick approve and needs-more-information actions after the risk summary. These submit through the shared audited approval route and keep the full comment form for non-standard reviews.
 - `/hr`, after switching to the HR demo role, includes the new HR close command band for `出勤`, `簽核`, `薪資`, and `安全`, plus the updated module board: `後台模組`, `員工與任用`, `打卡與假勤`, `月結與發薪`, `表單與公告`, and `分析與稽核`. The payroll area now includes a Day 7 monthly-close rehearsal guide that shows the current stage, next safe action, blocker context, seven-step runway, and privacy/audit guardrails before payroll is calculated, locked, or released.
 - `/settings/company-setup` gives HR a guided setup wizard for company structure, user access, schedules, punch policy, leave balances, manager Inbox, announcements, payroll/payslip readiness, and audit/privacy coverage without exposing raw sensitive data. It now includes audited setup actions for 14-day schedules, leave balance synchronization, trial announcements, and demo payroll rehearsal; production payroll blockers still require HR review.
+- `/settings/production-database` shows Owner/HR the live production database blocker and remediation routes. It reads the live readiness payload, classifies root cause such as Supabase direct-host network blocking, pooler configuration, missing server-side `DATABASE_URL`, or production env posture, and displays transaction pooler / IPv4 add-on / verification steps without printing secret values.
 - `/settings/pilot-trial-run` gives Owner/HR a dedicated 20-50 person, two-week trial batch control center with start/end dates, current day, participant and manager counts, readiness blockers, hash-only evidence snapshots, Today Gate focus, Day 0/1/3/7/14 phase status, and shortcuts to invite readiness, Go/No-Go, daily operations, and completion review.
 - `/settings/pilot-import-preflight` gives Owner/HR a browser-based CSV preflight gate for employee, identity/SSO, and payroll profile files. It records only aggregate check status and content hashes in audit logs, and does not persist or display raw names, emails, salary values, bank account numbers, national IDs, health data, or private HR notes.
 - `/settings/pilot-invite-readiness` shows the pre-invitation gate for login identity, role coverage, manager lines, 14-day schedules, leave balances, self-only payslip visibility, and preflight access review without exposing names, emails, salaries, bank accounts, SSO subjects, or private notes. It now also includes a 20-50 person aggregate data preparation board for cohort, login/SSO, manager lines, schedules/leave, payslip readiness, and access review gaps, embeds the core workflow Gate for Day 0, Day 1, Day 3, Day 7, and Day 14 evidence gaps before HR sends real employee invitations, and treats Owner/HR preflight access review as a hard invitation blocker until hash-only evidence is recorded.
@@ -72,9 +73,10 @@ Supabase checks completed on 2026-06-17:
    - preferred: configure a Supabase pooler user that works for `hr_one_app_runtime` and use the transaction pooler URL with `pgbouncer=true&connection_limit=1&schema=hr_one`
    - alternate: enable the Supabase IPv4 add-on, keep the verified direct custom-role URL, set `HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true`, and rerun the live DB ping
    - avoid: using broad `postgres` database credentials as the long-term app runtime credential
-2. Redeploy Vercel Production after changing the database network path so the deployment receives the corrected `DATABASE_URL` or `HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true` attestation.
-3. Confirm `https://hr.suiyuecare.com/api/health/ready` returns `ok`.
-4. Run:
+2. Open `/settings/production-database` to keep Owner/HR aligned on the chosen remediation route and avoid inviting staff while the hard blocker remains.
+3. Redeploy Vercel Production after changing the database network path so the deployment receives the corrected `DATABASE_URL` or `HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true` attestation.
+4. Confirm `https://hr.suiyuecare.com/api/health/ready` returns `ok`.
+5. Run:
 
 ```bash
 pnpm pilot:gate:production -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com
@@ -94,7 +96,7 @@ Do not invite real employees until the production gate and go/no-go report pass.
 
 After the live production gate passes, focus on the parts that make a 20-50 person two-week trial safe and usable:
 
-1. Complete the production database network path and redeploy after setting the corrected Supabase pooler URL or IPv4 add-on attestation.
+1. Complete the production database network path and redeploy after setting the corrected Supabase pooler URL or IPv4 add-on attestation; track the blocker from `/settings/production-database`.
 2. Use `/settings/company-setup` to clear departments, managers, work schedules, leave policies, punch rules, announcements, and payslip release blockers for the actual customer tenant.
 3. Use `/settings/pilot-import-preflight` before importing real employee, identity/SSO, and payroll profile CSV files; keep completed files in secure storage and rely on hash-only evidence in the app.
 4. Use `/settings/pilot-operations` to capture real trial evidence for daily completion: punches, leave submissions, manager approvals, announcement receipts, HR month-close rehearsal, payslip views, audit coverage, and unauthorized salary access attempts.

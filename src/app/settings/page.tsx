@@ -100,6 +100,12 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
               </a>
             </li>
             <li className="task">
+              <span>正式環境資料庫 Gate</span>
+              <a className="button" href="/settings/production-database">
+                修復
+              </a>
+            </li>
+            <li className="task">
               <span>試用批次控制台</span>
               <a className="button" href="/settings/pilot-trial-run">
                 管理
