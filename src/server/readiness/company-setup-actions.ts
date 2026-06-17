@@ -26,6 +26,7 @@ import {
   generateSchedulesFromShiftTemplate,
   getShiftTemplateSettings,
 } from "@/server/scheduling/shift-templates";
+import { buildPilotRolloutKit } from "@/server/readiness/pilot-rollout-kit";
 
 type SessionLike = {
   role: RoleKey;
@@ -58,8 +59,6 @@ const actionPermissions: Record<CompanySetupActionId, Permission> = {
   publish_trial_announcement: "announcement:manage",
   run_payroll_rehearsal: "payroll:manage",
 };
-
-const trialAnnouncementTitle = "HR One 兩週試用開始通知";
 
 export function isCompanySetupActionId(value: string): value is CompanySetupActionId {
   return value in companySetupActionLabels;
@@ -158,9 +157,10 @@ async function syncLeaveBalances(session: SessionLike): Promise<CompanySetupActi
 }
 
 async function publishTrialAnnouncement(session: SessionLike): Promise<CompanySetupActionResult> {
+  const rolloutKit = buildPilotRolloutKit();
   const workspace = await getAnnouncementWorkspace(session);
   const existing = workspace.announcements.find(
-    (announcement) => announcement.status === "published" && announcement.title === trialAnnouncementTitle,
+    (announcement) => announcement.status === "published" && announcement.title === rolloutKit.employeeAnnouncement.title,
   );
   if (existing) {
     return {
@@ -171,20 +171,16 @@ async function publishTrialAnnouncement(session: SessionLike): Promise<CompanySe
       metadata: {
         announcementId: existing.id,
         requireReceipt: existing.requireReceipt,
+        rolloutKitHash: rolloutKit.contentHash,
       },
     };
   }
 
   const announcementId = await publishAnnouncement(session, {
-    title: trialAnnouncementTitle,
-    category: "兩週試用",
-    requireReceipt: true,
-    body: [
-      "HR One 兩週試用已開始。",
-      "請員工每天使用手機首頁完成打卡、公告回條與必要申請。",
-      "請主管從統一 Inbox 處理請假、加班與補打卡簽核。",
-      "請 HR 於第 7 天完成月結演練，並確認薪資單僅本人與授權角色可查看。",
-    ].join("\n"),
+    title: rolloutKit.employeeAnnouncement.title,
+    category: rolloutKit.employeeAnnouncement.category,
+    requireReceipt: rolloutKit.employeeAnnouncement.requireReceipt,
+    body: rolloutKit.employeeAnnouncement.body,
   });
 
   return {
@@ -196,6 +192,9 @@ async function publishTrialAnnouncement(session: SessionLike): Promise<CompanySe
       announcementId,
       requireReceipt: true,
       bodyStoredAsHashOnlyInAudit: true,
+      rolloutKitHash: rolloutKit.contentHash,
+      estimatedTrainingMinutes: rolloutKit.estimatedTrainingMinutes,
+      maxEmployeeTaskSteps: rolloutKit.maxEmployeeTaskSteps,
     },
   };
 }

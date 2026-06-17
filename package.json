@@ -38,6 +38,7 @@
     "pilot:daily-status": "tsx scripts/pilot-daily-status.ts",
     "pilot:morning-brief": "tsx scripts/pilot-morning-brief.ts",
     "pilot:workflow-readiness": "tsx scripts/pilot-workflow-readiness.ts",
+    "pilot:rollout-kit": "tsx scripts/pilot-rollout-kit.ts",
     "pilot:import-template-pack": "tsx scripts/create-pilot-import-template-pack.ts",
     "pilot:import-preflight": "tsx scripts/pilot-import-preflight.ts",
     "pilot:customer-import": "tsx scripts/pilot-customer-import.ts",

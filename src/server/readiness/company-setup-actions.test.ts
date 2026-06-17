@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { resetAnnouncementDemoState } from "@/server/announcements/service";
+import { getAnnouncementWorkspace, resetAnnouncementDemoState } from "@/server/announcements/service";
 import { getAuditDemoState, resetAuditDemoState } from "@/server/audit/demo-store";
 import { resetLeavePolicyDemoState } from "@/server/leave/policies";
 import { getPayrollDashboard } from "@/server/payroll/service";
@@ -97,8 +97,21 @@ describe("company setup actions", () => {
       status: "skipped",
       affectedCount: 0,
     });
+    const workspace = await getAnnouncementWorkspace(hrSession);
+    const announcement = workspace.announcements.find((item) => item.title === "HR One 兩週試用開始通知");
+    expect(announcement).toMatchObject({
+      requireReceipt: true,
+      category: "兩週試用",
+    });
+    expect(announcement?.body).toContain("預計 8 分鐘內完成");
+    expect(announcement?.body).toContain("請不要在回報中貼薪資、銀行帳號、身分證字號、健康資料或私人備註");
+    expect(first.metadata).toMatchObject({
+      estimatedTrainingMinutes: 8,
+      maxEmployeeTaskSteps: 3,
+    });
     const auditOutput = JSON.stringify(getAuditDemoState().logs);
-    expect(auditOutput).not.toContain("請員工每天使用手機首頁完成打卡");
+    expect(auditOutput).not.toContain("預計 8 分鐘內完成");
+    expect(auditOutput).not.toContain("請不要在回報中貼薪資");
   });
 
   it("runs the demo payroll rehearsal and keeps salary values out of setup audit metadata", async () => {

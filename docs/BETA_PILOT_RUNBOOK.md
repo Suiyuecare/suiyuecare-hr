@@ -240,6 +240,12 @@ Preflight:
 - Run `pnpm pilot:invite-readiness -- --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-invite-readiness.md` and fix every blocker before invitations.
 - Run `pnpm pilot:go-no-go -- ... --output=/tmp/hr-one-pilot-go-no-go.md` and keep the redacted report in the pilot evidence folder. This report now includes the production database gate and the core workflow readiness matrix.
 - Run `pnpm pilot:invitation-release -- ... --output=/tmp/hr-one-pilot-invitation-release.md` and keep the redacted release decision with the evidence folder before sending the first invitation.
+- Generate the short rollout kit before publishing Day 1 instructions. It must report `ready`; any unsafe URL or sensitive text keeps the kit blocked:
+
+  ```bash
+  pnpm pilot:rollout-kit -- --company-name="<customer-name>" --app-url=https://hr.suiyuecare.com --support-contact="HR 試用窗口" --output=/tmp/hr-one-pilot-rollout-kit.md
+  ```
+
 - Optionally run the workflow readiness matrix separately and keep it with the pilot evidence folder if HR wants a standalone Day 0 artifact:
 
   ```bash
@@ -260,7 +266,7 @@ Preflight:
 
 Day 1:
 
-- Send announcement.
+- Send the receipt-required announcement from `pilot:rollout-kit` or `/settings/company-setup`.
 - Employees acknowledge announcement.
 - Employees clock in/out from mobile.
 - Employees submit at least one leave request.
@@ -310,6 +316,7 @@ Expected evidence:
 
 - Trial run and checkpoint records are persisted in PostgreSQL.
 - Daily status reports are redacted and contain only aggregate or hash-only evidence references.
+- Rollout kit evidence shows employee first-week training content is under 10 minutes, common employee tasks are three steps or fewer, and the announcement text contains no salary, bank, national ID, health, database URL, token, SSO subject, or private HR-note values.
 - Workflow readiness reports show production evidence for clock in/out, leave request, manager approval, announcement receipt, payroll rehearsal, payslip access, and preflight access review before final handoff.
 - Evidence scan passes for the pilot report folder and reports zero sensitive-value findings.
 - `/settings/pilot-evidence` shows the evidence package as blocked until the persisted trial run, Go/No-Go report, checkpoint evidence, audit package, completion review, evidence privacy scan, and redacted handoff are all present.
