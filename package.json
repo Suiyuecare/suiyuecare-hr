@@ -43,6 +43,7 @@
     "pilot:customer-import": "tsx scripts/pilot-customer-import.ts",
     "pilot:identity-import": "tsx scripts/pilot-identity-import.ts",
     "pilot:invite-readiness": "tsx scripts/pilot-invite-readiness.ts",
+    "pilot:production-database": "tsx scripts/pilot-production-database.ts",
     "pilot:go-no-go": "tsx scripts/pilot-go-no-go.ts",
     "pilot:trial-completion": "tsx scripts/pilot-trial-completion.ts",
     "pilot:evidence-scan": "tsx scripts/pilot-evidence-scan.ts",

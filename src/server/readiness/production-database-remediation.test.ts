@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildProductionDatabaseRemediationReport,
+  formatProductionDatabaseRemediationMarkdown,
   getProductionDatabaseRemediationReport,
 } from "@/server/readiness/production-database-remediation";
 import type { HealthReport } from "@/server/readiness/health";
@@ -69,11 +70,19 @@ describe("production database remediation", () => {
     });
     expect(report.nextActions.join("\n")).toContain("transaction pooler");
 
+    const markdown = formatProductionDatabaseRemediationMarkdown(report);
+    expect(markdown).toContain("Status: blocked");
+    expect(markdown).toContain("Root cause: supabase_direct_network");
+    expect(markdown).toContain("Supabase Transaction Pooler");
+
     const serialized = JSON.stringify(report);
     expect(serialized).not.toContain("postgresql://");
     expect(serialized).not.toContain("DATABASE_URL=");
     expect(serialized).not.toContain("salary: 60000");
     expect(serialized).not.toContain("bank account");
+    expect(markdown).not.toContain("postgresql://");
+    expect(markdown).not.toContain("DATABASE_URL=");
+    expect(markdown).not.toContain("salary: 60000");
   });
 
   it("marks the gate ready only when production health and database checks are ok", () => {

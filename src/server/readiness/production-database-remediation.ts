@@ -59,6 +59,7 @@ export type ProductionDatabaseWorkspaceOptions = {
   expectedHost?: string | null;
   fetcher?: typeof fetch;
   generatedAt?: Date;
+  timeoutMs?: number;
 };
 
 const defaultAppUrl = "https://hr.suiyuecare.com";
@@ -72,7 +73,7 @@ export async function getProductionDatabaseRemediationReport(
     process.env.NEXT_PUBLIC_APP_URL ??
     defaultAppUrl,
   );
-  const fetched = await fetchLiveReadyHealth(appUrl, options.fetcher ?? fetch);
+  const fetched = await fetchLiveReadyHealth(appUrl, options.fetcher ?? fetch, options.timeoutMs ?? 5000);
   return buildProductionDatabaseRemediationReport({
     appUrl,
     expectedHost: options.expectedHost ?? expectedHostFromUrl(appUrl),
@@ -125,12 +126,58 @@ export function buildProductionDatabaseRemediationReport(
   };
 }
 
-async function fetchLiveReadyHealth(appUrl: string, fetcher: typeof fetch) {
+export function formatProductionDatabaseRemediationMarkdown(
+  report: ProductionDatabaseRemediationReport,
+) {
+  return [
+    "# HR One Production Database Gate",
+    "",
+    `Generated at: ${report.generatedAt}`,
+    `Status: ${report.status}`,
+    `Root cause: ${report.rootCause}`,
+    `App: ${report.appUrl}`,
+    `Readiness: ${report.readinessUrl}`,
+    "",
+    "## Summary",
+    "",
+    redactSensitiveDetail(report.summary),
+    "",
+    "## Gate Checks",
+    "",
+    ...report.gate.checks.map((check) =>
+      `- [${check.passed ? "PASS" : "BLOCK"}] ${check.name}: ${redactSensitiveDetail(check.detail)}`,
+    ),
+    "",
+    "## Remediation Tracks",
+    "",
+    ...report.tracks.flatMap((track) => [
+      `### ${track.title}${track.recommended ? " (recommended)" : ""}`,
+      "",
+      redactSensitiveDetail(track.detail),
+      "",
+      ...track.steps.map((step) => {
+        const command = step.command ? ` Command: ${redactSensitiveDetail(step.command)}` : "";
+        return `- [${step.status.toUpperCase()}] ${step.title}: ${redactSensitiveDetail(step.detail)}${command}`;
+      }),
+      "",
+    ]),
+    "## Next Actions",
+    "",
+    ...formatList(report.nextActions),
+    "",
+    "## Privacy Guardrails",
+    "",
+    ...formatList(report.privacyGuardrails),
+    "",
+  ].join("\n");
+}
+
+async function fetchLiveReadyHealth(appUrl: string, fetcher: typeof fetch, timeoutMs: number) {
   const readinessUrl = buildReadinessUrlOrFallback(appUrl);
   try {
     const response = await fetcher(readinessUrl, {
       cache: "no-store",
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     const payload = await response.json().catch(() => null);
     return {
@@ -143,6 +190,10 @@ async function fetchLiveReadyHealth(appUrl: string, fetcher: typeof fetch) {
       healthReport: null,
     };
   }
+}
+
+function formatList(items: string[]) {
+  return items.length ? items.map((item) => `- ${redactSensitiveDetail(item)}`) : ["- None."];
 }
 
 function classifyRootCause(input: {
