@@ -147,6 +147,10 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(day7Gate.getByText(/必要證據：.*薪資單查看/)).toBeVisible();
   const preflightGate = inviteFlow.locator(".close-step").filter({ hasText: "試用前" });
   await expect(preflightGate.getByText(/必要證據：.*權限防漏/)).toBeVisible();
+  await page.getByRole("button", { name: "跑權限防漏" }).click();
+  await expect(page).toHaveURL(/success=access-review/);
+  await expect(page.getByText("權限防漏已寫入 preflight 證據")).toBeVisible();
+  await expect(preflightGate.getByText("缺少：無")).toBeVisible();
 
   await page.goto("/settings/pilot-operations");
   await expect(page.getByRole("heading", { name: "試用每日戰情" })).toBeVisible();

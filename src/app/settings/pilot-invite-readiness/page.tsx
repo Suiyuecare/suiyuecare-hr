@@ -16,6 +16,8 @@ import type { BetaPilotEvidenceType } from "@/server/readiness/beta-pilot-checkp
 type SearchParams = Promise<{
   tenantSlug?: string;
   companyId?: string;
+  error?: string;
+  success?: string;
 }>;
 
 export default async function PilotInviteReadinessPage({
@@ -35,6 +37,7 @@ export default async function PilotInviteReadinessPage({
     );
   }
 
+  const canManagePilot = hasPermission(session.role, "pilot:manage");
   const tenantSlug = normalizeTenantSlug(params.tenantSlug);
   const companyId = normalizeOptionalParam(params.companyId);
   const snapshot = await readPilotInviteReadinessSnapshotFromDatabase({
@@ -43,6 +46,13 @@ export default async function PilotInviteReadinessPage({
   });
   const report = buildPilotInviteReadinessReport({ snapshot });
   const operationsReport = await getPilotOperationsReport(session);
+  const preflightPhase = operationsReport.phases.find((phase) => phase.checkpointId === "preflight");
+  const accessReviewReturnTo = buildInviteReturnPath({
+    tenantSlug,
+    companyId,
+    success: "access-review",
+    hash: "preflight-access-review",
+  });
 
   return (
     <main className="page">
@@ -50,6 +60,19 @@ export default async function PilotInviteReadinessPage({
         <h1>試用邀請就緒</h1>
         <p>在發出第一封邀請前，確認 20-50 人都有登入、角色、主管線、班表、假別餘額與薪資單自助查看規則。</p>
       </section>
+
+      {params.error ? (
+        <div className="panel danger-panel">
+          <strong>權限防漏檢查未通過</strong>
+          <p>{params.error}</p>
+        </div>
+      ) : null}
+      {params.success === "access-review" ? (
+        <div className="panel success-panel">
+          <strong>權限防漏已寫入 preflight 證據</strong>
+          <p>系統只保存檢查結果與證據 hash，不保存薪資金額、銀行帳號、身分證字號、健康資料或私人備註。</p>
+        </div>
+      ) : null}
 
       <section className="grid">
         <section className={`panel span-12 risk-box ${report.status === "ready" ? "success-box" : report.blockers ? "danger-box" : ""}`}>
@@ -138,6 +161,28 @@ export default async function PilotInviteReadinessPage({
               <Link className="button primary" href={operationsReport.todayGate.actionHref}>
                 {operationsReport.todayGate.actionLabel}
               </Link>
+            </div>
+            <div className="task" id="preflight-access-review">
+              <span>
+                <strong>發邀請前權限防漏</strong>
+                <small>
+                  自動驗證員工與主管不能讀 payroll dashboard 或他人薪資單；檢查不讀取薪資金額、銀行帳號、身分證或健康資料。
+                </small>
+                <small>
+                  目前 preflight：
+                  {preflightPhase ? `${phaseStatusLabel(preflightPhase.status)} · 缺少 ${preflightPhase.missingEvidenceTypes.length ? preflightPhase.missingEvidenceTypes.map(evidenceTypeLabel).join("、") : "無"}` : "尚未建立"}
+                </small>
+              </span>
+              {canManagePilot ? (
+                <form action="/api/settings/beta-pilot-access-review" method="post" className="compact-form">
+                  <input type="hidden" name="returnTo" value={accessReviewReturnTo} />
+                  <button className="button primary" type="submit">
+                    跑權限防漏
+                  </button>
+                </form>
+              ) : (
+                <span className="badge warning">需要 owner/HR</span>
+              )}
             </div>
           </div>
         </section>
@@ -233,6 +278,20 @@ function normalizeTenantSlug(value: string | undefined) {
 function normalizeOptionalParam(value: string | undefined) {
   const normalized = value?.trim();
   return normalized || null;
+}
+
+function buildInviteReturnPath(input: {
+  tenantSlug: string;
+  companyId: string | null;
+  success: string;
+  hash?: string;
+}) {
+  const params = new URLSearchParams({
+    tenantSlug: input.tenantSlug,
+    success: input.success,
+  });
+  if (input.companyId) params.set("companyId", input.companyId);
+  return `/settings/pilot-invite-readiness?${params.toString()}${input.hash ? `#${input.hash}` : ""}`;
 }
 
 function statusTitle(status: string) {
