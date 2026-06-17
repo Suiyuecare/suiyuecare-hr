@@ -127,6 +127,27 @@ export default async function PilotOperationsPage({ searchParams }: { searchPara
               </span>
             </div>
           </div>
+          <div className="section-heading compact-heading">
+            <div>
+              <h3>今日任務板</h3>
+              <p className="muted">照三個時段處理，收尾時只記錄 hash-only 證據與代碼。</p>
+            </div>
+          </div>
+          <div className="pilot-day-task-grid" aria-label="今日任務板">
+            {report.todayGate.dailyTasks.map((task) => (
+              <article className={`pilot-day-task ${task.tone}`} key={task.id}>
+                <div>
+                  <span className="muted">{task.timing}</span>
+                  <h3>{task.title}</h3>
+                  <p>{task.detail}</p>
+                </div>
+                <small>證據：{task.evidence}</small>
+                <Link className="button" href={task.actionHref}>
+                  {task.actionLabel}
+                </Link>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section className="panel span-12">

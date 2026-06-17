@@ -84,6 +84,16 @@ describe("pilot operations report", () => {
       missingEvidenceTypes: ["access_review"],
     });
     expect(report.todayGate.detail).toContain("尚未建立試用批次");
+    expect(report.todayGate.dailyTasks.map((task) => task.title)).toEqual([
+      "確認邀請 Gate",
+      "跑權限防漏",
+      "決定是否發邀請",
+    ]);
+    expect(report.todayGate.dailyTasks[1]).toMatchObject({
+      evidence: "access_review checkpoint",
+      actionHref: "/settings/pilot-invite-readiness#preflight-access-review",
+      tone: "warning",
+    });
   });
 
   it("marks the operation in progress after preflight is complete", () => {
@@ -99,6 +109,35 @@ describe("pilot operations report", () => {
 
     expect(report.status).toBe("in_progress");
     expect(report.currentPhase).toMatchObject({ checkpointId: "day_1" });
+  });
+
+  it("turns day 7 into a concrete payroll rehearsal and payslip access task board", () => {
+    const report = buildPilotOperationsReport({
+      trialDay: 7,
+      coverage: [
+        coverage("preflight", "verified", ["access_review"]),
+        coverage("day_1", "verified", ["announcement_receipt"]),
+        coverage("day_3", "verified", ["smoke_test", "approval_flow"]),
+        coverage("day_7", "in_progress", ["payroll_rehearsal"]),
+        coverage("day_14", "not_started", []),
+      ],
+    });
+
+    expect(report.todayGate).toMatchObject({
+      scheduledCheckpointId: "day_7",
+      focusCheckpointId: "day_7",
+      missingEvidenceTypes: ["payslip_access"],
+    });
+    expect(report.todayGate.dailyTasks.map((task) => task.title)).toEqual([
+      "清出勤與待簽核",
+      "跑 HR 月結預演",
+      "驗證薪資單權限",
+    ]);
+    expect(report.todayGate.dailyTasks.map((task) => task.evidence)).toEqual([
+      "出勤完整性摘要",
+      "payroll_rehearsal checkpoint",
+      "payslip_access checkpoint",
+    ]);
   });
 
   it("surfaces blocked checkpoints before later phases", () => {

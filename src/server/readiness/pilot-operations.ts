@@ -45,6 +45,19 @@ export type PilotOperationsPhase = {
 
 export type PilotOperationsTodayGateStatus = "blocked" | "needs_evidence" | "ready_to_continue";
 
+export type PilotOperationsDailyTaskTone = "ready" | "warning" | "danger";
+
+export type PilotOperationsDailyTask = {
+  id: string;
+  timing: string;
+  title: string;
+  detail: string;
+  evidence: string;
+  actionHref: string;
+  actionLabel: string;
+  tone: PilotOperationsDailyTaskTone;
+};
+
 export type PilotOperationsTodayGate = {
   trialDay: number | null;
   scheduledCheckpointId: BetaPilotCheckpointId;
@@ -57,6 +70,7 @@ export type PilotOperationsTodayGate = {
   actionHref: string;
   actionLabel: string;
   nextStep: string;
+  dailyTasks: PilotOperationsDailyTask[];
 };
 
 export type PilotOperationsReport = {
@@ -232,7 +246,68 @@ function buildTodayGate(
     nextStep: focusPhase.status === "verified"
       ? "今天的必要證據已收齊，繼續監控打卡、簽核、公告與薪資單權限，不需要保存 raw 個資或薪資內容。"
       : focusPhase.nextStep,
+    dailyTasks: buildDailyTasks(focusPhase, scheduledPhase, trialDay),
   };
+}
+
+function buildDailyTasks(
+  focusPhase: PilotOperationsPhase,
+  scheduledPhase: PilotOperationsPhase,
+  trialDay: number | null,
+): PilotOperationsDailyTask[] {
+  const prefix =
+    focusPhase.checkpointId === scheduledPhase.checkpointId
+      ? ""
+      : `目前排程已到 ${scheduledPhase.timing}，但需先補 ${focusPhase.timing}。`;
+  const verified = focusPhase.status === "verified";
+  const tone: PilotOperationsDailyTaskTone =
+    focusPhase.status === "blocked" ? "danger" : verified ? "ready" : "warning";
+  const taskBuilders: Record<BetaPilotCheckpointId, () => PilotOperationsDailyTask[]> = {
+    preflight: () => [
+      task("preflight-invite", "開跑前", "確認邀請 Gate", `${prefix}確認 20-50 人、登入、角色、主管線、班表、假別餘額與薪資單 self-only 規則。`, "邀請 readiness 報表與 blocker 清單", "/settings/pilot-invite-readiness", "檢查邀請", tone),
+      task("preflight-access", "發邀請前", "跑權限防漏", "由 Owner/HR 驗證員工與主管不能讀 payroll dashboard 或他人薪資單；只保存 hash-only 證據。", "access_review checkpoint", "/settings/pilot-invite-readiness#preflight-access-review", "跑權限防漏", tone),
+      task("preflight-start", "收尾", "決定是否發邀請", `${dayLabel(trialDay)}只能在 hard gate 清零後，才排程正式員工邀請與 Day 1 公告。`, "go/no-go 與發邀請時間", "/settings/readiness", "看上線 Gate", tone),
+    ],
+    day_1: () => [
+      task("day1-entry", "上午", "確認員工進得來", `${prefix}抽查員工手機前台、打卡入口、公告入口與薪資單入口是否可見但不外洩。`, "員工前台 smoke 截圖代碼", "/app", "開員工前台", tone),
+      task("day1-announcement", "中午前", "發布試用公告", "發布需要回條的公告，讓員工知道打卡、請假、薪資單與回報問題的入口。", "announcement_receipt checkpoint", "/hr/announcements", "發布公告", tone),
+      task("day1-followup", "下班前", "追未讀與登入異常", "只追彙總名單與工單代碼；不要把姓名、Email 或私人 HR 備註貼進戰情報告。", "未完成回條統計", "/settings/pilot-operations#day_1", "記錄證據", tone),
+    ],
+    day_3: () => [
+      task("day3-clock", "上午", "抽查打卡完成", `${prefix}讓至少一位員工完成上班/下班打卡，HR 檢查出勤異常是否能處理。`, "smoke_test checkpoint", "/app/attendance", "看打卡", tone),
+      task("day3-approval", "下午", "跑請假與主管簽核", "員工送出請假，直屬主管從統一 Inbox 核准或退回，卡片要顯示風險摘要。", "approval_flow checkpoint", "/manager/inbox", "開啟 Inbox", tone),
+      task("day3-employee-result", "收尾", "員工端確認結果", "回到員工手機首頁確認申請狀態時間軸與通知，不用貼申請內容原文。", "員工端狀態證據 hash", "/app#requests", "看申請狀態", tone),
+    ],
+    day_7: () => [
+      task("day7-attendance", "上午", "清出勤與待簽核", `${prefix}先清漏打卡、加班、請假與補卡待簽核，避免薪資草稿帶入未決資料。`, "出勤完整性摘要", "/hr/attendance-exceptions", "清異常", tone),
+      task("day7-payroll", "下午", "跑 HR 月結預演", "建立或重算薪資草稿，由 HR 確認例外；不能默默鎖定薪資。", "payroll_rehearsal checkpoint", "/hr", "開月結", tone),
+      task("day7-payslip", "收尾", "驗證薪資單權限", "釋出薪資單演練後，以員工帳號看本人薪資單，並確認主管預設不能看部屬薪資。", "payslip_access checkpoint", "/app/payslip", "看薪資單", tone),
+    ],
+    day_14: () => [
+      task("day14-close", "上午", "跑結案檢查", `${prefix}彙整 Day 0/1/3/7/14 證據，任何 blocker 或 warning 都不能結案。`, "trial completion report", "/settings/readiness#pilot-runbook", "結案檢查", tone),
+      task("day14-privacy", "下午", "掃描證據資料夾", "先跑敏感資料掃描，確認報告沒有資料庫 URL、token、薪資、身分證、銀行帳號或健康資料。", "evidence scan report", "/settings/readiness", "看安全 Gate", tone),
+      task("day14-kpi", "收尾", "確認 KPI 與交付判斷", "確認請假時間、主管簽核時間、手機完成率、月結預演與 audit 覆蓋率後，再決定是否擴大試用。", "KPI 與 audit_export checkpoint", "/hr/kpis", "看 KPI", tone),
+    ],
+  };
+
+  return taskBuilders[focusPhase.checkpointId]();
+}
+
+function task(
+  id: string,
+  timing: string,
+  title: string,
+  detail: string,
+  evidence: string,
+  actionHref: string,
+  actionLabel: string,
+  tone: PilotOperationsDailyTaskTone,
+): PilotOperationsDailyTask {
+  return { id, timing, title, detail, evidence, actionHref, actionLabel, tone };
+}
+
+function dayLabel(trialDay: number | null) {
+  return trialDay === null ? "尚未建立試用批次；" : `目前第 ${trialDay} 天；`;
 }
 
 function checkpointForTrialDay(trialDay: number | null): BetaPilotCheckpointId {

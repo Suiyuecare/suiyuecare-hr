@@ -158,6 +158,11 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
 
   await page.goto("/settings/pilot-operations");
   await expect(page.getByRole("heading", { name: "試用每日戰情" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今日任務板" })).toBeVisible();
+  const todayTaskBoard = page.getByLabel("今日任務板");
+  await expect(todayTaskBoard.getByText("確認邀請 Gate")).toBeVisible();
+  await expect(todayTaskBoard.getByRole("heading", { name: "跑權限防漏" })).toBeVisible();
+  await expect(todayTaskBoard.getByText("決定是否發邀請")).toBeVisible();
   await expect(page.getByRole("heading", { name: "每日 checkpoint" })).toBeVisible();
   await expect(page.getByRole("button", { name: "記錄每日證據" }).first()).toBeVisible();
 });

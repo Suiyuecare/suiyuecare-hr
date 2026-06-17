@@ -1609,6 +1609,7 @@ legend {
 }
 
 .section-heading h2,
+.section-heading h3,
 .section-heading p {
   margin: 0;
 }
@@ -2478,6 +2479,60 @@ legend {
   line-height: 1.35;
 }
 
+.pilot-day-task-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.pilot-day-task {
+  display: grid;
+  align-content: space-between;
+  gap: 12px;
+  min-height: 184px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.pilot-day-task h3,
+.pilot-day-task p {
+  margin: 0;
+}
+
+.pilot-day-task h3 {
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.pilot-day-task p,
+.pilot-day-task small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.45;
+}
+
+.pilot-day-task.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.pilot-day-task.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.pilot-day-task.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
 @media (max-width: 760px) {
   .app-shell {
     padding-left: 0;
@@ -2637,6 +2692,7 @@ legend {
   .hr-close-command-band,
   .pilot-trial-board,
   .pilot-trial-steps,
+  .pilot-day-task-grid,
   .trial-summary-grid,
   .workspace-grid,
   .inbox-workspace,
@@ -2722,6 +2778,10 @@ legend {
 
   .pilot-trial-steps a {
     min-height: 108px;
+  }
+
+  .pilot-day-task {
+    min-height: auto;
   }
 
   .admin-module-card {
