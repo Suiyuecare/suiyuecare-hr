@@ -1,14 +1,14 @@
 # HR One Production Pilot Status
 
-Last checked: 2026-06-17 10:56 Asia/Taipei
+Last checked: 2026-06-17 11:34 Asia/Taipei
 
 ## Current State
 
 - Live domain: `https://hr.suiyuecare.com`
 - GitHub repository: `Suiyuecare/suiyuecare-hr`
 - Vercel project in repo metadata: `prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N` (`suiyuecare-hr2`)
-- GitHub `main` includes the production SSO login guard, the pilot doctor env handoff update, the expanded Supabase pilot readiness seed, the `/settings/company-setup` guided setup wizard, the `/settings/pilot-invite-readiness` management screen, the `/settings/pilot-operations` daily trial war room with Today Gate, and stricter trial completion gating that requires zero blockers and zero warnings.
-- Active Vercel project `suiyuecare-hr2` last confirmed deployed commit `88f99f6` successfully on 2026-06-17. Newer docs-only status commits may wait for Vercel rate limits to clear. Legacy `suiyuecare-hr` still has a separate rate-limited status context and should not be treated as the active production project.
+- GitHub `main` is at `7ab3c60` and includes the production SSO login guard, the pilot doctor env handoff update, the expanded Supabase pilot readiness seed, the `/settings/company-setup` guided setup wizard, the `/settings/pilot-invite-readiness` management screen, the `/settings/pilot-operations` daily trial war room with Today Gate, the redacted `pilot:morning-brief` command, and stricter trial completion gating that requires zero blockers and zero warnings.
+- Active Vercel project `suiyuecare-hr2` last confirmed deployed commit `88f99f6` successfully on 2026-06-17. The current GitHub status for `7ab3c60` is blocked by Vercel build rate limiting with "Deployment rate limited - retry in 24 hours." Legacy `suiyuecare-hr` has the same rate-limited status context and should not be treated as the active production project.
 - Vercel Production now has all required bootstrap values, backup restore evidence, and a server-side `DATABASE_URL`.
 - The server-side `DATABASE_URL` has been rotated to a verified direct Supabase custom-role URL for `hr_one_app_runtime`; the remaining blocker is network reachability from Vercel to Supabase direct Postgres.
 - Local `.env.vercel.production` verification now supports `pnpm env:verify:production -- --env-file=.env.vercel.production`. The current draft has been refreshed with known non-secret Supabase Auth values and the 2026-06-17 restore drill date, so OIDC issuer/login/JWKS and restore drill evidence now pass locally. The draft is still blocked only because `DATABASE_URL` remains a placeholder/invalid value. Do not apply this draft to Vercel until the Supabase transaction pooler URL or IPv4 add-on attestation is configured.
@@ -75,6 +75,7 @@ pnpm db:verify:production -- --tenant-slug=<customer-slug>
 pnpm pilot:customer-import -- --tenant-slug=<customer-slug> --employee-csv=<employee.csv> --identity-csv=<identity.csv> --payroll-csv=<payroll.csv> --output=/tmp/hr-one-pilot-customer-import.md
 pnpm pilot:invite-readiness -- --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-invite-readiness.md
 pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --employee-csv=<employee.csv> --identity-csv=<identity.csv> --payroll-csv=<payroll.csv> --evidence-path=<pilot-evidence-folder> --recursive --output=/tmp/hr-one-pilot-go-no-go.md
+pnpm pilot:morning-brief -- --day=0 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-morning-day-0.md
 ```
 
 Do not invite real employees until the production gate and go/no-go report pass.
@@ -86,5 +87,5 @@ After the live production gate passes, focus on the parts that make a 20-50 pers
 1. Complete the production database network path and redeploy after setting the corrected Supabase pooler URL or IPv4 add-on attestation.
 2. Use `/settings/company-setup` to clear departments, managers, work schedules, leave policies, punch rules, announcements, and payslip release blockers for the actual customer tenant.
 3. Use `/settings/pilot-operations` to capture real trial evidence for daily completion: punches, leave submissions, manager approvals, announcement receipts, HR month-close rehearsal, payslip views, audit coverage, and unauthorized salary access attempts.
-4. Run `pilot:invite-readiness` and `pilot:go-no-go` for the actual customer tenant before inviting staff, then run a daily pilot health check during the two-week trial.
+4. Run `pilot:invite-readiness` and `pilot:go-no-go` for the actual customer tenant before inviting staff, then run `pilot:morning-brief` plus `pilot:daily-status` during the two-week trial.
 5. Add guided one-click setup actions where safe, starting with schedule generation, leave-balance sync, announcement template creation, and payslip rehearsal release.
