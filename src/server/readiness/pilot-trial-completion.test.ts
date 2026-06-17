@@ -86,6 +86,27 @@ describe("pilot trial completion", () => {
       status: "block",
     });
   });
+
+  it("keeps completion blocked when evidence scan is intentionally skipped", () => {
+    const report = buildPilotTrialCompletionReport({
+      checkpoints: completeCheckpointCoverage(),
+      kpis: kpis(),
+      evidenceScan: null,
+      evidenceScanRequired: false,
+    });
+
+    expect(report).toMatchObject({
+      status: "blocked",
+      completed: false,
+      blockers: 0,
+      warnings: 1,
+    });
+    expect(report.checks.find((check) => check.id === "evidence_privacy")).toMatchObject({
+      status: "warn",
+      nextStep: "Run evidence scan before treating the pilot as complete or sharing evidence outside the implementation team.",
+    });
+    expect(pilotTrialCompletionPassed(report)).toBe(false);
+  });
 });
 
 function completeCheckpointCoverage(): BetaPilotCheckpointCoverage[] {

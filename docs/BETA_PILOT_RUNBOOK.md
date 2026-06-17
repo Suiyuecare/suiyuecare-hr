@@ -278,7 +278,7 @@ Expected evidence:
 - Trial run and checkpoint records are persisted in PostgreSQL.
 - Daily status reports are redacted and contain only aggregate or hash-only evidence references.
 - Evidence scan passes for the pilot report folder and reports zero sensitive-value findings.
-- `pilot:trial-completion` reports `completed` only when preflight access review, Day 1 announcement receipt, Day 3 clock/leave/manager approval evidence, Day 7 payroll rehearsal plus payslip access, Day 14 final review, KPI status, and evidence privacy scan are all acceptable.
+- `pilot:trial-completion` reports `completed` only when preflight access review, Day 1 announcement receipt, Day 3 clock/leave/manager approval evidence, Day 7 payroll rehearsal plus payslip access, Day 14 final review, KPI status, and evidence privacy scan are all acceptable with zero blockers and zero warnings. `--skip-evidence-scan` is diagnostic only and cannot approve final handoff.
 - Audit logs exist for create, approve, reject, payroll close, payslip release, and sensitive settings.
 - Employees cannot see other employees' payslips.
 - Managers cannot see subordinate salary unless explicitly granted.

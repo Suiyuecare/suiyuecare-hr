@@ -100,11 +100,12 @@ export function buildPilotTrialCompletionReport(
   ];
   const blockers = checks.filter((check) => check.status === "block").length;
   const warnings = checks.filter((check) => check.status === "warn").length;
+  const completed = blockers === 0 && warnings === 0;
 
   return {
-    status: blockers === 0 ? "completed" : "blocked",
+    status: completed ? "completed" : "blocked",
     generatedAt,
-    completed: blockers === 0,
+    completed,
     blockers,
     warnings,
     checks,
@@ -113,7 +114,7 @@ export function buildPilotTrialCompletionReport(
 }
 
 export function pilotTrialCompletionPassed(report: PilotTrialCompletionReport) {
-  return report.status === "completed" && report.blockers === 0;
+  return report.status === "completed" && report.blockers === 0 && report.warnings === 0;
 }
 
 export function formatPilotTrialCompletionMarkdown(report: PilotTrialCompletionReport) {
@@ -194,7 +195,7 @@ function buildEvidencePrivacyCheck(
       detail: required ? "No evidence scan report was provided." : "Evidence scan was skipped by operator choice.",
       nextStep: required
         ? "Run pnpm pilot:evidence-scan on the pilot evidence folder and fix every finding."
-        : "Run evidence scan before sharing completion evidence outside the implementation team.",
+        : "Run evidence scan before treating the pilot as complete or sharing evidence outside the implementation team.",
     };
   }
   const passed = pilotEvidenceScanPassed(evidenceScan);
