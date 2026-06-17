@@ -36,6 +36,7 @@
     "pilot:acceptance": "tsx scripts/pilot-acceptance.ts",
     "pilot:handoff": "tsx scripts/pilot-handoff.ts",
     "pilot:daily-status": "tsx scripts/pilot-daily-status.ts",
+    "pilot:morning-brief": "tsx scripts/pilot-morning-brief.ts",
     "pilot:import-template-pack": "tsx scripts/create-pilot-import-template-pack.ts",
     "pilot:import-preflight": "tsx scripts/pilot-import-preflight.ts",
     "pilot:customer-import": "tsx scripts/pilot-customer-import.ts",

@@ -11,7 +11,7 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 - HR 後台：員工匯入、人事主檔、組織與部門、任用異動、文件庫、出勤例外、班表、假勤政策、薪資設定、薪資月結、薪資單釋出、公告、表單建置、工作規則、訓練、勞健保/勞退與台灣法規規則管理。
 - 老闆/Owner 管理：公司設定、RBAC 權限、訂閱與商務狀態、資安設定、支援存取授權、備份還原證據、上線 readiness、audit log 與勞檢證據包。
 - AI Copilot 安全層：政策 Q&A、表單草稿、簽核摘要、薪資異常解釋；只做輔助與來源引用，不做招募拒絕、裁員、薪資、績效或懲戒決策。
-- 試用與上線工具：Supabase private schema 驗證、Vercel production env 草稿、20-50 人 pilot 匯入模板、匯入預檢、身份/SSO 匯入、邀請 readiness、每日狀態、每日戰情 today gate、證據掃描、go/no-go 開跑總檢查、兩週試用結案檢查。
+- 試用與上線工具：Supabase private schema 驗證、Vercel production env 草稿、20-50 人 pilot 匯入模板、匯入預檢、身份/SSO 匯入、邀請 readiness、每日晨會摘要、每日狀態、每日戰情 today gate、證據掃描、go/no-go 開跑總檢查、兩週試用結案檢查。
 
 ## 下一階段
 
@@ -20,7 +20,7 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 - 用 `pnpm pilot:go-no-go` 做試用開跑前總檢查，必須同時通過 acceptance、Day 0、匯入預檢、邀請 readiness 與證據掃描。
 - 兩週試用結束後用 `pnpm pilot:trial-completion` 彙整 checkpoint、KPI 與 evidence scan，確認打卡、請假、簽核、公告、月結預演、薪資單查看與敏感資料安全都有證據。
 - 重新排版前端/後台 UI：比照 Finance 系統調整色彩、資訊密度、卡片層級、文字大小、主視覺與後台模組入口，避免「很多功能但不好用」。
-- 做 2 週小規模實測：追蹤第一次請假時間、主管簽核時間、手機端任務完成率、出勤異常解決率、薪資月結演練時間與權限/敏感資料測試。
+- 做 2 週小規模實測：每天用 `pnpm pilot:morning-brief` 和 `pnpm pilot:daily-status` 管控 stop/go，追蹤第一次請假時間、主管簽核時間、手機端任務完成率、出勤異常解決率、薪資月結演練時間與權限/敏感資料測試。
 
 Current live production-pilot status and blockers are tracked in [`docs/pilot-production-status.md`](docs/pilot-production-status.md).
 
@@ -246,13 +246,14 @@ pnpm pilot:handoff -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuec
 
 The handoff is derived from `pilot:acceptance` and is safe to review with HR/operations, but it should still be checked before sharing outside the pilot team.
 
-During the two-week trial, run the redacted daily status check for preflight, day 1, day 3, day 7, and day 14:
+During the two-week trial, run the redacted morning brief before the daily standup, then run the daily status check for preflight, day 1, day 3, day 7, and day 14:
 
 ```bash
+pnpm pilot:morning-brief -- --day=1 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-morning-day-1.md
 pnpm pilot:daily-status -- --day=1 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-1.md
 ```
 
-The daily status report maps the acceptance matrix to the active trial day, flags blockers, separates demo rehearsal from production evidence, and repeats the privacy guardrails for payroll, bank, national ID, health, database URL, and private HR note data.
+The morning brief gives HR/ops a short stop/go agenda for the day. The daily status report maps the acceptance matrix to the active trial day, flags blockers, separates demo rehearsal from production evidence, and repeats the privacy guardrails for payroll, bank, national ID, health, database URL, and private HR note data.
 
 To prepare a real 20-50 person customer's import workbook, generate the synthetic template pack:
 
@@ -417,6 +418,7 @@ pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --dry-run
 pnpm pilot:doctor -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production
 pnpm pilot:acceptance -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug>
 pnpm pilot:handoff -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-handoff.md
+pnpm pilot:morning-brief -- --day=1 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-morning-day-1.md
 pnpm pilot:daily-status -- --day=1 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-1.md
 pnpm pilot:import-template-pack -- --output=/tmp/hr-one-pilot-import-template --cohort-size=25 --force
 pnpm pilot:import-preflight -- --employee-csv=/secure/customer/employee-import.csv --identity-csv=/secure/customer/identity-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --output=/tmp/hr-one-pilot-import-preflight.md
@@ -451,7 +453,7 @@ For a real customer's HR data collection, use `pnpm pilot:import-template-pack -
 
 Before sending the first employee invitation, run `pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --employee-csv=<employee.csv> --identity-csv=<identity.csv> --payroll-csv=<payroll.csv> --evidence-path=<pilot-evidence-folder> --recursive --output=/tmp/hr-one-pilot-go-no-go.md`. It combines production acceptance, Day 0 status, import preflight, invite readiness, and evidence privacy scanning into one redacted start/stop decision. Any warning is a no-go for real employee invitations; `--skip-import-preflight`, `--skip-invite-readiness`, and `--skip-evidence-scan` are diagnostic only and cannot approve a real trial.
 
-During the two-week pilot, use `pnpm pilot:daily-status -- --day=<0-14> ... --tenant-slug=<customer-slug>` as the daily operating gate. Day 0 checks preflight, Day 1 checks employee rollout and announcements, Day 3 checks leave and manager approvals, Day 7 checks payroll rehearsal and payslip access, and Day 14 checks final review. The report is redacted and should contain only aggregate or hash-only evidence references. Before sharing the pilot folder, run `pnpm pilot:evidence-scan -- --path=<pilot-evidence-folder> --recursive`; it fails when it detects database URLs, bearer tokens, Supabase secret keys, private keys, raw `DATABASE_URL`, labeled national IDs, bank accounts, salary amounts, or health data, and it reports only category counts without echoing matched values. After Day 14, run `pnpm pilot:trial-completion -- --tenant-slug=<customer-slug> --evidence-path=<pilot-evidence-folder> --recursive` to prove the trial completed required workflows and KPI/safety checks before calling it successful. Any warning keeps the completion report blocked; `--skip-evidence-scan` is diagnostic only and cannot approve final handoff.
+During the two-week pilot, use `pnpm pilot:morning-brief -- --day=<0-14> ... --tenant-slug=<customer-slug>` before the daily standup and `pnpm pilot:daily-status -- --day=<0-14> ... --tenant-slug=<customer-slug>` as the daily operating gate. Day 0 checks preflight, Day 1 checks employee rollout and announcements, Day 3 checks leave and manager approvals, Day 7 checks payroll rehearsal and payslip access, and Day 14 checks final review. Both reports are redacted and should contain only aggregate or hash-only evidence references. Before sharing the pilot folder, run `pnpm pilot:evidence-scan -- --path=<pilot-evidence-folder> --recursive`; it fails when it detects database URLs, bearer tokens, Supabase secret keys, private keys, raw `DATABASE_URL`, labeled national IDs, bank accounts, salary amounts, or health data, and it reports only category counts without echoing matched values. After Day 14, run `pnpm pilot:trial-completion -- --tenant-slug=<customer-slug> --evidence-path=<pilot-evidence-folder> --recursive` to prove the trial completed required workflows and KPI/safety checks before calling it successful. Any warning keeps the completion report blocked; `--skip-evidence-scan` is diagnostic only and cannot approve final handoff.
 
 To connect Vercel production to Supabase, run `pnpm vercel:create-production-env-draft` to create a gitignored `.env.vercel.production` draft with generated local secrets, then replace every `REPLACE_WITH_*` placeholder with real production values. At minimum this requires the server-side Supabase transaction pooler `DATABASE_URL` with `pgbouncer=true&connection_limit=1&schema=hr_one`, production OIDC issuer/login/JWKS details, and real backup/restore drill evidence.
 
