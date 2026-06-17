@@ -1,14 +1,14 @@
 # HR One Production Pilot Status
 
-Last checked: 2026-06-17 11:34 Asia/Taipei
+Last checked: 2026-06-17 11:45 Asia/Taipei
 
 ## Current State
 
 - Live domain: `https://hr.suiyuecare.com`
 - GitHub repository: `Suiyuecare/suiyuecare-hr`
 - Vercel project in repo metadata: `prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N` (`suiyuecare-hr2`)
-- GitHub `main` is at `7ab3c60` and includes the production SSO login guard, the pilot doctor env handoff update, the expanded Supabase pilot readiness seed, the `/settings/company-setup` guided setup wizard, the `/settings/pilot-invite-readiness` management screen, the `/settings/pilot-operations` daily trial war room with Today Gate, the redacted `pilot:morning-brief` command, and stricter trial completion gating that requires zero blockers and zero warnings.
-- Active Vercel project `suiyuecare-hr2` last confirmed deployed commit `88f99f6` successfully on 2026-06-17. The current GitHub status for `7ab3c60` is blocked by Vercel build rate limiting with "Deployment rate limited - retry in 24 hours." Legacy `suiyuecare-hr` has the same rate-limited status context and should not be treated as the active production project.
+- GitHub `main` is at `83b9695` and includes the production SSO login guard, the pilot doctor env handoff update, the expanded Supabase pilot readiness seed, the `/settings/company-setup` guided setup wizard, the `/settings/pilot-invite-readiness` management screen, the `/settings/pilot-operations` daily trial war room with Today Gate, the redacted `pilot:morning-brief` command, Finance-style pilot workspace UI refinements, and stricter trial completion gating that requires zero blockers and zero warnings.
+- Active Vercel project `suiyuecare-hr2` last confirmed deployed commit `88f99f6` successfully on 2026-06-17. The current GitHub status for `83b9695` is blocked on `suiyuecare-hr2` by Vercel build rate limiting with "Deployment rate limited - retry in 24 hours." Legacy `suiyuecare-hr` may still show a separate pending/deploying status and should not be treated as the active production project.
 - Vercel Production now has all required bootstrap values, backup restore evidence, and a server-side `DATABASE_URL`.
 - The server-side `DATABASE_URL` has been rotated to a verified direct Supabase custom-role URL for `hr_one_app_runtime`; the remaining blocker is network reachability from Vercel to Supabase direct Postgres.
 - Local `.env.vercel.production` verification now supports `pnpm env:verify:production -- --env-file=.env.vercel.production`. The current draft has been refreshed with known non-secret Supabase Auth values and the 2026-06-17 restore drill date, so OIDC issuer/login/JWKS and restore drill evidence now pass locally. The draft is still blocked only because `DATABASE_URL` remains a placeholder/invalid value. Do not apply this draft to Vercel until the Supabase transaction pooler URL or IPv4 add-on attestation is configured.
@@ -19,9 +19,9 @@ Last checked: 2026-06-17 11:34 Asia/Taipei
 
 GitHub `main` contains the new pilot UI. The live site may lag behind `main` while Vercel deployment rate limits or production readiness blockers are active:
 
-- `/app` includes the employee mobile task cards: `主要任務`, `今日常用任務`, and `薪資單`.
-- `/console` includes the backend pilot flow strip: `兩週試用核心流程`, `打卡 · 請假 · 薪資單`, `HR 月結`, and `安全上線`.
-- `/hr`, after switching to the HR demo role, includes the updated module board: `後台模組`, `員工與任用`, `打卡與假勤`, `月結與發薪`, `表單與公告`, and `分析與稽核`.
+- `/app` includes the employee mobile task cards plus the new `打卡 -> 申請 -> 公告 -> 薪資單` pilot flow strip.
+- `/console` includes the backend pilot flow strip and the new Finance-style command board for `今日戰情`, `待簽核`, and `上線 Gate`.
+- `/hr`, after switching to the HR demo role, includes the new HR close command band for `出勤`, `簽核`, `薪資`, and `安全`, plus the updated module board: `後台模組`, `員工與任用`, `打卡與假勤`, `月結與發薪`, `表單與公告`, and `分析與稽核`.
 - `/settings/company-setup` gives HR a guided setup wizard for company structure, user access, schedules, punch policy, leave balances, manager Inbox, announcements, payroll/payslip readiness, and audit/privacy coverage without exposing raw sensitive data. It now includes audited setup actions for 14-day schedules, leave balance synchronization, trial announcements, and demo payroll rehearsal; production payroll blockers still require HR review.
 - `/settings/pilot-invite-readiness` shows the pre-invitation gate for login identity, role coverage, manager lines, 14-day schedules, leave balances, and self-only payslip visibility without exposing names, emails, salaries, bank accounts, SSO subjects, or private notes.
 - `/settings/pilot-operations` shows Day 0, Day 1, Day 3, Day 7, and Day 14 checkpoint coverage, missing evidence, next actions, a Today Gate that follows the persisted trial day and earliest unfinished checkpoint, and hash-only evidence forms for the 20-50 person trial.
