@@ -121,6 +121,48 @@ describe("pilot doctor", () => {
     expect(report.nextActions).toContain(
       "Fix local production env verification failures before apply: database url, auth issuer url, auth login url.",
     );
+    expect(report.nextActions).toContain(
+      "Run pnpm env:verify:production -- --env-file=.env.vercel.production until the local production env draft passes before applying it to Vercel.",
+    );
+    expect(report.nextActions).toContain(
+      "Use a server-side Supabase Postgres DATABASE_URL with schema=hr_one. On Vercel, prefer the transaction pooler URL with pgbouncer=true&connection_limit=1&schema=hr_one; do not use the publishable key as DATABASE_URL.",
+    );
+  });
+
+  it("tells the operator to apply a ready env draft when the live gate is still blocked", () => {
+    const report = buildPilotDoctorReport({
+      vercelEnvNames: [...requiredProductionPilotEnvKeys],
+      productionGate: buildProductionPilotGateReport({
+        appUrl: "https://hr.suiyuecare.com",
+        expectedHost: "hr.suiyuecare.com",
+        healthReport: {
+          ...readyHealth,
+          status: "fail",
+          checks: [
+            readyHealth.checks[0]!,
+            {
+              name: "database",
+              status: "fail",
+              detail: "database ping failed; Supabase direct database hosts require IPv6 or the IPv4 add-on",
+            },
+            readyHealth.checks[2]!,
+          ],
+        },
+      }),
+      supabasePilot: {
+        status: "passed",
+        detail: "pilot seed verified",
+      },
+      localEnvDraft: {
+        status: "ready",
+        detail: "local draft ready",
+      },
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.nextActions).toContain(
+      "Apply the verified production env draft with pnpm vercel:apply-production-env -- --env-file=.env.vercel.production, then trigger a new Vercel production deployment.",
+    );
   });
 
   it("does not suggest known-env bootstrap after bootstrap keys are already present", () => {

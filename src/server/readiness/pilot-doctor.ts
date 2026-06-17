@@ -200,6 +200,9 @@ function buildNextActions(options: {
   if (options.localEnvDraft?.failedCheckNames?.length) {
     actions.push(`Fix local production env verification failures before apply: ${options.localEnvDraft.failedCheckNames.join(", ")}.`);
   }
+  if (options.localEnvDraft?.status === "blocked") {
+    actions.push("Run pnpm env:verify:production -- --env-file=.env.vercel.production until the local production env draft passes before applying it to Vercel.");
+  }
   if (missingBootstrapKeys.length > 0) {
     actions.push("Optionally run pnpm vercel:bootstrap-known-env -- --env-file=.env.vercel.production to prefill safe known Production env values; it will not write DATABASE_URL, vault refs, or restore-drill evidence.");
   } else if (missingOperatorManagedKeys.length > 0) {
@@ -208,7 +211,15 @@ function buildNextActions(options: {
   if (options.missingEnvKeys.length > 0) {
     actions.push("Fill .env.vercel.production with real production values and run pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --method=cli.");
   }
-  if (options.missingEnvKeys.includes("DATABASE_URL")) {
+  if (options.localEnvDraft?.status === "ready" && !productionPilotGatePassed(options.productionGate)) {
+    actions.push("Apply the verified production env draft with pnpm vercel:apply-production-env -- --env-file=.env.vercel.production, then trigger a new Vercel production deployment.");
+  }
+  if (
+    options.missingEnvKeys.includes("DATABASE_URL") ||
+    options.localEnvDraft?.failedCheckNames?.some((name) =>
+      ["database url", "database private schema", "Supabase Vercel database network", "Supabase Prisma pooler params"].includes(name)
+    )
+  ) {
     actions.push("Use a server-side Supabase Postgres DATABASE_URL with schema=hr_one. On Vercel, prefer the transaction pooler URL with pgbouncer=true&connection_limit=1&schema=hr_one; do not use the publishable key as DATABASE_URL.");
   }
   if (!productionPilotGatePassed(options.productionGate)) {
