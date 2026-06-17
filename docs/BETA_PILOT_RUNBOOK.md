@@ -214,6 +214,7 @@ Expected evidence:
 - `pilot:import-preflight` returns `ready` and the Markdown report contains no names, emails, SSO subjects, salary amounts, bank accounts, national IDs, health data, or private HR notes.
 - `pilot:invite-readiness` returns `ready` only when all active employees have active linked users, employee roles, required SSO identities, allowed email-domain coverage, departments, 14-day schedule coverage, leave balance coverage, self-only payslip visibility rules, and every manager with direct reports has login plus manager role coverage.
 - `pilot:go-no-go` returns `ready_to_start` only when production acceptance, Day 0 status, import preflight, invite readiness, and pilot evidence scan are all acceptable, with zero blockers and zero warnings.
+- `pilot:workflow-readiness` separates the core pilot workflows into `production_ready`, `rehearsed_only`, and `blocked` so HR does not confuse demo rehearsal with production evidence.
 - `pnpm pilot:evidence-scan -- --path=<pilot-evidence-folder> --recursive` passes before any generated pilot report is shared outside the implementation team.
 
 ## Phase 3: Two-Week Trial Operations
@@ -231,6 +232,12 @@ Preflight:
 - Confirm unauthorized payroll access tests pass.
 - Run `pnpm pilot:invite-readiness -- --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-invite-readiness.md` and fix every blocker before invitations.
 - Run `pnpm pilot:go-no-go -- ... --output=/tmp/hr-one-pilot-go-no-go.md` and keep the redacted report in the pilot evidence folder.
+- Run the workflow readiness matrix and keep it with the pilot evidence folder:
+
+  ```bash
+  pnpm pilot:workflow-readiness -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-workflow-readiness-day-0.md
+  ```
+
 - Generate the Day 0 morning brief for the pilot operations huddle:
 
   ```bash
@@ -259,6 +266,7 @@ Day 3:
 - HR clears attendance exceptions.
 - Employees verify request timelines and notifications.
 - Run `pnpm pilot:morning-brief -- --day=3 ... --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-morning-day-3.md` before the daily standup.
+- Run `pnpm pilot:workflow-readiness -- --require-production-evidence ... --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-workflow-readiness-day-3.md`; Day 3 should have production evidence for clock in/out, leave request, and manager approval. It may still show payroll and payslip as missing until Day 7.
 - Confirm the Today Gate is not pointing back to Day 1 or Day 3 missing evidence, then run `pnpm pilot:daily-status -- --day=3 ... --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-3.md`.
 
 Day 7:
@@ -269,6 +277,7 @@ Day 7:
 - HR releases a test payslip only when permitted.
 - Employees view their own released payslip.
 - Run `pnpm pilot:morning-brief -- --day=7 ... --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-morning-day-7.md` before the payroll rehearsal meeting.
+- Run `pnpm pilot:workflow-readiness -- --require-production-evidence ... --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-workflow-readiness-day-7.md` and fix any remaining `blocked` or `rehearsed_only` item before calling the payroll/payslip checkpoint complete.
 - Confirm the Today Gate shows Day 7 payroll/payslip evidence as complete or explicitly lists only remaining Day 7 evidence, then run `pnpm pilot:daily-status -- --day=7 ... --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-7.md`.
 
 Day 14:
@@ -277,6 +286,7 @@ Day 14:
 - Export or review redacted audit evidence.
 - Confirm no unresolved security, payroll, or attendance blockers remain.
 - Run `pnpm pilot:morning-brief -- --day=14 ... --tenant-slug=<customer-slug> --final-review=verified --output=/tmp/hr-one-pilot-morning-day-14.md` before the final review.
+- Run `pnpm pilot:workflow-readiness -- --require-production-evidence ... --tenant-slug=<customer-slug> --final-review=verified --output=/tmp/hr-one-pilot-workflow-readiness-day-14.md` and require `production_ready` before final handoff.
 - Run `pnpm pilot:daily-status -- --day=14 ... --tenant-slug=<customer-slug> --final-review=verified --output=/tmp/hr-one-pilot-day-14.md` only after the final review checkpoint is genuinely verified.
 - Run `pnpm pilot:evidence-scan -- --path=<pilot-evidence-folder> --recursive` and fix every finding before the final handoff.
 - Run the trial completion gate:
@@ -289,6 +299,7 @@ Expected evidence:
 
 - Trial run and checkpoint records are persisted in PostgreSQL.
 - Daily status reports are redacted and contain only aggregate or hash-only evidence references.
+- Workflow readiness reports show production evidence for clock in/out, leave request, manager approval, announcement receipt, payroll rehearsal, payslip access, and preflight access review before final handoff.
 - Evidence scan passes for the pilot report folder and reports zero sensitive-value findings.
 - `pilot:trial-completion` reports `completed` only when preflight access review, Day 1 announcement receipt, Day 3 clock/leave/manager approval evidence, Day 7 payroll rehearsal plus payslip access, Day 14 final review, KPI status, and evidence privacy scan are all acceptable with zero blockers and zero warnings. `--skip-evidence-scan` is diagnostic only and cannot approve final handoff.
 - Audit logs exist for create, approve, reject, payroll close, payslip release, and sensitive settings.
