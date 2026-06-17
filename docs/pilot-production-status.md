@@ -1,13 +1,13 @@
 # HR One Production Pilot Status
 
-Last checked: 2026-06-17 12:50 Asia/Taipei
+Last checked: 2026-06-17 12:55 Asia/Taipei
 
 ## Current State
 
 - Live domain: `https://hr.suiyuecare.com`
 - GitHub repository: `Suiyuecare/suiyuecare-hr`
 - Vercel project in repo metadata: `prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N` (`suiyuecare-hr2`)
-- GitHub `main` includes the production SSO login guard, the pilot doctor env handoff update, the expanded Supabase pilot readiness seed, the `/settings/company-setup` guided setup wizard, the `/settings/pilot-invite-readiness` management screen, the `/settings/pilot-operations` daily trial war room with Today Gate, the `/console` two-week trial Gate summary, the redacted `pilot:morning-brief` command, the `pilot:workflow-readiness` core-flow evidence matrix, Finance-style pilot workspace UI refinements, stricter trial completion gating that requires zero blockers and zero warnings, and a go/no-go start gate that now embeds core workflow readiness.
+- GitHub `main` includes the production SSO login guard, the pilot doctor env handoff update, the expanded Supabase pilot readiness seed, the `/settings/company-setup` guided setup wizard, the `/settings/pilot-invite-readiness` management screen, the `/settings/pilot-operations` daily trial war room with Today Gate, the `/console` two-week trial Gate summary, employee 60-second quick leave presets, the redacted `pilot:morning-brief` command, the `pilot:workflow-readiness` core-flow evidence matrix, Finance-style pilot workspace UI refinements, stricter trial completion gating that requires zero blockers and zero warnings, and a go/no-go start gate that now embeds core workflow readiness.
 - Active Vercel project `suiyuecare-hr2` deployed GitHub `main` commit `0435a71` successfully on 2026-06-17 12:50 Asia/Taipei. Legacy `suiyuecare-hr` is rate limited and should not be treated as the active production project.
 - Vercel Production now has all required bootstrap values, backup restore evidence, and a server-side `DATABASE_URL`.
 - The server-side `DATABASE_URL` has been rotated to a verified direct Supabase custom-role URL for `hr_one_app_runtime`; the remaining blocker is network reachability from Vercel to Supabase direct Postgres.
@@ -20,6 +20,7 @@ Last checked: 2026-06-17 12:50 Asia/Taipei
 GitHub `main` contains the new pilot UI. The live site may lag behind `main` while Vercel deployment rate limits or production readiness blockers are active:
 
 - `/app` includes the employee mobile task cards plus the new `打卡 -> 申請 -> 公告 -> 薪資單` pilot flow strip.
+- `/app` now includes `60 秒請假` presets for full-day, morning half-day, and afternoon half-day leave. They use the existing audited leave request endpoint, manager approval flow, notifications, and telemetry instead of bypassing workflow controls.
 - `/console` includes the backend pilot flow strip and the new Finance-style command board for `今日戰情`, `待簽核`, and `上線 Gate`.
 - `/console` now also shows a data-driven `兩週試用 Gate` that summarizes Day 0, Day 1, Day 3, Day 7, and Day 14 checkpoint status, missing evidence count, next action, and hash-only evidence posture without exposing employee names or salary data.
 - `/hr`, after switching to the HR demo role, includes the new HR close command band for `出勤`, `簽核`, `薪資`, and `安全`, plus the updated module board: `後台模組`, `員工與任用`, `打卡與假勤`, `月結與發薪`, `表單與公告`, and `分析與稽核`.

@@ -1079,6 +1079,77 @@ textarea {
   line-height: 1;
 }
 
+.quick-leave-panel {
+  background: #ffffff;
+}
+
+.quick-leave-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.quick-leave-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 168px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.quick-leave-card.primary-card {
+  border-color: #11161c;
+  background: #11161c;
+  color: #ffffff;
+}
+
+.quick-leave-card span {
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.quick-leave-card.primary-card span,
+.quick-leave-card.primary-card small {
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.quick-leave-card strong {
+  color: var(--foreground);
+  font-size: 21px;
+  font-weight: 1000;
+  line-height: 1.15;
+}
+
+.quick-leave-card.primary-card strong {
+  color: #ffffff;
+}
+
+.quick-leave-card small {
+  color: var(--muted);
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.quick-leave-card .button {
+  margin-top: auto;
+  width: 100%;
+}
+
+.quick-leave-card:has(.button:not(:disabled)):hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.quick-leave-card.primary-card:has(.button:not(:disabled)):hover {
+  border-color: var(--accent);
+  background: #11161c;
+}
+
 .inline-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2382,6 +2453,7 @@ legend {
   .employee-pilot-strip,
   .employee-command-grid,
   .leave-balance-strip,
+  .quick-leave-grid,
   .admin-module-grid,
   .console-command-board,
   .console-pilot-gate,

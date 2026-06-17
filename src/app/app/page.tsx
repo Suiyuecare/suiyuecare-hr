@@ -16,6 +16,12 @@ export default async function EmployeeHomePage() {
   const pendingRequests = workspace.requests.filter((request) => request.status === "pending");
   const clockInDisplay = workspace.attendance.clockInAt ? formatTime(workspace.attendance.clockInAt) : "--:--";
   const clockOutDisplay = workspace.attendance.clockOutAt ? formatTime(workspace.attendance.clockOutAt) : "--:--";
+  const quickLeavePresets = buildQuickLeavePresets({
+    today,
+    scheduledStart: workspace.attendance.scheduledStart,
+    scheduledEnd: workspace.attendance.scheduledEnd,
+    remainingUnits: workspace.leaveBalance.remainingUnits,
+  });
   const todayCompletion = [
     workspace.attendance.clockInAt,
     workspace.attendance.clockOutAt,
@@ -175,6 +181,41 @@ export default async function EmployeeHomePage() {
               <small className="muted">請假送出後會保留餘額並通知主管。</small>
             )}
           </div>
+
+          <section className="panel span-12 quick-leave-panel" aria-labelledby="quick-leave">
+            <div className="section-heading">
+              <div>
+                <h2 id="quick-leave">60 秒請假</h2>
+                <p className="muted">常見請假不用填完整表單；送出後一樣通知主管並留下 audit。</p>
+              </div>
+              <span className="badge">{workspace.leaveBalance.remainingUnits} 可用</span>
+            </div>
+            <div className="quick-leave-grid">
+              {quickLeavePresets.map((preset) => (
+                <form
+                  action="/api/workflows/leave"
+                  method="post"
+                  className={`quick-leave-card ${preset.primary ? "primary-card" : ""}`}
+                  aria-label={`快速請假 ${preset.title}`}
+                  key={preset.id}
+                >
+                  <input type="hidden" name="taskStartedAt" value={taskStartedAt} />
+                  <input type="hidden" name="startDate" value={today} />
+                  <input type="hidden" name="endDate" value={today} />
+                  <input type="hidden" name="startTime" value={preset.startTime} />
+                  <input type="hidden" name="endTime" value={preset.endTime} />
+                  <input type="hidden" name="units" value={preset.units} />
+                  <input type="hidden" name="reason" value={preset.reason} />
+                  <span>{preset.label}</span>
+                  <strong>{preset.title}</strong>
+                  <small>{preset.detail}</small>
+                  <button className={`button ${preset.primary ? "primary" : ""}`} type="submit" disabled={preset.disabled}>
+                    {preset.disabled ? "餘額不足" : "送出"}
+                  </button>
+                </form>
+              ))}
+            </div>
+          </section>
 
           <section className="panel span-12 employee-actions" aria-labelledby="quick-actions">
             <div className="section-heading">
@@ -454,12 +495,64 @@ function toInputDate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function toInputTime(date: Date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
 function formatTime(date: Date) {
   return date.toLocaleTimeString("zh-TW", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   });
+}
+
+function buildQuickLeavePresets(input: {
+  today: string;
+  scheduledStart: Date;
+  scheduledEnd: Date;
+  remainingUnits: number;
+}) {
+  const startTime = toInputTime(input.scheduledStart);
+  const endTime = toInputTime(input.scheduledEnd);
+  return [
+    {
+      id: "full-day",
+      label: "今天",
+      title: "整天特休",
+      detail: `${startTime}-${endTime} · 1 天`,
+      startTime,
+      endTime,
+      units: "1",
+      reason: `快速請假：${input.today} 整天特休`,
+      primary: true,
+      disabled: input.remainingUnits < 1,
+    },
+    {
+      id: "morning",
+      label: "上午",
+      title: "上午半天",
+      detail: `${startTime}-13:00 · 0.5 天`,
+      startTime,
+      endTime: "13:00",
+      units: "0.5",
+      reason: `快速請假：${input.today} 上午半天`,
+      primary: false,
+      disabled: input.remainingUnits < 0.5,
+    },
+    {
+      id: "afternoon",
+      label: "下午",
+      title: "下午半天",
+      detail: `14:00-${endTime} · 0.5 天`,
+      startTime: "14:00",
+      endTime,
+      units: "0.5",
+      reason: `快速請假：${input.today} 下午半天`,
+      primary: false,
+      disabled: input.remainingUnits < 0.5,
+    },
+  ];
 }
 
 function formatAttachmentSummary(attachments: WorkflowRequest["attachments"]) {

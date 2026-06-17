@@ -77,6 +77,18 @@ test("員工前台與管理後台依角色分流", async ({ page }) => {
   await expect(page.getByText("公告發布", { exact: true }).first()).toBeVisible();
 });
 
+test("員工可以從手機首頁快速送出請假", async ({ page }) => {
+  await page.goto("/app");
+  await expect(page.getByRole("heading", { name: "60 秒請假" })).toBeVisible();
+
+  const quickLeave = page.getByRole("form", { name: "快速請假 上午半天" });
+  await quickLeave.getByRole("button", { name: "送出" }).click();
+
+  await expect(page).toHaveURL(/\/app#requests$/);
+  await expect(page.getByText(/快速請假：.*上午半天/)).toBeVisible();
+  await expect(page.getByText("簽核中").first()).toBeVisible();
+});
+
 test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) => {
   await page.goto("/app");
   await page.getByLabel("示範角色").selectOption("hr_admin");
