@@ -1,6 +1,6 @@
 # HR One Production Pilot Status
 
-Last checked: 2026-06-17 10:43 Asia/Taipei
+Last checked: 2026-06-17 10:51 Asia/Taipei
 
 ## Current State
 
@@ -11,7 +11,7 @@ Last checked: 2026-06-17 10:43 Asia/Taipei
 - Active Vercel project `suiyuecare-hr2` last confirmed deployed commit `88f99f6` successfully on 2026-06-17. Newer docs-only status commits may wait for Vercel rate limits to clear. Legacy `suiyuecare-hr` still has a separate rate-limited status context and should not be treated as the active production project.
 - Vercel Production now has all required bootstrap values, backup restore evidence, and a server-side `DATABASE_URL`.
 - The server-side `DATABASE_URL` has been rotated to a verified direct Supabase custom-role URL for `hr_one_app_runtime`; the remaining blocker is network reachability from Vercel to Supabase direct Postgres.
-- Local `.env.vercel.production` verification now supports `pnpm env:verify:production -- --env-file=.env.vercel.production`. The current draft is still blocked because `DATABASE_URL` is a placeholder/invalid value, OIDC issuer/login/JWKS URLs are invalid, and restore drill evidence is missing or invalid in the draft. Do not apply this draft to Vercel until those operator-managed values are corrected.
+- Local `.env.vercel.production` verification now supports `pnpm env:verify:production -- --env-file=.env.vercel.production`. The current draft has been refreshed with known non-secret Supabase Auth values, so OIDC issuer/login/JWKS now pass locally. The draft is still blocked because `DATABASE_URL` remains a placeholder/invalid value and restore drill evidence is missing or invalid. Do not apply this draft to Vercel until those operator-managed values are corrected.
 - Legacy Vercel status context `Vercel - suiyuecare-hr` may still appear. Use `suiyuecare-hr2` as the active project.
 - Supabase project `aruncclorusswpfnpgsn`, private schema `hr_one`, now contains a synthetic 25-person pilot tenant with expanded trial readiness controls.
 

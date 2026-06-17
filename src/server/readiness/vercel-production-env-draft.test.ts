@@ -4,6 +4,7 @@ import {
   buildVercelProductionEnvDraft,
   draftHasUnresolvedPlaceholders,
   getUnresolvedEnvPlaceholderKeys,
+  refreshVercelProductionEnvDraftKnownValues,
 } from "@/server/readiness/vercel-production-env-draft";
 import { parseEnvFile } from "@/server/readiness/vercel-production-env";
 
@@ -65,5 +66,42 @@ describe("Vercel production env draft", () => {
     const report = buildEnvironmentVerificationReport(env, "production", new Date("2026-06-17T00:00:00.000Z"));
 
     expect(report.checks.filter((check) => !check.passed)).toEqual([]);
+  });
+
+  it("refreshes known non-secret values without touching operator-managed values or generated secrets", () => {
+    const existing = [
+      "DATABASE_URL=\"REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE\"",
+      "HR_ONE_SESSION_SECRET=\"keep-this-session-secret-with-more-than-32-characters\"",
+      "HR_ONE_ENCRYPTION_KEY=\"keep-this-encryption-secret-with-more-than-32-characters\"",
+      "HR_ONE_AUDIT_LOG_SIGNING_KEY=\"keep-this-audit-secret-with-more-than-32-characters\"",
+      "HR_ONE_AUTH_PROVIDER=\"custom_oidc\"",
+      "HR_ONE_AUTH_ISSUER_URL=\"not-a-url\"",
+      "HR_ONE_AUTH_LOGIN_URL=\"not-a-url\"",
+      "HR_ONE_AUTH_JWKS_URL=\"not-a-url\"",
+      "HR_ONE_BACKUP_RESTORE_TESTED_AT=\"REPLACE_WITH_RESTORE_DRILL_DATE_AFTER_2026-06-17\"",
+      "",
+    ].join("\n");
+    const refreshed = refreshVercelProductionEnvDraftKnownValues(existing, {
+      now: new Date("2026-06-17T00:00:00.000Z"),
+    });
+    const env = parseEnvFile(refreshed.text);
+
+    expect(refreshed.changedKeys).toEqual([
+      "HR_ONE_AUTH_ISSUER_URL",
+      "HR_ONE_AUTH_JWKS_URL",
+      "HR_ONE_AUTH_LOGIN_URL",
+      "HR_ONE_AUTH_PROVIDER",
+    ]);
+    expect(env).toMatchObject({
+      DATABASE_URL: "REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE",
+      HR_ONE_SESSION_SECRET: "keep-this-session-secret-with-more-than-32-characters",
+      HR_ONE_ENCRYPTION_KEY: "keep-this-encryption-secret-with-more-than-32-characters",
+      HR_ONE_AUDIT_LOG_SIGNING_KEY: "keep-this-audit-secret-with-more-than-32-characters",
+      HR_ONE_AUTH_PROVIDER: "supabase_auth",
+      HR_ONE_AUTH_ISSUER_URL: "https://aruncclorusswpfnpgsn.supabase.co/auth/v1",
+      HR_ONE_AUTH_LOGIN_URL: "https://hr.suiyuecare.com/auth/sign-in",
+      HR_ONE_AUTH_JWKS_URL: "https://aruncclorusswpfnpgsn.supabase.co/auth/v1/.well-known/jwks.json",
+      HR_ONE_BACKUP_RESTORE_TESTED_AT: "REPLACE_WITH_RESTORE_DRILL_DATE_AFTER_2026-06-17",
+    });
   });
 });

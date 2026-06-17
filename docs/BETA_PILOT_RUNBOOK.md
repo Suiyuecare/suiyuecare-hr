@@ -51,12 +51,13 @@ Goal: production data must survive deploys and must not fall back to in-memory d
 
    ```bash
    pnpm vercel:create-production-env-draft
+   pnpm vercel:refresh-production-env-draft -- --env-file=.env.vercel.production
    pnpm vercel:bootstrap-known-env -- --env-file=.env.vercel.production
    pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --dry-run
    VERCEL_TOKEN=<token> pnpm vercel:apply-production-env -- --env-file=.env.vercel.production
    ```
 
-   `vercel:bootstrap-known-env` defaults to dry-run and only lists safe known values plus generated secrets; it skips database URL, OIDC placeholders, vault references, and restore-drill evidence. Use `--apply` only when intentionally preloading those known values. The full `vercel:apply-production-env` dry run must pass before writing the complete production env to Vercel. Neither script prints secret values. When `HR_ONE_ENV=production`, demo auth, demo reset, and demo role switching fail closed; do not rely on demo role switching for production checks.
+   `vercel:refresh-production-env-draft` defaults to dry-run and repairs known non-secret local draft values without touching `DATABASE_URL`, generated secrets, vault refs, or restore-drill evidence; pass `--apply` only to update the gitignored local draft. `vercel:bootstrap-known-env` also defaults to dry-run and only lists safe known values plus generated secrets; it skips database URL, vault references, and restore-drill evidence. Use `--apply` only when intentionally preloading those known values. The full `vercel:apply-production-env` dry run must pass before writing the complete production env to Vercel. None of these scripts prints secret values. When `HR_ONE_ENV=production`, demo auth, demo reset, and demo role switching fail closed; do not rely on demo role switching for production checks.
 
    For browser/mobile access, configure the SSO gateway or callback handler to exchange a verified OIDC token through `POST /api/auth/session` with `Authorization: Bearer <token>`. HR One will set an encrypted HttpOnly `hrone_oidc_session` cookie after the token maps to an active tenant user and role. The cookie is minimal and must not be used to carry raw email, names, salary, bank, national ID, health, or private HR note data.
 
