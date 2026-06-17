@@ -1,6 +1,6 @@
 # HR One Production Pilot Status
 
-Last checked: 2026-06-17 12:41 Asia/Taipei
+Last checked: 2026-06-17 12:50 Asia/Taipei
 
 ## Current State
 
@@ -8,7 +8,7 @@ Last checked: 2026-06-17 12:41 Asia/Taipei
 - GitHub repository: `Suiyuecare/suiyuecare-hr`
 - Vercel project in repo metadata: `prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N` (`suiyuecare-hr2`)
 - GitHub `main` includes the production SSO login guard, the pilot doctor env handoff update, the expanded Supabase pilot readiness seed, the `/settings/company-setup` guided setup wizard, the `/settings/pilot-invite-readiness` management screen, the `/settings/pilot-operations` daily trial war room with Today Gate, the `/console` two-week trial Gate summary, the redacted `pilot:morning-brief` command, the `pilot:workflow-readiness` core-flow evidence matrix, Finance-style pilot workspace UI refinements, stricter trial completion gating that requires zero blockers and zero warnings, and a go/no-go start gate that now embeds core workflow readiness.
-- Active Vercel project `suiyuecare-hr2` last confirmed deployed commit `88f99f6` successfully on 2026-06-17. Newer GitHub `main` commits may be ahead of the live site while Vercel deployment rate limits are active. Legacy `suiyuecare-hr` is rate limited and should not be treated as the active production project.
+- Active Vercel project `suiyuecare-hr2` deployed GitHub `main` commit `0435a71` successfully on 2026-06-17 12:50 Asia/Taipei. Legacy `suiyuecare-hr` is rate limited and should not be treated as the active production project.
 - Vercel Production now has all required bootstrap values, backup restore evidence, and a server-side `DATABASE_URL`.
 - The server-side `DATABASE_URL` has been rotated to a verified direct Supabase custom-role URL for `hr_one_app_runtime`; the remaining blocker is network reachability from Vercel to Supabase direct Postgres.
 - Local `.env.vercel.production` verification now supports `pnpm env:verify:production -- --env-file=.env.vercel.production`. The current draft has been refreshed with known non-secret Supabase Auth values and the 2026-06-17 restore drill date, so OIDC issuer/login/JWKS and restore drill evidence now pass locally. The draft is still blocked only because `DATABASE_URL` remains a placeholder/invalid value. Do not apply this draft to Vercel until the Supabase transaction pooler URL or IPv4 add-on attestation is configured.
