@@ -1,10 +1,12 @@
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  buildProductionDatabaseEnvDraftReport,
   formatProductionDatabaseRemediationMarkdown,
   getProductionDatabaseRemediationReport,
 } from "../src/server/readiness/production-database-remediation";
 import { redactSensitiveDetail } from "../src/server/readiness/production-pilot-gate";
+import { parseEnvFile } from "../src/server/readiness/vercel-production-env";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -17,9 +19,14 @@ async function main() {
   const timeoutMs = parsePositiveInteger(readArg(args, "--timeout-ms"), 5000);
   const output = readArg(args, "--output");
   const json = args.includes("--json");
+  const skipEnvFile = args.includes("--skip-env-file");
+  const envFileSource = readArg(args, "--env-file") ?? ".env.vercel.production";
+  const envFilePath = resolve(envFileSource);
+  const envDraft = loadEnvDraftReport(envFilePath, envFileSource, skipEnvFile);
   const report = await getProductionDatabaseRemediationReport({
     appUrl,
     expectedHost,
+    envDraft,
     timeoutMs,
   });
   const content = json
@@ -50,6 +57,24 @@ function parsePositiveInteger(value: string | null, fallback: number) {
   if (!value) return fallback;
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function loadEnvDraftReport(envFile: string, source: string, skipped: boolean) {
+  if (skipped) {
+    return buildProductionDatabaseEnvDraftReport(null, {
+      source,
+      skipped: true,
+    });
+  }
+  if (!existsSync(envFile)) {
+    return buildProductionDatabaseEnvDraftReport(null, {
+      source,
+    });
+  }
+  const env = parseEnvFile(readFileSync(envFile, "utf8"));
+  return buildProductionDatabaseEnvDraftReport(env, {
+    source,
+  });
 }
 
 main().catch((error: unknown) => {

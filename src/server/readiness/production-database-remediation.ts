@@ -5,6 +5,17 @@ import {
   type ProductionPilotGateReport,
 } from "@/server/readiness/production-pilot-gate";
 import type { HealthReport } from "@/server/readiness/health";
+import {
+  buildEnvironmentVerificationReport,
+  environmentVerificationPassed,
+  type EnvironmentVerificationCheck,
+} from "@/server/readiness/environment-verification";
+import {
+  classifyDatabaseConnection,
+  hasPrismaTransactionPoolerParams,
+  type DatabaseConnectionPosture,
+} from "@/server/readiness/database-url";
+import { getUnresolvedEnvPlaceholderKeys } from "@/server/readiness/vercel-production-env-draft";
 
 export type ProductionDatabaseRootCause =
   | "ready"
@@ -39,6 +50,7 @@ export type ProductionDatabaseRemediationReport = {
   rootCause: ProductionDatabaseRootCause;
   summary: string;
   gate: ProductionPilotGateReport;
+  envDraft: ProductionDatabaseEnvDraftReport | null;
   databaseDetail: string;
   environmentDetail: string;
   tracks: ProductionDatabaseRemediationTrack[];
@@ -46,17 +58,32 @@ export type ProductionDatabaseRemediationReport = {
   privacyGuardrails: string[];
 };
 
+export type ProductionDatabaseEnvDraftStatus = "ready" | "blocked" | "missing" | "skipped";
+
+export type ProductionDatabaseEnvDraftReport = {
+  status: ProductionDatabaseEnvDraftStatus;
+  source: string;
+  databaseConnectionPosture: DatabaseConnectionPosture | "not_checked";
+  databaseUrlShape: string;
+  unresolvedPlaceholderKeys: string[];
+  failedCheckNames: string[];
+  checks: EnvironmentVerificationCheck[];
+  nextActions: string[];
+};
+
 export type ProductionDatabaseRemediationInput = {
   appUrl: string;
   expectedHost?: string | null;
   healthReport?: HealthReport | null;
   fetchedHealthStatusCode?: number | null;
+  envDraft?: ProductionDatabaseEnvDraftReport | null;
   generatedAt?: Date;
 };
 
 export type ProductionDatabaseWorkspaceOptions = {
   appUrl?: string;
   expectedHost?: string | null;
+  envDraft?: ProductionDatabaseEnvDraftReport | null;
   fetcher?: typeof fetch;
   generatedAt?: Date;
   timeoutMs?: number;
@@ -79,8 +106,78 @@ export async function getProductionDatabaseRemediationReport(
     expectedHost: options.expectedHost ?? expectedHostFromUrl(appUrl),
     healthReport: fetched.healthReport,
     fetchedHealthStatusCode: fetched.statusCode,
+    envDraft: options.envDraft ?? null,
     generatedAt: options.generatedAt,
   });
+}
+
+export function buildProductionDatabaseEnvDraftReport(
+  env: Record<string, string | undefined> | null,
+  options: {
+    source?: string;
+    skipped?: boolean;
+    now?: Date;
+  } = {},
+): ProductionDatabaseEnvDraftReport {
+  const source = options.source ?? ".env.vercel.production";
+  if (options.skipped) {
+    return {
+      status: "skipped",
+      source,
+      databaseConnectionPosture: "not_checked",
+      databaseUrlShape: "not checked",
+      unresolvedPlaceholderKeys: [],
+      failedCheckNames: [],
+      checks: [],
+      nextActions: ["Local production env draft check skipped by operator request."],
+    };
+  }
+  if (!env) {
+    return {
+      status: "missing",
+      source,
+      databaseConnectionPosture: "not_checked",
+      databaseUrlShape: "not checked",
+      unresolvedPlaceholderKeys: [],
+      failedCheckNames: [],
+      checks: [],
+      nextActions: [
+        `Create or pass a production env draft with --env-file before applying Vercel Production variables.`,
+      ],
+    };
+  }
+
+  const verification = buildEnvironmentVerificationReport(env, "production", options.now);
+  const checks = verification.checks.map((check) => ({
+    ...check,
+    detail: redactSensitiveDetail(check.detail),
+  }));
+  const unresolvedPlaceholderKeys = getUnresolvedEnvPlaceholderKeys(env);
+  const failedCheckNames = checks.filter((check) => !check.passed).map((check) => check.name);
+  const databaseUrl = readEnv(env, "DATABASE_URL");
+  const databaseConnectionPosture = classifyDatabaseConnection(databaseUrl);
+  const databaseUrlShape = describeDatabaseUrlShape(databaseUrl, unresolvedPlaceholderKeys);
+  const status =
+    environmentVerificationPassed(verification) && unresolvedPlaceholderKeys.length === 0
+      ? "ready"
+      : "blocked";
+
+  return {
+    status,
+    source,
+    databaseConnectionPosture,
+    databaseUrlShape,
+    unresolvedPlaceholderKeys,
+    failedCheckNames,
+    checks,
+    nextActions: buildEnvDraftNextActions({
+      status,
+      databaseUrl,
+      databaseConnectionPosture,
+      unresolvedPlaceholderKeys,
+      failedCheckNames,
+    }),
+  };
 }
 
 export function buildProductionDatabaseRemediationReport(
@@ -95,6 +192,7 @@ export function buildProductionDatabaseRemediationReport(
   });
   const databaseDetail = safeCheckDetail(input.healthReport ?? null, "database");
   const environmentDetail = safeCheckDetail(input.healthReport ?? null, "environment");
+  const envDraft = input.envDraft ?? null;
   const rootCause = classifyRootCause({
     healthReport: input.healthReport ?? null,
     statusCode: input.fetchedHealthStatusCode ?? null,
@@ -103,7 +201,7 @@ export function buildProductionDatabaseRemediationReport(
   });
   const status = gate.status === "ready" && rootCause === "ready" ? "ready" : "blocked";
   const tracks = buildTracks(rootCause);
-  const nextActions = buildNextActions(rootCause, gate);
+  const nextActions = buildNextActions(rootCause, gate, envDraft);
 
   return {
     status,
@@ -113,6 +211,7 @@ export function buildProductionDatabaseRemediationReport(
     rootCause,
     summary: summaryForRootCause(rootCause),
     gate,
+    envDraft,
     databaseDetail,
     environmentDetail,
     tracks,
@@ -141,6 +240,10 @@ export function formatProductionDatabaseRemediationMarkdown(
     "## Summary",
     "",
     redactSensitiveDetail(report.summary),
+    "",
+    "## Local Env Draft",
+    "",
+    ...formatEnvDraft(report.envDraft),
     "",
     "## Gate Checks",
     "",
@@ -194,6 +297,21 @@ async function fetchLiveReadyHealth(appUrl: string, fetcher: typeof fetch, timeo
 
 function formatList(items: string[]) {
   return items.length ? items.map((item) => `- ${redactSensitiveDetail(item)}`) : ["- None."];
+}
+
+function formatEnvDraft(report: ProductionDatabaseEnvDraftReport | null) {
+  if (!report) return ["- Not attached."];
+  return [
+    `- Status: ${report.status}`,
+    `- Source: ${redactSensitiveDetail(report.source)}`,
+    `- Database shape: ${redactSensitiveDetail(report.databaseUrlShape)}`,
+    `- Failed checks: ${report.failedCheckNames.length ? report.failedCheckNames.join(", ") : "None"}`,
+    `- Unresolved placeholders: ${
+      report.unresolvedPlaceholderKeys.length ? report.unresolvedPlaceholderKeys.join(", ") : "None"
+    }`,
+    "- Draft next actions:",
+    ...formatList(report.nextActions).map((item) => `  ${item}`),
+  ];
 }
 
 function classifyRootCause(input: {
@@ -261,7 +379,11 @@ function buildTracks(rootCause: ProductionDatabaseRootCause): ProductionDatabase
   ];
 }
 
-function buildNextActions(rootCause: ProductionDatabaseRootCause, gate: ProductionPilotGateReport) {
+function buildNextActions(
+  rootCause: ProductionDatabaseRootCause,
+  gate: ProductionPilotGateReport,
+  envDraft: ProductionDatabaseEnvDraftReport | null,
+) {
   const actions: string[] = [];
   if (rootCause === "ready") {
     actions.push("Production database gate 已通過；接著匯入真實 20-50 人 tenant 並跑完整 pilot:go-no-go。");
@@ -279,8 +401,75 @@ function buildNextActions(rootCause: ProductionDatabaseRootCause, gate: Producti
   } else {
     actions.push("打開 live readiness 與 Vercel runtime logs，先定位 environment/database/demo auth 哪一項仍是 fail。");
   }
+  if (envDraft?.status === "blocked") {
+    actions.push(...envDraft.nextActions);
+  } else if (envDraft?.status === "missing") {
+    actions.push("Attach a local production env draft to the database gate report before applying Vercel Production env changes.");
+  }
   actions.push(...gate.nextActions);
   return [...new Set(actions.map(redactSensitiveDetail))];
+}
+
+function buildEnvDraftNextActions(input: {
+  status: "ready" | "blocked";
+  databaseUrl: string | null;
+  databaseConnectionPosture: DatabaseConnectionPosture;
+  unresolvedPlaceholderKeys: string[];
+  failedCheckNames: string[];
+}) {
+  const actions: string[] = [];
+  if (input.status === "ready") {
+    return ["Local production env draft passes the redacted production verifier; still verify live production after redeploy."];
+  }
+
+  if (input.unresolvedPlaceholderKeys.length > 0) {
+    actions.push(`Replace unresolved production env placeholders for: ${input.unresolvedPlaceholderKeys.join(", ")}.`);
+  }
+
+  if (!input.databaseUrl || input.databaseConnectionPosture === "invalid") {
+    actions.push("Set a server-only production PostgreSQL database URL before applying Vercel Production env changes.");
+  } else if (input.databaseConnectionPosture === "supabase-direct") {
+    actions.push("Replace the Supabase direct host with the transaction pooler, or enable the Supabase IPv4 add-on and set the explicit IPv4 attestation.");
+  } else if (input.databaseConnectionPosture === "supabase-pooler-session") {
+    actions.push("Use the Supabase transaction pooler for Vercel/serverless; the session pooler is not the intended path for this runtime.");
+  } else if (input.databaseConnectionPosture === "supabase-pooler-unknown") {
+    actions.push("Confirm the Supabase pooler URL uses transaction mode on the expected pooler port before applying it.");
+  } else if (
+    input.databaseConnectionPosture === "supabase-pooler-transaction" &&
+    !hasPrismaTransactionPoolerParams(input.databaseUrl)
+  ) {
+    actions.push("Add Prisma pooler parameters pgbouncer=true and connection_limit=1 to the transaction pooler URL.");
+  }
+
+  if (input.failedCheckNames.length > 0) {
+    actions.push(`Fix failed production env verifier checks: ${input.failedCheckNames.join(", ")}.`);
+  }
+
+  return [...new Set(actions.map(redactSensitiveDetail))];
+}
+
+function describeDatabaseUrlShape(
+  databaseUrl: string | null,
+  unresolvedPlaceholderKeys: string[],
+) {
+  if (!databaseUrl) return "missing server-only database URL";
+  if (unresolvedPlaceholderKeys.includes("DATABASE_URL")) return "unresolved database URL placeholder";
+  const posture = classifyDatabaseConnection(databaseUrl);
+  if (posture === "supabase-direct") return "Supabase direct host";
+  if (posture === "supabase-pooler-session") return "Supabase session pooler";
+  if (posture === "supabase-pooler-unknown") return "Supabase pooler with nonstandard port";
+  if (posture === "supabase-pooler-transaction") {
+    return hasPrismaTransactionPoolerParams(databaseUrl)
+      ? "Supabase transaction pooler with Prisma pooler params"
+      : "Supabase transaction pooler missing Prisma pooler params";
+  }
+  if (posture === "other") return "other PostgreSQL-compatible URL";
+  return "invalid database URL";
+}
+
+function readEnv(env: Record<string, string | undefined>, key: string) {
+  const value = env[key]?.trim();
+  return value ? value : null;
 }
 
 function summaryForRootCause(rootCause: ProductionDatabaseRootCause) {

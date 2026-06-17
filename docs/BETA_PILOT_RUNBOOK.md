@@ -65,13 +65,13 @@ Goal: production data must survive deploys and must not fall back to in-memory d
 5. Verify:
 
    ```bash
-   pnpm pilot:production-database -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --output=/tmp/hr-one-production-database-gate.md
+   pnpm pilot:production-database -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --env-file=.env.vercel.production --output=/tmp/hr-one-production-database-gate.md
    pnpm db:supabase:verify-schema -- --project-ref=<supabase-project-ref> --schema=hr_one
    pnpm env:verify:production
    curl -fsS https://hr.suiyuecare.com/api/health/ready
    ```
 
-   Owner/HR can also open `/settings/production-database` to see the same hard blocker in the management UI. The page and CLI explain whether the current root cause is a Supabase direct-host network path, pooler configuration, missing `DATABASE_URL`, production env posture, or an unreachable health endpoint. They never display the actual database URL or secret values.
+   Owner/HR can also open `/settings/production-database` to see the same hard blocker in the management UI. The page and CLI explain whether the current root cause is a Supabase direct-host network path, pooler configuration, missing `DATABASE_URL`, production env posture, or an unreachable health endpoint. The CLI also inspects the local `.env.vercel.production` draft by default and reports only database shape, failed check names, and unresolved placeholder keys. Use `--skip-env-file` for a live-health-only report. They never display the actual database URL or secret values.
 
 Expected evidence:
 

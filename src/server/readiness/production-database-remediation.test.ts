@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildProductionDatabaseEnvDraftReport,
   buildProductionDatabaseRemediationReport,
   formatProductionDatabaseRemediationMarkdown,
   getProductionDatabaseRemediationReport,
@@ -53,6 +54,91 @@ const readyHealth: HealthReport = {
 };
 
 describe("production database remediation", () => {
+  it("adds local production env draft diagnostics without leaking database secrets", () => {
+    const envDraft = buildProductionDatabaseEnvDraftReport(
+      {
+        ...validProductionEnv(),
+        DATABASE_URL: "postgresql://hrone_runtime:top-secret-password@db.aruncclorusswpfnpgsn.supabase.co:5432/postgres?schema=hr_one",
+      },
+      {
+        source: ".env.vercel.production",
+        now: new Date("2026-06-17T08:00:00.000Z"),
+      },
+    );
+    const report = buildProductionDatabaseRemediationReport({
+      appUrl: "https://hr.suiyuecare.com",
+      expectedHost: "hr.suiyuecare.com",
+      healthReport: directHostFailureHealth,
+      fetchedHealthStatusCode: 503,
+      envDraft,
+      generatedAt: new Date("2026-06-17T08:00:00.000Z"),
+    });
+
+    expect(envDraft.status).toBe("blocked");
+    expect(envDraft.databaseConnectionPosture).toBe("supabase-direct");
+    expect(envDraft.databaseUrlShape).toBe("Supabase direct host");
+    expect(envDraft.failedCheckNames).toContain("Supabase Vercel database network");
+    expect(report.nextActions.join("\n")).toContain("IPv4");
+
+    const markdown = formatProductionDatabaseRemediationMarkdown(report);
+    expect(markdown).toContain("## Local Env Draft");
+    expect(markdown).toContain("Database shape: Supabase direct host");
+
+    const serialized = JSON.stringify(report);
+    expect(serialized).not.toContain("postgresql://");
+    expect(serialized).not.toContain("top-secret-password");
+    expect(serialized).not.toContain("hrone_runtime");
+    expect(markdown).not.toContain("postgresql://");
+    expect(markdown).not.toContain("top-secret-password");
+    expect(markdown).not.toContain("hrone_runtime");
+  });
+
+  it("reports unresolved local env placeholders by key name only", () => {
+    const envDraft = buildProductionDatabaseEnvDraftReport(
+      {
+        ...validProductionEnv(),
+        DATABASE_URL: "REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE",
+      },
+      {
+        source: ".env.vercel.production",
+        now: new Date("2026-06-17T08:00:00.000Z"),
+      },
+    );
+
+    expect(envDraft.status).toBe("blocked");
+    expect(envDraft.unresolvedPlaceholderKeys).toEqual(["DATABASE_URL"]);
+    expect(envDraft.databaseUrlShape).toBe("unresolved database URL placeholder");
+    expect(envDraft.nextActions.join("\n")).toContain("DATABASE_URL");
+
+    const serialized = JSON.stringify(envDraft);
+    expect(serialized).not.toContain("REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE");
+    expect(serialized).not.toContain("DATABASE_URL=");
+    expect(serialized).not.toContain("postgresql://");
+  });
+
+  it("marks a transaction-pooler env draft ready without exposing the URL", () => {
+    const envDraft = buildProductionDatabaseEnvDraftReport(
+      {
+        ...validProductionEnv(),
+        DATABASE_URL: "postgresql://postgres.aruncclorusswpfnpgsn:pooler-secret-value@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&schema=hr_one",
+      },
+      {
+        source: ".env.vercel.production",
+        now: new Date("2026-06-17T08:00:00.000Z"),
+      },
+    );
+
+    expect(envDraft.status).toBe("ready");
+    expect(envDraft.databaseConnectionPosture).toBe("supabase-pooler-transaction");
+    expect(envDraft.databaseUrlShape).toBe("Supabase transaction pooler with Prisma pooler params");
+    expect(envDraft.failedCheckNames).toEqual([]);
+
+    const serialized = JSON.stringify(envDraft);
+    expect(serialized).not.toContain("postgresql://");
+    expect(serialized).not.toContain("pooler-secret-value");
+    expect(serialized).not.toContain("postgres.aruncclorusswpfnpgsn");
+  });
+
   it("classifies the live Supabase direct-host blocker and keeps remediation output redacted", () => {
     const report = buildProductionDatabaseRemediationReport({
       appUrl: "https://hr.suiyuecare.com",
@@ -115,3 +201,37 @@ describe("production database remediation", () => {
     expect(report.nextActions.join("\n")).toContain("/api/health/ready");
   });
 });
+
+function validProductionEnv() {
+  return {
+    HR_ONE_ENV: "production",
+    HR_ONE_APP_URL: "https://hr.suiyuecare.com",
+    HR_ONE_DEPLOYMENT_TARGET: "vercel",
+    VERCEL_PROJECT_ID: "prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N",
+    HR_ONE_DATABASE_PROVIDER: "supabase_postgres",
+    NEXT_PUBLIC_SUPABASE_URL: "https://aruncclorusswpfnpgsn.supabase.co",
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_yScyXz-bOUu7W5geHggd4A_9FcGwU7M",
+    HR_ONE_SESSION_SECRET: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    HR_ONE_ENCRYPTION_KEY: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    HR_ONE_AUDIT_LOG_SIGNING_KEY: "cccccccccccccccccccccccccccccccccccccccc",
+    HR_ONE_OBJECT_STORAGE_SECRET_REF: "vault://suiyuecare/hr-one/storage",
+    HR_ONE_AUTH_PROVIDER: "supabase_auth",
+    HR_ONE_AUTH_SESSION_SOURCE: "oidc",
+    HR_ONE_AUTH_ISSUER_URL: "https://aruncclorusswpfnpgsn.supabase.co/auth/v1",
+    HR_ONE_AUTH_LOGIN_URL: "https://hr.suiyuecare.com/auth/sign-in",
+    HR_ONE_AUTH_AUDIENCE: "authenticated",
+    HR_ONE_AUTH_JWKS_URL: "https://aruncclorusswpfnpgsn.supabase.co/auth/v1/.well-known/jwks.json",
+    HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS: "3600",
+    HR_ONE_AI_PROVIDER: "disabled",
+    HR_ONE_AI_PROMPT_STORAGE: "hashed",
+    HR_ONE_RATE_LIMIT_ENABLED: "true",
+    HR_ONE_RATE_LIMIT_PROVIDER: "vercel_firewall",
+    HR_ONE_RATE_LIMIT_SECRET_REF: "vault://suiyuecare/hr-one/rate-limit",
+    HR_ONE_RATE_LIMIT_WINDOW_SECONDS: "60",
+    HR_ONE_RATE_LIMIT_MAX_REQUESTS: "600",
+    HR_ONE_BACKUP_ENABLED: "true",
+    HR_ONE_BACKUP_RETENTION_DAYS: "35",
+    HR_ONE_BACKUP_ENCRYPTION_KEY_REF: "vault://suiyuecare/hr-one/backup-key",
+    HR_ONE_BACKUP_RESTORE_TESTED_AT: "2026-06-17",
+  };
+}
