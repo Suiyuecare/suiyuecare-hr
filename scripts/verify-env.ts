@@ -1,14 +1,23 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   buildEnvironmentVerificationReport,
   environmentVerificationPassed,
   type EnvironmentVerificationMode,
 } from "../src/server/readiness/environment-verification";
+import { parseEnvFile } from "../src/server/readiness/vercel-production-env";
 
 function main() {
-  const mode = parseMode(process.argv.slice(2));
-  const report = buildEnvironmentVerificationReport(process.env, mode);
+  const args = process.argv.slice(2);
+  const mode = parseMode(args);
+  const envFile = readArg(args, "--env-file");
+  const env = envFile ? readEnvFile(envFile) : process.env;
+  const report = buildEnvironmentVerificationReport(env, mode);
 
   console.log(`HR One environment verification: ${report.mode}`);
+  if (envFile) {
+    console.log(`Source: ${resolve(envFile)}`);
+  }
   for (const item of report.checks) {
     console.log(`${item.passed ? "PASS" : "FAIL"} ${item.name}: ${item.detail}`);
   }
@@ -19,6 +28,14 @@ function main() {
   }
 
   console.log("Environment verification passed.");
+}
+
+function readEnvFile(path: string) {
+  const envFile = resolve(path);
+  if (!existsSync(envFile)) {
+    throw new Error(`Env file not found: ${envFile}`);
+  }
+  return parseEnvFile(readFileSync(envFile, "utf8"));
 }
 
 function parseMode(args: string[]): EnvironmentVerificationMode {

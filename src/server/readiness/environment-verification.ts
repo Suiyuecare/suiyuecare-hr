@@ -104,12 +104,18 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
     check(
       "database url",
       isProductionPostgresUrl(databaseUrl),
-      databaseUrl ? "PostgreSQL URL configured without local/demo host hints" : "missing DATABASE_URL",
+      productionPostgresUrlDetail(databaseUrl),
     ),
     check(
       "public app url",
       isHttpsUrl(appUrl) && !hasWeakValue(appUrl),
-      appUrl ? "HTTPS production URL configured" : "missing HR_ONE_APP_URL or NEXT_PUBLIC_APP_URL",
+      httpsUrlDetail({
+        value: appUrl,
+        missing: "missing HR_ONE_APP_URL or NEXT_PUBLIC_APP_URL",
+        invalid: "invalid HR_ONE_APP_URL or NEXT_PUBLIC_APP_URL",
+        configured: "HTTPS production URL configured",
+        rejectWeak: true,
+      }),
     ),
     check(
       "deployment target",
@@ -206,7 +212,12 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
     check(
       "auth issuer url",
       isHttpsUrl(read(env, "HR_ONE_AUTH_ISSUER_URL")),
-      read(env, "HR_ONE_AUTH_ISSUER_URL") ? "HTTPS issuer configured" : "missing HR_ONE_AUTH_ISSUER_URL",
+      httpsUrlDetail({
+        value: read(env, "HR_ONE_AUTH_ISSUER_URL"),
+        missing: "missing HR_ONE_AUTH_ISSUER_URL",
+        invalid: "invalid HR_ONE_AUTH_ISSUER_URL",
+        configured: "HTTPS issuer configured",
+      }),
     ),
     check(
       "auth login url",
@@ -225,7 +236,12 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
     check(
       "auth jwks url",
       isHttpsUrl(read(env, "HR_ONE_AUTH_JWKS_URL")),
-      read(env, "HR_ONE_AUTH_JWKS_URL") ? "HTTPS JWKS configured" : "missing HR_ONE_AUTH_JWKS_URL",
+      httpsUrlDetail({
+        value: read(env, "HR_ONE_AUTH_JWKS_URL"),
+        missing: "missing HR_ONE_AUTH_JWKS_URL",
+        invalid: "invalid HR_ONE_AUTH_JWKS_URL",
+        configured: "HTTPS JWKS configured",
+      }),
     ),
     check(
       "auth token max age",
@@ -354,6 +370,33 @@ function supabaseVercelDatabaseNetworkDetail(input: {
   }
   if (posture === "invalid") return "invalid DATABASE_URL";
   return "DATABASE_URL is not a recognized Supabase connection string";
+}
+
+function productionPostgresUrlDetail(value: string | null) {
+  if (!value) return "missing DATABASE_URL";
+  if (hasWeakValue(value)) return "DATABASE_URL contains a placeholder, demo, local, or weak value";
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "postgresql:" && url.protocol !== "postgres:") {
+      return "DATABASE_URL must start with postgresql:// or postgres://";
+    }
+    return "PostgreSQL URL configured without local/demo host hints";
+  } catch {
+    return "DATABASE_URL is not a valid URL";
+  }
+}
+
+function httpsUrlDetail(input: {
+  value: string | null;
+  missing: string;
+  invalid: string;
+  configured: string;
+  rejectWeak?: boolean;
+}) {
+  if (!input.value) return input.missing;
+  if (!isHttpsUrl(input.value)) return input.invalid;
+  if (input.rejectWeak && hasWeakValue(input.value)) return input.invalid;
+  return input.configured;
 }
 
 function supabasePrismaPoolerDetail(input: {

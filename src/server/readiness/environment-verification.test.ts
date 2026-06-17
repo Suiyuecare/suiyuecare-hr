@@ -71,20 +71,46 @@ describe("environment verification", () => {
     expect(report.checks.find((item) => item.name === "HR_ONE_ENCRYPTION_KEY")).toMatchObject({ passed: false });
   });
 
-  it("requires a production SSO login URL", () => {
+  it("returns an actionable detail when DATABASE_URL is not a Postgres URL", () => {
     const report = buildEnvironmentVerificationReport(
       {
         ...productionEnv,
-        HR_ONE_AUTH_LOGIN_URL: "http://localhost:3000/login",
+        DATABASE_URL: "REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE",
       },
       "production",
       new Date("2026-06-12T00:00:00.000Z"),
     );
 
+    expect(report.checks.find((item) => item.name === "database url")).toMatchObject({
+      passed: false,
+      detail: "DATABASE_URL contains a placeholder, demo, local, or weak value",
+    });
+  });
+
+  it("requires a production SSO login URL", () => {
+    const report = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        HR_ONE_AUTH_ISSUER_URL: "supabase-auth",
+        HR_ONE_AUTH_LOGIN_URL: "http://localhost:3000/login",
+        HR_ONE_AUTH_JWKS_URL: "auth-keys",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+
+    expect(report.checks.find((item) => item.name === "auth issuer url")).toMatchObject({
+      passed: false,
+      detail: "invalid HR_ONE_AUTH_ISSUER_URL",
+    });
     expect(environmentVerificationPassed(report)).toBe(false);
     expect(report.checks.find((item) => item.name === "auth login url")).toMatchObject({
       passed: false,
       detail: "invalid HR_ONE_AUTH_LOGIN_URL",
+    });
+    expect(report.checks.find((item) => item.name === "auth jwks url")).toMatchObject({
+      passed: false,
+      detail: "invalid HR_ONE_AUTH_JWKS_URL",
     });
   });
 
