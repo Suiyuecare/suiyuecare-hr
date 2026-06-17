@@ -39,6 +39,7 @@ export default async function HrDashboardPage() {
     payroll,
   });
   const closeHealth = buildCloseHealth(payroll.checklist.steps);
+  const payrollRunway = buildPayrollRunway(payroll);
   const workspaceGroups = buildWorkspaceGroups({
     pendingExceptionCount,
     payrollStatus: payroll.run?.status ?? "not started",
@@ -339,6 +340,45 @@ export default async function HrDashboardPage() {
             </div>
           </div>
 
+          <section className="payroll-day7-guide" aria-label="Day 7 月結預演">
+            <div className="payroll-day7-main">
+              <span className="muted">Day 7 月結預演</span>
+              <h3>{payrollRunway.title}</h3>
+              <p>{payrollRunway.detail}</p>
+              <div className="payroll-day7-safety">
+                <span className="badge">薪資資料不在摘要外洩</span>
+                <span className="badge">每一步都寫入 audit log</span>
+                <span className="badge">鎖定後需走調整流程</span>
+              </div>
+            </div>
+            <div className="payroll-day7-action">
+              <span className={`badge ${payrollRunway.tone === "ready" ? "" : payrollRunway.tone}`}>
+                {payrollRunway.status}
+              </span>
+              {payrollRunway.formAction ? (
+                <form action={payrollRunway.formAction} method="post">
+                  <button className="button primary" type="submit" aria-label={`Day 7 下一步：${payrollRunway.actionLabel}`}>
+                    {payrollRunway.actionLabel}
+                  </button>
+                </form>
+              ) : (
+                <a className="button primary" href={payrollRunway.href}>
+                  {payrollRunway.actionLabel}
+                </a>
+              )}
+              <small>{payrollRunway.actionNote}</small>
+            </div>
+            <div className="payroll-runway" aria-label="薪資月結安全跑道">
+              {payrollRunway.stages.map((stage) => (
+                <div className={`payroll-runway-stage ${stage.status}`} key={stage.id}>
+                  <span>{stage.step}</span>
+                  <strong>{stage.title}</strong>
+                  <small>{stage.detail}</small>
+                </div>
+              ))}
+            </div>
+          </section>
+
           <div className="action-row payroll-actions">
             <form action="/api/payroll/create" method="post">
               <button className="button primary" type="submit">
@@ -529,7 +569,144 @@ type AdminModuleGroup = {
   }>;
 };
 
+type PayrollDashboard = Awaited<ReturnType<typeof getPayrollDashboard>>;
+type PayrollRunway = {
+  title: string;
+  detail: string;
+  status: string;
+  tone: "ready" | "warning" | "danger";
+  actionLabel: string;
+  actionNote: string;
+  href: string;
+  formAction?: string;
+  stages: Array<{
+    id: string;
+    step: string;
+    title: string;
+    detail: string;
+    status: "done" | "current" | "blocked" | "todo";
+  }>;
+};
+
 type CloseStep = Awaited<ReturnType<typeof getPayrollDashboard>>["checklist"]["steps"][number];
+
+function buildPayrollRunway(payroll: PayrollDashboard): PayrollRunway {
+  const runStatus = payroll.run?.status ?? "not started";
+  const blockedStep = payroll.checklist.steps.find((step) => step.status === "blocked");
+  const currentStep = findCurrentPayrollStep(payroll);
+  const stages = payroll.checklist.steps.map((step) => {
+    let status: PayrollRunway["stages"][number]["status"] = "todo";
+    if (step.status === "done") status = "done";
+    if (step.status === "blocked") status = "blocked";
+    if (step.step === currentStep.step && step.status !== "done" && step.status !== "blocked") status = "current";
+    return {
+      id: step.title,
+      step: `0${step.step}`,
+      title: translatePayrollStepTitle(step.title),
+      detail: translatePayrollDetail(step.detail),
+      status,
+    };
+  });
+
+  if (!payroll.run) {
+    return {
+      title: "建立本月薪資批次",
+      detail: "先產生月結批次，系統會匯入出勤、請假、加班與薪資主檔，並在進入鎖定前擋下缺漏。",
+      status: "尚未開始",
+      tone: "warning",
+      actionLabel: "建立薪資批次",
+      actionNote: "建立後會先進入阻擋項檢查，不會直接發薪。",
+      href: "/hr",
+      formAction: "/api/payroll/create",
+      stages,
+    };
+  }
+
+  if (runStatus === "blocked" && blockedStep) {
+    return {
+      title: translatePayrollStepTitle(blockedStep.title),
+      detail: translatePayrollDetail(blockedStep.detail),
+      status: "目前有阻擋項",
+      tone: "danger",
+      actionLabel: "標記阻擋項已檢查",
+      actionNote: "只在 HR 確認缺漏已處理後使用；仍會保留 audit trail。",
+      href: "/hr/attendance-exceptions",
+      formAction: "/api/payroll/resolve-blockers",
+      stages,
+    };
+  }
+
+  if (runStatus === "draft") {
+    return {
+      title: "進行薪資試算草稿",
+      detail: "阻擋項已檢查，接著用目前規則版本產生可審核草稿，讓 HR 先看例外再確認。",
+      status: "可試算",
+      tone: "warning",
+      actionLabel: "試算草稿",
+      actionNote: "試算會綁定規則版本，避免月底公式被靜默更改。",
+      href: "/hr",
+      formAction: "/api/payroll/recalculate",
+      stages,
+    };
+  }
+
+  if (runStatus === "calculated") {
+    return {
+      title: "HR 檢查例外後確認",
+      detail: "草稿已產生，請確認出勤、加班、假勤、加扣項與規則版本，確認後才可進入鎖定。",
+      status: "待 HR 確認",
+      tone: "warning",
+      actionLabel: "人資確認",
+      actionNote: "確認代表 HR 已看過例外，不代表薪資單已發布。",
+      href: "/hr",
+      formAction: "/api/payroll/confirm",
+      stages,
+    };
+  }
+
+  if (runStatus === "confirmed") {
+    return {
+      title: "鎖定薪資批次",
+      detail: "HR 已確認草稿。鎖定後不可靜默異動，後續若有修正必須走明確調整流程。",
+      status: "可鎖定",
+      tone: "warning",
+      actionLabel: "鎖定薪資",
+      actionNote: "鎖定是正式發布薪資單前的最後安全閘門。",
+      href: "/hr",
+      formAction: "/api/payroll/lock",
+      stages,
+    };
+  }
+
+  if (runStatus === "locked") {
+    return {
+      title: "發布員工薪資單",
+      detail: "薪資已鎖定，可以發布薪資單；員工只能查看自己的薪資單，主管預設不能看部屬薪資。",
+      status: "可發布",
+      tone: "warning",
+      actionLabel: "發布薪資單",
+      actionNote: "發布後請抽查員工端本人可讀、主管不可讀。",
+      href: "/app/payslip",
+      formAction: "/api/payroll/release",
+      stages,
+    };
+  }
+
+  return {
+    title: "月結預演完成",
+    detail: "薪資單已發布，下一步是讓員工查看薪資單、保存證據，並跑未授權存取測試。",
+    status: "已發布",
+    tone: "ready",
+    actionLabel: "查看員工薪資單",
+    actionNote: "薪資明細只應出現在授權角色與本人薪資單頁面。",
+    href: "/app/payslip",
+    stages,
+  };
+}
+
+function findCurrentPayrollStep(payroll: PayrollDashboard): CloseStep {
+  return payroll.checklist.steps.find((step) => step.status !== "done") ?? payroll.checklist.steps[payroll.checklist.steps.length - 1];
+}
 
 function buildNextActions(input: {
   attendanceExceptionCount: number;

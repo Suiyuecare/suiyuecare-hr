@@ -238,17 +238,19 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
 
   await page.goto("/hr");
   await expect(page.getByRole("heading", { name: "月結主控台" })).toBeVisible();
-  await page.getByRole("button", { name: "建立薪資批次" }).click();
+  await expect(page.getByText("Day 7 月結預演")).toBeVisible();
+  await expect(page.getByText("薪資資料不在摘要外洩")).toBeVisible();
+  await page.getByRole("button", { name: "Day 7 下一步：建立薪資批次" }).click();
   await expect(page.getByText("已阻擋").first()).toBeVisible();
-  await page.getByRole("button", { name: "標記阻擋項已檢查" }).click();
+  await page.getByRole("button", { name: "Day 7 下一步：標記阻擋項已檢查" }).click();
   await expect(page.getByText("草稿").first()).toBeVisible();
-  await page.getByRole("button", { name: "試算草稿" }).click();
+  await page.getByRole("button", { name: "Day 7 下一步：試算草稿" }).click();
   await expect(page.getByText("已試算").first()).toBeVisible();
-  await page.getByRole("button", { name: "人資確認" }).click();
+  await page.getByRole("button", { name: "Day 7 下一步：人資確認" }).click();
   await expect(page.getByText("已確認").first()).toBeVisible();
-  await page.getByRole("button", { name: "鎖定薪資" }).click();
+  await page.getByRole("button", { name: "Day 7 下一步：鎖定薪資" }).click();
   await expect(page.getByText("已鎖定").first()).toBeVisible();
-  await page.getByRole("button", { name: "發布薪資單" }).click();
+  await page.getByRole("button", { name: "Day 7 下一步：發布薪資單" }).click();
   await expect(page.getByText("已發布").first()).toBeVisible();
 
   await switchDemoRole(page, "manager");

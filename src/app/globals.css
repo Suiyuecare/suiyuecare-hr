@@ -641,6 +641,129 @@ textarea {
   border-color: var(--panel-border);
 }
 
+.payroll-day7-guide {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.92fr) minmax(220px, 0.48fr);
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.payroll-day7-main,
+.payroll-day7-action,
+.payroll-runway {
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.payroll-day7-main {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  border-color: #151a20;
+  background: #151a20;
+  color: #ffffff;
+}
+
+.payroll-day7-main .muted {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.payroll-day7-main h3 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 1000;
+  line-height: 1.12;
+}
+
+.payroll-day7-main p {
+  max-width: 760px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.55;
+}
+
+.payroll-day7-safety,
+.payroll-day7-action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.payroll-day7-action {
+  align-content: space-between;
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 190px;
+  background: #f8faf9;
+}
+
+.payroll-day7-action form,
+.payroll-day7-action .button {
+  width: 100%;
+}
+
+.payroll-day7-action small {
+  color: var(--muted);
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.payroll-runway {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  background: #f8faf9;
+}
+
+.payroll-runway-stage {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-height: 132px;
+  border: 1px solid #d7e2dc;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.payroll-runway-stage span {
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.payroll-runway-stage strong {
+  font-size: 15px;
+  font-weight: 1000;
+  line-height: 1.22;
+}
+
+.payroll-runway-stage small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.payroll-runway-stage.done {
+  border-color: #9bd4c5;
+  background: #eefaf6;
+}
+
+.payroll-runway-stage.current {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.payroll-runway-stage.blocked {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
 .payroll-track {
   grid-template-columns: repeat(7, minmax(112px, 1fr));
 }
@@ -2498,6 +2621,8 @@ legend {
   .trial-summary-grid,
   .workspace-grid,
   .inbox-workspace,
+  .payroll-day7-guide,
+  .payroll-runway,
   .payroll-actions,
   .payroll-preview,
   .payroll-ledger-preview,
@@ -2533,7 +2658,9 @@ legend {
   .console-pilot-gate-main,
   .console-pilot-gate-step,
   .hr-close-command-copy,
-  .hr-close-command-card {
+  .hr-close-command-card,
+  .payroll-day7-action,
+  .payroll-runway-stage {
     min-height: auto;
   }
 
