@@ -43,9 +43,26 @@ export type PilotOperationsPhase = {
   nextStep: string;
 };
 
+export type PilotOperationsTodayGateStatus = "blocked" | "needs_evidence" | "ready_to_continue";
+
+export type PilotOperationsTodayGate = {
+  trialDay: number | null;
+  scheduledCheckpointId: BetaPilotCheckpointId;
+  focusCheckpointId: BetaPilotCheckpointId;
+  title: string;
+  timing: string;
+  status: PilotOperationsTodayGateStatus;
+  detail: string;
+  missingEvidenceTypes: BetaPilotEvidenceType[];
+  actionHref: string;
+  actionLabel: string;
+  nextStep: string;
+};
+
 export type PilotOperationsReport = {
   status: PilotOperationsStatus;
   generatedAt: string;
+  todayGate: PilotOperationsTodayGate;
   completedPhaseCount: number;
   blockedPhaseCount: number;
   inProgressPhaseCount: number;
@@ -59,6 +76,7 @@ export type PilotOperationsReport = {
 type PilotOperationsInput = {
   coverage: BetaPilotCheckpointCoverage[];
   generatedAt?: Date;
+  trialDay?: number | null;
 };
 
 type PilotPhaseDefinition = Omit<
@@ -146,9 +164,13 @@ const privacyGuardrails = [
   "任何要對外分享的試用報告，都要先跑 pilot:evidence-scan。",
 ];
 
-export async function getPilotOperationsReport(session: SessionLike) {
+export async function getPilotOperationsReport(
+  session: SessionLike,
+  options: { trialDay?: number | null } = {},
+) {
   return buildPilotOperationsReport({
     coverage: await getBetaPilotCheckpointCoverage(session),
+    trialDay: options.trialDay ?? null,
   });
 }
 
@@ -166,10 +188,12 @@ export function buildPilotOperationsReport(input: PilotOperationsInput): PilotOp
   const inProgressPhaseCount = phases.filter((phase) => phase.status === "in_progress").length;
   const totalRecordedEvidenceCount = phases.reduce((sum, phase) => sum + phase.recordedCount, 0);
   const currentPhase = phases.find((phase) => phase.status !== "verified") ?? null;
+  const todayGate = buildTodayGate(phases, input.trialDay ?? null);
 
   return {
     status: summarizeStatus(phases),
     generatedAt,
+    todayGate,
     completedPhaseCount,
     blockedPhaseCount,
     inProgressPhaseCount,
@@ -181,6 +205,75 @@ export function buildPilotOperationsReport(input: PilotOperationsInput): PilotOp
       .map((phase) => phase.nextStep),
     privacyGuardrails,
   };
+}
+
+function buildTodayGate(
+  phases: PilotOperationsPhase[],
+  trialDay: number | null,
+): PilotOperationsTodayGate {
+  const scheduledCheckpointId = checkpointForTrialDay(trialDay);
+  const scheduledPhase = phaseById(phases, scheduledCheckpointId);
+  const scheduledIndex = phaseDefinitions.findIndex((phase) => phase.checkpointId === scheduledCheckpointId);
+  const earliestOpenPhase = phases.find((phase, index) =>
+    index <= scheduledIndex && phase.status !== "verified",
+  );
+  const focusPhase = earliestOpenPhase ?? scheduledPhase;
+  return {
+    trialDay,
+    scheduledCheckpointId,
+    focusCheckpointId: focusPhase.checkpointId,
+    title: focusPhase.title,
+    timing: focusPhase.timing,
+    status: todayGateStatus(focusPhase),
+    detail: todayGateDetail(focusPhase, scheduledPhase, trialDay),
+    missingEvidenceTypes: focusPhase.missingEvidenceTypes,
+    actionHref: focusPhase.actionHref,
+    actionLabel: focusPhase.actionLabel,
+    nextStep: focusPhase.status === "verified"
+      ? "今天的必要證據已收齊，繼續監控打卡、簽核、公告與薪資單權限，不需要保存 raw 個資或薪資內容。"
+      : focusPhase.nextStep,
+  };
+}
+
+function checkpointForTrialDay(trialDay: number | null): BetaPilotCheckpointId {
+  if (trialDay === null || trialDay <= 0) return "preflight";
+  if (trialDay <= 1) return "day_1";
+  if (trialDay <= 3) return "day_3";
+  if (trialDay <= 7) return "day_7";
+  return "day_14";
+}
+
+function phaseById(
+  phases: PilotOperationsPhase[],
+  checkpointId: BetaPilotCheckpointId,
+): PilotOperationsPhase {
+  const phase = phases.find((item) => item.checkpointId === checkpointId);
+  if (!phase) throw new Error(`Missing pilot operations phase ${checkpointId}.`);
+  return phase;
+}
+
+function todayGateStatus(phase: PilotOperationsPhase): PilotOperationsTodayGateStatus {
+  if (phase.status === "blocked") return "blocked";
+  if (phase.status === "verified") return "ready_to_continue";
+  return "needs_evidence";
+}
+
+function todayGateDetail(
+  focusPhase: PilotOperationsPhase,
+  scheduledPhase: PilotOperationsPhase,
+  trialDay: number | null,
+) {
+  const dayLabel = trialDay === null ? "尚未建立試用批次" : `目前第 ${trialDay} 天`;
+  if (focusPhase.checkpointId !== scheduledPhase.checkpointId) {
+    return `${dayLabel}，但前一個 checkpoint 尚未完成，今日先補「${focusPhase.title}」。`;
+  }
+  if (focusPhase.status === "verified") {
+    return `${dayLabel} 的必要 checkpoint 已驗證，可繼續下一個營運節點。`;
+  }
+  if (focusPhase.status === "blocked") {
+    return `${dayLabel} 卡在「${focusPhase.title}」，先處理 blocker 才能讓試用證據可信。`;
+  }
+  return `${dayLabel} 需要收齊「${focusPhase.title}」的 hash-only 證據。`;
 }
 
 function buildPhase(

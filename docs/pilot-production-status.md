@@ -23,7 +23,7 @@ GitHub `main` contains the new pilot UI. The live site may lag behind `main` whi
 - `/hr`, after switching to the HR demo role, includes the updated module board: `後台模組`, `員工與任用`, `打卡與假勤`, `月結與發薪`, `表單與公告`, and `分析與稽核`.
 - `/settings/company-setup` gives HR a guided setup wizard for company structure, user access, schedules, punch policy, leave balances, manager Inbox, announcements, payroll/payslip readiness, and audit/privacy coverage without exposing raw sensitive data. It now includes audited setup actions for 14-day schedules, leave balance synchronization, trial announcements, and demo payroll rehearsal; production payroll blockers still require HR review.
 - `/settings/pilot-invite-readiness` shows the pre-invitation gate for login identity, role coverage, manager lines, 14-day schedules, leave balances, and self-only payslip visibility without exposing names, emails, salaries, bank accounts, SSO subjects, or private notes.
-- `/settings/pilot-operations` shows Day 0, Day 1, Day 3, Day 7, and Day 14 checkpoint coverage, missing evidence, next actions, and hash-only evidence forms for the 20-50 person trial.
+- `/settings/pilot-operations` shows Day 0, Day 1, Day 3, Day 7, and Day 14 checkpoint coverage, missing evidence, next actions, a Today Gate that follows the persisted trial day and earliest unfinished checkpoint, and hash-only evidence forms for the 20-50 person trial.
 
 ## Production Gate Result
 

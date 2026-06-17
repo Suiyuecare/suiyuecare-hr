@@ -2,12 +2,14 @@ import Link from "next/link";
 import { EmptyState } from "@/components/EmptyState";
 import { getDemoSession } from "@/server/auth/session";
 import { hasPermission } from "@/server/auth/rbac";
+import { getBetaPilotTrialWorkspace } from "@/server/readiness/beta-pilot-trial-run";
 import type { BetaPilotEvidenceType } from "@/server/readiness/beta-pilot-checkpoints";
 import {
   getPilotOperationsReport,
   type PilotOperationsPhase,
   type PilotOperationsPhaseStatus,
   type PilotOperationsStatus,
+  type PilotOperationsTodayGateStatus,
 } from "@/server/readiness/pilot-operations";
 
 type SearchParams = Promise<{
@@ -29,7 +31,10 @@ export default async function PilotOperationsPage({ searchParams }: { searchPara
   }
 
   const canManagePilot = hasPermission(session.role, "pilot:manage");
-  const report = await getPilotOperationsReport(session);
+  const trialWorkspace = await getBetaPilotTrialWorkspace(session);
+  const report = await getPilotOperationsReport(session, {
+    trialDay: trialWorkspace.trialRun?.currentDay ?? null,
+  });
 
   return (
     <main className="page">
@@ -89,6 +94,40 @@ export default async function PilotOperationsPage({ searchParams }: { searchPara
           <strong>{report.totalRecordedEvidenceCount}</strong>
           <span className="badge">audit events</span>
         </div>
+
+        <section className={`panel span-12 risk-box ${todayGateBoxClass(report.todayGate.status)}`}>
+          <div className="section-heading">
+            <div>
+              <h2>今日 Gate · {todayGateStatusLabel(report.todayGate.status)}</h2>
+              <p className="muted">{report.todayGate.detail}</p>
+            </div>
+            <div className="inline-actions">
+              <span className={`badge ${todayGateBadgeClass(report.todayGate.status)}`}>
+                {report.todayGate.trialDay === null ? "未建立批次" : `第 ${report.todayGate.trialDay} 天`}
+              </span>
+              <Link className="button" href={report.todayGate.actionHref}>
+                {report.todayGate.actionLabel}
+              </Link>
+            </div>
+          </div>
+          <div className="task-list">
+            <div className="task">
+              <span>
+                <strong>{report.todayGate.timing} · {report.todayGate.title}</strong>
+                <small>{report.todayGate.nextStep}</small>
+                <small>
+                  缺少證據：
+                  {report.todayGate.missingEvidenceTypes.length
+                    ? report.todayGate.missingEvidenceTypes.map(evidenceTypeLabel).join("、")
+                    : "無"}
+                </small>
+              </span>
+              <span className="badge">
+                依序補證
+              </span>
+            </div>
+          </div>
+        </section>
 
         <section className="panel span-12">
           <div className="section-heading">
@@ -270,6 +309,24 @@ function phaseStatusLabel(status: PilotOperationsPhaseStatus) {
   if (status === "blocked") return "阻擋";
   if (status === "in_progress") return "處理中";
   return "未開始";
+}
+
+function todayGateStatusLabel(status: PilotOperationsTodayGateStatus) {
+  if (status === "ready_to_continue") return "可繼續";
+  if (status === "blocked") return "阻擋";
+  return "待補證據";
+}
+
+function todayGateBoxClass(status: PilotOperationsTodayGateStatus) {
+  if (status === "blocked") return "danger-box";
+  if (status === "ready_to_continue") return "success-box";
+  return "";
+}
+
+function todayGateBadgeClass(status: PilotOperationsTodayGateStatus) {
+  if (status === "blocked") return "danger";
+  if (status === "needs_evidence") return "warning";
+  return "";
 }
 
 function evidenceTypeLabel(type: BetaPilotEvidenceType) {

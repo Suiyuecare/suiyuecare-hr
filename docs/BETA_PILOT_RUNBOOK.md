@@ -221,7 +221,7 @@ Preflight:
 - Run `/settings/company-setup`.
 - Run `/settings/readiness`.
 - Run `/settings/pilot-invite-readiness`.
-- Open `/settings/pilot-operations` and use it as the daily war room for checkpoint evidence.
+- Open `/settings/pilot-operations` and use it as the daily war room for checkpoint evidence. Treat the Today Gate at the top as the daily stop/go signal; if it points back to an earlier checkpoint, fix that evidence before recording later-day proof.
 - Create the persisted 20-50 person trial run.
 - Complete the access review checkpoint.
 - Confirm unauthorized payroll access tests pass.
@@ -239,7 +239,7 @@ Day 1:
 - Employees acknowledge announcement.
 - Employees clock in/out from mobile.
 - Employees submit at least one leave request.
-- Record the announcement receipt and smoke-test evidence in `/settings/pilot-operations`.
+- Record the announcement receipt and smoke-test evidence in `/settings/pilot-operations`, then confirm the Today Gate no longer shows missing Day 1 evidence.
 - Run `pnpm pilot:daily-status -- --day=1 ... --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-1.md`.
 
 Day 3:
@@ -247,7 +247,7 @@ Day 3:
 - Managers approve/reject from one Inbox.
 - HR clears attendance exceptions.
 - Employees verify request timelines and notifications.
-- Run `pnpm pilot:daily-status -- --day=3 ... --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-3.md`.
+- Confirm the Today Gate is not pointing back to Day 1 or Day 3 missing evidence, then run `pnpm pilot:daily-status -- --day=3 ... --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-3.md`.
 
 Day 7:
 
@@ -256,7 +256,7 @@ Day 7:
 - HR previews payroll items.
 - HR releases a test payslip only when permitted.
 - Employees view their own released payslip.
-- Run `pnpm pilot:daily-status -- --day=7 ... --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-7.md`.
+- Confirm the Today Gate shows Day 7 payroll/payslip evidence as complete or explicitly lists only remaining Day 7 evidence, then run `pnpm pilot:daily-status -- --day=7 ... --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-day-7.md`.
 
 Day 14:
 

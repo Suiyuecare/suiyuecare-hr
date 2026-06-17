@@ -135,6 +135,8 @@ describe("tenant session guard", () => {
   });
 
   it("builds tenant sessions from encrypted OIDC session cookies", async () => {
+    const now = new Date();
+    const authenticatedAt = new Date(now.getTime() - 10 * 60 * 1_000);
     const cookie = await sealOidcSessionCookie(
       buildOidcSessionCookiePayload({
         claims: {
@@ -152,14 +154,14 @@ describe("tenant session guard", () => {
           authAssurance: {
             method: "sso",
             mfaVerified: true,
-            authenticatedAt: new Date("2026-06-17T00:00:00.000Z"),
-            lastSeenAt: new Date("2026-06-17T00:00:00.000Z"),
+            authenticatedAt,
+            lastSeenAt: authenticatedAt,
           },
         },
         env: {
           HR_ONE_WEB_SESSION_MAX_AGE_SECONDS: "3600",
         },
-        now: new Date("2026-06-17T00:10:00.000Z"),
+        now,
       }),
       {
         HR_ONE_ENCRYPTION_KEY: "encryption-key-with-at-least-32-characters",
