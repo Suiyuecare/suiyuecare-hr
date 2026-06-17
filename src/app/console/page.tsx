@@ -1,6 +1,14 @@
 import Link from "next/link";
+import { hasPermission } from "@/server/auth/rbac";
 import { getDemoSession } from "@/server/auth/session";
 import { filterConsoleModules, getConsoleModules } from "@/server/console/modules";
+import {
+  getPilotOperationsReport,
+  type PilotOperationsPhase,
+  type PilotOperationsPhaseStatus,
+  type PilotOperationsReport,
+  type PilotOperationsTodayGateStatus,
+} from "@/server/readiness/pilot-operations";
 
 type SearchParams = Promise<{ q?: string }>;
 
@@ -10,6 +18,9 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
   const session = await getDemoSession();
   const allModules = getConsoleModules(session.role);
   const modules = filterConsoleModules(allModules, query);
+  const pilotOperations = hasPermission(session.role, "settings:read")
+    ? await getPilotOperationsReport(session)
+    : null;
   const pinnedCount = allModules.reduce((sum, module) => sum + module.pinned.length, 0);
   const linkCount = allModules.reduce(
     (sum, module) => sum + module.sections.reduce((sectionSum, section) => sectionSum + section.links.length, 0),
@@ -68,6 +79,8 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
           <small>未通過就不邀請員工</small>
         </Link>
       </section>
+
+      {pilotOperations ? <PilotGateBoard report={pilotOperations} /> : null}
 
       <section className="pilot-operating-strip" aria-label="兩週試用核心流程">
         <Link href="/app">
@@ -210,9 +223,109 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
   );
 }
 
+function PilotGateBoard({ report }: { report: PilotOperationsReport }) {
+  const openPhases = report.phases.filter((phase) => phase.status !== "verified");
+  const focusPhase = report.currentPhase ?? report.phases[report.phases.length - 1];
+
+  return (
+    <section className="console-pilot-gate" aria-label="兩週試用 Gate">
+      <div className={`console-pilot-gate-main ${todayGateClass(report.todayGate.status)}`}>
+        <div>
+          <span className="muted">兩週試用 Gate</span>
+          <h2>今日先處理：{report.todayGate.timing} · {report.todayGate.title}</h2>
+          <p>{report.todayGate.detail}</p>
+        </div>
+        <div className="console-pilot-gate-action">
+          <span className={`badge ${todayGateBadgeClass(report.todayGate.status)}`}>
+            {todayGateLabel(report.todayGate.status)}
+          </span>
+          <Link className="button primary" href={report.todayGate.actionHref}>
+            {report.todayGate.actionLabel}
+          </Link>
+        </div>
+      </div>
+
+      <div className="console-pilot-gate-metrics" aria-label="兩週試用 Gate 指標">
+        <div>
+          <span className="muted">完成</span>
+          <strong>{report.completedPhaseCount}/5</strong>
+        </div>
+        <div>
+          <span className="muted">阻擋</span>
+          <strong>{report.blockedPhaseCount}</strong>
+        </div>
+        <div>
+          <span className="muted">證據</span>
+          <strong>{report.totalRecordedEvidenceCount}</strong>
+        </div>
+        <div>
+          <span className="muted">下一步</span>
+          <strong>{openPhases.length || "可結案"}</strong>
+        </div>
+      </div>
+
+      <div className="console-pilot-gate-flow" aria-label="Day 0 到 Day 14 檢查點">
+        {report.phases.map((phase) => (
+          <Link
+            className={`console-pilot-gate-step ${phaseStatusClass(phase.status)}`}
+            href={phase.actionHref}
+            key={phase.checkpointId}
+          >
+            <span>{phase.timing}</span>
+            <strong>{phase.title}</strong>
+            <small>
+              {phaseStatusLabel(phase.status)}
+              {phase.missingEvidenceTypes.length
+                ? ` · 缺 ${phase.missingEvidenceTypes.length} 項證據`
+                : " · 證據齊全"}
+            </small>
+          </Link>
+        ))}
+      </div>
+
+      <div className="console-pilot-gate-next">
+        <span className="muted">目前焦點</span>
+        <strong>{focusPhase.nextStep}</strong>
+      </div>
+    </section>
+  );
+}
+
 function roleLabel(role: string) {
   if (role === "owner") return "執行長 / 老闆";
   if (role === "hr_admin") return "人資";
   if (role === "manager") return "行政部門主任 / 主管";
   return "員工";
+}
+
+function todayGateLabel(status: PilotOperationsTodayGateStatus) {
+  if (status === "blocked") return "阻擋";
+  if (status === "needs_evidence") return "缺證據";
+  return "可繼續";
+}
+
+function todayGateClass(status: PilotOperationsTodayGateStatus) {
+  if (status === "blocked") return "blocked";
+  if (status === "needs_evidence") return "needs-evidence";
+  return "ready";
+}
+
+function todayGateBadgeClass(status: PilotOperationsTodayGateStatus) {
+  if (status === "blocked") return "danger";
+  if (status === "needs_evidence") return "warning";
+  return "";
+}
+
+function phaseStatusLabel(status: PilotOperationsPhaseStatus) {
+  if (status === "verified") return "已完成";
+  if (status === "blocked") return "阻擋";
+  if (status === "in_progress") return "處理中";
+  return "未開始";
+}
+
+function phaseStatusClass(status: PilotOperationsPhase["status"]) {
+  if (status === "verified") return "done";
+  if (status === "blocked") return "blocked";
+  if (status === "in_progress") return "in-progress";
+  return "not-started";
 }

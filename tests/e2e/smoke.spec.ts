@@ -85,6 +85,8 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page).toHaveURL(/\/console$/);
   await expect(page.getByLabel("後台摘要").getByText("可用模組")).toBeVisible();
   await expect(page.getByLabel("後台模組導覽").getByText("薪資管理", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("兩週試用 Gate").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("Day 0 到 Day 14 檢查點")).toBeVisible();
 
   await page.getByLabel("搜尋功能").fill("薪資");
   await page.getByRole("button", { name: "搜尋" }).click();
