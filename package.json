@@ -47,6 +47,7 @@
     "pilot:go-no-go": "tsx scripts/pilot-go-no-go.ts",
     "pilot:invitation-release": "tsx scripts/pilot-invitation-release.ts",
     "pilot:trial-completion": "tsx scripts/pilot-trial-completion.ts",
+    "pilot:evidence-package": "tsx scripts/pilot-evidence-package.ts",
     "pilot:evidence-scan": "tsx scripts/pilot-evidence-scan.ts",
     "db:studio": "prisma studio"
   },

@@ -303,6 +303,7 @@ Day 14:
 
   ```bash
   pnpm pilot:trial-completion -- --tenant-slug=<customer-slug> --evidence-path=<pilot-evidence-folder> --recursive --output=/tmp/hr-one-pilot-completion.md
+  pnpm pilot:evidence-package -- --path=<pilot-evidence-folder> --recursive --output=<pilot-evidence-folder>/evidence-package.md
   ```
 
 Expected evidence:
@@ -313,6 +314,7 @@ Expected evidence:
 - Evidence scan passes for the pilot report folder and reports zero sensitive-value findings.
 - `/settings/pilot-evidence` shows the evidence package as blocked until the persisted trial run, Go/No-Go report, checkpoint evidence, audit package, completion review, evidence privacy scan, and redacted handoff are all present.
 - `pilot:trial-completion` reports `completed` only when preflight access review, Day 1 announcement receipt, Day 3 clock/leave/manager approval evidence, Day 7 payroll rehearsal plus payslip access, Day 14 final review, KPI status, and evidence privacy scan are all acceptable with zero blockers and zero warnings. `--skip-evidence-scan` is diagnostic only and cannot approve final handoff.
+- `pilot:evidence-package` reports `ready` only when the evidence folder contains redacted production database, Go/No-Go, invitation release, Day 0/1/3/7/14 daily status, completion, audit evidence, and handoff artifacts, and the folder scan has zero sensitive findings.
 - Audit logs exist for create, approve, reject, payroll close, payslip release, and sensitive settings.
 - Employees cannot see other employees' payslips.
 - Managers cannot see subordinate salary unless explicitly granted.

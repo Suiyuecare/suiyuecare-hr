@@ -36,6 +36,7 @@ GitHub `main` contains the new pilot UI. The live site may lag behind `main` whi
 - `pnpm pilot:invitation-release` is the final redacted release decision before the first invitation. It requires attached production database, Go/No-Go, and invite-readiness reports to be ready and privacy-scanned, then outputs hashes and next actions only.
 - `/settings/pilot-completion` gives Owner/HR a Day 14 redacted completion review for the 20-50 person two-week pilot. It aggregates access review, Day 1 employee rollout, Day 3 attendance/leave/approval, Day 7 payroll rehearsal/payslip access, final audit review, KPI targets, and evidence privacy scanning, and remains blocked until external evidence scan and redacted handoff evidence are attached outside the browser.
 - `/settings/pilot-evidence` gives Owner/HR a redacted delivery checklist for the pilot evidence folder across persisted trial run, Go/No-Go report, checkpoint evidence, audit evidence package, Day 14 completion review, evidence privacy scan, and redacted handoff. It can generate the audit package from the page, but remains blocked until external evidence scan and handoff artifacts are produced outside the browser.
+- `pnpm pilot:evidence-package` is the final redacted evidence-folder gate before sharing Day 14 materials. It requires production database, Go/No-Go, invitation release, Day 0/1/3/7/14 daily status, completion, audit evidence, and handoff artifacts, then scans the folder for sensitive findings and prints hashes only.
 - `/settings/pilot-operations` shows Day 0, Day 1, Day 3, Day 7, and Day 14 checkpoint coverage, missing evidence, next actions, a Today Gate that follows the persisted trial day and earliest unfinished checkpoint, a three-card daily task board for the current operating focus, and hash-only evidence forms for the 20-50 person trial.
 
 ## Production Gate Result
@@ -93,6 +94,7 @@ pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyue
 pnpm pilot:invitation-release -- --production-database-report=/tmp/hr-one-production-database-gate.md --go-no-go-report=/tmp/hr-one-pilot-go-no-go.md --invite-readiness-report=/tmp/hr-one-pilot-invite-readiness.md --output=/tmp/hr-one-pilot-invitation-release.md
 pnpm pilot:workflow-readiness -- --require-production-evidence --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-workflow-readiness-day-3.md
 pnpm pilot:morning-brief -- --day=0 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-morning-day-0.md
+pnpm pilot:evidence-package -- --path=<pilot-evidence-folder> --recursive --output=/tmp/hr-one-pilot-evidence-package.md
 ```
 
 Do not invite real employees until the production gate and go/no-go report pass.
@@ -106,4 +108,5 @@ After the live production gate passes, focus on the parts that make a 20-50 pers
 3. Use `/settings/pilot-import-preflight` before importing real employee, identity/SSO, and payroll profile CSV files; keep completed files in secure storage and rely on hash-only evidence in the app.
 4. Use `/settings/pilot-operations` to capture real trial evidence for daily completion: punches, leave submissions, manager approvals, announcement receipts, HR month-close rehearsal, payslip views, audit coverage, and unauthorized salary access attempts.
 5. Run `pilot:invite-readiness`, `pilot:go-no-go`, and `pilot:invitation-release` for the actual customer tenant before inviting staff; `pilot:go-no-go` now includes the production database gate and core workflow readiness, while standalone `pilot:workflow-readiness --require-production-evidence` should be used during Day 3, Day 7, and Day 14 evidence reviews.
-6. Add guided one-click setup actions where safe, starting with schedule generation, leave-balance sync, announcement template creation, and payslip rehearsal release.
+6. Run `pilot:evidence-package` before sharing the Day 14 evidence folder; it must report `ready` before the customer handoff can be called complete.
+7. Add guided one-click setup actions where safe, starting with schedule generation, leave-balance sync, announcement template creation, and payslip rehearsal release.
