@@ -166,11 +166,23 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByRole("heading", { name: "試用每日戰情" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "今日任務板" })).toBeVisible();
   const todayTaskBoard = page.getByLabel("今日任務板");
-  await expect(todayTaskBoard.getByText("確認邀請 Gate")).toBeVisible();
-  await expect(todayTaskBoard.getByRole("heading", { name: "跑權限防漏" })).toBeVisible();
-  await expect(todayTaskBoard.getByText("決定是否發邀請")).toBeVisible();
+  await expect(todayTaskBoard.locator(".pilot-day-task")).toHaveCount(3);
+  await expect(todayTaskBoard.locator(".pilot-day-task").first().getByRole("heading")).toBeVisible();
   await expect(page.getByRole("heading", { name: "每日 checkpoint" })).toBeVisible();
   await expect(page.getByRole("button", { name: "記錄每日證據" }).first()).toBeVisible();
+
+  await page.goto("/settings/pilot-trial-run");
+  await expect(page.getByRole("heading", { name: "試用批次控制台" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今日焦點" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "批次同步" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "兩週節奏" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "關鍵入口" })).toBeVisible();
+  await expect(page.getByText("試用邀請就緒")).toBeVisible();
+  await expect(page.getByText("開跑 Go/No-Go")).toBeVisible();
+  await expect(page.getByText("試用結案檢查")).toBeVisible();
+  await page.getByRole("button", { name: "演練同步試用批次" }).click();
+  await expect(page).toHaveURL(/\/settings\/pilot-trial-run\?success=beta-trial-run/);
+  await expect(page.getByText("試用批次已同步")).toBeVisible();
 
   await page.goto("/settings/pilot-go-no-go");
   await expect(page.getByRole("heading", { name: "試用 Go/No-Go" })).toBeVisible();

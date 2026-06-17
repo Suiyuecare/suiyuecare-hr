@@ -226,8 +226,8 @@ Preflight:
 - Run `/settings/company-setup`.
 - Run `/settings/readiness`.
 - Run `/settings/pilot-invite-readiness`.
+- Open `/settings/pilot-trial-run` to create or sync the persisted 20-50 person trial batch, confirm the start/end dates, current day, participant counts, manager counts, and Today Gate.
 - Open `/settings/pilot-operations` and use it as the daily war room for checkpoint evidence. Treat the Today Gate at the top as the daily stop/go signal; if it points back to an earlier checkpoint, fix that evidence before recording later-day proof.
-- Create the persisted 20-50 person trial run.
 - Complete the access review checkpoint.
 - Confirm unauthorized payroll access tests pass.
 - Run `pnpm pilot:invite-readiness -- --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-invite-readiness.md` and fix every blocker before invitations.

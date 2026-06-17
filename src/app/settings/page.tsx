@@ -100,6 +100,12 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
               </a>
             </li>
             <li className="task">
+              <span>試用批次控制台</span>
+              <a className="button" href="/settings/pilot-trial-run">
+                管理
+              </a>
+            </li>
+            <li className="task">
               <span>試用邀請就緒</span>
               <a className="button" href="/settings/pilot-invite-readiness">
                 檢查

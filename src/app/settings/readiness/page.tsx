@@ -94,8 +94,13 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
                 把 20-50 人、2 週試用變成可追蹤批次；每次同步只保存 readiness 摘要 hash、狀態與人數，不保存薪資、身分證、銀行帳號或私人備註原文。
               </p>
             </div>
-            <span className={`badge ${trialWorkspace.readyForPilot ? "" : trialWorkspace.openBlockedCount ? "danger" : "warning"}`}>
-              {readinessStatusLabel(trialWorkspace.readinessStatus)}
+            <span className="inline-actions">
+              <a className="button" href="/settings/pilot-trial-run">
+                開啟控制台
+              </a>
+              <span className={`badge ${trialWorkspace.readyForPilot ? "" : trialWorkspace.openBlockedCount ? "danger" : "warning"}`}>
+                {readinessStatusLabel(trialWorkspace.readinessStatus)}
+              </span>
             </span>
           </div>
           <div className={`panel-subtle ${trialWorkspace.persistence.readyForLiveTrial ? "" : "danger-panel"}`}>

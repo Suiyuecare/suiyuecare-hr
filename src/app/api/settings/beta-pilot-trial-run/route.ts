@@ -1,22 +1,25 @@
 import { NextResponse } from "next/server";
 import { requireTenantSession } from "@/server/auth/guards";
 import { upsertBetaPilotTrialRun } from "@/server/readiness/beta-pilot-trial-run";
+import {
+  buildBetaPilotTrialRunErrorRedirectUrl,
+  normalizeBetaPilotTrialRunReturnTo,
+} from "./redirects";
 
 export async function POST(request: Request) {
+  let returnTo = "/settings/readiness?success=beta-trial-run#pilot-runbook";
   try {
     const formData = await request.formData();
+    returnTo = normalizeBetaPilotTrialRunReturnTo(readString(formData.get("returnTo")));
     await upsertBetaPilotTrialRun(await requireTenantSession({ permission: "pilot:manage" }), {
       startsAt: parseDate(readString(formData.get("startsAt"))),
       notes: readString(formData.get("notes")),
     });
-    return NextResponse.redirect(
-      new URL("/settings/readiness?success=beta-trial-run#pilot-runbook", request.url),
-      303,
-    );
+    return NextResponse.redirect(new URL(returnTo, request.url), 303);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to create beta pilot trial run.";
     return NextResponse.redirect(
-      new URL(`/settings/readiness?error=${encodeURIComponent(message)}#pilot-runbook`, request.url),
+      buildBetaPilotTrialRunErrorRedirectUrl(returnTo, message, request.url),
       303,
     );
   }
