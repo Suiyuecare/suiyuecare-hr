@@ -8,6 +8,7 @@ import {
 } from "@/server/readiness/pilot-invite-readiness";
 import {
   getPilotOperationsReport,
+  type PilotOperationsPhase,
   type PilotOperationsPhaseStatus,
   type PilotOperationsStatus,
 } from "@/server/readiness/pilot-operations";
@@ -47,6 +48,8 @@ export default async function PilotInviteReadinessPage({
   const report = buildPilotInviteReadinessReport({ snapshot });
   const operationsReport = await getPilotOperationsReport(session);
   const preflightPhase = operationsReport.phases.find((phase) => phase.checkpointId === "preflight");
+  const inviteGate = buildInviteGate({ report, preflightPhase });
+  const inviteNextActions = buildInviteNextActions(report.nextActions, inviteGate.preflightAccessReviewReady);
   const accessReviewReturnTo = buildInviteReturnPath({
     tenantSlug,
     companyId,
@@ -75,17 +78,20 @@ export default async function PilotInviteReadinessPage({
       ) : null}
 
       <section className="grid">
-        <section className={`panel span-12 risk-box ${report.status === "ready" ? "success-box" : report.blockers ? "danger-box" : ""}`}>
+        <section className={`panel span-12 risk-box ${inviteGate.status === "ready" ? "success-box" : inviteGate.status === "blocked" ? "danger-box" : ""}`}>
           <div className="section-heading">
             <div>
-              <h2>{statusTitle(report.status)}</h2>
+              <h2>{inviteGate.title}</h2>
               <p className="muted">
                 目前檢查租戶：{tenantSlug}
                 {companyId ? ` · 公司 ${companyId}` : ""}。報表只保留彙總數字與狀態，不輸出個資、薪資、銀行帳號、SSO subject 或私人備註。
               </p>
+              <p className="muted">
+                {inviteGate.detail} Preflight 權限防漏：{inviteGate.preflightAccessReviewReady ? "已驗證" : "未完成"}。
+              </p>
             </div>
-            <span className={`badge ${report.blockers ? "danger" : report.warnings ? "warning" : ""}`}>
-              {report.blockers} 阻擋 / {report.warnings} 提醒
+            <span className={`badge ${inviteGate.blockers ? "danger" : inviteGate.warnings ? "warning" : ""}`}>
+              {inviteGate.blockers} 阻擋 / {inviteGate.warnings} 提醒
             </span>
           </div>
         </section>
@@ -246,8 +252,8 @@ export default async function PilotInviteReadinessPage({
             </Link>
           </div>
           <ul className="task-list">
-            {report.nextActions.length ? (
-              report.nextActions.map((action) => (
+            {inviteNextActions.length ? (
+              inviteNextActions.map((action) => (
                 <li className="task" key={action}>
                   <span>{nextActionLabel(action)}</span>
                   <span className="badge warning">待辦</span>
@@ -294,10 +300,66 @@ function buildInviteReturnPath(input: {
   return `/settings/pilot-invite-readiness?${params.toString()}${input.hash ? `#${input.hash}` : ""}`;
 }
 
-function statusTitle(status: string) {
+type InviteGateStatus = "ready" | "action_required" | "blocked";
+
+const preflightAccessReviewAction =
+  "Run the preflight access review before sending employee invitations.";
+
+function buildInviteGate(input: {
+  report: ReturnType<typeof buildPilotInviteReadinessReport>;
+  preflightPhase: PilotOperationsPhase | undefined;
+}) {
+  const preflightAccessReviewReady = isPreflightAccessReviewReady(input.preflightPhase);
+  const blockers = input.report.blockers + (preflightAccessReviewReady ? 0 : 1);
+  const warnings = input.report.warnings;
+  const status: InviteGateStatus = blockers > 0 ? "blocked" : warnings > 0 ? "action_required" : "ready";
+
+  return {
+    status,
+    title: inviteGateTitle(status),
+    detail: inviteGateDetail(input.report, preflightAccessReviewReady),
+    blockers,
+    warnings,
+    preflightAccessReviewReady,
+  };
+}
+
+function isPreflightAccessReviewReady(preflightPhase: PilotOperationsPhase | undefined) {
+  return Boolean(
+    preflightPhase?.status === "verified" &&
+      preflightPhase.recordedEvidenceTypes.includes("access_review") &&
+      !preflightPhase.missingEvidenceTypes.includes("access_review"),
+  );
+}
+
+function inviteGateTitle(status: InviteGateStatus) {
   if (status === "ready") return "可以準備發出試用邀請";
   if (status === "action_required") return "可排程邀請，但要先處理提醒";
   return "尚未可以邀請員工";
+}
+
+function inviteGateDetail(
+  report: ReturnType<typeof buildPilotInviteReadinessReport>,
+  preflightAccessReviewReady: boolean,
+) {
+  if (report.blockers > 0 && !preflightAccessReviewReady) {
+    return "名單、登入、角色、主管線、班表或薪資單可見性仍有 blocker，且發邀請前權限防漏尚未完成。";
+  }
+  if (!preflightAccessReviewReady) {
+    return "名單與帳號之外，仍需先完成 preflight 權限防漏，確認薪資 dashboard 與薪資單權限邊界。";
+  }
+  if (report.blockers > 0) {
+    return "preflight 權限防漏已通過，但仍需清掉名單、登入、角色、主管線、班表或薪資單可見性 blocker。";
+  }
+  if (report.warnings > 0) {
+    return "邀請前硬性檢查已通過；warning 需指派負責人與風險說明後再排程。";
+  }
+  return "名單、登入、角色、主管線、班表、假勤餘額、薪資單可見性與權限防漏都已通過。";
+}
+
+function buildInviteNextActions(actions: string[], preflightAccessReviewReady: boolean) {
+  const nextActions = preflightAccessReviewReady ? actions : [preflightAccessReviewAction, ...actions];
+  return [...new Set(nextActions)];
 }
 
 function checkLabel(name: string) {
@@ -388,6 +450,8 @@ function nextActionLabel(action: string) {
       "啟用員工薪資單自助查看，並維持只能看本人薪資單的 RBAC 規則。",
     "Complete a payroll release rehearsal so every active pilot employee has released payslip evidence before Day 7.":
       "第 7 天前完成薪資單釋出演練，讓每位有效員工都有薪資單查看證據。",
+    [preflightAccessReviewAction]:
+      "發第一封邀請前，先由 Owner/HR 跑 preflight 權限防漏，確認員工、主管與 HR 的薪資資料邊界。",
   };
   return labels[action] ?? action;
 }

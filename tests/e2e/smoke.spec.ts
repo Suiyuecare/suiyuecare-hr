@@ -140,6 +140,9 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page).toHaveURL(/\/settings\/pilot-invite-readiness/);
   await expect(page.getByRole("heading", { name: "試用邀請就緒" })).toBeVisible();
   await expect(page.getByText(/不輸出個資、薪資、銀行帳號/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "尚未可以邀請員工" })).toBeVisible();
+  await expect(page.getByText(/Preflight 權限防漏：未完成/)).toBeVisible();
+  await expect(page.getByText(/發第一封邀請前，先由 Owner\/HR 跑 preflight 權限防漏/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "邀請前核心流程 Gate" })).toBeVisible();
   const inviteFlow = page.locator(".pilot-invite-flow");
   const day7Gate = inviteFlow.locator(".close-step").filter({ hasText: "第 7 天" });
@@ -150,6 +153,7 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await page.getByRole("button", { name: "跑權限防漏" }).click();
   await expect(page).toHaveURL(/success=access-review/);
   await expect(page.getByText("權限防漏已寫入 preflight 證據")).toBeVisible();
+  await expect(page.getByText(/Preflight 權限防漏：已驗證/)).toBeVisible();
   await expect(preflightGate.getByText("缺少：無")).toBeVisible();
 
   await page.goto("/settings/pilot-operations");
