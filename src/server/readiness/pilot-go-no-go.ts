@@ -7,6 +7,8 @@ import type { PilotInviteReadinessReport } from "@/server/readiness/pilot-invite
 import { pilotInviteReadinessPassed } from "@/server/readiness/pilot-invite-readiness";
 import type { PilotImportPreflightReport } from "@/server/readiness/pilot-import-preflight";
 import { pilotImportPreflightPassed } from "@/server/readiness/pilot-import-preflight";
+import type { PilotWorkflowReadinessReport } from "@/server/readiness/pilot-workflow-readiness";
+import { pilotWorkflowReadinessPassed } from "@/server/readiness/pilot-workflow-readiness";
 import { redactSensitiveDetail } from "@/server/readiness/production-pilot-gate";
 
 export type PilotGoNoGoStatus = "ready_to_start" | "blocked";
@@ -16,6 +18,7 @@ export type PilotGoNoGoCheckId =
   | "day_0_status"
   | "import_preflight"
   | "invite_readiness"
+  | "workflow_readiness"
   | "evidence_scan";
 
 export type PilotGoNoGoCheckStatus = "pass" | "warn" | "block";
@@ -33,9 +36,11 @@ export type PilotGoNoGoInput = {
   day0: PilotDailyStatusReport;
   importPreflight?: PilotImportPreflightReport | null;
   inviteReadiness?: PilotInviteReadinessReport | null;
+  workflowReadiness?: PilotWorkflowReadinessReport | null;
   evidenceScan?: PilotEvidenceScanReport | null;
   importPreflightRequired?: boolean;
   inviteReadinessRequired?: boolean;
+  workflowReadinessRequired?: boolean;
   evidenceScanRequired?: boolean;
   generatedAt?: Date;
 };
@@ -55,6 +60,9 @@ const missingImportNextStep =
 
 const missingInviteNextStep =
   "Run pnpm pilot:invite-readiness for the real customer tenant before inviting pilot employees.";
+
+const missingWorkflowNextStep =
+  "Run pnpm pilot:workflow-readiness for the real customer tenant before inviting pilot employees.";
 
 const missingEvidenceNextStep =
   "Run pnpm pilot:evidence-scan on the pilot evidence folder and fix every finding before sharing pilot materials.";
@@ -80,6 +88,10 @@ export function buildPilotGoNoGoReport(input: PilotGoNoGoInput): PilotGoNoGoRepo
     buildInviteReadinessCheck(
       input.inviteReadiness ?? null,
       input.inviteReadinessRequired ?? true,
+    ),
+    buildWorkflowReadinessCheck(
+      input.workflowReadiness ?? null,
+      input.workflowReadinessRequired ?? true,
     ),
     buildEvidenceScanCheck(
       input.evidenceScan ?? null,
@@ -212,6 +224,38 @@ function buildInviteReadinessCheck(
     nextStep: passed
       ? "Send invitations only through approved identity-provider and customer communication channels."
       : "Fix pilot invite readiness blockers before sending employee invitations.",
+  };
+}
+
+function buildWorkflowReadinessCheck(
+  report: PilotWorkflowReadinessReport | null,
+  required: boolean,
+): PilotGoNoGoCheck {
+  if (!report) {
+    return {
+      id: "workflow_readiness",
+      title: "Core workflow readiness",
+      status: required ? "block" : "warn",
+      detail: required
+        ? "No workflow readiness report was provided."
+        : "Workflow readiness was skipped by operator choice.",
+      nextStep: required ? missingWorkflowNextStep : "Run workflow readiness before inviting the first pilot employee.",
+    };
+  }
+
+  const passed = pilotWorkflowReadinessPassed(report);
+  return {
+    id: "workflow_readiness",
+    title: "Core workflow readiness",
+    status: passed ? "pass" : "block",
+    detail: `${report.status}; ${report.productionReadyCount} production ready / ${report.rehearsedOnlyCount} rehearsed only / ${report.blockedCount} blocked`,
+    nextStep: passed
+      ? report.status === "needs_production_evidence"
+        ? "Keep the workflow readiness report and capture production checkpoint evidence during Day 1, Day 3, and Day 7."
+        : "Keep the workflow readiness report with the pilot evidence folder."
+      : report.requireProductionEvidence
+        ? "Capture the required production workflow evidence before calling the pilot workflow production-ready."
+        : "Fix blocked workflow readiness items before inviting pilot employees.",
   };
 }
 

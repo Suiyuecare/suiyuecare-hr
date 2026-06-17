@@ -4,6 +4,7 @@ import { buildPilotDailyStatusReport } from "@/server/readiness/pilot-daily-stat
 import type { PilotEvidenceScanReport } from "@/server/readiness/pilot-evidence-scan";
 import type { PilotInviteReadinessReport } from "@/server/readiness/pilot-invite-readiness";
 import type { PilotImportPreflightReport } from "@/server/readiness/pilot-import-preflight";
+import type { PilotWorkflowReadinessReport } from "@/server/readiness/pilot-workflow-readiness";
 import {
   buildPilotGoNoGoReport,
   formatPilotGoNoGoMarkdown,
@@ -18,6 +19,7 @@ describe("pilot go/no-go", () => {
       day0: buildPilotDailyStatusReport({ acceptance, day: 0 }),
       importPreflight: importPreflightReport({ status: "ready" }),
       inviteReadiness: inviteReadinessReport({ status: "ready" }),
+      workflowReadiness: workflowReadinessReport({ status: "production_ready" }),
       evidenceScan: evidenceScanReport({ status: "pass" }),
       generatedAt: new Date("2026-06-17T00:00:00.000Z"),
     });
@@ -28,8 +30,35 @@ describe("pilot go/no-go", () => {
       blockers: 0,
       warnings: 0,
     });
-    expect(report.checks.map((check) => check.status)).toEqual(["pass", "pass", "pass", "pass", "pass"]);
+    expect(report.checks.map((check) => check.status)).toEqual(["pass", "pass", "pass", "pass", "pass", "pass"]);
     expect(pilotGoNoGoPassed(report)).toBe(true);
+  });
+
+  it("allows rehearsed-only core workflows before invite while flagging production evidence follow-up", () => {
+    const acceptance = acceptanceReport({ readyToStart: true });
+    const report = buildPilotGoNoGoReport({
+      acceptance,
+      day0: buildPilotDailyStatusReport({ acceptance, day: 0 }),
+      importPreflight: importPreflightReport({ status: "ready" }),
+      inviteReadiness: inviteReadinessReport({ status: "ready" }),
+      workflowReadiness: workflowReadinessReport({
+        status: "needs_production_evidence",
+        productionReadyCount: 0,
+        rehearsedOnlyCount: 7,
+      }),
+      evidenceScan: evidenceScanReport({ status: "pass" }),
+    });
+
+    expect(report).toMatchObject({
+      status: "ready_to_start",
+      readyToStart: true,
+      blockers: 0,
+      warnings: 0,
+    });
+    expect(report.checks.find((check) => check.id === "workflow_readiness")).toMatchObject({
+      status: "pass",
+      detail: "needs_production_evidence; 0 production ready / 7 rehearsed only / 0 blocked",
+    });
   });
 
   it("blocks missing required preflight evidence and redacts sensitive next actions", () => {
@@ -61,6 +90,9 @@ describe("pilot go/no-go", () => {
     expect(report.checks.find((check) => check.id === "invite_readiness")).toMatchObject({
       status: "block",
     });
+    expect(report.checks.find((check) => check.id === "workflow_readiness")).toMatchObject({
+      status: "block",
+    });
     expect(markdown).toContain("[REDACTED]");
     expect(markdown).not.toContain("postgresql://");
     expect(markdown).not.toContain("secret@db.example.com");
@@ -77,6 +109,7 @@ describe("pilot go/no-go", () => {
       day0: buildPilotDailyStatusReport({ acceptance, day: 0 }),
       importPreflight: importPreflightReport({ status: "action_required", warnings: 1 }),
       inviteReadiness: inviteReadinessReport({ status: "blocked", blockers: 2 }),
+      workflowReadiness: workflowReadinessReport({ status: "blocked", blockedCount: 1 }),
       evidenceScan: evidenceScanReport({ status: "failed", findingCount: 2 }),
     });
 
@@ -90,13 +123,41 @@ describe("pilot go/no-go", () => {
     expect(report.checks.find((check) => check.id === "invite_readiness")).toMatchObject({
       status: "block",
     });
+    expect(report.checks.find((check) => check.id === "workflow_readiness")).toMatchObject({
+      status: "block",
+    });
     expect(report.nextActions).toEqual(
       expect.arrayContaining([
         "Fix every import preflight blocker or warning before using the completed customer CSV files.",
         "Fix pilot invite readiness blockers before sending employee invitations.",
+        "Fix blocked workflow readiness items before inviting pilot employees.",
         "Remove sensitive values from pilot evidence files and rerun the evidence scan.",
       ]),
     );
+  });
+
+  it("blocks core workflow readiness when production evidence is explicitly required", () => {
+    const acceptance = acceptanceReport({ readyToStart: true });
+    const report = buildPilotGoNoGoReport({
+      acceptance,
+      day0: buildPilotDailyStatusReport({ acceptance, day: 0 }),
+      importPreflight: importPreflightReport({ status: "ready" }),
+      inviteReadiness: inviteReadinessReport({ status: "ready" }),
+      workflowReadiness: workflowReadinessReport({
+        status: "blocked",
+        requireProductionEvidence: true,
+        productionReadyCount: 3,
+        rehearsedOnlyCount: 4,
+      }),
+      evidenceScan: evidenceScanReport({ status: "pass" }),
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.checks.find((check) => check.id === "workflow_readiness")).toMatchObject({
+      status: "block",
+      nextStep: "Capture the required production workflow evidence before calling the pilot workflow production-ready.",
+    });
+    expect(pilotGoNoGoPassed(report)).toBe(false);
   });
 
   it("blocks operator-skipped checks even when they are represented as warnings", () => {
@@ -109,6 +170,7 @@ describe("pilot go/no-go", () => {
       evidenceScan: null,
       importPreflightRequired: false,
       inviteReadinessRequired: false,
+      workflowReadinessRequired: false,
       evidenceScanRequired: false,
     });
 
@@ -116,13 +178,14 @@ describe("pilot go/no-go", () => {
       status: "blocked",
       readyToStart: false,
       blockers: 0,
-      warnings: 3,
+      warnings: 4,
     });
-    expect(report.checks.map((check) => check.status)).toEqual(["pass", "pass", "warn", "warn", "warn"]);
+    expect(report.checks.map((check) => check.status)).toEqual(["pass", "pass", "warn", "warn", "warn", "warn"]);
     expect(report.nextActions).toEqual(
       expect.arrayContaining([
         "Run import preflight before using real customer employee, identity, or payroll CSV files.",
         "Run invite readiness before sending the first pilot employee invitation.",
+        "Run workflow readiness before inviting the first pilot employee.",
         "Run evidence scan before sharing pilot reports outside the implementation team.",
       ]),
     );
@@ -210,6 +273,29 @@ function inviteReadinessReport(options: {
     warnings: options.warnings ?? 0,
     checks: [],
     nextActions: [],
+  };
+}
+
+function workflowReadinessReport(options: {
+  status: PilotWorkflowReadinessReport["status"];
+  productionReadyCount?: number;
+  rehearsedOnlyCount?: number;
+  blockedCount?: number;
+  requireProductionEvidence?: boolean;
+}): PilotWorkflowReadinessReport {
+  const productionReadyCount = options.productionReadyCount ?? 7;
+  const rehearsedOnlyCount = options.rehearsedOnlyCount ?? 0;
+  const blockedCount = options.blockedCount ?? 0;
+  return {
+    status: options.status,
+    generatedAt: "2026-06-17T00:00:00.000Z",
+    requireProductionEvidence: options.requireProductionEvidence ?? false,
+    productionReadyCount,
+    rehearsedOnlyCount,
+    blockedCount,
+    items: [],
+    nextActions: blockedCount > 0 ? ["Fix blocked workflow readiness items before inviting pilot employees."] : [],
+    privacyGuardrails: [],
   };
 }
 
