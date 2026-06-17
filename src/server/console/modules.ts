@@ -48,6 +48,7 @@ const modules: ConsoleModule[] = [
           { label: "試用邀請就緒", href: "/settings/pilot-invite-readiness", badge: "New", permission: "settings:read" },
           { label: "試用每日戰情", href: "/settings/pilot-operations", badge: "New", permission: "settings:read" },
           { label: "試用 Go/No-Go", href: "/settings/pilot-go-no-go", badge: "New", permission: "settings:read" },
+          { label: "試用結案檢查", href: "/settings/pilot-completion", badge: "New", permission: "settings:read" },
         ],
       },
     ],
@@ -58,6 +59,7 @@ const modules: ConsoleModule[] = [
       { label: "試用邀請就緒", href: "/settings/pilot-invite-readiness", permission: "settings:read" },
       { label: "試用每日戰情", href: "/settings/pilot-operations", permission: "settings:read" },
       { label: "試用 Go/No-Go", href: "/settings/pilot-go-no-go", permission: "settings:read" },
+      { label: "試用結案檢查", href: "/settings/pilot-completion", permission: "settings:read" },
     ],
   },
   {

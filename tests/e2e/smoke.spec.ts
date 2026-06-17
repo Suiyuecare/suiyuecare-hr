@@ -181,6 +181,15 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(goNoGoChecks.getByRole("heading", { name: "證據安全掃描" })).toBeVisible();
   await expect(page.getByText("Production acceptance")).toBeVisible();
   await expect(page.getByText("Customer import preflight")).toBeVisible();
+
+  await page.goto("/settings/pilot-completion");
+  await expect(page.getByRole("heading", { name: "試用結案檢查" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "尚未可以結案" })).toBeVisible();
+  const completionGate = page.getByLabel("試用結案 Gate");
+  await expect(completionGate.getByRole("heading", { name: "Day 7 月結薪資單" })).toBeVisible();
+  await expect(completionGate.getByRole("heading", { name: "Day 14 audit 結案" })).toBeVisible();
+  await expect(completionGate.getByRole("heading", { name: "證據隱私掃描" })).toBeVisible();
+  await expect(page.getByText("Redacted handoff package")).toBeVisible();
 });
 
 test("HR 可以設定打卡方式並讓員工端看到提示", async ({ page }) => {

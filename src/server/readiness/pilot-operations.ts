@@ -165,7 +165,7 @@ const phaseDefinitions: PilotPhaseDefinition[] = [
     checklist: ["跑結案檢查", "掃描證據資料夾", "確認 audit 與權限防漏"],
     requiredEvidenceTypes: ["audit_export"],
     optionalEvidenceTypes: [],
-    actionHref: "/settings/readiness#pilot-runbook",
+    actionHref: "/settings/pilot-completion",
     actionLabel: "結案檢查",
     nextStep: "跑第 14 天結案檢查與證據掃描，不可把 raw 個資、薪資、銀行帳號放進報告。",
   },
@@ -284,7 +284,7 @@ function buildDailyTasks(
       task("day7-payslip", "收尾", "驗證薪資單權限", "釋出薪資單演練後，以員工帳號看本人薪資單，並確認主管預設不能看部屬薪資。", "payslip_access checkpoint", "/app/payslip", "看薪資單", tone),
     ],
     day_14: () => [
-      task("day14-close", "上午", "跑結案檢查", `${prefix}彙整 Day 0/1/3/7/14 證據，任何 blocker 或 warning 都不能結案。`, "trial completion report", "/settings/readiness#pilot-runbook", "結案檢查", tone),
+      task("day14-close", "上午", "跑結案檢查", `${prefix}彙整 Day 0/1/3/7/14 證據，任何 blocker 或 warning 都不能結案。`, "trial completion report", "/settings/pilot-completion", "結案檢查", tone),
       task("day14-privacy", "下午", "掃描證據資料夾", "先跑敏感資料掃描，確認報告沒有資料庫 URL、token、薪資、身分證、銀行帳號或健康資料。", "evidence scan report", "/settings/readiness", "看安全 Gate", tone),
       task("day14-kpi", "收尾", "確認 KPI 與交付判斷", "確認請假時間、主管簽核時間、手機完成率、月結預演與 audit 覆蓋率後，再決定是否擴大試用。", "KPI 與 audit_export checkpoint", "/hr/kpis", "看 KPI", tone),
     ],
