@@ -104,4 +104,28 @@ describe("Vercel production env draft", () => {
       HR_ONE_BACKUP_RESTORE_TESTED_AT: "REPLACE_WITH_RESTORE_DRILL_DATE_AFTER_2026-06-17",
     });
   });
+
+  it("updates restore drill evidence only when an explicit tested date is provided", () => {
+    const existing = [
+      "DATABASE_URL=\"REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE\"",
+      "HR_ONE_BACKUP_RESTORE_TESTED_AT=\"REPLACE_WITH_RESTORE_DRILL_DATE_AFTER_2026-06-17\"",
+      "",
+    ].join("\n");
+    const untouched = refreshVercelProductionEnvDraftKnownValues(existing, {
+      now: new Date("2026-06-17T00:00:00.000Z"),
+    });
+    const refreshed = refreshVercelProductionEnvDraftKnownValues(existing, {
+      now: new Date("2026-06-17T00:00:00.000Z"),
+      restoreDrillTestedAt: "2026-06-17",
+    });
+
+    expect(parseEnvFile(untouched.text)).toMatchObject({
+      HR_ONE_BACKUP_RESTORE_TESTED_AT: "REPLACE_WITH_RESTORE_DRILL_DATE_AFTER_2026-06-17",
+    });
+    expect(refreshed.changedKeys).toContain("HR_ONE_BACKUP_RESTORE_TESTED_AT");
+    expect(parseEnvFile(refreshed.text)).toMatchObject({
+      DATABASE_URL: "REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE",
+      HR_ONE_BACKUP_RESTORE_TESTED_AT: "2026-06-17",
+    });
+  });
 });

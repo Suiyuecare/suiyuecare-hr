@@ -15,6 +15,10 @@ export type VercelProductionEnvDraftRefreshResult = {
   appendedKeys: string[];
 };
 
+export type VercelProductionEnvDraftRefreshOptions = VercelProductionEnvDraftOptions & {
+  restoreDrillTestedAt?: string;
+};
+
 const defaultAppUrl = "https://hr.suiyuecare.com";
 const defaultProjectId = "prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N";
 const defaultSupabaseUrl = "https://aruncclorusswpfnpgsn.supabase.co";
@@ -110,24 +114,29 @@ export function buildVercelProductionEnvDraftValues(options: VercelProductionEnv
 
 export function refreshVercelProductionEnvDraftKnownValues(
   text: string,
-  options: VercelProductionEnvDraftOptions = {},
+  options: VercelProductionEnvDraftRefreshOptions = {},
 ): VercelProductionEnvDraftRefreshResult {
   const defaults = new Map(buildVercelProductionEnvDraftValues({
     ...options,
     randomSecret: () => "unused-generated-secret-with-more-than-32-characters",
   }));
+  const refreshableKeys = new Set(refreshableKnownValueKeys);
+  if (options.restoreDrillTestedAt) {
+    defaults.set("HR_ONE_BACKUP_RESTORE_TESTED_AT", normalizeDate(options.restoreDrillTestedAt));
+    refreshableKeys.add("HR_ONE_BACKUP_RESTORE_TESTED_AT");
+  }
   const seen = new Set<string>();
   const changedKeys: string[] = [];
   const lines = text.split(/\r?\n/).map((line) => {
     const parsed = parseEnvLine(line);
-    if (!parsed || !refreshableKnownValueKeys.has(parsed.key)) return line;
+    if (!parsed || !refreshableKeys.has(parsed.key)) return line;
     seen.add(parsed.key);
     const nextValue = defaults.get(parsed.key);
     if (!nextValue || parsed.value === nextValue) return line;
     changedKeys.push(parsed.key);
     return `${parsed.key}=${quoteEnvValue(nextValue)}`;
   });
-  const appendedKeys = [...refreshableKnownValueKeys]
+  const appendedKeys = [...refreshableKeys]
     .filter((key) => !seen.has(key))
     .filter((key) => defaults.has(key))
     .sort();
@@ -194,6 +203,17 @@ function parseEnvValue(rawValue: string) {
   }
   const commentIndex = rawValue.indexOf(" #");
   return commentIndex >= 0 ? rawValue.slice(0, commentIndex).trim() : rawValue;
+}
+
+function normalizeDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error("Expected restore drill date in YYYY-MM-DD format.");
+  }
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    throw new Error("Expected restore drill date in YYYY-MM-DD format.");
+  }
+  return value;
 }
 
 function formatDate(date: Date) {

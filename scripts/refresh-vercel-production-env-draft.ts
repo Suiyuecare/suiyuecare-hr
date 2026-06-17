@@ -16,13 +16,18 @@ function main() {
     projectId: readArg(args, "--project-id") ?? undefined,
     supabaseUrl: readArg(args, "--supabase-url") ?? undefined,
     supabasePublishableKey: readArg(args, "--supabase-publishable-key") ?? undefined,
+    restoreDrillTestedAt: readArg(args, "--restore-tested-at") ?? undefined,
   });
 
   console.log("HR One Vercel production env draft refresh:");
   console.log(`- source=${envFile}`);
   console.log(`- changed key(s): ${result.changedKeys.join(", ") || "none"}`);
   console.log(`- appended key(s): ${result.appendedKeys.join(", ") || "none"}`);
-  console.log("- preserved sensitive/operator-managed keys: DATABASE_URL, generated secrets, vault refs, restore drill evidence");
+  console.log(
+    args.some((arg) => arg.startsWith("--restore-tested-at"))
+      ? "- preserved sensitive/operator-managed keys: DATABASE_URL, generated secrets, vault refs"
+      : "- preserved sensitive/operator-managed keys: DATABASE_URL, generated secrets, vault refs, restore drill evidence",
+  );
 
   if (!apply) {
     console.log("Dry run only; pass --apply to update the local env draft.");
