@@ -5,6 +5,7 @@ import {
   draftHasUnresolvedPlaceholders,
   getUnresolvedEnvPlaceholderKeys,
   refreshVercelProductionEnvDraftKnownValues,
+  setVercelProductionDatabaseUrl,
 } from "@/server/readiness/vercel-production-env-draft";
 import { parseEnvFile } from "@/server/readiness/vercel-production-env";
 
@@ -126,6 +127,59 @@ describe("Vercel production env draft", () => {
     expect(parseEnvFile(refreshed.text)).toMatchObject({
       DATABASE_URL: "REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE",
       HR_ONE_BACKUP_RESTORE_TESTED_AT: "2026-06-17",
+    });
+  });
+
+  it("sets a validated Supabase transaction pooler DATABASE_URL without changing secrets", () => {
+    const existing = [
+      "DATABASE_URL=\"REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE\"",
+      "HR_ONE_SESSION_SECRET=\"keep-this-session-secret-with-more-than-32-characters\"",
+      "",
+    ].join("\n");
+    const databaseUrl = "postgresql://postgres.aruncclorusswpfnpgsn:secret@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&schema=hr_one";
+    const updated = setVercelProductionDatabaseUrl(existing, databaseUrl);
+    const env = parseEnvFile(updated.text);
+
+    expect(updated.connectionPosture).toBe("supabase-pooler-transaction");
+    expect(updated.changedKeys).toEqual(["DATABASE_URL"]);
+    expect(updated.appendedKeys).toEqual([]);
+    expect(env).toMatchObject({
+      DATABASE_URL: databaseUrl,
+      HR_ONE_SESSION_SECRET: "keep-this-session-secret-with-more-than-32-characters",
+    });
+  });
+
+  it("rejects session pooler and direct host URLs without IPv4 attestation", () => {
+    const existing = "DATABASE_URL=\"REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE\"\n";
+
+    expect(() =>
+      setVercelProductionDatabaseUrl(
+        existing,
+        "postgresql://postgres.aruncclorusswpfnpgsn:secret@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres?schema=hr_one",
+      ),
+    ).toThrow(/transaction pooler port 6543/);
+    expect(() =>
+      setVercelProductionDatabaseUrl(
+        existing,
+        "postgresql://postgres:secret@db.aruncclorusswpfnpgsn.supabase.co:5432/postgres?schema=hr_one",
+      ),
+    ).toThrow(/requires --supabase-ipv4-addon-enabled/);
+  });
+
+  it("allows direct Supabase DATABASE_URL only with explicit IPv4 add-on attestation", () => {
+    const existing = "DATABASE_URL=\"REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE\"\n";
+    const databaseUrl = "postgresql://postgres:secret@db.aruncclorusswpfnpgsn.supabase.co:5432/postgres?schema=hr_one";
+    const updated = setVercelProductionDatabaseUrl(existing, databaseUrl, {
+      supabaseIpv4AddonEnabled: true,
+    });
+    const env = parseEnvFile(updated.text);
+
+    expect(updated.connectionPosture).toBe("supabase-direct");
+    expect(updated.changedKeys).toEqual(["DATABASE_URL"]);
+    expect(updated.appendedKeys).toEqual(["HR_ONE_SUPABASE_IPV4_ADDON_ENABLED"]);
+    expect(env).toMatchObject({
+      DATABASE_URL: databaseUrl,
+      HR_ONE_SUPABASE_IPV4_ADDON_ENABLED: "true",
     });
   });
 });

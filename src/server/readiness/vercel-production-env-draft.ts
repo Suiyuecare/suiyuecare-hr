@@ -1,4 +1,9 @@
 import { randomBytes } from "node:crypto";
+import {
+  classifyDatabaseConnection,
+  hasPrismaTransactionPoolerParams,
+  type DatabaseConnectionPosture,
+} from "@/server/readiness/database-url";
 
 export type VercelProductionEnvDraftOptions = {
   now?: Date;
@@ -15,8 +20,16 @@ export type VercelProductionEnvDraftRefreshResult = {
   appendedKeys: string[];
 };
 
+export type VercelProductionDatabaseUrlUpdateResult = VercelProductionEnvDraftRefreshResult & {
+  connectionPosture: DatabaseConnectionPosture;
+};
+
 export type VercelProductionEnvDraftRefreshOptions = VercelProductionEnvDraftOptions & {
   restoreDrillTestedAt?: string;
+};
+
+export type VercelProductionDatabaseUrlUpdateOptions = {
+  supabaseIpv4AddonEnabled?: boolean;
 };
 
 const defaultAppUrl = "https://hr.suiyuecare.com";
@@ -159,6 +172,24 @@ export function refreshVercelProductionEnvDraftKnownValues(
   };
 }
 
+export function setVercelProductionDatabaseUrl(
+  text: string,
+  databaseUrl: string,
+  options: VercelProductionDatabaseUrlUpdateOptions = {},
+): VercelProductionDatabaseUrlUpdateResult {
+  const normalizedDatabaseUrl = databaseUrl.trim();
+  const connectionPosture = validateVercelProductionDatabaseUrl(normalizedDatabaseUrl, options);
+  const values = new Map<string, string>([["DATABASE_URL", normalizedDatabaseUrl]]);
+  if (connectionPosture === "supabase-direct" && options.supabaseIpv4AddonEnabled) {
+    values.set("HR_ONE_SUPABASE_IPV4_ADDON_ENABLED", "true");
+  }
+  const result = updateEnvValues(text, values);
+  return {
+    ...result,
+    connectionPosture,
+  };
+}
+
 export function draftHasUnresolvedPlaceholders(text: string) {
   return /REPLACE_WITH_[A-Z0-9_]+/.test(text);
 }
@@ -203,6 +234,85 @@ function parseEnvValue(rawValue: string) {
   }
   const commentIndex = rawValue.indexOf(" #");
   return commentIndex >= 0 ? rawValue.slice(0, commentIndex).trim() : rawValue;
+}
+
+function updateEnvValues(text: string, values: Map<string, string>): VercelProductionEnvDraftRefreshResult {
+  const seen = new Set<string>();
+  const changedKeys: string[] = [];
+  const lines = text.split(/\r?\n/).map((line) => {
+    const parsed = parseEnvLine(line);
+    if (!parsed || !values.has(parsed.key)) return line;
+    seen.add(parsed.key);
+    const nextValue = values.get(parsed.key)!;
+    if (parsed.value === nextValue) return line;
+    changedKeys.push(parsed.key);
+    return `${parsed.key}=${quoteEnvValue(nextValue)}`;
+  });
+  const appendedKeys = [...values.keys()].filter((key) => !seen.has(key)).sort();
+
+  if (appendedKeys.length > 0) {
+    const insertAt = lines.length > 0 && lines.at(-1) === "" ? lines.length - 1 : lines.length;
+    lines.splice(
+      insertAt,
+      0,
+      "# Updated operator-managed HR One production values.",
+      ...appendedKeys.map((key) => `${key}=${quoteEnvValue(values.get(key)!)}`
+      ),
+    );
+  }
+
+  return {
+    text: lines.join("\n"),
+    changedKeys: changedKeys.sort(),
+    appendedKeys,
+  };
+}
+
+function validateVercelProductionDatabaseUrl(
+  value: string,
+  options: VercelProductionDatabaseUrlUpdateOptions,
+): DatabaseConnectionPosture {
+  if (!value) throw new Error("DATABASE_URL is required.");
+  if (/REPLACE_WITH|placeholder|example|demo|localhost|password/i.test(value)) {
+    throw new Error("DATABASE_URL contains a placeholder, demo, local, or weak value.");
+  }
+
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("DATABASE_URL is not a valid URL.");
+  }
+  if (url.protocol !== "postgresql:" && url.protocol !== "postgres:") {
+    throw new Error("DATABASE_URL must start with postgresql:// or postgres://.");
+  }
+  if (url.searchParams.get("schema") !== "hr_one") {
+    throw new Error("DATABASE_URL must include schema=hr_one.");
+  }
+
+  const posture = classifyDatabaseConnection(value);
+  if (posture === "supabase-pooler-transaction") {
+    if (!hasPrismaTransactionPoolerParams(value)) {
+      throw new Error("Supabase transaction pooler DATABASE_URL requires pgbouncer=true and connection_limit=1.");
+    }
+    return posture;
+  }
+  if (posture === "supabase-direct") {
+    if (!options.supabaseIpv4AddonEnabled) {
+      throw new Error("Supabase direct DATABASE_URL requires --supabase-ipv4-addon-enabled for Vercel/serverless.");
+    }
+    return posture;
+  }
+  if (posture === "supabase-pooler-session") {
+    throw new Error("Use Supabase transaction pooler port 6543 for Vercel/serverless, not session pooler port 5432.");
+  }
+  if (posture === "supabase-pooler-unknown") {
+    throw new Error("Supabase pooler DATABASE_URL must use transaction mode port 6543 for Vercel/serverless.");
+  }
+  if (posture === "invalid") {
+    throw new Error("DATABASE_URL is not a valid URL.");
+  }
+  throw new Error("DATABASE_URL must be a recognized Supabase transaction pooler URL, or a direct Supabase host with IPv4 add-on attestation.");
 }
 
 function normalizeDate(value: string) {
