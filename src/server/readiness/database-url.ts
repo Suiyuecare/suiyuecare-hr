@@ -39,8 +39,12 @@ export function isSupabasePoolerConnection(databaseUrl: string | null | undefine
   );
 }
 
+export function isSupabaseTransactionPoolerConnection(databaseUrl: string | null | undefined) {
+  return classifyDatabaseConnection(databaseUrl) === "supabase-pooler-transaction";
+}
+
 export function hasPrismaTransactionPoolerParams(databaseUrl: string | null | undefined) {
-  if (classifyDatabaseConnection(databaseUrl) !== "supabase-pooler-transaction") return true;
+  if (!isSupabaseTransactionPoolerConnection(databaseUrl)) return true;
   try {
     const url = new URL(databaseUrl!);
     return (

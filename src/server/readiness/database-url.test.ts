@@ -3,6 +3,7 @@ import {
   classifyDatabaseConnection,
   hasPrismaTransactionPoolerParams,
   isSupabasePoolerConnection,
+  isSupabaseTransactionPoolerConnection,
 } from "@/server/readiness/database-url";
 
 describe("database URL posture", () => {
@@ -24,6 +25,8 @@ describe("database URL posture", () => {
     const sessionPooler = "postgresql://postgres.aruncclorusswpfnpgsn:secret@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres?schema=hr_one";
 
     expect(isSupabasePoolerConnection(transactionPooler)).toBe(true);
+    expect(isSupabaseTransactionPoolerConnection(transactionPooler)).toBe(true);
+    expect(isSupabaseTransactionPoolerConnection(sessionPooler)).toBe(false);
     expect(hasPrismaTransactionPoolerParams(transactionPooler)).toBe(true);
     expect(hasPrismaTransactionPoolerParams(missingParams)).toBe(false);
     expect(hasPrismaTransactionPoolerParams(sessionPooler)).toBe(true);

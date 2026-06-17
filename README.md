@@ -201,7 +201,7 @@ pnpm release:gate:production -- --tenant-slug=<customer-slug>
 
 11. For Vercel + Supabase deployment, configure Vercel project `prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N` with production environment variables:
 
-- `DATABASE_URL`: Supabase Transaction Pooler connection string from the Supabase dashboard, not the direct `db.<project-ref>.supabase.co:5432` host. For Vercel + Prisma it should use the pooler host on port `6543` and include `pgbouncer=true&connection_limit=1&schema=hr_one`. Use a server-side secret only; do not expose the database password as a public variable. If you intentionally use the direct host, enable the Supabase IPv4 add-on and set `HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true`; the runtime database ping must still pass.
+- `DATABASE_URL`: Supabase Transaction Pooler connection string from the Supabase dashboard, not the direct `db.<project-ref>.supabase.co:5432` host and not the session pooler on port `5432`. For Vercel + Prisma it should use the pooler host on port `6543` and include `pgbouncer=true&connection_limit=1&schema=hr_one`. Use a server-side secret only; do not expose the database password as a public variable. If you intentionally use the direct host, enable the Supabase IPv4 add-on and set `HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true`; the runtime database ping must still pass.
 - `HR_ONE_DEPLOYMENT_TARGET=vercel`
 - `VERCEL_PROJECT_ID=prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N`
 - `HR_ONE_DATABASE_PROVIDER=supabase_postgres`
@@ -431,7 +431,7 @@ pnpm release:gate:production -- --tenant-slug=<customer-slug>
 ```
 
 If PostgreSQL is not running yet, the dashboard pages fall back to non-persistent demo data so role switching and UI smoke tests still work. Once `DATABASE_URL` is set and the database is migrated/seeded, the app reads from PostgreSQL.
-For Supabase on Vercel, use a server-side Supavisor Transaction Pooler Postgres connection string with private schema and Prisma pooler parameters, for example `?pgbouncer=true&connection_limit=1&schema=hr_one`. Do not use the direct `db.<project-ref>.supabase.co:5432` host on Vercel unless the Supabase IPv4 add-on is enabled and `HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true` is set. The publishable key is only for browser-safe Supabase APIs and must not be used as a replacement for Prisma's `DATABASE_URL`. The existing Suiyuecare HR Supabase project currently contains an older snake_case HRIS schema, so HR One should be bootstrapped into a clean/private schema or a clean project before Vercel production is pointed at it.
+For Supabase on Vercel, use a server-side Supavisor Transaction Pooler Postgres connection string with private schema and Prisma pooler parameters, for example `?pgbouncer=true&connection_limit=1&schema=hr_one`. Do not use the direct `db.<project-ref>.supabase.co:5432` host on Vercel unless the Supabase IPv4 add-on is enabled and `HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true` is set, and do not use the session pooler on port `5432` for Vercel/serverless runtime traffic. The publishable key is only for browser-safe Supabase APIs and must not be used as a replacement for Prisma's `DATABASE_URL`. The existing Suiyuecare HR Supabase project currently contains an older snake_case HRIS schema, so HR One should be bootstrapped into a clean/private schema or a clean project before Vercel production is pointed at it.
 
 To prepare the current Supabase project safely, generate the private-schema bootstrap SQL and review it before applying:
 

@@ -178,6 +178,23 @@ describe("environment verification", () => {
     });
   });
 
+  it("blocks Supabase session pooler for Vercel serverless deployments", () => {
+    const report = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        DATABASE_URL: "postgresql://postgres.aruncclorusswpfnpgsn:secret@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres?schema=hr_one",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+
+    expect(environmentVerificationPassed(report)).toBe(false);
+    expect(report.checks.find((item) => item.name === "Supabase Vercel database network")).toMatchObject({
+      passed: false,
+      detail: "Vercel/serverless requires Supabase transaction pooler on port 6543; session pooler on port 5432 is for persistent backends",
+    });
+  });
+
   it("requires Prisma pooler flags for Supabase transaction pooler on Vercel", () => {
     const report = buildEnvironmentVerificationReport(
       {

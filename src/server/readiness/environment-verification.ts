@@ -2,7 +2,7 @@ import { isSafeAuthLoginUrl } from "@/server/auth/login-url";
 import {
   classifyDatabaseConnection,
   hasPrismaTransactionPoolerParams,
-  isSupabasePoolerConnection,
+  isSupabaseTransactionPoolerConnection,
 } from "@/server/readiness/database-url";
 
 export type EnvironmentVerificationMode = "local" | "production";
@@ -149,7 +149,7 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
       "Supabase Vercel database network",
       databaseProvider !== "supabase_postgres" ||
         deploymentTarget !== "vercel" ||
-        isSupabasePoolerConnection(databaseUrl) ||
+        isSupabaseTransactionPoolerConnection(databaseUrl) ||
         (classifyDatabaseConnection(databaseUrl) === "supabase-direct" && supabaseIpv4AddonEnabled),
       supabaseVercelDatabaseNetworkDetail({
         databaseProvider,
@@ -337,8 +337,14 @@ function supabaseVercelDatabaseNetworkDetail(input: {
     return "not required for this provider/target";
   }
   const posture = classifyDatabaseConnection(input.databaseUrl);
-  if (isSupabasePoolerConnection(input.databaseUrl)) {
+  if (isSupabaseTransactionPoolerConnection(input.databaseUrl)) {
     return `${formatDatabasePosture(posture)} configured for Vercel IPv4/serverless`;
+  }
+  if (posture === "supabase-pooler-session") {
+    return "Vercel/serverless requires Supabase transaction pooler on port 6543; session pooler on port 5432 is for persistent backends";
+  }
+  if (posture === "supabase-pooler-unknown") {
+    return "Supabase pooler URL must use transaction mode port 6543 for Vercel/serverless";
   }
   if (posture === "supabase-direct" && input.supabaseIpv4AddonEnabled) {
     return "Supabase direct host allowed by explicit IPv4 add-on attestation";
