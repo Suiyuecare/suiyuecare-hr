@@ -40,6 +40,25 @@ export type PilotInviteReadinessCheck = {
   detail: string;
 };
 
+export type PilotInvitePreparationAreaStatus = "ready" | "warning" | "blocked";
+
+export type PilotInvitePreparationArea = {
+  id:
+    | "tenant_cohort"
+    | "employee_access"
+    | "manager_line"
+    | "schedule_leave"
+    | "payslip_self_service";
+  title: string;
+  status: PilotInvitePreparationAreaStatus;
+  readyCount: number;
+  targetLabel: string;
+  gapCount: number;
+  detail: string;
+  nextStep: string;
+  href: string;
+};
+
 export type PilotInviteReadinessReport = {
   status: PilotInviteReadinessStatus;
   checkedAt: string;
@@ -51,6 +70,7 @@ export type PilotInviteReadinessReport = {
   blockers: number;
   warnings: number;
   checks: PilotInviteReadinessCheck[];
+  preparationAreas: PilotInvitePreparationArea[];
   nextActions: string[];
 };
 
@@ -266,6 +286,7 @@ export function buildPilotInviteReadinessReport(
   ];
   const blockers = checks.filter((item) => item.status === "block").length;
   const warnings = checks.filter((item) => item.status === "warn").length;
+  const preparationAreas = buildPreparationAreas(snapshot);
 
   return {
     status: blockers > 0 ? "blocked" : warnings > 0 ? "action_required" : "ready",
@@ -281,6 +302,7 @@ export function buildPilotInviteReadinessReport(
       ...item,
       detail: redactInviteDetail(item.detail),
     })),
+    preparationAreas,
     nextActions: buildNextActions(checks),
   };
 }
@@ -302,6 +324,15 @@ export function formatPilotInviteReadinessMarkdown(report: PilotInviteReadinessR
     "## Checks",
     "",
     ...report.checks.map((item) => `- [${item.status.toUpperCase()}] ${item.name}: ${redactInviteDetail(item.detail)}`),
+    "",
+    "## Preparation Areas",
+    "",
+    ...report.preparationAreas.map((area) => [
+      `- [${area.status.toUpperCase()}] ${area.title}`,
+      `  - Coverage: ${area.readyCount} (${area.targetLabel}), gap ${area.gapCount}`,
+      `  - Detail: ${redactInviteDetail(area.detail)}`,
+      `  - Next step: ${redactInviteDetail(area.nextStep)}`,
+    ].join("\n")),
     "",
     "## Next Actions",
     "",
@@ -415,6 +446,138 @@ function buildNextActions(checks: PilotInviteReadinessCheck[]) {
     .filter((checkItem) => checkItem.status !== "pass")
     .map((checkItem) => nextActionForCheck(checkItem.name));
   return [...new Set(actions.map(redactInviteDetail))];
+}
+
+function buildPreparationAreas(snapshot: PilotInviteReadinessSnapshot): PilotInvitePreparationArea[] {
+  const activeTotal = snapshot.activeEmployeeCount;
+  const employeeAccessReadyCount = Math.min(
+    snapshot.activeLinkedUserCount,
+    snapshot.employeeRoleAssignmentCount,
+    snapshot.ssoEnabled ? snapshot.externalIdentityEmployeeCount : activeTotal,
+  );
+  const managerReadyCount = Math.min(
+    snapshot.managerLinkedUserCount,
+    snapshot.managerRoleAssignmentCount,
+  );
+  const scheduleLeaveReadyCount = Math.min(
+    snapshot.scheduledEmployeeCount,
+    snapshot.leaveBalanceEmployeeCount,
+  );
+  const cohortGap =
+    !snapshot.tenantFound || !snapshot.companyFound
+      ? targetEmployeeMin
+      : activeTotal < targetEmployeeMin
+        ? targetEmployeeMin - activeTotal
+        : activeTotal > targetEmployeeMax
+          ? activeTotal - targetEmployeeMax
+          : 0;
+  const employeeAccessBlocked =
+    activeTotal === 0 ||
+    snapshot.linkedUserCount < activeTotal ||
+    snapshot.activeLinkedUserCount < activeTotal ||
+    snapshot.employeeRoleAssignmentCount < activeTotal ||
+    (snapshot.ssoEnabled && snapshot.externalIdentityEmployeeCount < activeTotal) ||
+    snapshot.emailDomainViolationCount > 0;
+  const employeeAccessWarning =
+    !employeeAccessBlocked &&
+    (!snapshot.ssoEnabled || snapshot.allowedEmailDomainCount === 0);
+  const managerBlocked =
+    snapshot.managerWithDirectReportsCount < 1 ||
+    managerReadyCount < snapshot.managerWithDirectReportsCount;
+  const scheduleLeaveBlocked =
+    activeTotal === 0 ||
+    snapshot.scheduledEmployeeCount < activeTotal ||
+    snapshot.leaveBalanceEmployeeCount < activeTotal;
+  const scheduleLeaveWarning =
+    !scheduleLeaveBlocked && snapshot.employeesWithoutDepartmentCount > 0;
+  const payslipBlocked =
+    activeTotal === 0 ||
+    !snapshot.payslipSelfServiceEnabled ||
+    !snapshot.payslipVisibilityRuleSafe;
+  const payslipWarning =
+    !payslipBlocked && snapshot.releasedPayslipEmployeeCount < activeTotal;
+
+  return [
+    {
+      id: "tenant_cohort",
+      title: "20-50 人試用名單",
+      status: cohortGap > 0 ? "blocked" : "ready",
+      readyCount: activeTotal,
+      targetLabel: `目標 ${targetEmployeeMin}-${targetEmployeeMax} 人`,
+      gapCount: cohortGap,
+      detail: snapshot.tenantFound && snapshot.companyFound
+        ? `${activeTotal} 位有效員工；只顯示總數，不列出姓名、Email 或員工編號。`
+        : "正式客戶 tenant 或公司尚未建立；不能用 demo tenant 發邀請。",
+      nextStep: cohortGap > 0
+        ? "匯入正式試用名單，讓有效員工數落在 20-50 人。"
+        : "名單人數已落在試用範圍，接著確認帳號與主管線。",
+      href: "/hr/employee-import",
+    },
+    {
+      id: "employee_access",
+      title: "登入、角色與 SSO",
+      status: employeeAccessBlocked ? "blocked" : employeeAccessWarning ? "warning" : "ready",
+      readyCount: Math.max(employeeAccessReadyCount, 0),
+      targetLabel: `${activeTotal} 位員工`,
+      gapCount: Math.max(activeTotal - employeeAccessReadyCount, snapshot.emailDomainViolationCount, 0),
+      detail: `${Math.max(employeeAccessReadyCount, 0)}/${activeTotal} 位員工具備有效登入、employee 角色${snapshot.ssoEnabled ? "與 SSO 身分" : "；正式試用建議啟用 SSO"}。`,
+      nextStep: employeeAccessBlocked
+        ? "補齊員工帳號、employee 角色、SSO 身分或公司 Email 網域限制。"
+        : employeeAccessWarning
+          ? "正式發邀請前，請確認 SSO 與公司 Email 網域策略。"
+          : "員工登入與角色已就緒。",
+      href: "/settings/access",
+    },
+    {
+      id: "manager_line",
+      title: "主管簽核線",
+      status: managerBlocked ? "blocked" : "ready",
+      readyCount: Math.max(managerReadyCount, 0),
+      targetLabel: `${snapshot.managerWithDirectReportsCount} 位主管`,
+      gapCount: Math.max(snapshot.managerWithDirectReportsCount - managerReadyCount, snapshot.managerWithDirectReportsCount < 1 ? 1 : 0, 0),
+      detail: `${snapshot.managerWithDirectReportsCount} 位主管有直屬員工，${Math.max(managerReadyCount, 0)} 位主管具備有效帳號與 manager 角色。`,
+      nextStep: managerBlocked
+        ? "匯入 managerEmployeeNo 主管線，並替有直屬員工的主管補上帳號與 manager 角色。"
+        : "主管簽核線已可支援統一 Inbox。",
+      href: "/hr/employee-import",
+    },
+    {
+      id: "schedule_leave",
+      title: "班表與假勤",
+      status: scheduleLeaveBlocked ? "blocked" : scheduleLeaveWarning ? "warning" : "ready",
+      readyCount: Math.max(scheduleLeaveReadyCount, 0),
+      targetLabel: `${activeTotal} 位員工`,
+      gapCount: Math.max(activeTotal - scheduleLeaveReadyCount, snapshot.employeesWithoutDepartmentCount, 0),
+      detail: `${snapshot.scheduledEmployeeCount}/${activeTotal} 位有前 14 天班表，${snapshot.leaveBalanceEmployeeCount}/${activeTotal} 位有有效假額。`,
+      nextStep: scheduleLeaveBlocked
+        ? "發邀請前先發布 14 天班表並建立每位員工至少一筆有效假別餘額。"
+        : scheduleLeaveWarning
+          ? "仍有員工缺部門，請補齊以免後台篩選與主管責任不清。"
+          : "班表與假勤可支援員工第一週打卡與請假。",
+      href: "/settings/company-setup",
+    },
+    {
+      id: "payslip_self_service",
+      title: "薪資單與權限",
+      status: payslipBlocked ? "blocked" : payslipWarning ? "warning" : "ready",
+      readyCount: snapshot.payslipSelfServiceEnabled && snapshot.payslipVisibilityRuleSafe
+        ? snapshot.releasedPayslipEmployeeCount
+        : 0,
+      targetLabel: `${activeTotal} 位員工`,
+      gapCount: payslipBlocked
+        ? activeTotal
+        : Math.max(activeTotal - snapshot.releasedPayslipEmployeeCount, 0),
+      detail: snapshot.payslipSelfServiceEnabled && snapshot.payslipVisibilityRuleSafe
+        ? `${snapshot.releasedPayslipEmployeeCount}/${activeTotal} 位已有薪資單釋出演練，self-only 規則通過。`
+        : "員工薪資單自助查看或 self-only RBAC 規則尚未安全。",
+      nextStep: payslipBlocked
+        ? "先啟用薪資單自助查看並確認員工只能看本人薪資單，主管預設不能看部屬薪資。"
+        : payslipWarning
+          ? "第 7 天月結預演前，替每位試用員工完成薪資單釋出演練證據。"
+          : "薪資單自助查看與演練證據已就緒。",
+      href: "/hr",
+    },
+  ];
 }
 
 function nextActionForCheck(name: string) {

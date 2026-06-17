@@ -50,6 +50,10 @@ export default async function PilotInviteReadinessPage({
   const preflightPhase = operationsReport.phases.find((phase) => phase.checkpointId === "preflight");
   const inviteGate = buildInviteGate({ report, preflightPhase });
   const inviteNextActions = buildInviteNextActions(report.nextActions, inviteGate.preflightAccessReviewReady);
+  const preparationAreas = [
+    ...report.preparationAreas,
+    buildPreflightPreparationArea(inviteGate.preflightAccessReviewReady),
+  ];
   const accessReviewReturnTo = buildInviteReturnPath({
     tenantSlug,
     companyId,
@@ -122,6 +126,39 @@ export default async function PilotInviteReadinessPage({
             可請假
           </span>
         </div>
+
+        <section className="panel span-12">
+          <div className="section-heading">
+            <div>
+              <h2>20-50 人資料準備看板</h2>
+              <p className="muted">只用彙總缺口協助 HR 開跑，不顯示姓名、Email、薪資、銀行帳號、身分證或私人備註。</p>
+            </div>
+            <span className={`badge ${preparationAreas.some((area) => area.status === "blocked") ? "danger" : preparationAreas.some((area) => area.status === "warning") ? "warning" : ""}`}>
+              {preparationAreas.filter((area) => area.status !== "ready").length} 項待處理
+            </span>
+          </div>
+          <div className="invite-prep-grid" aria-label="20-50 人資料準備看板">
+            {preparationAreas.map((area) => (
+              <article className={`invite-prep-card ${area.status}`} key={area.id}>
+                <div>
+                  <span className="muted">{area.targetLabel}</span>
+                  <h3>{area.title}</h3>
+                  <strong>{area.readyCount}</strong>
+                  <p>{area.detail}</p>
+                </div>
+                <div className="invite-prep-card-footer">
+                  <span className={`badge ${area.status === "blocked" ? "danger" : area.status === "warning" ? "warning" : ""}`}>
+                    缺口 {area.gapCount}
+                  </span>
+                  <Link className="button" href={area.href}>
+                    {area.status === "ready" ? "查看" : "處理"}
+                  </Link>
+                </div>
+                <small>{area.nextStep}</small>
+              </article>
+            ))}
+          </div>
+        </section>
 
         <section className={`panel span-12 risk-box ${operationsStatusBoxClass(operationsReport.status)}`}>
           <div className="section-heading">
@@ -360,6 +397,24 @@ function inviteGateDetail(
 function buildInviteNextActions(actions: string[], preflightAccessReviewReady: boolean) {
   const nextActions = preflightAccessReviewReady ? actions : [preflightAccessReviewAction, ...actions];
   return [...new Set(nextActions)];
+}
+
+function buildPreflightPreparationArea(preflightAccessReviewReady: boolean) {
+  return {
+    id: "preflight_access_review",
+    title: "權限防漏",
+    status: preflightAccessReviewReady ? "ready" : "blocked",
+    readyCount: preflightAccessReviewReady ? 1 : 0,
+    targetLabel: "hard gate",
+    gapCount: preflightAccessReviewReady ? 0 : 1,
+    detail: preflightAccessReviewReady
+      ? "員工、主管與 HR 薪資資料邊界已通過 hash-only preflight 證據。"
+      : "發邀請前必須先驗證員工與主管不能讀 payroll dashboard 或他人薪資單。",
+    nextStep: preflightAccessReviewReady
+      ? "權限防漏已完成，請保留 checkpoint 證據。"
+      : "由 Owner/HR 跑權限防漏；檢查不讀取薪資金額、銀行帳號、身分證或健康資料。",
+    href: "#preflight-access-review",
+  } as const;
 }
 
 function checkLabel(name: string) {

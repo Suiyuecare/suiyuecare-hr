@@ -38,6 +38,13 @@ describe("pilot invite readiness", () => {
       "pass",
       "pass",
     ]);
+    expect(report.preparationAreas.map((area) => area.status)).toEqual([
+      "ready",
+      "ready",
+      "ready",
+      "ready",
+      "ready",
+    ]);
     expect(pilotInviteReadinessPassed(report)).toBe(true);
   });
 
@@ -73,6 +80,16 @@ describe("pilot invite readiness", () => {
         "Enable production SSO and link external identities for every pilot employee user.",
       ]),
     );
+    expect(report.preparationAreas.find((area) => area.id === "employee_access")).toMatchObject({
+      status: "blocked",
+      readyCount: 20,
+      gapCount: 5,
+    });
+    expect(report.preparationAreas.find((area) => area.id === "manager_line")).toMatchObject({
+      status: "blocked",
+      readyCount: 2,
+      gapCount: 1,
+    });
   });
 
   it("treats missing SSO and department coverage as warnings while keeping output redacted", () => {
@@ -91,6 +108,7 @@ describe("pilot invite readiness", () => {
     expect(report.warnings).toBe(2);
     expect(pilotInviteReadinessPassed(report)).toBe(false);
     expect(markdown).toContain("Status: action_required");
+    expect(markdown).toContain("## Preparation Areas");
     expect(markdown).not.toContain("employee@example.com");
     expect(markdown).not.toContain("A123456789");
     expect(markdown).not.toContain("56000");
@@ -128,6 +146,16 @@ describe("pilot invite readiness", () => {
         "Enable employee payslip self-service and keep the self-only payslip RBAC rule enforced.",
       ]),
     );
+    expect(report.preparationAreas.find((area) => area.id === "schedule_leave")).toMatchObject({
+      status: "blocked",
+      readyCount: 20,
+      gapCount: 5,
+    });
+    expect(report.preparationAreas.find((area) => area.id === "payslip_self_service")).toMatchObject({
+      status: "blocked",
+      readyCount: 0,
+      gapCount: 25,
+    });
   });
 
   it("blocks unknown tenant or company snapshots", () => {

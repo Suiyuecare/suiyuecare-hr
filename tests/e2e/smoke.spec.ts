@@ -143,6 +143,12 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByRole("heading", { name: "尚未可以邀請員工" })).toBeVisible();
   await expect(page.getByText(/Preflight 權限防漏：未完成/)).toBeVisible();
   await expect(page.getByText(/發第一封邀請前，先由 Owner\/HR 跑 preflight 權限防漏/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "20-50 人資料準備看板" })).toBeVisible();
+  const prepBoard = page.getByLabel("20-50 人資料準備看板");
+  await expect(prepBoard.getByRole("heading", { name: "20-50 人試用名單" })).toBeVisible();
+  await expect(prepBoard.getByRole("heading", { name: "登入、角色與 SSO" })).toBeVisible();
+  await expect(prepBoard.getByRole("heading", { name: "薪資單與權限" })).toBeVisible();
+  await expect(prepBoard.getByRole("heading", { name: "權限防漏" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "邀請前核心流程 Gate" })).toBeVisible();
   const inviteFlow = page.locator(".pilot-invite-flow");
   const day7Gate = inviteFlow.locator(".close-step").filter({ hasText: "第 7 天" });

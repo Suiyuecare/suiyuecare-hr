@@ -1667,6 +1667,73 @@ legend {
   background: #fef2f2;
 }
 
+.invite-prep-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.invite-prep-card {
+  display: grid;
+  align-content: space-between;
+  gap: 12px;
+  min-height: 228px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.invite-prep-card h3,
+.invite-prep-card p {
+  margin: 0;
+}
+
+.invite-prep-card h3 {
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.invite-prep-card strong {
+  color: var(--foreground);
+  font-size: 28px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.invite-prep-card p,
+.invite-prep-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 780;
+  line-height: 1.42;
+}
+
+.invite-prep-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.invite-prep-card.blocked {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.invite-prep-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.invite-prep-card.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
 .close-step.blocked {
   border-color: #fed7aa;
   background: #fff8e8;
@@ -2699,6 +2766,7 @@ legend {
   .payroll-day7-guide,
   .payroll-runway,
   .pilot-invite-flow,
+  .invite-prep-grid,
   .payroll-actions,
   .payroll-preview,
   .payroll-ledger-preview,
@@ -2737,6 +2805,7 @@ legend {
   .hr-close-command-card,
   .payroll-day7-action,
   .payroll-runway-stage,
+  .invite-prep-card,
   .pilot-invite-flow .close-step {
     min-height: auto;
   }

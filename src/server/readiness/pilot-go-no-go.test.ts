@@ -272,6 +272,7 @@ function inviteReadinessReport(options: {
     blockers: options.blockers ?? 0,
     warnings: options.warnings ?? 0,
     checks: [],
+    preparationAreas: [],
     nextActions: [],
   };
 }
