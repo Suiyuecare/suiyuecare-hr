@@ -1,14 +1,14 @@
 # HR One Production Pilot Status
 
-Last checked: 2026-06-17 Asia/Taipei
+Last checked: 2026-06-17 10:29 Asia/Taipei
 
 ## Current State
 
 - Live domain: `https://hr.suiyuecare.com`
 - GitHub repository: `Suiyuecare/suiyuecare-hr`
 - Vercel project in repo metadata: `prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N` (`suiyuecare-hr2`)
-- Latest GitHub `main` includes the production SSO login guard, the pilot doctor env handoff update, the expanded Supabase pilot readiness seed, the `/settings/company-setup` guided setup wizard, the `/settings/pilot-invite-readiness` management screen, and the `/settings/pilot-operations` daily trial war room with Today Gate.
-- `suiyuecare-hr2` deployed commit `c676142` on 2026-06-17. Legacy `suiyuecare-hr` status context may still fail separately and should not be treated as the active production project.
+- Latest GitHub `main` is commit `37cf12c`, which includes the production SSO login guard, the pilot doctor env handoff update, the expanded Supabase pilot readiness seed, the `/settings/company-setup` guided setup wizard, the `/settings/pilot-invite-readiness` management screen, the `/settings/pilot-operations` daily trial war room with Today Gate, and stricter trial completion gating that requires zero blockers and zero warnings.
+- Vercel status contexts for `suiyuecare-hr2` and legacy `suiyuecare-hr` currently fail with `Deployment rate limited - retry in 24 hours` for commit `37cf12c`; the live site may still be running an older deployed commit until the rate limit clears or a manual deployment succeeds.
 - Vercel Production now has all required bootstrap values, backup restore evidence, and a server-side `DATABASE_URL`.
 - The server-side `DATABASE_URL` has been rotated to a verified direct Supabase custom-role URL for `hr_one_app_runtime`; the remaining blocker is network reachability from Vercel to Supabase direct Postgres.
 - Legacy Vercel status context `Vercel - suiyuecare-hr` may still appear. Use `suiyuecare-hr2` as the active project.
