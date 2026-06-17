@@ -10,11 +10,13 @@ import { pilotImportPreflightPassed } from "@/server/readiness/pilot-import-pref
 import type { PilotWorkflowReadinessReport } from "@/server/readiness/pilot-workflow-readiness";
 import { pilotWorkflowReadinessPassed } from "@/server/readiness/pilot-workflow-readiness";
 import { redactSensitiveDetail } from "@/server/readiness/production-pilot-gate";
+import type { ProductionDatabaseRemediationReport } from "@/server/readiness/production-database-remediation";
 
 export type PilotGoNoGoStatus = "ready_to_start" | "blocked";
 
 export type PilotGoNoGoCheckId =
   | "acceptance"
+  | "production_database"
   | "day_0_status"
   | "import_preflight"
   | "invite_readiness"
@@ -33,11 +35,13 @@ export type PilotGoNoGoCheck = {
 
 export type PilotGoNoGoInput = {
   acceptance: PilotAcceptanceReport;
+  productionDatabase?: ProductionDatabaseRemediationReport | null;
   day0: PilotDailyStatusReport;
   importPreflight?: PilotImportPreflightReport | null;
   inviteReadiness?: PilotInviteReadinessReport | null;
   workflowReadiness?: PilotWorkflowReadinessReport | null;
   evidenceScan?: PilotEvidenceScanReport | null;
+  productionDatabaseRequired?: boolean;
   importPreflightRequired?: boolean;
   inviteReadinessRequired?: boolean;
   workflowReadinessRequired?: boolean;
@@ -57,6 +61,9 @@ export type PilotGoNoGoReport = {
 
 const missingImportNextStep =
   "Run pnpm pilot:import-preflight with the completed employee, identity, and payroll CSV files before inviting pilot employees.";
+
+const missingProductionDatabaseNextStep =
+  "Run pnpm pilot:production-database with the live URL and production env draft before inviting pilot employees.";
 
 const missingInviteNextStep =
   "Run pnpm pilot:invite-readiness for the real customer tenant before inviting pilot employees.";
@@ -80,6 +87,10 @@ export function buildPilotGoNoGoReport(input: PilotGoNoGoInput): PilotGoNoGoRepo
   const generatedAt = (input.generatedAt ?? new Date()).toISOString();
   const checks = [
     buildAcceptanceCheck(input.acceptance),
+    buildProductionDatabaseCheck(
+      input.productionDatabase ?? null,
+      input.productionDatabaseRequired ?? true,
+    ),
     buildDay0Check(input.day0),
     buildImportPreflightCheck(
       input.importPreflight ?? null,
@@ -155,6 +166,37 @@ function buildAcceptanceCheck(acceptance: PilotAcceptanceReport): PilotGoNoGoChe
     nextStep: acceptance.readyToStart
       ? "Keep the acceptance report with the pilot evidence folder."
       : "Fix blocked acceptance items before inviting pilot employees.",
+  };
+}
+
+function buildProductionDatabaseCheck(
+  report: ProductionDatabaseRemediationReport | null,
+  required: boolean,
+): PilotGoNoGoCheck {
+  if (!report) {
+    return {
+      id: "production_database",
+      title: "Production database gate",
+      status: required ? "block" : "warn",
+      detail: required
+        ? "No production database gate report was provided."
+        : "Production database gate was skipped by operator choice.",
+      nextStep: required
+        ? missingProductionDatabaseNextStep
+        : "Run production database gate before inviting the first pilot employee.",
+    };
+  }
+
+  const envDraftStatus = report.envDraft?.status ?? "missing";
+  const passed = report.status === "ready" && envDraftStatus === "ready";
+  return {
+    id: "production_database",
+    title: "Production database gate",
+    status: passed ? "pass" : "block",
+    detail: `${report.status}; root cause ${report.rootCause}; env draft ${envDraftStatus}`,
+    nextStep: passed
+      ? "Keep the redacted production database gate report with the pilot evidence folder."
+      : firstActionOrFallback(report.nextActions, missingProductionDatabaseNextStep),
   };
 }
 
@@ -293,9 +335,17 @@ function buildNextActions(input: PilotGoNoGoInput, checks: PilotGoNoGoCheck[]) {
       .filter((check) => check.status !== "pass")
       .map((check) => check.nextStep),
     ...(!input.acceptance.readyToStart ? input.acceptance.nextActions : []),
+    ...(input.productionDatabase &&
+    (input.productionDatabase.status !== "ready" || input.productionDatabase.envDraft?.status !== "ready")
+      ? input.productionDatabase.nextActions
+      : []),
     ...(!pilotDailyStatusPassed(input.day0) ? input.day0.nextActions : []),
   ];
   return dedupe(actionCandidates.map(redactPilotReportText));
+}
+
+function firstActionOrFallback(actions: string[], fallback: string) {
+  return actions.find((action) => action.trim()) ?? fallback;
 }
 
 function redactPilotReportText(value: string) {

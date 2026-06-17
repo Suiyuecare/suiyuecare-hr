@@ -178,6 +178,11 @@ function buildExternalEvidenceGaps(tenantSlug: string) {
       command: `pnpm pilot:acceptance -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=${tenantSlug} --json`,
     },
     {
+      title: "Production database gate",
+      detail: "The live database path and local production env draft must both be ready before any real employee invitation.",
+      command: "pnpm pilot:production-database -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --env-file=.env.vercel.production --output=/tmp/hr-one-production-database-gate.md",
+    },
+    {
       title: "Customer import preflight",
       detail: "Completed employee, identity, and payroll CSV files must stay in approved secure storage and be checked before import. HR can use the browser preflight UI or the CLI report.",
       command: "Open /settings/pilot-import-preflight or run pnpm pilot:import-preflight -- --employee-csv=<employee.csv> --identity-csv=<identity.csv> --payroll-csv=<payroll.csv>",

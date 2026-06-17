@@ -193,6 +193,7 @@ function statusLabel(status: PilotGoNoGoCheck["status"]) {
 function checkTitle(id: PilotGoNoGoCheck["id"], fallback: string) {
   const labels: Record<PilotGoNoGoCheck["id"], string> = {
     acceptance: "正式環境驗收",
+    production_database: "正式資料庫",
     day_0_status: "Day 0 邀請 Gate",
     import_preflight: "匯入預檢",
     invite_readiness: "邀請就緒",
@@ -205,6 +206,7 @@ function checkTitle(id: PilotGoNoGoCheck["id"], fallback: string) {
 function checkHref(id: PilotGoNoGoCheck["id"]) {
   const hrefs: Record<PilotGoNoGoCheck["id"], string> = {
     acceptance: "/settings/production-database",
+    production_database: "/settings/production-database",
     day_0_status: "/settings/pilot-operations",
     import_preflight: "/settings/pilot-import-preflight",
     invite_readiness: "/settings/pilot-invite-readiness",
@@ -217,6 +219,7 @@ function checkHref(id: PilotGoNoGoCheck["id"]) {
 function checkActionLabel(id: PilotGoNoGoCheck["id"]) {
   const labels: Record<PilotGoNoGoCheck["id"], string> = {
     acceptance: "修正式環境",
+    production_database: "修資料庫 Gate",
     day_0_status: "看每日戰情",
     import_preflight: "預檢 CSV",
     invite_readiness: "檢查邀請",

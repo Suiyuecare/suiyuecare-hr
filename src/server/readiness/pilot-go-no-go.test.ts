@@ -5,6 +5,7 @@ import type { PilotEvidenceScanReport } from "@/server/readiness/pilot-evidence-
 import type { PilotInviteReadinessReport } from "@/server/readiness/pilot-invite-readiness";
 import type { PilotImportPreflightReport } from "@/server/readiness/pilot-import-preflight";
 import type { PilotWorkflowReadinessReport } from "@/server/readiness/pilot-workflow-readiness";
+import type { ProductionDatabaseRemediationReport } from "@/server/readiness/production-database-remediation";
 import {
   buildPilotGoNoGoReport,
   formatPilotGoNoGoMarkdown,
@@ -16,6 +17,7 @@ describe("pilot go/no-go", () => {
     const acceptance = acceptanceReport({ readyToStart: true });
     const report = buildPilotGoNoGoReport({
       acceptance,
+      productionDatabase: productionDatabaseReport({ status: "ready" }),
       day0: buildPilotDailyStatusReport({ acceptance, day: 0 }),
       importPreflight: importPreflightReport({ status: "ready" }),
       inviteReadiness: inviteReadinessReport({ status: "ready" }),
@@ -30,7 +32,7 @@ describe("pilot go/no-go", () => {
       blockers: 0,
       warnings: 0,
     });
-    expect(report.checks.map((check) => check.status)).toEqual(["pass", "pass", "pass", "pass", "pass", "pass"]);
+    expect(report.checks.map((check) => check.status)).toEqual(["pass", "pass", "pass", "pass", "pass", "pass", "pass"]);
     expect(pilotGoNoGoPassed(report)).toBe(true);
   });
 
@@ -38,6 +40,7 @@ describe("pilot go/no-go", () => {
     const acceptance = acceptanceReport({ readyToStart: true });
     const report = buildPilotGoNoGoReport({
       acceptance,
+      productionDatabase: productionDatabaseReport({ status: "ready" }),
       day0: buildPilotDailyStatusReport({ acceptance, day: 0 }),
       importPreflight: importPreflightReport({ status: "ready" }),
       inviteReadiness: inviteReadinessReport({ status: "ready" }),
@@ -59,6 +62,37 @@ describe("pilot go/no-go", () => {
       status: "pass",
       detail: "needs_production_evidence; 0 production ready / 7 rehearsed only / 0 blocked",
     });
+  });
+
+  it("blocks when the production database gate or env draft is not ready", () => {
+    const acceptance = acceptanceReport({ readyToStart: true });
+    const report = buildPilotGoNoGoReport({
+      acceptance,
+      productionDatabase: productionDatabaseReport({
+        status: "blocked",
+        envDraftStatus: "blocked",
+        rootCause: "supabase_direct_network",
+        nextActions: [
+          "Fix DATABASE_URL=postgresql://hrone:secret@db.example.com/hrone?schema=hr_one before pilot.",
+        ],
+      }),
+      day0: buildPilotDailyStatusReport({ acceptance, day: 0 }),
+      importPreflight: importPreflightReport({ status: "ready" }),
+      inviteReadiness: inviteReadinessReport({ status: "ready" }),
+      workflowReadiness: workflowReadinessReport({ status: "production_ready" }),
+      evidenceScan: evidenceScanReport({ status: "pass" }),
+    });
+    const markdown = formatPilotGoNoGoMarkdown(report);
+
+    expect(report.status).toBe("blocked");
+    expect(report.checks.find((check) => check.id === "production_database")).toMatchObject({
+      status: "block",
+      detail: "blocked; root cause supabase_direct_network; env draft blocked",
+    });
+    expect(report.nextActions.join("\n")).not.toContain("postgresql://");
+    expect(markdown).not.toContain("postgresql://");
+    expect(markdown).not.toContain("secret@db.example.com");
+    expect(pilotGoNoGoPassed(report)).toBe(false);
   });
 
   it("blocks missing required preflight evidence and redacts sensitive next actions", () => {
@@ -84,6 +118,9 @@ describe("pilot go/no-go", () => {
     expect(report.checks.find((check) => check.id === "import_preflight")).toMatchObject({
       status: "block",
     });
+    expect(report.checks.find((check) => check.id === "production_database")).toMatchObject({
+      status: "block",
+    });
     expect(report.checks.find((check) => check.id === "evidence_scan")).toMatchObject({
       status: "block",
     });
@@ -106,6 +143,7 @@ describe("pilot go/no-go", () => {
     const acceptance = acceptanceReport({ readyToStart: true });
     const report = buildPilotGoNoGoReport({
       acceptance,
+      productionDatabase: productionDatabaseReport({ status: "ready" }),
       day0: buildPilotDailyStatusReport({ acceptance, day: 0 }),
       importPreflight: importPreflightReport({ status: "action_required", warnings: 1 }),
       inviteReadiness: inviteReadinessReport({ status: "blocked", blockers: 2 }),
@@ -140,6 +178,7 @@ describe("pilot go/no-go", () => {
     const acceptance = acceptanceReport({ readyToStart: true });
     const report = buildPilotGoNoGoReport({
       acceptance,
+      productionDatabase: productionDatabaseReport({ status: "ready" }),
       day0: buildPilotDailyStatusReport({ acceptance, day: 0 }),
       importPreflight: importPreflightReport({ status: "ready" }),
       inviteReadiness: inviteReadinessReport({ status: "ready" }),
@@ -164,6 +203,7 @@ describe("pilot go/no-go", () => {
     const acceptance = acceptanceReport({ readyToStart: true });
     const report = buildPilotGoNoGoReport({
       acceptance,
+      productionDatabase: productionDatabaseReport({ status: "ready" }),
       day0: buildPilotDailyStatusReport({ acceptance, day: 0 }),
       importPreflight: null,
       inviteReadiness: null,
@@ -180,7 +220,7 @@ describe("pilot go/no-go", () => {
       blockers: 0,
       warnings: 4,
     });
-    expect(report.checks.map((check) => check.status)).toEqual(["pass", "pass", "warn", "warn", "warn", "warn"]);
+    expect(report.checks.map((check) => check.status)).toEqual(["pass", "pass", "pass", "warn", "warn", "warn", "warn"]);
     expect(report.nextActions).toEqual(
       expect.arrayContaining([
         "Run import preflight before using real customer employee, identity, or payroll CSV files.",
@@ -233,6 +273,49 @@ function acceptanceReport(options: {
     blockedCount: items.filter((item) => item.status === "blocked").length,
     items,
     nextActions: options.nextActions ?? [],
+  };
+}
+
+function productionDatabaseReport(options: {
+  status: ProductionDatabaseRemediationReport["status"];
+  envDraftStatus?: NonNullable<ProductionDatabaseRemediationReport["envDraft"]>["status"];
+  rootCause?: ProductionDatabaseRemediationReport["rootCause"];
+  nextActions?: string[];
+}): ProductionDatabaseRemediationReport {
+  const envDraftStatus = options.envDraftStatus ?? "ready";
+  const nextActions = options.nextActions ?? [];
+  return {
+    status: options.status,
+    generatedAt: "2026-06-17T00:00:00.000Z",
+    appUrl: "https://hr.suiyuecare.com/",
+    readinessUrl: "https://hr.suiyuecare.com/api/health/ready",
+    rootCause: options.rootCause ?? (options.status === "ready" ? "ready" : "unknown"),
+    summary: options.status === "ready" ? "Production database ready." : "Production database blocked.",
+    gate: {
+      status: options.status,
+      appUrl: "https://hr.suiyuecare.com/",
+      readinessUrl: "https://hr.suiyuecare.com/api/health/ready",
+      checkedAt: "2026-06-17T00:00:00.000Z",
+      checks: [],
+      nextActions,
+    },
+    envDraft: {
+      status: envDraftStatus,
+      source: ".env.vercel.production",
+      databaseConnectionPosture: envDraftStatus === "ready" ? "supabase-pooler-transaction" : "invalid",
+      databaseUrlShape: envDraftStatus === "ready"
+        ? "Supabase transaction pooler with Prisma pooler params"
+        : "unresolved database URL placeholder",
+      unresolvedPlaceholderKeys: envDraftStatus === "ready" ? [] : ["DATABASE_URL"],
+      failedCheckNames: envDraftStatus === "ready" ? [] : ["database url"],
+      checks: [],
+      nextActions,
+    },
+    databaseDetail: options.status === "ready" ? "database ping succeeded" : "database ping failed",
+    environmentDetail: options.status === "ready" ? "production environment posture verified" : "production environment verification failed",
+    tracks: [],
+    nextActions,
+    privacyGuardrails: [],
   };
 }
 

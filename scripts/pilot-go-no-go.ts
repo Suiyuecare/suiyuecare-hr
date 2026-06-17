@@ -25,6 +25,12 @@ import {
   pilotGoNoGoPassed,
 } from "../src/server/readiness/pilot-go-no-go";
 import {
+  buildProductionDatabaseEnvDraftReport,
+  getProductionDatabaseRemediationReport,
+  type ProductionDatabaseEnvDraftReport,
+  type ProductionDatabaseRemediationReport,
+} from "../src/server/readiness/production-database-remediation";
+import {
   buildPilotImportPreflightReport,
   type PilotImportPreflightReport,
 } from "../src/server/readiness/pilot-import-preflight";
@@ -33,6 +39,7 @@ import {
   type PilotWorkflowReadinessReport,
 } from "../src/server/readiness/pilot-workflow-readiness";
 import { redactSensitiveDetail } from "../src/server/readiness/production-pilot-gate";
+import { parseEnvFile } from "../src/server/readiness/vercel-production-env";
 
 const defaultEvidenceExtensions = new Set([".csv", ".json", ".md", ".txt"]);
 
@@ -40,11 +47,13 @@ async function main() {
   const args = process.argv.slice(2);
   const json = args.includes("--json");
   const output = readArg(args, "--output");
+  const skipProductionDatabase = args.includes("--skip-production-database");
   const skipImportPreflight = args.includes("--skip-import-preflight");
   const skipInviteReadiness = args.includes("--skip-invite-readiness");
   const skipWorkflowReadiness = args.includes("--skip-workflow-readiness");
   const skipEvidenceScan = args.includes("--skip-evidence-scan");
   const acceptance = runPilotAcceptance(args);
+  const productionDatabase = await maybeBuildProductionDatabase(args, skipProductionDatabase);
   const day0 = buildPilotDailyStatusReport({
     acceptance,
     day: 0,
@@ -55,11 +64,13 @@ async function main() {
   const evidenceScan = maybeBuildEvidenceScan(args, skipEvidenceScan);
   const report = buildPilotGoNoGoReport({
     acceptance,
+    productionDatabase,
     day0,
     importPreflight,
     inviteReadiness,
     workflowReadiness,
     evidenceScan,
+    productionDatabaseRequired: !skipProductionDatabase,
     importPreflightRequired: !skipImportPreflight,
     inviteReadinessRequired: !skipInviteReadiness,
     workflowReadinessRequired: !skipWorkflowReadiness,
@@ -110,6 +121,47 @@ function runPilotAcceptance(args: string[]): PilotAcceptanceReport {
     throw new Error("pilot:acceptance did not return a valid report.");
   }
   return parsed;
+}
+
+async function maybeBuildProductionDatabase(
+  args: string[],
+  skipped: boolean,
+): Promise<ProductionDatabaseRemediationReport | null> {
+  if (skipped) return null;
+  const appUrl =
+    readArg(args, "--url") ??
+    process.env.HR_ONE_APP_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    "https://hr.suiyuecare.com";
+  const expectedHost = readArg(args, "--expected-host") ?? new URL(appUrl).hostname;
+  const timeoutMs = parsePositiveInteger(readArg(args, "--production-database-timeout-ms"), 5000);
+
+  return getProductionDatabaseRemediationReport({
+    appUrl,
+    expectedHost,
+    envDraft: loadProductionDatabaseEnvDraft(args),
+    timeoutMs,
+  });
+}
+
+function loadProductionDatabaseEnvDraft(args: string[]): ProductionDatabaseEnvDraftReport {
+  const skipEnvFile = args.includes("--skip-env-file");
+  const envFileSource = readArg(args, "--env-file") ?? ".env.vercel.production";
+  const envFilePath = resolve(envFileSource);
+  if (skipEnvFile) {
+    return buildProductionDatabaseEnvDraftReport(null, {
+      source: envFileSource,
+      skipped: true,
+    });
+  }
+  if (!existsSync(envFilePath)) {
+    return buildProductionDatabaseEnvDraftReport(null, {
+      source: envFileSource,
+    });
+  }
+  return buildProductionDatabaseEnvDraftReport(parseEnvFile(readFileSync(envFilePath, "utf8")), {
+    source: envFileSource,
+  });
 }
 
 function maybeBuildImportPreflight(
@@ -239,6 +291,12 @@ function readArg(args: string[], name: string) {
   const index = args.indexOf(name);
   if (index >= 0) return args[index + 1] ?? null;
   return null;
+}
+
+function parsePositiveInteger(value: string | null, fallback: number) {
+  if (!value) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function extractFirstJsonObject(output: string): string {

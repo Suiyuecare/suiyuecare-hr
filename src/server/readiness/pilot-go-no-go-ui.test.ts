@@ -22,12 +22,14 @@ describe("pilot go/no-go UI snapshot", () => {
     expect(snapshot.report.checks).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "acceptance", status: "block" }),
+        expect.objectContaining({ id: "production_database", status: "block" }),
         expect.objectContaining({ id: "import_preflight", status: "block" }),
         expect.objectContaining({ id: "evidence_scan", status: "block" }),
       ]),
     );
     expect(snapshot.externalEvidenceGaps.map((gap) => gap.title)).toEqual([
       "Production acceptance",
+      "Production database gate",
       "Customer import preflight",
       "Evidence privacy scan",
     ]);
