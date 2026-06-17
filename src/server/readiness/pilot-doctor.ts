@@ -209,7 +209,7 @@ function buildNextActions(options: {
     actions.push("Fill .env.vercel.production with real production values and run pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --method=cli.");
   }
   if (options.missingEnvKeys.includes("DATABASE_URL")) {
-    actions.push("Use the Supabase server-side Postgres connection string with ?schema=hr_one for DATABASE_URL; do not use the publishable key as DATABASE_URL.");
+    actions.push("Use a server-side Supabase Postgres DATABASE_URL with schema=hr_one. On Vercel, prefer the transaction pooler URL with pgbouncer=true&connection_limit=1&schema=hr_one; do not use the publishable key as DATABASE_URL.");
   }
   if (!productionPilotGatePassed(options.productionGate)) {
     actions.push(...options.productionGate.nextActions);

@@ -209,14 +209,18 @@ function buildNextActions(checks: ProductionPilotGateCheck[], healthReport: Heal
     actions.push("Open /api/health/ready on the deployed app and fix any failed readiness check before pilot use.");
   }
   if (failed.has("production environment")) {
-    actions.push("Set HR_ONE_ENV=production and the required HR_ONE_* production variables in Vercel Production.");
+    if (hasSupabaseDirectHostFailure(healthReport)) {
+      actions.push("Fix the Vercel Production database network env: use a Supabase transaction pooler DATABASE_URL with pgbouncer=true&connection_limit=1&schema=hr_one, or enable the Supabase IPv4 add-on and set HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true.");
+    } else {
+      actions.push("Set HR_ONE_ENV=production and the required HR_ONE_* production variables in Vercel Production.");
+    }
   }
   if (failed.has("production database")) {
     const database = findCheck(healthReport, "database");
     if (database?.detail.includes("demo fallback") || database?.detail.includes("database is required")) {
-      actions.push("Set a server-side Supabase PostgreSQL DATABASE_URL with ?schema=hr_one in Vercel Production.");
+      actions.push("Set a server-side Supabase PostgreSQL DATABASE_URL with schema=hr_one in Vercel Production.");
     } else if (database?.detail.includes("Supabase direct database hosts require IPv6")) {
-      actions.push("For Vercel/serverless, replace the Supabase direct DATABASE_URL with a compatible pooler URL, or enable the Supabase IPv4 add-on for the direct host.");
+      actions.push("For Vercel/serverless, replace the Supabase direct DATABASE_URL with a Supabase transaction pooler URL including pgbouncer=true&connection_limit=1&schema=hr_one, or enable the Supabase IPv4 add-on for the direct host and set HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true.");
     } else if (database?.detail.includes("Supabase pooler")) {
       actions.push("Verify the Supabase pooler username format, password, pooler mode, schema=hr_one, and prepared-statement settings.");
     } else {
@@ -234,6 +238,12 @@ function buildNextActions(checks: ProductionPilotGateCheck[], healthReport: Heal
   }
 
   return dedupe(actions);
+}
+
+function hasSupabaseDirectHostFailure(healthReport: HealthReport | null) {
+  return Boolean(
+    findCheck(healthReport, "database")?.detail.includes("Supabase direct database hosts require IPv6"),
+  );
 }
 
 function buildProductionUrlFailureDetail(

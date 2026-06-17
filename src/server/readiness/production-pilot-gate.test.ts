@@ -74,7 +74,7 @@ describe("production pilot gate", () => {
       passed: false,
     });
     expect(report.nextActions).toContain(
-      "Set a server-side Supabase PostgreSQL DATABASE_URL with ?schema=hr_one in Vercel Production.",
+      "Set a server-side Supabase PostgreSQL DATABASE_URL with schema=hr_one in Vercel Production.",
     );
   });
 
@@ -113,7 +113,36 @@ describe("production pilot gate", () => {
 
     expect(report.status).toBe("blocked");
     expect(report.nextActions).toContain(
-      "For Vercel/serverless, replace the Supabase direct DATABASE_URL with a compatible pooler URL, or enable the Supabase IPv4 add-on for the direct host.",
+      "For Vercel/serverless, replace the Supabase direct DATABASE_URL with a Supabase transaction pooler URL including pgbouncer=true&connection_limit=1&schema=hr_one, or enable the Supabase IPv4 add-on for the direct host and set HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true.",
+    );
+  });
+
+  it("turns the live environment failure into a concrete Supabase network fix", () => {
+    const report = buildProductionPilotGateReport({
+      appUrl: "https://hr.suiyuecare.com",
+      expectedHost: "hr.suiyuecare.com",
+      healthReport: {
+        ...readyHealth,
+        status: "fail",
+        checks: [
+          {
+            name: "environment",
+            status: "fail",
+            detail: "production environment verification failed",
+          },
+          {
+            name: "database",
+            status: "fail",
+            detail: "database ping failed; Supabase direct database hosts require IPv6 or the IPv4 add-on, so Vercel/serverless deployments should use a compatible pooler URL or enable IPv4.",
+          },
+          readyHealth.checks[2]!,
+        ],
+      },
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.nextActions).toContain(
+      "Fix the Vercel Production database network env: use a Supabase transaction pooler DATABASE_URL with pgbouncer=true&connection_limit=1&schema=hr_one, or enable the Supabase IPv4 add-on and set HR_ONE_SUPABASE_IPV4_ADDON_ENABLED=true.",
     );
   });
 

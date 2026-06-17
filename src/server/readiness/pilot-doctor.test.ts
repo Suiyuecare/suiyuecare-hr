@@ -81,7 +81,7 @@ describe("pilot doctor", () => {
       passed: false,
     });
     expect(report.nextActions).toContain(
-      "Use the Supabase server-side Postgres connection string with ?schema=hr_one for DATABASE_URL; do not use the publishable key as DATABASE_URL.",
+      "Use a server-side Supabase Postgres DATABASE_URL with schema=hr_one. On Vercel, prefer the transaction pooler URL with pgbouncer=true&connection_limit=1&schema=hr_one; do not use the publishable key as DATABASE_URL.",
     );
     expect(report.nextActions).toContain(
       "Run pnpm vercel:create-production-env-draft to create a gitignored .env.vercel.production draft with generated local secrets.",
