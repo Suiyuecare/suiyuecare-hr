@@ -223,10 +223,11 @@ export default async function PilotTrialRunPage({ searchParams }: { searchParams
           <div className="section-heading">
             <div>
               <h2>關鍵入口</h2>
-              <p className="muted">用四個入口完成試用開跑、日常追蹤與 Day 14 結案，不需要 HR 在深層選單裡找功能。</p>
+              <p className="muted">用這幾個入口完成試用開跑、日常追蹤與 Day 14 結案，不需要 HR 在深層選單裡找功能。</p>
             </div>
           </div>
           <div className="invite-prep-grid">
+            <TrialLinkCard href="/settings/pilot-import-preflight" title="試用 CSV 預檢" detail="匯入前先檢查員工、登入/SSO 與薪資 profile 三份 CSV；結果只保留彙總與 hash。" />
             <TrialLinkCard href="/settings/pilot-invite-readiness" title="試用邀請就緒" detail="確認 20-50 人名單、登入、角色、主管線、班表、假別與薪資單 self-only 規則。" />
             <TrialLinkCard href="/settings/pilot-go-no-go" title="開跑 Go/No-Go" detail="發邀請前確認正式環境、匯入預檢、核心流程與 evidence scan 都可接受。" />
             <TrialLinkCard href="/settings/pilot-operations" title="每日戰情" detail="Day 0、Day 1、Day 3、Day 7、Day 14 收 hash-only checkpoint 證據。" />

@@ -16,6 +16,7 @@ import {
   buildPilotGoNoGoReport,
   type PilotGoNoGoReport,
 } from "@/server/readiness/pilot-go-no-go";
+import { getPilotImportPreflightWorkspace } from "@/server/readiness/pilot-import-preflight-ui";
 import {
   buildPilotInviteReadinessReport,
   readPilotInviteReadinessSnapshotFromDatabase,
@@ -58,13 +59,14 @@ export async function buildPilotGoNoGoUiSnapshot(
 ): Promise<PilotGoNoGoUiSnapshot> {
   const generatedAt = options.generatedAt ?? new Date();
   const companyId = options.companyId ?? null;
-  const [inviteSnapshot, cohort, checkpointCoverage] = await Promise.all([
+  const [inviteSnapshot, cohort, checkpointCoverage, importPreflightWorkspace] = await Promise.all([
     readPilotInviteReadinessSnapshotFromDatabase({
       tenantSlug: options.tenantSlug,
       companyId,
     }),
     readCohort(options.tenantSlug, companyId),
     getBetaPilotCheckpointCoverage(session),
+    getPilotImportPreflightWorkspace(session),
   ]);
   const inviteReadiness = buildPilotInviteReadinessReport({
     snapshot: inviteSnapshot,
@@ -85,7 +87,7 @@ export async function buildPilotGoNoGoUiSnapshot(
   const report = buildPilotGoNoGoReport({
     acceptance,
     day0: buildPilotDailyStatusReport({ acceptance, day: 0, generatedAt }),
-    importPreflight: null,
+    importPreflight: importPreflightWorkspace.latestSnapshot?.report ?? null,
     inviteReadiness,
     workflowReadiness,
     evidenceScan: null,
@@ -177,8 +179,8 @@ function buildExternalEvidenceGaps(tenantSlug: string) {
     },
     {
       title: "Customer import preflight",
-      detail: "Completed employee, identity, and payroll CSV files must stay in approved secure storage and be checked before import.",
-      command: "pnpm pilot:import-preflight -- --employee-csv=<employee.csv> --identity-csv=<identity.csv> --payroll-csv=<payroll.csv>",
+      detail: "Completed employee, identity, and payroll CSV files must stay in approved secure storage and be checked before import. HR can use the browser preflight UI or the CLI report.",
+      command: "Open /settings/pilot-import-preflight or run pnpm pilot:import-preflight -- --employee-csv=<employee.csv> --identity-csv=<identity.csv> --payroll-csv=<payroll.csv>",
     },
     {
       title: "Evidence privacy scan",

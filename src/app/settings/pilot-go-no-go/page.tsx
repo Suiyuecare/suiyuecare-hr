@@ -206,7 +206,7 @@ function checkHref(id: PilotGoNoGoCheck["id"]) {
   const hrefs: Record<PilotGoNoGoCheck["id"], string> = {
     acceptance: "/settings/readiness",
     day_0_status: "/settings/pilot-operations",
-    import_preflight: "/hr/employee-import",
+    import_preflight: "/settings/pilot-import-preflight",
     invite_readiness: "/settings/pilot-invite-readiness",
     workflow_readiness: "/settings/pilot-operations",
     evidence_scan: "/settings/readiness#pilot-runbook",
@@ -218,7 +218,7 @@ function checkActionLabel(id: PilotGoNoGoCheck["id"]) {
   const labels: Record<PilotGoNoGoCheck["id"], string> = {
     acceptance: "看上線 Gate",
     day_0_status: "看每日戰情",
-    import_preflight: "匯入資料",
+    import_preflight: "預檢 CSV",
     invite_readiness: "檢查邀請",
     workflow_readiness: "補流程證據",
     evidence_scan: "看證據規則",

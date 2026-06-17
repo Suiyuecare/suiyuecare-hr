@@ -184,6 +184,18 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page).toHaveURL(/\/settings\/pilot-trial-run\?success=beta-trial-run/);
   await expect(page.getByText("試用批次已同步")).toBeVisible();
 
+  await page.goto("/settings/pilot-import-preflight");
+  await expect(page.getByRole("heading", { name: "試用 CSV 預檢" })).toBeVisible();
+  await expect(page.getByText("畫面不保存、不回顯 CSV 原文")).toBeVisible();
+  await page.getByLabel(/員工主檔 CSV/).fill("employeeNo,displayName,jobTitle,departmentCode,hireDate,managerEmployeeNo\n");
+  await page.getByLabel(/登入\/SSO CSV/).fill("employeeNo,email,externalSubject\n");
+  await page.getByLabel(/薪資 profile CSV/).fill("employeeNo,baseSalary,hourlyWage,allowanceCode,allowanceName,allowanceAmount,deductionCode,deductionName,deductionAmount,taxResidency,dependentCount,laborInsuranceMonthlyWage,healthInsuranceMonthlyWage,laborPensionMonthlyWage,nonResidentWithholdingRatePercent,bankCode,bankBranchCode,accountName,accountNumber,effectiveFrom\n");
+  await page.getByRole("button", { name: "執行 CSV 預檢" }).click();
+  await expect(page).toHaveURL(/\/settings\/pilot-import-preflight\?success=import-preflight/);
+  await expect(page.getByText("CSV 預檢已完成")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "CSV 還不能匯入" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "20-50 人名單" })).toBeVisible();
+
   await page.goto("/settings/pilot-go-no-go");
   await expect(page.getByRole("heading", { name: "試用 Go/No-Go" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "尚未可以發出試用邀請" })).toBeVisible();
@@ -193,6 +205,7 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(goNoGoChecks.getByRole("heading", { name: "證據安全掃描" })).toBeVisible();
   await expect(page.getByText("Production acceptance")).toBeVisible();
   await expect(page.getByText("Customer import preflight")).toBeVisible();
+  await expect(page.getByRole("link", { name: "預檢 CSV" })).toBeVisible();
 
   await page.goto("/settings/pilot-completion");
   await expect(page.getByRole("heading", { name: "試用結案檢查" })).toBeVisible();

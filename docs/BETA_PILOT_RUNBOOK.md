@@ -145,7 +145,7 @@ Recommended sequence:
 
 1. Generate the CSV template pack with `pnpm pilot:import-template-pack -- --output=/tmp/hr-one-pilot-import-template --cohort-size=25 --force`.
 2. Replace every sample employee, salary, tax, and payment value from approved customer source records.
-3. Run the redacted import preflight:
+3. Run the redacted import preflight from `/settings/pilot-import-preflight`, or run the CLI when files must stay on an approved secure workstation. The browser flow must show only aggregate counts, check results, and content hashes:
 
    ```bash
    pnpm pilot:import-preflight -- --employee-csv=/secure/customer/employee-import.csv --identity-csv=/secure/customer/identity-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --output=/tmp/hr-one-pilot-import-preflight.md
@@ -194,7 +194,7 @@ Recommended sequence:
    pnpm pilot:invite-readiness -- --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-invite-readiness.md
    ```
 
-   HR admins can use `/settings/company-setup` first to finish company, employee, account, schedule, attendance, leave, announcement, payroll, and audit setup in one guided flow. The wizard includes audited actions for generating 14-day schedules, syncing leave balances, publishing the two-week trial announcement, and running the demo payroll rehearsal; database-backed payroll blockers are routed back to HR review instead of being silently cleared. They can then review `/settings/pilot-invite-readiness` before sending invitations. The screens show aggregate counts and statuses only. Use `/settings/pilot-operations` during the trial to record Day 0, Day 1, Day 3, Day 7, and Day 14 evidence without storing raw sensitive data, then use `/settings/pilot-completion` on Day 14 before final handoff.
+  HR admins can use `/settings/company-setup` first to finish company, employee, account, schedule, attendance, leave, announcement, payroll, and audit setup in one guided flow. Use `/settings/pilot-import-preflight` before any real import to confirm the employee, identity/SSO, and payroll profile CSV files align without persisting raw personal or salary values. The wizard includes audited actions for generating 14-day schedules, syncing leave balances, publishing the two-week trial announcement, and running the demo payroll rehearsal; database-backed payroll blockers are routed back to HR review instead of being silently cleared. They can then review `/settings/pilot-invite-readiness` before sending invitations. The screens show aggregate counts and statuses only. Use `/settings/pilot-operations` during the trial to record Day 0, Day 1, Day 3, Day 7, and Day 14 evidence without storing raw sensitive data, then use `/settings/pilot-completion` on Day 14 before final handoff.
 
 17. Run the start/stop go-no-go report before inviting employees:
 
@@ -211,7 +211,7 @@ Expected evidence:
 - Identity import audit logs have user/employee/role/SSO linkage evidence without raw emails or SSO subjects.
 - HR onboarding readiness has no blocker for the pilot company.
 - `pilot:acceptance` reports `real_customer` cohort evidence from aggregate active employee and manager counts.
-- `pilot:import-preflight` returns `ready` and the Markdown report contains no names, emails, SSO subjects, salary amounts, bank accounts, national IDs, health data, or private HR notes.
+- `/settings/pilot-import-preflight` or `pilot:import-preflight` returns `ready`; the saved snapshot/report contains no names, emails, SSO subjects, salary amounts, bank accounts, national IDs, health data, or private HR notes.
 - `pilot:invite-readiness` returns `ready` only when all active employees have active linked users, employee roles, required SSO identities, allowed email-domain coverage, departments, 14-day schedule coverage, leave balance coverage, self-only payslip visibility rules, and every manager with direct reports has login plus manager role coverage.
 - `pilot:go-no-go` returns `ready_to_start` only when production acceptance, Day 0 status, import preflight, invite readiness, core workflow readiness, and pilot evidence scan are all acceptable, with zero blockers and zero warnings.
 - `pilot:workflow-readiness` is also embedded in `pilot:go-no-go`; run it separately during Day 3, Day 7, and Day 14 with `--require-production-evidence` to prove production checkpoint evidence for the core workflows.
