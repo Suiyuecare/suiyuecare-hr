@@ -14,11 +14,13 @@ function main() {
   const productionDatabaseReportPath = readArg(args, "--production-database-report");
   const goNoGoReportPath = readArg(args, "--go-no-go-report");
   const inviteReadinessReportPath = readArg(args, "--invite-readiness-report");
+  const rolloutKitReportPath = readArg(args, "--rollout-kit-report");
 
   const report = buildPilotInvitationReleaseReport({
     productionDatabaseReport: readReportFile(productionDatabaseReportPath),
     goNoGoReport: readReportFile(goNoGoReportPath),
     inviteReadinessReport: readReportFile(inviteReadinessReportPath),
+    rolloutKitReport: readReportFile(rolloutKitReportPath),
   });
   const content = json
     ? `${JSON.stringify(report, null, 2)}\n`

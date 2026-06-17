@@ -203,12 +203,13 @@ Recommended sequence:
 17. Run the start/stop go-no-go report before inviting employees:
 
    ```bash
+   pnpm pilot:rollout-kit -- --company-name="<customer-name>" --app-url=https://hr.suiyuecare.com --support-contact="HR 試用窗口" --output=/tmp/hr-one-pilot-rollout-kit.md
    pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --employee-csv=/secure/customer/employee-import.csv --identity-csv=/secure/customer/identity-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --evidence-path=/tmp/hr-one-pilot-evidence --recursive --output=/tmp/hr-one-pilot-go-no-go.md
-   pnpm pilot:invitation-release -- --production-database-report=/tmp/hr-one-production-database-gate.md --go-no-go-report=/tmp/hr-one-pilot-go-no-go.md --invite-readiness-report=/tmp/hr-one-pilot-invite-readiness.md --output=/tmp/hr-one-pilot-invitation-release.md
+   pnpm pilot:invitation-release -- --production-database-report=/tmp/hr-one-production-database-gate.md --go-no-go-report=/tmp/hr-one-pilot-go-no-go.md --invite-readiness-report=/tmp/hr-one-pilot-invite-readiness.md --rollout-kit-report=/tmp/hr-one-pilot-rollout-kit.md --output=/tmp/hr-one-pilot-invitation-release.md
    ```
 
    Do not use `--skip-production-database`, `--skip-import-preflight`, `--skip-invite-readiness`, `--skip-workflow-readiness`, or `--skip-evidence-scan` to approve a real trial. Skipped checks remain warnings, but any warning keeps the go/no-go report blocked for employee invitations. The production database check verifies both the live `/api/health/ready` database gate and the local production env draft posture. The default start gate allows rehearsed-only workflow items when none are blocked; use `--require-workflow-production-evidence` after Day 3 or Day 7 when production checkpoint evidence is mandatory.
-   `pilot:invitation-release` is the last release decision before sending the first invitation. It reads the redacted production database, Go/No-Go, and invite-readiness reports, scans them for sensitive values, and exits non-zero unless all are ready.
+   `pilot:invitation-release` is the last release decision before sending the first invitation. It reads the redacted production database, Go/No-Go, invite-readiness, and rollout-kit reports, scans them for sensitive values, and exits non-zero unless all are ready.
 
 Expected evidence:
 
@@ -220,7 +221,7 @@ Expected evidence:
 - `/settings/pilot-import-preflight` or `pilot:import-preflight` returns `ready`; the saved snapshot/report contains no names, emails, SSO subjects, salary amounts, bank accounts, national IDs, health data, or private HR notes.
 - `pilot:invite-readiness` returns `ready` only when all active employees have active linked users, employee roles, required SSO identities, allowed email-domain coverage, departments, 14-day schedule coverage, leave balance coverage, self-only payslip visibility rules, and every manager with direct reports has login plus manager role coverage.
 - `pilot:go-no-go` returns `ready_to_start` only when production database gate, production acceptance, Day 0 status, import preflight, invite readiness, core workflow readiness, and pilot evidence scan are all acceptable, with zero blockers and zero warnings.
-- `pilot:invitation-release` returns `released` only when the production database, Go/No-Go, and invite-readiness reports are attached, ready, and free of sensitive evidence findings.
+- `pilot:invitation-release` returns `released` only when the production database, Go/No-Go, invite-readiness, and rollout-kit reports are attached, ready, and free of sensitive evidence findings.
 - `pilot:workflow-readiness` is also embedded in `pilot:go-no-go`; run it separately during Day 3, Day 7, and Day 14 with `--require-production-evidence` to prove production checkpoint evidence for the core workflows.
 - `pnpm pilot:evidence-scan -- --path=<pilot-evidence-folder> --recursive` passes before any generated pilot report is shared outside the implementation team.
 
@@ -238,13 +239,14 @@ Preflight:
 - Complete the access review checkpoint.
 - Confirm unauthorized payroll access tests pass.
 - Run `pnpm pilot:invite-readiness -- --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-invite-readiness.md` and fix every blocker before invitations.
-- Run `pnpm pilot:go-no-go -- ... --output=/tmp/hr-one-pilot-go-no-go.md` and keep the redacted report in the pilot evidence folder. This report now includes the production database gate and the core workflow readiness matrix.
-- Run `pnpm pilot:invitation-release -- ... --output=/tmp/hr-one-pilot-invitation-release.md` and keep the redacted release decision with the evidence folder before sending the first invitation.
 - Generate the short rollout kit before publishing Day 1 instructions. It must report `ready`; any unsafe URL or sensitive text keeps the kit blocked:
 
   ```bash
   pnpm pilot:rollout-kit -- --company-name="<customer-name>" --app-url=https://hr.suiyuecare.com --support-contact="HR 試用窗口" --output=/tmp/hr-one-pilot-rollout-kit.md
   ```
+
+- Run `pnpm pilot:go-no-go -- ... --output=/tmp/hr-one-pilot-go-no-go.md` and keep the redacted report in the pilot evidence folder. This report now includes the production database gate and the core workflow readiness matrix.
+- Run `pnpm pilot:invitation-release -- --production-database-report=/tmp/hr-one-production-database-gate.md --go-no-go-report=/tmp/hr-one-pilot-go-no-go.md --invite-readiness-report=/tmp/hr-one-pilot-invite-readiness.md --rollout-kit-report=/tmp/hr-one-pilot-rollout-kit.md --output=/tmp/hr-one-pilot-invitation-release.md` and keep the redacted release decision with the evidence folder before sending the first invitation.
 
 - Optionally run the workflow readiness matrix separately and keep it with the pilot evidence folder if HR wants a standalone Day 0 artifact:
 

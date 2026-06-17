@@ -12,6 +12,7 @@ export type PilotInvitationReleaseCheckId =
   | "production_database_report"
   | "go_no_go_report"
   | "invite_readiness_report"
+  | "rollout_kit_report"
   | "evidence_privacy";
 
 export type PilotInvitationReleaseInputFile = {
@@ -45,11 +46,12 @@ export type PilotInvitationReleaseInput = {
   productionDatabaseReport?: PilotInvitationReleaseInputFile | null;
   goNoGoReport?: PilotInvitationReleaseInputFile | null;
   inviteReadinessReport?: PilotInvitationReleaseInputFile | null;
+  rolloutKitReport?: PilotInvitationReleaseInputFile | null;
   generatedAt?: Date;
 };
 
 const privacyGuardrails = [
-  "Release evidence must be redacted reports or hash-only references; do not attach raw employee, payroll, identity, or bank files.",
+  "Release evidence must include redacted production database, Go/No-Go, invite-readiness, and rollout-kit reports; do not attach raw employee, payroll, identity, or bank files.",
   "Do not send the first employee invitation until this release report is released and stored with the pilot evidence folder.",
   "This report must not contain database URLs, tokens, salary amounts, bank accounts, national IDs, health data, SSO subjects, or private HR notes.",
 ];
@@ -62,12 +64,14 @@ export function buildPilotInvitationReleaseReport(
     input.productionDatabaseReport,
     input.goNoGoReport,
     input.inviteReadinessReport,
+    input.rolloutKitReport,
   ].filter((file): file is PilotInvitationReleaseInputFile => Boolean(file));
   const evidenceScan = scanPilotEvidenceFiles(reportFiles.map(toEvidenceScanFile));
   const checks = [
     buildProductionDatabaseReportCheck(input.productionDatabaseReport ?? null),
     buildGoNoGoReportCheck(input.goNoGoReport ?? null),
     buildInviteReadinessReportCheck(input.inviteReadinessReport ?? null),
+    buildRolloutKitReportCheck(input.rolloutKitReport ?? null),
     buildEvidencePrivacyCheck(evidenceScan),
   ];
   const blockers = checks.filter((check) => check.status === "block").length;
@@ -215,6 +219,35 @@ function buildInviteReadinessReportCheck(
       );
 }
 
+function buildRolloutKitReportCheck(
+  file: PilotInvitationReleaseInputFile | null,
+): PilotInvitationReleaseCheck {
+  if (!file) {
+    return block(
+      "rollout_kit_report",
+      "Rollout kit report",
+      "Missing redacted rollout kit report.",
+      "Run pnpm pilot:rollout-kit and attach the redacted report before invitations.",
+    );
+  }
+  const parsed = parseRolloutKitReport(file.content);
+  return parsed.ready
+    ? pass(
+        "rollout_kit_report",
+        "Rollout kit report",
+        "Rollout kit is ready with employee training under 10 minutes and common tasks within three steps.",
+        "Keep the rollout kit report in the pilot evidence folder and publish the receipt-required announcement on Day 1.",
+        hashContent(file.content),
+      )
+    : block(
+        "rollout_kit_report",
+        "Rollout kit report",
+        parsed.detail,
+        "Fix rollout kit blockers and rerun pnpm pilot:rollout-kit before invitations.",
+        hashContent(file.content),
+      );
+}
+
 function buildEvidencePrivacyCheck(
   evidenceScan: ReturnType<typeof scanPilotEvidenceFiles>,
 ): PilotInvitationReleaseCheck {
@@ -320,6 +353,47 @@ function parseInviteReadinessReport(content: string) {
   };
 }
 
+function parseRolloutKitReport(content: string) {
+  const json = parseJson(content);
+  if (json) {
+    const checks = readChecks(json);
+    const hasBlockedCheck = checks.some((check) => check.status === "block");
+    const estimatedTrainingMinutes = readNumber(json, "estimatedTrainingMinutes");
+    const maxEmployeeTaskSteps = readNumber(json, "maxEmployeeTaskSteps");
+    const ready =
+      readString(json, "status") === "ready" &&
+      typeof estimatedTrainingMinutes === "number" &&
+      estimatedTrainingMinutes <= 10 &&
+      typeof maxEmployeeTaskSteps === "number" &&
+      maxEmployeeTaskSteps <= 3 &&
+      !hasBlockedCheck;
+    return {
+      ready,
+      detail: ready
+        ? "Rollout kit report is ready."
+        : `Rollout kit report is not ready; status ${readString(json, "status") ?? "missing"}, estimated training ${estimatedTrainingMinutes ?? "missing"} minute(s), max task steps ${maxEmployeeTaskSteps ?? "missing"}, blocked checks ${hasBlockedCheck ? "yes" : "no"}.`,
+    };
+  }
+
+  const status = matchLine(content, "Status");
+  const estimatedTrainingMinutes = matchNumberLine(content, "Estimated employee training");
+  const maxEmployeeTaskSteps = matchNumberLine(content, "Max employee task steps");
+  const hasBlockedCheck = /\[BLOCK\]/i.test(content);
+  const ready =
+    status === "ready" &&
+    typeof estimatedTrainingMinutes === "number" &&
+    estimatedTrainingMinutes <= 10 &&
+    typeof maxEmployeeTaskSteps === "number" &&
+    maxEmployeeTaskSteps <= 3 &&
+    !hasBlockedCheck;
+  return {
+    ready,
+    detail: ready
+      ? "Rollout kit report is ready."
+      : `Rollout kit report is not ready; status ${status ?? "missing"}, estimated training ${estimatedTrainingMinutes ?? "missing"} minute(s), max task steps ${maxEmployeeTaskSteps ?? "missing"}, blocked checks ${hasBlockedCheck ? "yes" : "no"}.`,
+  };
+}
+
 function pass(
   id: PilotInvitationReleaseCheckId,
   title: string,
@@ -388,6 +462,13 @@ function matchLine(content: string, label: string) {
   return match?.[1]?.trim() ?? null;
 }
 
+function matchNumberLine(content: string, label: string) {
+  const line = matchLine(content, label);
+  if (!line) return null;
+  const match = line.match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
+
 function readString(value: Record<string, unknown>, key: string) {
   const item = value[key];
   return typeof item === "string" ? item : null;
@@ -405,6 +486,17 @@ function readNestedString(value: Record<string, unknown>, keys: string[]) {
 function readNumber(value: Record<string, unknown>, key: string) {
   const item = value[key];
   return typeof item === "number" ? item : null;
+}
+
+function readChecks(value: Record<string, unknown>) {
+  const checks = value.checks;
+  if (!Array.isArray(checks)) return [];
+  return checks.filter((check): check is { status: string } =>
+    Boolean(check) &&
+    typeof check === "object" &&
+    !Array.isArray(check) &&
+    typeof (check as { status?: unknown }).status === "string",
+  );
 }
 
 function hashContent(content: string) {
