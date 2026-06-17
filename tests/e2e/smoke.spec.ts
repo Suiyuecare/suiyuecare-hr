@@ -102,6 +102,9 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByRole("heading", { name: "導入步驟" })).toBeVisible();
   await expect(page.locator(".close-step").filter({ hasText: "打卡與出勤規則" })).toBeVisible();
   await expect(page.locator(".close-step").filter({ hasText: "HR 月結預演與薪資單" })).toBeVisible();
+  await page.getByRole("button", { name: "同步假別餘額" }).click();
+  await expect(page).toHaveURL(/\/settings\/company-setup\?success=sync_leave_balances&status=completed/);
+  await expect(page.getByText("已完成導入動作，精靈狀態已重新整理。")).toBeVisible();
 
   await page.getByRole("link", { name: "邀請就緒" }).click();
   await expect(page).toHaveURL(/\/settings\/pilot-invite-readiness/);

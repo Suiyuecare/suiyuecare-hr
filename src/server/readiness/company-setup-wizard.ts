@@ -11,6 +11,7 @@ import {
   evaluatePayrollRecordkeepingReadiness,
   getPayrollRecordkeepingSettings,
 } from "@/server/payroll/recordkeeping";
+import { getPayrollDashboard } from "@/server/payroll/service";
 import { getShiftTemplateSettings } from "@/server/scheduling/shift-templates";
 
 type SessionLike = {
@@ -330,14 +331,16 @@ async function readDemoCompanySetupWizardSnapshot(
   const overview = await getCompanyOverview();
   const fallback = getFallbackCompanyOverview();
   const company = overview?.company ?? fallback.company;
-  const [access, attendancePolicies, shiftTemplates, leavePolicies, announcements, payrollSettings] =
+  const demoSession = { ...session, tenantId: null, companyId: null };
+  const [access, attendancePolicies, shiftTemplates, leavePolicies, announcements, payrollSettings, payrollDashboard] =
     await Promise.all([
-      getUserAccessWorkspace(session),
-      getAttendancePolicySettings(session),
-      getShiftTemplateSettings(session),
-      getLeavePolicySettings({ ...session, role: session.role === "owner" ? "hr_admin" : session.role }),
-      getAnnouncementWorkspace(session),
-      getPayrollRecordkeepingSettings(session),
+      getUserAccessWorkspace(demoSession),
+      getAttendancePolicySettings(demoSession),
+      getShiftTemplateSettings(demoSession),
+      getLeavePolicySettings({ ...demoSession, role: session.role === "owner" ? "hr_admin" : session.role }),
+      getAnnouncementWorkspace(demoSession),
+      getPayrollRecordkeepingSettings(demoSession),
+      getPayrollDashboard({ ...demoSession, employee: demoSession.employee ?? null }),
     ]);
   const activeAttendancePolicy = attendancePolicies.find((policy) => policy.status === "active") ?? null;
   const activeUsers = access.users.filter((user) => user.status === "active");
@@ -379,7 +382,7 @@ async function readDemoCompanySetupWizardSnapshot(
     receiptRequiredAnnouncementCount: announcements.announcements.filter((announcement) => announcement.requireReceipt).length,
     payrollRecordkeepingReady: payrollReadiness.ready,
     employeePayslipEnabled: payrollSettings.employeePayslipEnabled,
-    releasedPayslipEmployeeCount: 0,
+    releasedPayslipEmployeeCount: payrollDashboard.run?.payslips.filter((payslip) => payslip.status === "released").length ?? 0,
     auditLogCount: overview?.auditCount ?? fallback.auditCount,
   };
 }

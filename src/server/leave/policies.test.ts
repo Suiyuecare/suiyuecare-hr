@@ -82,7 +82,7 @@ describe("leave policy settings", () => {
       eligibilityRule: "caregiver",
       payRatePercent: 0,
       requiresLegalReview: true,
-      balanceCount: 5,
+      balanceCount: 25,
     });
     expect(policies).toEqual(expect.arrayContaining([expect.objectContaining({ code: "family-care" })]));
     expect(getAuditDemoState().logs[0]).toMatchObject({

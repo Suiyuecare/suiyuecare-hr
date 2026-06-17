@@ -14,6 +14,11 @@ describe("RBAC", () => {
     expect(hasPermission("owner", "employee:write")).toBe(true);
   });
 
+  it("lets HR admins run guided company setup actions", () => {
+    expect(hasPermission("hr_admin", "settings:write")).toBe(true);
+    expect(hasPermission("manager", "settings:write")).toBe(false);
+  });
+
   it("normalizes unknown demo roles to employee", () => {
     expect(normalizeRole("not-a-role")).toBe("employee");
   });

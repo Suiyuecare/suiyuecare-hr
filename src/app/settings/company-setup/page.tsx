@@ -1,14 +1,26 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/EmptyState";
-import { hasPermission } from "@/server/auth/rbac";
+import { hasPermission, type Permission, type RoleKey } from "@/server/auth/rbac";
 import { getDemoSession } from "@/server/auth/session";
+import {
+  companySetupActionLabels,
+  companySetupActionPermission,
+  isCompanySetupActionId,
+  type CompanySetupActionId,
+} from "@/server/readiness/company-setup-actions";
 import {
   getCompanySetupWizardReport,
   type CompanySetupStepStatus,
 } from "@/server/readiness/company-setup-wizard";
 
-export default async function CompanySetupPage() {
-  const session = await getDemoSession();
+type SearchParams = Promise<{
+  success?: string;
+  status?: string;
+  error?: string;
+}>;
+
+export default async function CompanySetupPage({ searchParams }: { searchParams: SearchParams }) {
+  const [params, session] = await Promise.all([searchParams, getDemoSession()]);
   if (!hasPermission(session.role, "settings:read")) {
     return (
       <main className="page">
@@ -30,6 +42,20 @@ export default async function CompanySetupPage() {
       </section>
 
       <section className="grid">
+        {params.error ? (
+          <div className="panel span-12 risk-box danger-box">
+            <strong>無法執行導入動作</strong>
+            <p>{params.error}</p>
+          </div>
+        ) : null}
+
+        {params.success && isCompanySetupActionId(params.success) ? (
+          <div className={`panel span-12 risk-box ${params.status === "needs_review" ? "warning-box" : "success-box"}`}>
+            <strong>{companySetupActionLabels[params.success]}</strong>
+            <p>{actionSuccessMessage(params.success, params.status)}</p>
+          </div>
+        ) : null}
+
         <section className={`panel span-12 risk-box ${statusBoxClass(report.status)}`}>
           <div className="section-heading">
             <div>
@@ -81,29 +107,43 @@ export default async function CompanySetupPage() {
             </div>
           </div>
           <ol className="close-steps">
-            {report.steps.map((step, index) => (
-              <li key={step.id} className={`close-step ${step.status === "complete" ? "done" : step.status}`}>
-                <div className="section-heading compact-heading">
-                  <span>
-                    <strong>
-                      {index + 1}. {step.title}
-                    </strong>
-                    <small>
-                      {step.owner} · {step.detail}
-                    </small>
-                  </span>
-                  <span className={`badge ${badgeClass(step.status)}`}>{statusLabel(step.status)}</span>
-                </div>
-                {step.missing.length ? (
-                  <span>待處理：{step.missing.join("、")}</span>
-                ) : (
-                  <span>這一步已具備兩週試用所需的最低條件。</span>
-                )}
-                <Link className="button" href={step.primaryHref}>
-                  {step.primaryLabel}
-                </Link>
-              </li>
-            ))}
+            {report.steps.map((step, index) => {
+              const setupAction = setupActionForStep(step.id, session.role);
+              return (
+                <li key={step.id} className={`close-step ${step.status === "complete" ? "done" : step.status}`}>
+                  <div className="section-heading compact-heading">
+                    <span>
+                      <strong>
+                        {index + 1}. {step.title}
+                      </strong>
+                      <small>
+                        {step.owner} · {step.detail}
+                      </small>
+                    </span>
+                    <span className={`badge ${badgeClass(step.status)}`}>{statusLabel(step.status)}</span>
+                  </div>
+                  {step.missing.length ? (
+                    <span>待處理：{step.missing.join("、")}</span>
+                  ) : (
+                    <span>這一步已具備兩週試用所需的最低條件。</span>
+                  )}
+                  <div className="inline-actions setup-step-actions">
+                    <Link className="button" href={step.primaryHref}>
+                      {step.primaryLabel}
+                    </Link>
+                    {setupAction ? (
+                      <form action="/api/settings/company-setup/action" method="post">
+                        <input type="hidden" name="actionId" value={setupAction.actionId} />
+                        <button className="button primary" type="submit">
+                          {setupAction.label}
+                        </button>
+                      </form>
+                    ) : null}
+                  </div>
+                  {setupAction ? <small className="setup-step-hint">{setupAction.helper}</small> : null}
+                </li>
+              );
+            })}
           </ol>
         </section>
 
@@ -147,6 +187,58 @@ export default async function CompanySetupPage() {
       </section>
     </main>
   );
+}
+
+function setupActionForStep(stepId: string, role: RoleKey) {
+  const action = setupActionsByStep[stepId];
+  if (!action) return null;
+  if (!hasPermission(role, action.permission)) return null;
+  return action;
+}
+
+const setupActionsByStep: Record<string, {
+  actionId: CompanySetupActionId;
+  label: string;
+  permission: Permission;
+  helper: string;
+}> = {
+  shift_schedule: {
+    actionId: "generate_14_day_schedules",
+    label: companySetupActionLabels.generate_14_day_schedules,
+    permission: companySetupActionPermission("generate_14_day_schedules"),
+    helper: "不覆蓋既有班表，只補未來 14 天缺口。",
+  },
+  leave_balance: {
+    actionId: "sync_leave_balances",
+    label: companySetupActionLabels.sync_leave_balances,
+    permission: companySetupActionPermission("sync_leave_balances"),
+    helper: "依啟用中的假別政策同步員工餘額。",
+  },
+  announcement_receipts: {
+    actionId: "publish_trial_announcement",
+    label: companySetupActionLabels.publish_trial_announcement,
+    permission: companySetupActionPermission("publish_trial_announcement"),
+    helper: "建立一則需要回條的兩週試用公告。",
+  },
+  payroll_payslip: {
+    actionId: "run_payroll_rehearsal",
+    label: companySetupActionLabels.run_payroll_rehearsal,
+    permission: companySetupActionPermission("run_payroll_rehearsal"),
+    helper: "Demo 會完整演練；正式資料若有阻擋會停在 HR 月結確認。",
+  },
+};
+
+function actionSuccessMessage(actionId: CompanySetupActionId, status?: string) {
+  if (status === "needs_review") {
+    return "已執行可安全自動處理的部分，剩餘項目需要 HR 到對應流程人工確認。";
+  }
+  if (status === "skipped") {
+    return "這個項目已經具備最低條件，系統沒有重複建立資料。";
+  }
+  if (actionId === "run_payroll_rehearsal") {
+    return "已完成月結演練動作；導入精靈會重新計算薪資單釋出覆蓋率。";
+  }
+  return "已完成導入動作，精靈狀態已重新整理。";
 }
 
 function statusTitle(status: CompanySetupStepStatus) {

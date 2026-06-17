@@ -192,7 +192,7 @@ Recommended sequence:
    pnpm pilot:invite-readiness -- --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-invite-readiness.md
    ```
 
-   HR admins can use `/settings/company-setup` first to finish company, employee, account, schedule, attendance, leave, announcement, payroll, and audit setup in one guided flow. They can then review `/settings/pilot-invite-readiness` before sending invitations. The screens show aggregate counts and statuses only. Use `/settings/pilot-operations` during the trial to record Day 0, Day 1, Day 3, Day 7, and Day 14 evidence without storing raw sensitive data.
+   HR admins can use `/settings/company-setup` first to finish company, employee, account, schedule, attendance, leave, announcement, payroll, and audit setup in one guided flow. The wizard includes audited actions for generating 14-day schedules, syncing leave balances, publishing the two-week trial announcement, and running the demo payroll rehearsal; database-backed payroll blockers are routed back to HR review instead of being silently cleared. They can then review `/settings/pilot-invite-readiness` before sending invitations. The screens show aggregate counts and statuses only. Use `/settings/pilot-operations` during the trial to record Day 0, Day 1, Day 3, Day 7, and Day 14 evidence without storing raw sensitive data.
 
 17. Run the start/stop go-no-go report before inviting employees:
 

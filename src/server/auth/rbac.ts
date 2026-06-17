@@ -98,6 +98,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "form:manage",
     "form:submit",
     "settings:read",
+    "settings:write",
     "pilot:manage",
     "audit:read",
     "privacy:manage",

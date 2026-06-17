@@ -2,6 +2,7 @@ import { writeAuditLog } from "@/server/audit/audit";
 import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
+import { getFallbackCompanyOverview } from "@/server/demo/fallback";
 import {
   taiwanStatutoryLeaveRequirements,
   type StatutoryLeaveCategory,
@@ -272,7 +273,9 @@ function saveDemoLeavePolicySettings(
     carryoverLimitUnits: input.carryoverLimitUnits,
     paid: input.paid,
     syncBalancesOnUpdate: input.syncBalancesOnUpdate,
-    balanceCount: input.syncBalancesOnUpdate ? 5 : existingIndex >= 0 ? state.policies[existingIndex].balanceCount : 0,
+    balanceCount: input.syncBalancesOnUpdate
+      ? getFallbackCompanyOverview().employeeCount
+      : existingIndex >= 0 ? state.policies[existingIndex].balanceCount : 0,
     createdAt: existingIndex >= 0 ? state.policies[existingIndex].createdAt : now,
     updatedAt: now,
   };

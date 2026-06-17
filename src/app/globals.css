@@ -1367,6 +1367,26 @@ legend {
   background: #fff8e8;
 }
 
+.setup-step-actions {
+  align-items: stretch;
+}
+
+.setup-step-actions .button {
+  flex: 1 1 140px;
+  width: 100%;
+}
+
+.setup-step-actions form {
+  display: flex;
+  flex: 1 1 160px;
+}
+
+.setup-step-hint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .payroll-preview {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
