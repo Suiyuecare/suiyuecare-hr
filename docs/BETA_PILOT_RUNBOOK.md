@@ -200,6 +200,8 @@ Recommended sequence:
    pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=<supabase-project-ref> --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --employee-csv=/secure/customer/employee-import.csv --identity-csv=/secure/customer/identity-import.csv --payroll-csv=/secure/customer/payroll-profile-import.csv --evidence-path=/tmp/hr-one-pilot-evidence --recursive --output=/tmp/hr-one-pilot-go-no-go.md
    ```
 
+   Do not use `--skip-import-preflight`, `--skip-invite-readiness`, or `--skip-evidence-scan` to approve a real trial. Skipped checks remain warnings, but any warning keeps the go/no-go report blocked for employee invitations.
+
 Expected evidence:
 
 - Employee import audit log has aggregate counts only.
@@ -209,7 +211,7 @@ Expected evidence:
 - `pilot:acceptance` reports `real_customer` cohort evidence from aggregate active employee and manager counts.
 - `pilot:import-preflight` returns `ready` and the Markdown report contains no names, emails, SSO subjects, salary amounts, bank accounts, national IDs, health data, or private HR notes.
 - `pilot:invite-readiness` returns `ready` only when all active employees have active linked users, employee roles, required SSO identities, allowed email-domain coverage, departments, 14-day schedule coverage, leave balance coverage, self-only payslip visibility rules, and every manager with direct reports has login plus manager role coverage.
-- `pilot:go-no-go` returns `ready_to_start` only when production acceptance, Day 0 status, import preflight, invite readiness, and pilot evidence scan are all acceptable.
+- `pilot:go-no-go` returns `ready_to_start` only when production acceptance, Day 0 status, import preflight, invite readiness, and pilot evidence scan are all acceptable, with zero blockers and zero warnings.
 - `pnpm pilot:evidence-scan -- --path=<pilot-evidence-folder> --recursive` passes before any generated pilot report is shared outside the implementation team.
 
 ## Phase 3: Two-Week Trial Operations

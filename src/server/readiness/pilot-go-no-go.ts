@@ -88,11 +88,12 @@ export function buildPilotGoNoGoReport(input: PilotGoNoGoInput): PilotGoNoGoRepo
   ];
   const blockers = checks.filter((check) => check.status === "block").length;
   const warnings = checks.filter((check) => check.status === "warn").length;
+  const readyToStart = blockers === 0 && warnings === 0;
 
   return {
-    status: blockers === 0 ? "ready_to_start" : "blocked",
+    status: readyToStart ? "ready_to_start" : "blocked",
     generatedAt,
-    readyToStart: blockers === 0,
+    readyToStart,
     blockers,
     warnings,
     checks,
@@ -101,7 +102,7 @@ export function buildPilotGoNoGoReport(input: PilotGoNoGoInput): PilotGoNoGoRepo
 }
 
 export function pilotGoNoGoPassed(report: PilotGoNoGoReport) {
-  return report.status === "ready_to_start" && report.blockers === 0;
+  return report.status === "ready_to_start" && report.blockers === 0 && report.warnings === 0;
 }
 
 export function formatPilotGoNoGoMarkdown(report: PilotGoNoGoReport) {

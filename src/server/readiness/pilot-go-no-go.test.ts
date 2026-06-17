@@ -99,7 +99,7 @@ describe("pilot go/no-go", () => {
     );
   });
 
-  it("allows operator-skipped import and evidence checks only as warnings", () => {
+  it("blocks operator-skipped checks even when they are represented as warnings", () => {
     const acceptance = acceptanceReport({ readyToStart: true });
     const report = buildPilotGoNoGoReport({
       acceptance,
@@ -113,12 +113,20 @@ describe("pilot go/no-go", () => {
     });
 
     expect(report).toMatchObject({
-      status: "ready_to_start",
+      status: "blocked",
+      readyToStart: false,
       blockers: 0,
       warnings: 3,
     });
     expect(report.checks.map((check) => check.status)).toEqual(["pass", "pass", "warn", "warn", "warn"]);
-    expect(pilotGoNoGoPassed(report)).toBe(true);
+    expect(report.nextActions).toEqual(
+      expect.arrayContaining([
+        "Run import preflight before using real customer employee, identity, or payroll CSV files.",
+        "Run invite readiness before sending the first pilot employee invitation.",
+        "Run evidence scan before sharing pilot reports outside the implementation team.",
+      ]),
+    );
+    expect(pilotGoNoGoPassed(report)).toBe(false);
   });
 });
 
