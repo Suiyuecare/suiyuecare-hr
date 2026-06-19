@@ -4119,6 +4119,124 @@ legend {
   background: #f0fdf4;
 }
 
+.hr-kpi-page {
+  max-width: 1280px;
+}
+
+.hr-kpi-hero .hr-monthly-hero-focus .button {
+  width: 100%;
+  margin-top: auto;
+}
+
+.hr-kpi-owner-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.hr-kpi-owner-grid .settings-command-card {
+  min-height: 316px;
+}
+
+.hr-kpi-owner-grid .settings-command-card h2 {
+  font-size: 19px;
+}
+
+.hr-kpi-owner-grid .settings-command-links {
+  grid-template-columns: 1fr;
+}
+
+.hr-kpi-owner-grid .settings-command-links a {
+  white-space: normal;
+  line-height: 1.28;
+}
+
+.hr-kpi-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hr-kpi-list-item {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1.5fr) minmax(160px, 0.55fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 112px;
+  border: 1px solid var(--panel-border);
+  border-left: 5px solid var(--accent);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 13px;
+  box-shadow: var(--shadow);
+}
+
+.hr-kpi-list-item.done {
+  border-color: #bbf7d0;
+  border-left-color: var(--success);
+  background: #f0fdf4;
+}
+
+.hr-kpi-list-item.warning {
+  border-color: #fde68a;
+  border-left-color: var(--warning);
+  background: #fffbeb;
+}
+
+.hr-kpi-list-item.danger {
+  border-color: #fecaca;
+  border-left-color: var(--danger);
+  background: #fef2f2;
+}
+
+.hr-kpi-index {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.hr-kpi-copy {
+  display: grid;
+  gap: 5px;
+}
+
+.hr-kpi-copy strong {
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 1000;
+  line-height: 1.22;
+}
+
+.hr-kpi-copy small,
+.hr-kpi-evidence small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.4;
+}
+
+.hr-kpi-evidence {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(30, 41, 59, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.56);
+  padding: 10px;
+}
+
+.hr-kpi-evidence strong {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 1000;
+  line-height: 1.25;
+}
+
 .hr-close-command-band {
   display: grid;
   grid-template-columns: minmax(260px, 1.15fr) repeat(4, minmax(0, 1fr));
@@ -4483,6 +4601,8 @@ legend {
   .settings-control-hero,
   .settings-signal-board,
   .settings-command-grid,
+  .hr-kpi-owner-grid,
+  .hr-kpi-list-item,
   .law-rules-hero,
   .law-rule-signal-board,
   .law-rule-governance-grid,

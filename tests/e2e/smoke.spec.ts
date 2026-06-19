@@ -405,6 +405,20 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   await expect(page.getByLabel("HR 月結訊號板").getByText("販售 KPI")).toBeVisible();
   await expect(page.getByText("Day 7 月結預演")).toBeVisible();
   await expect(page.getByText("薪資資料不在摘要外洩")).toBeVisible();
+
+  await page.goto("/hr/kpis");
+  await expect(page.getByRole("heading", { name: "HR One 贏面 KPI 指揮台" })).toBeVisible();
+  await expect(page.getByLabel("HR One KPI 指揮台").getByText("今日先看")).toBeVisible();
+  await expect(page.getByLabel("KPI 訊號板").getByText("銷售 readiness")).toBeVisible();
+  await expect(page.getByLabel("KPI 訊號板").getByText("員工速度")).toBeVisible();
+  await expect(page.getByLabel("KPI 訊號板").getByText("主管效率")).toBeVisible();
+  await expect(page.getByLabel("KPI 責任工作區").getByRole("heading", { name: "員工體驗" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "10 個贏面指標" })).toBeVisible();
+  await expect(page.locator("#first_leave_success_time").getByText("新員工第一次請假成功時間")).toBeVisible();
+  await expect(page.locator("#unauthorized_payroll_access").getByText("薪資資料未授權存取測試漏洞")).toBeVisible();
+
+  await page.goto("/hr");
+  await expect(page.getByRole("heading", { name: "HR 月結指揮台" })).toBeVisible();
   await page.getByRole("button", { name: "Day 7 下一步：建立薪資批次" }).click();
   await expect(page.getByText("已阻擋").first()).toBeVisible();
   await page.getByRole("button", { name: "Day 7 下一步：標記阻擋項已檢查" }).click();
