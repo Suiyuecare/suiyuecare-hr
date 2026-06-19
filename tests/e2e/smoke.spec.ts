@@ -659,11 +659,20 @@ test("後台表單中心提供常用簽核樣板", async ({ page }) => {
   await page.goto("/hr/forms");
 
   await expect(page.getByRole("heading", { name: "表單與簽核中心" })).toBeVisible();
-  await expect(page.getByText("請假單")).toBeVisible();
-  await expect(page.getByText("預先加班單")).toBeVisible();
-  await expect(page.getByText("薪資異動單")).toBeVisible();
-  await expect(page.getByText("離職申請表")).toBeVisible();
-  await expect(page.getByText("在職證明申請單")).toBeVisible();
+  await expect(page.getByLabel("表單與簽核中心").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("表單中心訊號板").getByText("啟用表單", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("表單中心訊號板").getByText("條件規則", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("表單中心作業卡").getByRole("heading", { name: "自建表單精靈" })).toBeVisible();
+  await expect(page.getByLabel("表單中心作業卡").getByRole("heading", { name: "統一 Inbox" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "新增表單精靈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "常用表單分類" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "表單治理原則" })).toBeVisible();
+  const templateLibrary = page.locator("#form-template-library");
+  await expect(templateLibrary.getByText("請假單", { exact: true })).toBeVisible();
+  await expect(templateLibrary.getByText("預先加班單", { exact: true })).toBeVisible();
+  await expect(templateLibrary.getByText("薪資異動單", { exact: true })).toBeVisible();
+  await expect(templateLibrary.getByText("離職申請表", { exact: true })).toBeVisible();
+  await expect(templateLibrary.getByText("在職證明申請單", { exact: true })).toBeVisible();
 });
 
 async function switchDemoRole(page: Page, role: "employee" | "manager" | "hr_admin" | "owner") {
