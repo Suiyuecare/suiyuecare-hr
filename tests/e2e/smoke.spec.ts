@@ -174,6 +174,11 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await page.getByRole("link", { name: "薪資計算規則" }).click();
   await expect(page).toHaveURL(/\/settings\/law-rules$/);
   await expect(page.getByRole("heading", { name: "勞基法與薪資規則" })).toBeVisible();
+  await expect(page.getByLabel("台灣法規規則控制台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("法規規則訊號板").getByText("規則健康度")).toBeVisible();
+  await expect(page.getByLabel("法規規則訊號板").getByText("官方來源")).toBeVisible();
+  await expect(page.getByLabel("法規治理作業區").getByRole("heading", { name: "官方來源與檢查日" })).toBeVisible();
+  await expect(page.getByLabel("法規治理作業區").getByRole("heading", { name: "薪資、工時與假勤參數" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "來源更新精靈" })).toBeVisible();
   await expect(page.getByText("最低月薪")).toBeVisible();
 

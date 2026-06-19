@@ -3648,6 +3648,221 @@ legend {
   color: var(--accent-strong);
 }
 
+.law-rules-page {
+  max-width: 1280px;
+}
+
+.law-rules-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.24fr) minmax(300px, 0.76fr);
+  align-items: stretch;
+  gap: 16px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(17, 24, 39, 0.96);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #111827 0%, #1e293b 58%, #3b2a14 100%);
+  color: #ffffff;
+  padding: 18px;
+  box-shadow: var(--shadow-strong);
+}
+
+.law-rules-hero-main {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.law-rules-hero-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.law-rules-hero .muted,
+.law-rules-focus .muted {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.law-rules-hero h1 {
+  max-width: 680px;
+  margin: 0;
+  color: #ffffff;
+  font-size: 34px;
+  font-weight: 1000;
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.law-rules-hero p {
+  max-width: 780px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 15px;
+  font-weight: 850;
+  line-height: 1.55;
+}
+
+.law-rules-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.law-rules-focus {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 214px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 16px;
+}
+
+.law-rules-focus strong {
+  display: block;
+  color: #ffffff;
+  font-size: 26px;
+  font-weight: 1000;
+  line-height: 1.12;
+}
+
+.law-rules-focus p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.law-rules-focus.warning {
+  border-color: rgba(253, 232, 188, 0.48);
+  background: rgba(234, 136, 12, 0.12);
+}
+
+.law-rules-focus.danger {
+  border-color: rgba(254, 202, 202, 0.5);
+  background: rgba(185, 28, 28, 0.18);
+}
+
+.law-rules-focus .button {
+  width: 100%;
+  margin-top: auto;
+}
+
+.law-rule-signal-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.law-rule-signal-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 124px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.law-rule-signal-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.law-rule-signal-card strong {
+  color: var(--foreground);
+  font-size: 19px;
+  font-weight: 1000;
+  line-height: 1.16;
+}
+
+.law-rule-signal-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.law-rule-signal-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.law-rule-signal-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.law-rule-signal-card.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.law-rule-signal-card.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.law-rule-governance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.law-rule-governance-card {
+  display: grid;
+  grid-template-rows: auto auto minmax(72px, auto) auto;
+  align-content: start;
+  gap: 12px;
+  min-height: 250px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.law-rule-governance-card h2 {
+  margin: 4px 0 0;
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 1000;
+  line-height: 1.15;
+}
+
+.law-rule-governance-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+  line-height: 1.5;
+}
+
+.law-rule-governance-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.law-rule-governance-card.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.law-rule-governance-card.ready {
+  border-color: var(--panel-border);
+}
+
+.law-rule-governance-card .button {
+  width: 100%;
+}
+
 .hr-monthly-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
@@ -4190,6 +4405,9 @@ legend {
   .settings-control-hero,
   .settings-signal-board,
   .settings-command-grid,
+  .law-rules-hero,
+  .law-rule-signal-board,
+  .law-rule-governance-grid,
   .hr-monthly-hero,
   .hr-monthly-signal-board,
   .employee-command-grid,
@@ -4282,6 +4500,23 @@ legend {
     width: 100%;
   }
 
+  .law-rules-hero {
+    padding: 16px;
+  }
+
+  .law-rules-hero h1 {
+    font-size: 27px;
+  }
+
+  .law-rules-hero-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .law-rules-hero-actions .button {
+    width: 100%;
+  }
+
   .employee-hero-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4314,6 +4549,9 @@ legend {
   .settings-control-focus,
   .settings-signal-card,
   .settings-command-card,
+  .law-rules-focus,
+  .law-rule-signal-card,
+  .law-rule-governance-card,
   .hr-monthly-hero-focus,
   .hr-monthly-signal-card,
   .hr-close-command-copy,

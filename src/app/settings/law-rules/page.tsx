@@ -13,23 +13,71 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
   const center = await getTaiwanLaborRuleCenter(session);
   const config = center.config;
   const needsAttention = center.readiness.blockers.length + center.readiness.warnings.length;
+  const ruleFocus = buildRuleFocus(center);
+  const ruleSignals = buildRuleSignals(center);
+  const governanceCards = buildRuleGovernanceCards(center);
 
   return (
-    <main className="page console-page">
-      <section className="console-hero">
-        <div>
-          <span className="muted">台灣法規規則中心</span>
+    <main className="page law-rules-page">
+      <section className="law-rules-hero" aria-label="台灣法規規則控制台">
+        <div className="law-rules-hero-main">
+          <div className="law-rules-hero-topline">
+            <span className="muted">台灣法規規則中心</span>
+            <span className={`badge ${center.readiness.status === "ready" ? "" : "warning"}`}>
+              {needsAttention} 項待處理
+            </span>
+          </div>
           <h1>勞基法與薪資規則</h1>
-          <p>所有薪資、假勤、加班與離職檢查都使用版本化規則；HR 可調整設定，但每次變更都要留下來源、審核與 audit log。</p>
+          <p>所有薪資、假勤、加班與離職檢查都使用版本化規則；人資可調整設定，但每次變更都要留下來源、審核與稽核紀錄。</p>
+          <div className="law-rules-hero-actions">
+            <Link className="button primary" href="#source-review">
+              檢查官方來源
+            </Link>
+            <Link className="button" href="/settings#law-rules-setup">
+              完整設定表
+            </Link>
+            <Link className="button" href="/hr">
+              月結工作台
+            </Link>
+          </div>
         </div>
-        <div className="console-hero-actions">
-          <Link className="button" href="/settings#law-rules-setup">
-            完整設定表
+
+        <aside className={`law-rules-focus ${ruleFocus.tone}`}>
+          <span className="muted">今日先處理</span>
+          <strong>{ruleFocus.title}</strong>
+          <p>{ruleFocus.detail}</p>
+          <Link className="button primary" href={ruleFocus.href}>
+            {ruleFocus.label}
           </Link>
-          <Link className="button primary" href="/hr">
-            月結工作台
+        </aside>
+      </section>
+
+      <section className="law-rule-signal-board" aria-label="法規規則訊號板">
+        {ruleSignals.map((signal) => (
+          <Link className={`law-rule-signal-card ${signal.tone}`} href={signal.href} key={signal.id}>
+            <span>{signal.label}</span>
+            <strong>{signal.value}</strong>
+            <small>{signal.detail}</small>
           </Link>
-        </div>
+        ))}
+      </section>
+
+      <section className="law-rule-governance-grid" aria-label="法規治理作業區">
+        {governanceCards.map((card) => (
+          <article className={`law-rule-governance-card ${card.tone}`} key={card.id}>
+            <div>
+              <span className="muted">{card.area}</span>
+              <h2>{card.title}</h2>
+            </div>
+            <span className={`badge ${card.tone === "warning" ? "warning" : card.tone === "danger" ? "danger" : ""}`}>
+              {card.status}
+            </span>
+            <p>{card.summary}</p>
+            <Link className="button primary" href={card.primary.href}>
+              {card.primary.label}
+            </Link>
+          </article>
+        ))}
       </section>
 
       <section className="grid">
@@ -66,7 +114,7 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
         <div className="panel span-3 metric">
           <span className="muted">最低月薪</span>
           <strong>{formatMoney(config.minimumMonthlyWage)}</strong>
-          <span className="badge">2026 基準</span>
+          <span className="badge">目前設定值</span>
         </div>
         <div className="panel span-3 metric">
           <span className="muted">最低時薪</span>
@@ -122,7 +170,7 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
           <div className="section-heading">
             <div>
               <h2>下一步</h2>
-              <p className="muted">阻擋與警示會影響月結、薪資鎖定與正式上線 Gate。</p>
+              <p className="muted">阻擋與警示會影響月結、薪資鎖定與正式上線閘門。</p>
             </div>
           </div>
           {center.readiness.nextActions.length ? (
@@ -200,7 +248,7 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
           <div className="section-heading">
             <div>
               <h2>版本歷史</h2>
-              <p className="muted">每次規則變更都會產生 rule_versions，可回溯來源、審核與是否需要重算薪資。</p>
+              <p className="muted">每次規則變更都會產生版本紀錄，可回溯來源、審核與是否需要重算薪資。</p>
             </div>
           </div>
           <ul className="task-list">
@@ -260,6 +308,144 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
       </section>
     </main>
   );
+}
+
+type LawRuleCenter = Awaited<ReturnType<typeof getTaiwanLaborRuleCenter>>;
+type RuleTone = "ready" | "warning" | "danger";
+
+function toneFromReadiness(status: LawRuleCenter["readiness"]["status"]): RuleTone {
+  if (status === "blocked") return "danger";
+  if (status === "needs_review") return "warning";
+  return "ready";
+}
+
+function buildRuleFocus(center: LawRuleCenter) {
+  if (center.readiness.blockers.length > 0) {
+    return {
+      title: center.readiness.blockers[0],
+      detail: "這會阻擋正式上線與薪資鎖定。先修正設定並重新儲存，讓規則測試通過。",
+      href: "#source-review",
+      label: "處理阻擋項",
+      tone: "danger" as const,
+    };
+  }
+
+  if (!center.sourceFreshness.passed) {
+    return {
+      title: "官方來源需要複核",
+      detail: `目前 ${center.sourceFreshness.staleSourceCount + center.sourceFreshness.invalidSourceCount} 個來源需要更新或修正日期。`,
+      href: "#source-review",
+      label: "更新來源",
+      tone: "warning" as const,
+    };
+  }
+
+  if (center.config.changeControl.reviewStatus !== "approved") {
+    return {
+      title: "等待 HR 或法務審核",
+      detail: "規則已可檢視，但月結鎖定前仍需要填寫審核人並核准目前版本。",
+      href: "#source-review",
+      label: "補審核",
+      tone: "warning" as const,
+    };
+  }
+
+  if (center.config.changeControl.requiresPayrollRecalculation) {
+    return {
+      title: "薪資草稿需要重新試算",
+      detail: "規則已變更，尚未鎖定的薪資草稿需要重新計算，避免使用舊版本規則。",
+      href: "/hr",
+      label: "回月結試算",
+      tone: "warning" as const,
+    };
+  }
+
+  return {
+    title: "規則可用於月結",
+    detail: "目前版本已有來源、審核與測試證據，可用於薪資、假勤與出勤檢查。",
+    href: "/hr",
+    label: "前往月結",
+    tone: "ready" as const,
+  };
+}
+
+function buildRuleSignals(center: LawRuleCenter) {
+  const latestVersion = center.versionHistory[0];
+  return [
+    {
+      id: "readiness",
+      label: "規則健康度",
+      value: center.readiness.label,
+      detail: center.readiness.blockers.length
+        ? `${center.readiness.blockers.length} 個阻擋項會擋下上線。`
+        : `${center.readiness.warnings.length} 個警示需月結前確認。`,
+      href: "#source-review",
+      tone: toneFromReadiness(center.readiness.status),
+    },
+    {
+      id: "sources",
+      label: "官方來源",
+      value: `${center.sourceFreshness.freshSourceCount}/${center.sourceFreshness.totalSourceCount}`,
+      detail: center.sourceFreshness.passed
+        ? "來源檢查仍在有效期限內。"
+        : `${center.sourceFreshness.staleSourceCount + center.sourceFreshness.invalidSourceCount} 個來源需要更新。`,
+      href: "#source-review",
+      tone: center.sourceFreshness.passed ? "ready" as const : "warning" as const,
+    },
+    {
+      id: "version",
+      label: "啟用版本",
+      value: center.config.version,
+      detail: latestVersion
+        ? `${formatDateTime(latestVersion.createdAt)} 建立，${latestVersion.sourceCount} 個來源。`
+        : "尚未建立版本紀錄。",
+      href: "#source-review",
+      tone: center.versionHistory.length ? "ready" as const : "danger" as const,
+    },
+    {
+      id: "payroll",
+      label: "薪資重算",
+      value: center.config.changeControl.requiresPayrollRecalculation ? "需要" : "不需要",
+      detail: center.config.changeControl.requiresPayrollRecalculation
+        ? "月結鎖定前要重新試算未鎖定草稿。"
+        : "目前薪資草稿不需要因規則變更而重算。",
+      href: "/hr",
+      tone: center.config.changeControl.requiresPayrollRecalculation ? "warning" as const : "ready" as const,
+    },
+  ];
+}
+
+function buildRuleGovernanceCards(center: LawRuleCenter) {
+  const sourceIssueCount = center.sourceFreshness.staleSourceCount + center.sourceFreshness.invalidSourceCount;
+  return [
+    {
+      id: "source",
+      area: "來源治理",
+      title: "官方來源與檢查日",
+      summary: "人資或法務可直接更新官方法規來源、檢查日期與變更原因；不可貼入員工個資或薪資資料。",
+      status: sourceIssueCount ? `${sourceIssueCount} 項需複核` : "來源有效",
+      tone: sourceIssueCount ? "warning" as const : "ready" as const,
+      primary: { href: "#source-review", label: "更新來源" },
+    },
+    {
+      id: "review",
+      area: "審核控管",
+      title: "審核人與版本核准",
+      summary: "每個規則版本都要知道誰審核、何時審核、是否會影響既有薪資草稿。",
+      status: center.config.changeControl.reviewStatus === "approved" ? "已核准" : "待審核",
+      tone: center.config.changeControl.reviewStatus === "approved" ? "ready" as const : "warning" as const,
+      primary: { href: "#source-review", label: "補審核" },
+    },
+    {
+      id: "advanced",
+      area: "彈性設定",
+      title: "薪資、工時與假勤參數",
+      summary: "最低工資、加班倍率、工時上限、特休、勞健保與所得稅等進階表格集中在完整設定表。",
+      status: `${center.validation.passedCount}/${center.validation.fixtureCount} 測試通過`,
+      tone: center.validation.passed ? "ready" as const : "danger" as const,
+      primary: { href: "/settings#law-rules-setup", label: "完整設定表" },
+    },
+  ];
 }
 
 function formatLegalSourcesCsv(
