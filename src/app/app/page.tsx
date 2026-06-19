@@ -14,6 +14,7 @@ export default async function EmployeeHomePage() {
   const today = toInputDate(new Date());
   const taskStartedAt = Date.now();
   const pendingRequests = workspace.requests.filter((request) => request.status === "pending");
+  const unreadNotificationCount = workspace.notifications.filter((notification) => notification.status === "unread").length;
   const clockInDisplay = workspace.attendance.clockInAt ? formatTime(workspace.attendance.clockInAt) : "--:--";
   const clockOutDisplay = workspace.attendance.clockOutAt ? formatTime(workspace.attendance.clockOutAt) : "--:--";
   const quickLeavePresets = buildQuickLeavePresets({
@@ -27,6 +28,43 @@ export default async function EmployeeHomePage() {
     workspace.attendance.clockOutAt,
     workspace.notifications.some((notification) => notification.status === "unread") ? null : true,
   ].filter(Boolean).length;
+  const completionPercent = Math.round((todayCompletion / 3) * 100);
+  const nextBestAction = buildNextBestAction({
+    clockedIn: Boolean(workspace.attendance.clockInAt),
+    clockedOut: Boolean(workspace.attendance.clockOutAt),
+    pendingRequests: pendingRequests.length,
+    unreadNotifications: unreadNotificationCount,
+  });
+  const todaySignals = [
+    {
+      label: "出勤",
+      value: labelStatus(workspace.attendance.status),
+      detail: `${clockInDisplay} / ${clockOutDisplay}`,
+      href: "/app/attendance",
+      tone: workspace.attendance.clockInAt ? "done" : "focus",
+    },
+    {
+      label: "假勤",
+      value: `${workspace.leaveBalance.remainingUnits} 天`,
+      detail: `${workspace.leaveBalance.pendingUnits} 天待簽核`,
+      href: "#quick-leave",
+      tone: workspace.leaveBalance.remainingUnits > 0 ? "ready" : "warning",
+    },
+    {
+      label: "簽核",
+      value: `${pendingRequests.length} 筆`,
+      detail: pendingRequests.length ? "等待主管處理" : "沒有等待中的申請",
+      href: "#requests",
+      tone: pendingRequests.length ? "focus" : "done",
+    },
+    {
+      label: "通知",
+      value: `${unreadNotificationCount} 則`,
+      detail: unreadNotificationCount ? "有未讀通知" : "已讀完",
+      href: "/app/announcements",
+      tone: unreadNotificationCount ? "focus" : "done",
+    },
+  ];
   const employeeFlow = [
     {
       step: "01",
@@ -65,7 +103,10 @@ export default async function EmployeeHomePage() {
       <main className="page mobile-page">
         <section className="employee-hero" aria-label="員工今日工作台">
           <div className="employee-hero-main">
-            <span className="muted">員工前台</span>
+            <div className="employee-hero-topline">
+              <span className="muted">員工前台</span>
+              <span className="badge">今日重點</span>
+            </div>
             <h1>{session.employee?.displayName ?? "示範員工"}，今天要處理的事</h1>
             <p>
               {translateEmployeeDepartment(session.employee?.department?.name ?? "產品工程部")} ·{" "}
@@ -88,27 +129,33 @@ export default async function EmployeeHomePage() {
               </form>
             </div>
           </div>
-          <div className="employee-hero-status" aria-label="今日狀態摘要">
-            <span className="badge">{labelStatus(workspace.attendance.status)}</span>
-            <strong>{clockInDisplay} / {clockOutDisplay}</strong>
-            <div className="employee-mini-metrics">
-              <span>
-                <small>特休</small>
-                <b>{workspace.leaveBalance.remainingUnits}</b>
-              </span>
-              <span>
-                <small>待簽核</small>
-                <b>{pendingRequests.length}</b>
-              </span>
-              <span>
-                <small>今日完成</small>
-                <b>{todayCompletion}/3</b>
-              </span>
+          <aside className="employee-hero-status" aria-label="今日下一步">
+            <span className={`badge ${nextBestAction.tone}`}>{nextBestAction.badge}</span>
+            <div>
+              <small>下一步</small>
+              <strong>{nextBestAction.title}</strong>
+              <p>{nextBestAction.detail}</p>
             </div>
-          </div>
+            <a className="button primary" href={nextBestAction.href}>
+              {nextBestAction.cta}
+            </a>
+            <div className="employee-progress" aria-label={`今日完成 ${completionPercent}%`}>
+              <span style={{ width: `${completionPercent}%` }} />
+            </div>
+          </aside>
         </section>
 
-        <section className="employee-pilot-strip" aria-label="今日試用流程">
+        <section className="employee-signal-board" aria-label="今日任務板">
+          {todaySignals.map((signal) => (
+            <a className={`employee-signal-card ${signal.tone}`} href={signal.href} key={signal.label}>
+              <span>{signal.label}</span>
+              <strong>{signal.value}</strong>
+              <small>{signal.detail}</small>
+            </a>
+          ))}
+        </section>
+
+        <section className="employee-pilot-strip" aria-label="三步任務流程">
           {employeeFlow.map((item) => (
             <a className={`employee-flow-step ${item.state}`} href={item.href} key={item.step}>
               <span>{item.step}</span>
@@ -553,6 +600,62 @@ function buildQuickLeavePresets(input: {
       disabled: input.remainingUnits < 0.5,
     },
   ];
+}
+
+function buildNextBestAction(input: {
+  clockedIn: boolean;
+  clockedOut: boolean;
+  pendingRequests: number;
+  unreadNotifications: number;
+}) {
+  if (!input.clockedIn) {
+    return {
+      badge: "待打卡",
+      title: "先完成上班打卡",
+      detail: "目前尚未有上班紀錄，請先確認今日出勤。",
+      href: "/app/attendance",
+      cta: "看出勤",
+      tone: "warning",
+    };
+  }
+  if (!input.clockedOut) {
+    return {
+      badge: "工作中",
+      title: "下班前確認出勤",
+      detail: "如果漏刷，直接在快速處理送出補打卡。",
+      href: "#quick-actions",
+      cta: "補打卡",
+      tone: "focus",
+    };
+  }
+  if (input.pendingRequests > 0) {
+    return {
+      badge: "簽核中",
+      title: "查看申請進度",
+      detail: `${input.pendingRequests} 筆申請正在等主管處理。`,
+      href: "#requests",
+      cta: "看進度",
+      tone: "focus",
+    };
+  }
+  if (input.unreadNotifications > 0) {
+    return {
+      badge: "有通知",
+      title: "讀完今天通知",
+      detail: `${input.unreadNotifications} 則通知尚未讀取。`,
+      href: "/app/announcements",
+      cta: "看通知",
+      tone: "warning",
+    };
+  }
+  return {
+    badge: "已整理",
+    title: "今天任務已收斂",
+    detail: "可查看薪資單、工作規則或自訂表單。",
+    href: "#employee-compliance",
+    cta: "看任務",
+    tone: "done",
+  };
 }
 
 function formatAttachmentSummary(attachments: WorkflowRequest["attachments"]) {

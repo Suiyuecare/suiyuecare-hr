@@ -6,7 +6,7 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 
 ## 中文功能盤點
 
-- 前端員工日常使用：手機優先首頁、今日班表與打卡狀態、上下班打卡、60 秒快速請假、加班、補打卡、公告簽收、表單送出、申請進度時間軸、薪資單自助查看、員工訓練與公司規章確認。
+- 前端員工日常使用：Finance-style 手機優先首頁、今日任務板、下一步提示、今日班表與打卡狀態、上下班打卡、60 秒快速請假、加班、補打卡、公告簽收、表單送出、申請進度時間軸、薪資單自助查看、員工訓練與公司規章確認。
 - 主管工作台：統一簽核 Inbox，可處理請假、加班、補打卡與自訂表單，卡片顯示風險摘要、申請脈絡、15 秒快速核准/需補件、簽核意見與員工通知。
 - HR 後台：員工匯入、人事主檔、組織與部門、標準職務/職等、任用異動、文件庫、出勤例外、班表、假勤政策、薪資設定、薪資月結、薪資單釋出、公告、表單建置、工作規則、訓練、勞健保/勞退與台灣法規規則管理；後台模組可從 `/console/modules/[moduleId]` 進入 Finance-style 模組總覽，查看今日優先任務、常用作業、KPI 與法遵/稽核護欄。公司組織設定可從 `/settings/organization` 管理公司資料、部門、職等與標準職務，並盤點主管線與職務名稱。
 - 老闆/Owner 管理：公司設定、RBAC 權限、訂閱與商務狀態、資安設定、支援存取授權、備份還原證據、上線 readiness、audit log 與勞檢證據包。
@@ -15,7 +15,7 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 
 ## 下一階段
 
-- UI/UX 先升級：以 Finance 系統為基準重排員工前台與管理後台，統一色彩、資訊密度、主視覺、卡片層級、文字大小、表格/工作流元件，讓員工三步內完成任務、主管 Inbox 15 秒可簽核、HR 首頁聚焦月結與異常。
+- UI/UX 持續升級：員工前台首頁已加入 Finance-style 今日任務板與下一步提示；下一步要把主管 Inbox、HR 月結、設定 wizard 與報表頁統一成同一套色彩、資訊密度、卡片層級、文字大小、表格/工作流元件，讓員工三步內完成任務、主管 Inbox 15 秒可簽核、HR 首頁聚焦月結與異常。
 - 補齊人事基礎資料閉環：把員工主檔、任用異動、權限、薪資 profile、報表與匯入精靈全部改為引用標準部門、職務、職等與主管線，避免每個模組各自使用自由文字職稱。
 - 強化後台管理系統：完成公司規章、權限矩陣、打卡設定、排班規則、薪資科目、薪資計算規則、保險/所得稅規則、報表設定與下載封存等管理工具的 wizard 化設定。
 - 修復 production gate：設定 Supabase transaction pooler `DATABASE_URL` 或 IPv4 add-on attestation、正式 OIDC/SSO、vault/KMS 參照、備份還原演練證據，讓 `https://hr.suiyuecare.com/api/health/ready` 變成 ok。
@@ -27,7 +27,7 @@ Current live production-pilot status and blockers are tracked in [`docs/pilot-pr
 ## MVP Workflows
 
 - Employee clock in/out with punch source.
-- Daily Today Card with shift, punch status, leave balance, and pending requests.
+- Daily Finance-style employee Today workspace with next-step guidance, task board, shift, punch status, leave balance, notifications, and pending requests.
 - 60-second quick leave presets on the employee mobile home page for full-day, morning half-day, and afternoon half-day leave. These presets still submit through the audited leave request, manager approval, notification, and telemetry flow.
 - 15-second manager approval actions in the unified Inbox. Quick approve and needs-more-information buttons still submit through the shared approval endpoint, write approval events/audit logs, notify employees, and preserve the full comment form for non-standard cases.
 - HR command center with Next Actions that prioritizes onboarding, attendance, payroll close, and launch-readiness handoff before showing functional menus.

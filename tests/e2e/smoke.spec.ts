@@ -63,6 +63,8 @@ test("員工前台與管理後台依角色分流", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /今天要處理的事/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "上班打卡" })).toBeVisible();
+  await expect(page.getByLabel("今日任務板").getByText("出勤")).toBeVisible();
+  await expect(page.getByLabel("今日下一步").getByText("下一步", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: /管理後台/ })).toBeVisible();
 
   await page.getByLabel("示範角色").selectOption("hr_admin");
