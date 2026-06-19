@@ -68,7 +68,7 @@ test("員工前台與管理後台依角色分流", async ({ page }) => {
   await page.getByLabel("示範角色").selectOption("hr_admin");
   await page.getByRole("button", { name: "切換" }).click();
   await expect(page).toHaveURL(/\/console$/);
-  await expect(page.getByRole("heading", { name: "試用營運總覽" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "HR One 後台工作台" })).toBeVisible();
   await expect(page.getByRole("navigation").getByText("公司管理", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "人事建檔" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "出勤管理", level: 3 })).toBeVisible();

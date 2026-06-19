@@ -32,8 +32,8 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
       <section className="console-hero">
         <div>
           <span className="muted">HR One Operating Console</span>
-          <h1>試用營運總覽</h1>
-          <p>前台處理員工日常任務，後台處理主管簽核、人資月結、公告與安全上線。</p>
+          <h1>HR One 後台工作台</h1>
+          <p>前台讓員工完成日常任務；後台讓執行長、人資與行政主管掌握簽核、月結、異常與安全上線狀態。</p>
         </div>
         <div className="console-hero-actions">
           <Link className="button" href="/app">
@@ -61,7 +61,7 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
       <section className="console-command-board" aria-label="試用後台指揮板">
         <div className="console-command-copy">
           <span className="muted">Finance-style 操作台</span>
-          <strong>先看今日能不能跑，再處理打卡、簽核、公告、月結與安全 Gate。</strong>
+          <strong>先看今天哪些事會卡住，再處理打卡、簽核、公告、月結與安全 Gate。</strong>
         </div>
         <Link className="console-command-card focus" href="/settings/pilot-operations">
           <span>今日戰情</span>
