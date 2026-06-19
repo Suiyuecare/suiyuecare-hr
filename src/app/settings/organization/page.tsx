@@ -58,7 +58,7 @@ export default async function OrganizationSettingsPage({ searchParams }: { searc
       {params.success ? (
         <section className="panel risk-box success-box">
           <strong>組織設定已更新</strong>
-          <p>{params.success === "company" ? "公司資料已保存，audit log 已建立。" : "部門設定已保存，audit log 已建立。"}</p>
+          <p>{organizationSuccessMessage(params.success)}</p>
         </section>
       ) : null}
 
@@ -74,9 +74,14 @@ export default async function OrganizationSettingsPage({ searchParams }: { searc
           <small>由 direct reports 推得</small>
         </div>
         <div className="organization-metric-card">
-          <span>職務名稱</span>
-          <strong>{settings.jobTitles.length}</strong>
-          <small>下一步標準化職務表</small>
+          <span>標準職務</span>
+          <strong>{settings.jobPositions.length}</strong>
+          <small>可綁部門與職等</small>
+        </div>
+        <div className="organization-metric-card">
+          <span>職等</span>
+          <strong>{settings.jobLevels.length}</strong>
+          <small>薪資與權限的共用階層</small>
         </div>
       </section>
 
@@ -229,6 +234,192 @@ export default async function OrganizationSettingsPage({ searchParams }: { searc
           </form>
         </section>
 
+        <section className="panel span-12" id="job-architecture">
+          <div className="section-heading">
+            <div>
+              <h2>職務 / 職等管理</h2>
+              <p className="muted">職務與職等是員工異動、薪資、權限、簽核與報表的共用語言。</p>
+            </div>
+            <span className="badge">{settings.jobPositions.length} 個職務</span>
+          </div>
+
+          <div className="organization-job-board">
+            <section className="organization-job-column">
+              <div className="section-heading compact-heading">
+                <div>
+                  <h3>職等</h3>
+                  <p className="muted">用排序控制階層，不在這裡放薪資金額。</p>
+                </div>
+              </div>
+              <div className="organization-job-level-list">
+                {settings.jobLevels.map((level) => (
+                  <form action="/api/settings/organization" method="post" className="organization-job-level-row" key={level.id}>
+                    <input name="intent" type="hidden" value="job_level" />
+                    <input name="jobLevelId" type="hidden" value={level.id} />
+                    <input name="description" type="hidden" value={level.description ?? ""} />
+                    <div className="job-architecture-stats">
+                      <span>{level.code}</span>
+                      <strong>{level.positionCount}</strong>
+                      <small>職務 · 排序 {level.rank}</small>
+                    </div>
+                    <label>
+                      代碼
+                      <input name="code" defaultValue={level.code} required disabled={!writable} />
+                    </label>
+                    <label>
+                      名稱
+                      <input name="name" defaultValue={level.name} required disabled={!writable} />
+                    </label>
+                    <label>
+                      排序
+                      <input name="rank" type="number" min="0" max="999" defaultValue={level.rank} required disabled={!writable} />
+                    </label>
+                    <label>
+                      狀態
+                      <select name="status" defaultValue={level.status} disabled={!writable}>
+                        <option value="active">啟用</option>
+                        <option value="inactive">停用</option>
+                      </select>
+                    </label>
+                    <button className="button" type="submit" disabled={!writable}>
+                      更新
+                    </button>
+                  </form>
+                ))}
+              </div>
+              <form action="/api/settings/organization" method="post" className="organization-new-job-level">
+                <input name="intent" type="hidden" value="job_level" />
+                <div>
+                  <span className="muted">新增職等</span>
+                  <strong>建立標準階層</strong>
+                </div>
+                <label>
+                  代碼
+                  <input name="code" placeholder="L3" required disabled={!writable} />
+                </label>
+                <label>
+                  名稱
+                  <input name="name" placeholder="主任 / Lead" required disabled={!writable} />
+                </label>
+                <label>
+                  排序
+                  <input name="rank" type="number" min="0" max="999" defaultValue={3} required disabled={!writable} />
+                </label>
+                <input name="status" type="hidden" value="active" />
+                <button className="button primary" type="submit" disabled={!writable}>
+                  新增
+                </button>
+              </form>
+            </section>
+
+            <section className="organization-job-column">
+              <div className="section-heading compact-heading">
+                <div>
+                  <h3>職務</h3>
+                  <p className="muted">職務可綁定預設部門與職等，員工主檔會逐步引用這裡。</p>
+                </div>
+              </div>
+              <div className="organization-job-position-list">
+                {settings.jobPositions.map((position) => (
+                  <form action="/api/settings/organization" method="post" className="organization-job-position-row" key={position.id}>
+                    <input name="intent" type="hidden" value="job_position" />
+                    <input name="jobPositionId" type="hidden" value={position.id} />
+                    <input name="description" type="hidden" value={position.description ?? ""} />
+                    <div className="job-architecture-stats">
+                      <span>{position.code}</span>
+                      <strong>{position.employeeCount}</strong>
+                      <small>{position.family} · {position.levelCode ?? "未設職等"}</small>
+                    </div>
+                    <label>
+                      代碼
+                      <input name="code" defaultValue={position.code} required disabled={!writable} />
+                    </label>
+                    <label>
+                      職務
+                      <input name="title" defaultValue={position.title} required disabled={!writable} />
+                    </label>
+                    <label>
+                      族群
+                      <input name="family" defaultValue={position.family} required disabled={!writable} />
+                    </label>
+                    <label>
+                      部門
+                      <select name="departmentId" defaultValue={position.departmentId ?? ""} disabled={!writable}>
+                        <option value="">未指定</option>
+                        {settings.departments.map((department) => (
+                          <option value={department.id} key={department.id}>
+                            {department.code} · {department.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      職等
+                      <select name="levelId" defaultValue={position.levelId ?? ""} disabled={!writable}>
+                        <option value="">未指定</option>
+                        {settings.jobLevels.map((level) => (
+                          <option value={level.id} key={level.id}>
+                            {level.code} · {level.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <input name="status" type="hidden" value={position.status} />
+                    <button className="button" type="submit" disabled={!writable}>
+                      更新
+                    </button>
+                  </form>
+                ))}
+              </div>
+              <form action="/api/settings/organization" method="post" className="organization-new-job-position">
+                <input name="intent" type="hidden" value="job_position" />
+                <div>
+                  <span className="muted">新增職務</span>
+                  <strong>建立標準職務</strong>
+                </div>
+                <label>
+                  代碼
+                  <input name="code" placeholder="ADM-LEAD" required disabled={!writable} />
+                </label>
+                <label>
+                  職務
+                  <input name="title" placeholder="行政主任" required disabled={!writable} />
+                </label>
+                <label>
+                  族群
+                  <input name="family" placeholder="Administration" required disabled={!writable} />
+                </label>
+                <label>
+                  部門
+                  <select name="departmentId" defaultValue="" disabled={!writable}>
+                    <option value="">未指定</option>
+                    {settings.departments.map((department) => (
+                      <option value={department.id} key={department.id}>
+                        {department.code} · {department.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  職等
+                  <select name="levelId" defaultValue="" disabled={!writable}>
+                    <option value="">未指定</option>
+                    {settings.jobLevels.map((level) => (
+                      <option value={level.id} key={level.id}>
+                        {level.code} · {level.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <input name="status" type="hidden" value="active" />
+                <button className="button primary" type="submit" disabled={!writable}>
+                  新增
+                </button>
+              </form>
+            </section>
+          </div>
+        </section>
+
         <section className="panel span-6">
           <div className="section-heading compact-heading">
             <div>
@@ -255,7 +446,7 @@ export default async function OrganizationSettingsPage({ searchParams }: { searc
               <h2>職務盤點</h2>
               <p className="muted">目前由員工主檔職稱彙整；下一階段會升級成可維護職務/職等表。</p>
             </div>
-            <span className="badge warning">待標準化</span>
+            <span className="badge">已可對照</span>
           </div>
           <ul className="task-list organization-job-list">
             {settings.jobTitles.slice(0, 10).map((jobTitle) => (
@@ -284,4 +475,12 @@ function readinessBadgeClass(readiness: OrganizationReadiness) {
   if (readiness.status === "blocked") return "danger";
   if (readiness.status === "warning") return "warning";
   return "";
+}
+
+function organizationSuccessMessage(success: string) {
+  if (success === "company") return "公司資料已保存，audit log 已建立。";
+  if (success === "department") return "部門設定已保存，audit log 已建立。";
+  if (success === "job-level") return "職等設定已保存，audit log 已建立。";
+  if (success === "job-position") return "職務設定已保存，audit log 已建立。";
+  return "設定已保存，audit log 已建立。";
 }

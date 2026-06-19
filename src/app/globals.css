@@ -2740,7 +2740,7 @@ legend {
 
 .organization-metric-strip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -2890,6 +2890,108 @@ legend {
 .organization-new-department strong {
   font-size: 16px;
   font-weight: 1000;
+}
+
+.organization-job-board {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 14px;
+}
+
+.organization-job-column {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--cream);
+  padding: 14px;
+}
+
+.organization-job-column h3 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 1000;
+}
+
+.organization-job-level-list,
+.organization-job-position-list {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.organization-job-level-row,
+.organization-new-job-level {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.8fr) minmax(70px, 0.55fr) minmax(0, 1fr) minmax(78px, 0.6fr) minmax(90px, 0.65fr) auto;
+  gap: 9px;
+  align-items: end;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 11px;
+}
+
+.organization-job-position-row,
+.organization-new-job-position {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.8fr) minmax(84px, 0.55fr) minmax(130px, 1fr) minmax(110px, 0.8fr) minmax(130px, 0.9fr) minmax(130px, 0.9fr) auto;
+  gap: 9px;
+  align-items: end;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 11px;
+}
+
+.organization-new-job-level,
+.organization-new-job-position {
+  border-color: rgba(234, 136, 12, 0.3);
+  background: var(--accent-soft);
+}
+
+.organization-new-job-level > div,
+.organization-new-job-position > div,
+.job-architecture-stats {
+  display: grid;
+  gap: 4px;
+  align-self: stretch;
+  border-radius: 8px;
+  background: var(--cream);
+  padding: 10px;
+}
+
+.organization-new-job-level > div,
+.organization-new-job-position > div {
+  background: #ffffff;
+}
+
+.organization-new-job-level strong,
+.organization-new-job-position strong {
+  font-size: 16px;
+  font-weight: 1000;
+}
+
+.job-architecture-stats span {
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.job-architecture-stats strong {
+  color: var(--foreground);
+  font-size: 25px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.job-architecture-stats small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
 }
 
 .organization-manager-list small,
@@ -3365,6 +3467,7 @@ legend {
   .organization-hero,
   .organization-metric-strip,
   .organization-readiness,
+  .organization-job-board,
   .pilot-operating-strip,
   .hr-close-command-band,
   .pilot-trial-board,
@@ -3389,6 +3492,10 @@ legend {
   .module-work-grid,
   .organization-department-row,
   .organization-new-department,
+  .organization-job-level-row,
+  .organization-new-job-level,
+  .organization-job-position-row,
+  .organization-new-job-position,
   .console-search > div,
   .console-module-main,
   .console-pinned ul,

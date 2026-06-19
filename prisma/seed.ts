@@ -89,6 +89,8 @@ async function main() {
   await prisma.userRole.deleteMany();
   await prisma.userExternalIdentity.deleteMany();
   await prisma.employee.deleteMany();
+  await prisma.jobPosition.deleteMany();
+  await prisma.jobLevel.deleteMany();
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
   await prisma.department.deleteMany();
@@ -367,6 +369,71 @@ async function main() {
     },
   });
 
+  const [levelOne, levelTwo, managerLevel] = await Promise.all([
+    prisma.jobLevel.create({
+      data: {
+        tenantId: tenant.id,
+        companyId: company.id,
+        code: "L1",
+        name: "專員 / Associate",
+        rank: 1,
+        description: "可獨立完成日常任務的初階到中階職務。",
+      },
+    }),
+    prisma.jobLevel.create({
+      data: {
+        tenantId: tenant.id,
+        companyId: company.id,
+        code: "L2",
+        name: "資深專員 / Specialist",
+        rank: 2,
+        description: "可負責跨部門任務或核心模組的資深職務。",
+      },
+    }),
+    prisma.jobLevel.create({
+      data: {
+        tenantId: tenant.id,
+        companyId: company.id,
+        code: "M1",
+        name: "主管 / Manager",
+        rank: 10,
+        description: "具備直屬團隊管理與簽核責任的主管職等。",
+      },
+    }),
+  ]);
+
+  const jobPositions = await Promise.all([
+    jobPosition("HR Admin", "HR-ADMIN", "People", peopleOps.id, levelTwo.id),
+    jobPosition("Engineering Manager", "ENG-MGR", "Engineering", product.id, managerLevel.id),
+    jobPosition("Frontend Engineer", "FE", "Engineering", product.id, levelTwo.id),
+    jobPosition("Backend Engineer", "BE", "Engineering", product.id, levelTwo.id),
+    jobPosition("Product Designer", "PD", "Product", product.id, levelTwo.id),
+    jobPosition("Customer Success Specialist", "CS", "Operations", peopleOps.id, levelOne.id),
+    jobPosition("Operations Coordinator", "OPS-COORD", "Operations", peopleOps.id, levelOne.id),
+    jobPosition("Product Specialist", "PROD-SPEC", "Product", product.id, levelOne.id),
+    jobPosition("QA Engineer", "QA", "Engineering", product.id, levelOne.id),
+    jobPosition("Care Program Coordinator", "CARE-COORD", "Care", peopleOps.id, levelOne.id),
+    jobPosition("Finance Assistant", "FIN-ASST", "Finance", peopleOps.id, levelOne.id),
+    jobPosition("People Operations Associate", "POPS-ASSOC", "People", peopleOps.id, levelOne.id),
+    jobPosition("Service Designer", "SVC-DES", "Product", product.id, levelOne.id),
+  ]);
+  const jobPositionByTitle = Object.fromEntries(jobPositions.map((position) => [position.title, position]));
+
+  function jobPosition(title: string, code: string, family: string, departmentId: string, levelId: string) {
+    return prisma.jobPosition.create({
+      data: {
+        tenantId: tenant.id,
+        companyId: company.id,
+        departmentId,
+        levelId,
+        code,
+        title,
+        family,
+        description: `${title} seed position. HR should review scope and level before rollout.`,
+      },
+    });
+  }
+
   const betaPilotEmployeeNames = [
     "周宜庭",
     "吳柏翰",
@@ -436,6 +503,7 @@ async function main() {
       companyId: company.id,
       userId: managerUser.id,
       departmentId: product.id,
+      jobPositionId: jobPositionByTitle["Engineering Manager"].id,
       employeeNo: "E002",
       displayName: managerUser.displayName,
       jobTitle: "Engineering Manager",
@@ -450,6 +518,7 @@ async function main() {
         companyId: company.id,
         userId: hrUser.id,
         departmentId: peopleOps.id,
+        jobPositionId: jobPositionByTitle["HR Admin"].id,
         employeeNo: "E001",
         displayName: hrUser.displayName,
         jobTitle: "HR Admin",
@@ -462,6 +531,7 @@ async function main() {
         companyId: company.id,
         userId: employeeOneUser.id,
         departmentId: product.id,
+        jobPositionId: jobPositionByTitle["Frontend Engineer"].id,
         managerId: managerEmployee.id,
         employeeNo: "E003",
         displayName: employeeOneUser.displayName,
@@ -475,6 +545,7 @@ async function main() {
         companyId: company.id,
         userId: employeeTwoUser.id,
         departmentId: product.id,
+        jobPositionId: jobPositionByTitle["Product Designer"].id,
         managerId: managerEmployee.id,
         employeeNo: "E004",
         displayName: employeeTwoUser.displayName,
@@ -488,6 +559,7 @@ async function main() {
         companyId: company.id,
         userId: employeeThreeUser.id,
         departmentId: product.id,
+        jobPositionId: jobPositionByTitle["Backend Engineer"].id,
         managerId: managerEmployee.id,
         employeeNo: "E005",
         displayName: employeeThreeUser.displayName,
@@ -505,6 +577,7 @@ async function main() {
           companyId: company.id,
           userId: user.id,
           departmentId: index % 5 === 0 ? peopleOps.id : product.id,
+          jobPositionId: jobPositionByTitle[betaPilotJobTitle(index)]?.id,
           managerId: managerEmployee.id,
           employeeNo: `E${String(index + 6).padStart(3, "0")}`,
           displayName: user.displayName,

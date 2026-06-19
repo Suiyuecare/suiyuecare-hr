@@ -3,6 +3,8 @@ import { requireTenantSession } from "@/server/auth/guards";
 import {
   updateOrganizationCompanySettings,
   upsertOrganizationDepartment,
+  upsertOrganizationJobLevel,
+  upsertOrganizationJobPosition,
 } from "@/server/organization/settings";
 
 export async function POST(request: Request) {
@@ -38,6 +40,38 @@ export async function POST(request: Request) {
       );
     }
 
+    if (intent === "job_level") {
+      await upsertOrganizationJobLevel(session, {
+        id: readString(formData.get("jobLevelId")),
+        code: readString(formData.get("code")),
+        name: readString(formData.get("name")),
+        rank: readNumber(formData.get("rank")),
+        status: readString(formData.get("status")),
+        description: readString(formData.get("description")),
+      });
+      return NextResponse.redirect(
+        new URL("/settings/organization?success=job-level#job-architecture", request.url),
+        303,
+      );
+    }
+
+    if (intent === "job_position") {
+      await upsertOrganizationJobPosition(session, {
+        id: readString(formData.get("jobPositionId")),
+        code: readString(formData.get("code")),
+        title: readString(formData.get("title")),
+        family: readString(formData.get("family")),
+        status: readString(formData.get("status")),
+        departmentId: readString(formData.get("departmentId")),
+        levelId: readString(formData.get("levelId")),
+        description: readString(formData.get("description")),
+      });
+      return NextResponse.redirect(
+        new URL("/settings/organization?success=job-position#job-architecture", request.url),
+        303,
+      );
+    }
+
     throw new Error("未知的組織設定動作。");
   } catch (error) {
     const message = error instanceof Error ? error.message : "無法更新組織設定。";
@@ -50,4 +84,9 @@ export async function POST(request: Request) {
 
 function readString(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function readNumber(value: FormDataEntryValue | null) {
+  const number = Number(readString(value));
+  return Number.isFinite(number) ? number : undefined;
 }

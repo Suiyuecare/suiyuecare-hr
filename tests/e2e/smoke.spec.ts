@@ -130,6 +130,25 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByText("部門設定已保存")).toBeVisible();
   await expect(page.locator(".department-stats").filter({ hasText: "ADM" })).toBeVisible();
 
+  const newJobLevel = page.locator(".organization-new-job-level");
+  await newJobLevel.getByLabel("代碼").fill("L3");
+  await newJobLevel.getByLabel("名稱").fill("主任 / Lead");
+  await newJobLevel.getByRole("button", { name: "新增" }).click();
+  await expect(page).toHaveURL(/\/settings\/organization\?success=job-level#job-architecture$/);
+  await expect(page.getByText("職等設定已保存")).toBeVisible();
+  await expect(page.locator(".job-architecture-stats").filter({ hasText: "L3" })).toBeVisible();
+
+  const newJobPosition = page.locator(".organization-new-job-position");
+  await newJobPosition.getByLabel("代碼").fill("ADM-LEAD");
+  await newJobPosition.getByLabel("職務").fill("行政主任");
+  await newJobPosition.getByLabel("族群").fill("Administration");
+  await newJobPosition.getByLabel("部門").selectOption({ label: "ADM · 行政管理部" });
+  await newJobPosition.getByLabel("職等").selectOption({ label: "L3 · 主任 / Lead" });
+  await newJobPosition.getByRole("button", { name: "新增" }).click();
+  await expect(page).toHaveURL(/\/settings\/organization\?success=job-position#job-architecture$/);
+  await expect(page.getByText("職務設定已保存")).toBeVisible();
+  await expect(page.locator(".job-architecture-stats").filter({ hasText: "ADM-LEAD" })).toBeVisible();
+
   await page.goto("/console");
   await page.locator("#payroll").getByRole("link", { name: "模組總覽" }).click();
   await expect(page).toHaveURL(/\/console\/modules\/payroll$/);

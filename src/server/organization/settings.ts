@@ -37,6 +37,31 @@ export type OrganizationJobTitleSummary = {
   departmentCount: number;
 };
 
+export type OrganizationJobLevelSettings = {
+  id: string;
+  code: string;
+  name: string;
+  rank: number;
+  status: "active" | "inactive";
+  description: string | null;
+  positionCount: number;
+};
+
+export type OrganizationJobPositionSettings = {
+  id: string;
+  code: string;
+  title: string;
+  family: string;
+  status: "active" | "inactive";
+  description: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+  levelId: string | null;
+  levelCode: string | null;
+  levelName: string | null;
+  employeeCount: number;
+};
+
 export type OrganizationManagerLine = {
   employeeId: string;
   employeeNo: string;
@@ -56,6 +81,8 @@ export type OrganizationReadiness = {
 export type OrganizationSettingsView = {
   company: OrganizationCompanySettings;
   departments: OrganizationDepartmentSettings[];
+  jobLevels: OrganizationJobLevelSettings[];
+  jobPositions: OrganizationJobPositionSettings[];
   jobTitles: OrganizationJobTitleSummary[];
   managerLines: OrganizationManagerLine[];
   readiness: OrganizationReadiness;
@@ -77,9 +104,31 @@ export type OrganizationDepartmentInput = Partial<{
   parentDepartmentId: string | null;
 }>;
 
+export type OrganizationJobLevelInput = Partial<{
+  id: string | null;
+  code: string;
+  name: string;
+  rank: number;
+  status: string;
+  description: string | null;
+}>;
+
+export type OrganizationJobPositionInput = Partial<{
+  id: string | null;
+  code: string;
+  title: string;
+  family: string;
+  status: string;
+  departmentId: string | null;
+  levelId: string | null;
+  description: string | null;
+}>;
+
 type OrganizationDemoState = {
   company: OrganizationCompanySettings;
   departments: Array<OrganizationDepartmentSettings & { parentDepartmentId: string | null }>;
+  jobLevels: OrganizationJobLevelSettings[];
+  jobPositions: OrganizationJobPositionSettings[];
   employees: OrganizationEmployeeRecord[];
 };
 
@@ -88,6 +137,7 @@ type OrganizationEmployeeRecord = {
   employeeNo: string;
   displayName: string;
   jobTitle: string;
+  jobPositionId: string | null;
   departmentId: string | null;
   departmentName: string | null;
   managerId: string | null;
@@ -134,6 +184,34 @@ export async function upsertOrganizationDepartment(
   return upsertDemoDepartment(session, normalized);
 }
 
+export async function upsertOrganizationJobLevel(
+  session: SessionLike,
+  input: OrganizationJobLevelInput,
+) {
+  assertPermission(session.role, "settings:write");
+  const current = await getOrganizationSettings({ ...session, role: "owner" });
+  const normalized = normalizeJobLevelInput(input, current.jobLevels);
+
+  if (canUseDatabase(session)) {
+    return upsertDbJobLevel(session, normalized);
+  }
+  return upsertDemoJobLevel(session, normalized);
+}
+
+export async function upsertOrganizationJobPosition(
+  session: SessionLike,
+  input: OrganizationJobPositionInput,
+) {
+  assertPermission(session.role, "settings:write");
+  const current = await getOrganizationSettings({ ...session, role: "owner" });
+  const normalized = normalizeJobPositionInput(input, current);
+
+  if (canUseDatabase(session)) {
+    return upsertDbJobPosition(session, normalized);
+  }
+  return upsertDemoJobPosition(session, normalized);
+}
+
 export function resetOrganizationSettingsDemoState() {
   const overview = getFallbackCompanyOverview();
   const departments = overview.company.departments.map((department) => ({
@@ -150,6 +228,7 @@ export function resetOrganizationSettingsDemoState() {
     employeeNo: employee.employeeNo,
     displayName: employee.displayName,
     jobTitle: employee.jobTitle,
+    jobPositionId: demoJobPositionId(employee.jobTitle),
     departmentId: employee.department?.id ?? null,
     departmentName: employee.department?.name ?? null,
     managerId: employee.managerId,
@@ -169,6 +248,8 @@ export function resetOrganizationSettingsDemoState() {
       ...department,
       managerCount: managerCountByDepartment.get(department.id) ?? 0,
     })),
+    jobLevels: demoJobLevels(),
+    jobPositions: demoJobPositions(employees),
     employees,
   };
 }
@@ -190,12 +271,44 @@ async function getDbOrganizationSettings(session: SessionLike) {
       departments: {
         orderBy: [{ code: "asc" }],
       },
+      jobLevels: {
+        include: {
+          _count: {
+            select: {
+              positions: true,
+            },
+          },
+        },
+        orderBy: [{ rank: "asc" }, { code: "asc" }],
+      },
+      jobPositions: {
+        include: {
+          department: {
+            select: {
+              name: true,
+            },
+          },
+          level: {
+            select: {
+              code: true,
+              name: true,
+            },
+          },
+          _count: {
+            select: {
+              employees: true,
+            },
+          },
+        },
+        orderBy: [{ family: "asc" }, { code: "asc" }],
+      },
       employees: {
         select: {
           id: true,
           employeeNo: true,
           displayName: true,
           jobTitle: true,
+          jobPositionId: true,
           departmentId: true,
           managerId: true,
           department: {
@@ -221,6 +334,7 @@ async function getDbOrganizationSettings(session: SessionLike) {
     employeeNo: employee.employeeNo,
     displayName: employee.displayName,
     jobTitle: employee.jobTitle,
+    jobPositionId: employee.jobPositionId,
     departmentId: employee.departmentId,
     departmentName: employee.department?.name ?? null,
     managerId: employee.managerId,
@@ -247,6 +361,29 @@ async function getDbOrganizationSettings(session: SessionLike) {
       employeeCount: employeeCountByDepartment.get(department.id) ?? 0,
       managerCount: managerCountByDepartment.get(department.id) ?? 0,
       childDepartmentCount: childCountByDepartment.get(department.id) ?? 0,
+    })),
+    jobLevels: company.jobLevels.map((level) => ({
+      id: level.id,
+      code: level.code,
+      name: level.name,
+      rank: level.rank,
+      status: normalizeStatus(level.status),
+      description: level.description,
+      positionCount: level._count.positions,
+    })),
+    jobPositions: company.jobPositions.map((position) => ({
+      id: position.id,
+      code: position.code,
+      title: position.title,
+      family: position.family,
+      status: normalizeStatus(position.status),
+      description: position.description,
+      departmentId: position.departmentId,
+      departmentName: position.department?.name ?? null,
+      levelId: position.levelId,
+      levelCode: position.level?.code ?? null,
+      levelName: position.level?.name ?? null,
+      employeeCount: position._count.employees,
     })),
     employees,
   });
@@ -444,12 +581,289 @@ function upsertDemoDepartment(
   return next;
 }
 
+async function upsertDbJobLevel(
+  session: SessionLike,
+  normalized: Required<Pick<OrganizationJobLevelInput, "code" | "name" | "rank">> & {
+    id: string | null;
+    status: "active" | "inactive";
+    description: string | null;
+  },
+) {
+  const db = getDb();
+  return db.$transaction(async (tx) => {
+    const before = normalized.id
+      ? await tx.jobLevel.findFirst({
+          where: {
+            id: normalized.id,
+            tenantId: session.tenantId!,
+            companyId: session.companyId!,
+          },
+        })
+      : await tx.jobLevel.findFirst({
+          where: {
+            tenantId: session.tenantId!,
+            companyId: session.companyId!,
+            code: normalized.code,
+          },
+        });
+    const level = before
+      ? await tx.jobLevel.update({
+          where: { id: before.id },
+          data: {
+            code: normalized.code,
+            name: normalized.name,
+            rank: normalized.rank,
+            status: normalized.status,
+            description: normalized.description,
+          },
+        })
+      : await tx.jobLevel.create({
+          data: {
+            tenantId: session.tenantId!,
+            companyId: session.companyId!,
+            code: normalized.code,
+            name: normalized.name,
+            rank: normalized.rank,
+            status: normalized.status,
+            description: normalized.description,
+          },
+        });
+    await writeAuditLog(tx, {
+      tenantId: session.tenantId!,
+      companyId: session.companyId!,
+      actorUserId: session.user?.id,
+      actorEmployeeId: session.employee?.id,
+      action: before ? "update" : "create",
+      entityType: "job_level",
+      entityId: level.id,
+      before,
+      after: level,
+      metadata: {
+        code: level.code,
+        rank: level.rank,
+        status: level.status,
+      },
+    });
+    return level;
+  });
+}
+
+function upsertDemoJobLevel(
+  session: SessionLike,
+  normalized: Required<Pick<OrganizationJobLevelInput, "code" | "name" | "rank">> & {
+    id: string | null;
+    status: "active" | "inactive";
+    description: string | null;
+  },
+) {
+  const state = getOrganizationDemoState();
+  const index = state.jobLevels.findIndex((level) =>
+    normalized.id ? level.id === normalized.id : level.code === normalized.code,
+  );
+  const before = index >= 0 ? state.jobLevels[index] : null;
+  const next = {
+    id: before?.id ?? crypto.randomUUID(),
+    code: normalized.code,
+    name: normalized.name,
+    rank: normalized.rank,
+    status: normalized.status,
+    description: normalized.description,
+    positionCount: before?.positionCount ?? 0,
+  } satisfies OrganizationJobLevelSettings;
+  if (index >= 0) {
+    state.jobLevels[index] = next;
+  } else {
+    state.jobLevels.push(next);
+  }
+  refreshDemoJobCounts(state);
+  writeDemoAuditLog({
+    tenantId: session.tenantId ?? "demo-tenant",
+    companyId: session.companyId ?? "demo-company",
+    actorUserId: session.user?.id,
+    actorEmployeeId: session.employee?.id,
+    actorName: session.user?.displayName ?? session.employee?.displayName,
+    action: before ? "update" : "create",
+    entityType: "job_level",
+    entityId: next.id,
+    before,
+    after: next,
+    metadata: {
+      code: next.code,
+      rank: next.rank,
+      status: next.status,
+    },
+  });
+  return next;
+}
+
+async function upsertDbJobPosition(
+  session: SessionLike,
+  normalized: Required<Pick<OrganizationJobPositionInput, "code" | "title" | "family">> & {
+    id: string | null;
+    status: "active" | "inactive";
+    departmentId: string | null;
+    levelId: string | null;
+    description: string | null;
+  },
+) {
+  const db = getDb();
+  return db.$transaction(async (tx) => {
+    const before = normalized.id
+      ? await tx.jobPosition.findFirst({
+          where: {
+            id: normalized.id,
+            tenantId: session.tenantId!,
+            companyId: session.companyId!,
+          },
+        })
+      : await tx.jobPosition.findFirst({
+          where: {
+            tenantId: session.tenantId!,
+            companyId: session.companyId!,
+            code: normalized.code,
+          },
+        });
+    if (normalized.departmentId) {
+      const department = await tx.department.findFirst({
+        where: {
+          id: normalized.departmentId,
+          tenantId: session.tenantId!,
+          companyId: session.companyId!,
+        },
+      });
+      if (!department) throw new Error("部門不存在或不屬於此公司。");
+    }
+    if (normalized.levelId) {
+      const level = await tx.jobLevel.findFirst({
+        where: {
+          id: normalized.levelId,
+          tenantId: session.tenantId!,
+          companyId: session.companyId!,
+        },
+      });
+      if (!level) throw new Error("職等不存在或不屬於此公司。");
+    }
+    const position = before
+      ? await tx.jobPosition.update({
+          where: { id: before.id },
+          data: {
+            code: normalized.code,
+            title: normalized.title,
+            family: normalized.family,
+            status: normalized.status,
+            departmentId: normalized.departmentId,
+            levelId: normalized.levelId,
+            description: normalized.description,
+          },
+        })
+      : await tx.jobPosition.create({
+          data: {
+            tenantId: session.tenantId!,
+            companyId: session.companyId!,
+            code: normalized.code,
+            title: normalized.title,
+            family: normalized.family,
+            status: normalized.status,
+            departmentId: normalized.departmentId,
+            levelId: normalized.levelId,
+            description: normalized.description,
+          },
+        });
+    await writeAuditLog(tx, {
+      tenantId: session.tenantId!,
+      companyId: session.companyId!,
+      actorUserId: session.user?.id,
+      actorEmployeeId: session.employee?.id,
+      action: before ? "update" : "create",
+      entityType: "job_position",
+      entityId: position.id,
+      before,
+      after: position,
+      metadata: {
+        code: position.code,
+        family: position.family,
+        status: position.status,
+        departmentChanged: before?.departmentId !== position.departmentId,
+        levelChanged: before?.levelId !== position.levelId,
+      },
+    });
+    return position;
+  });
+}
+
+function upsertDemoJobPosition(
+  session: SessionLike,
+  normalized: Required<Pick<OrganizationJobPositionInput, "code" | "title" | "family">> & {
+    id: string | null;
+    status: "active" | "inactive";
+    departmentId: string | null;
+    levelId: string | null;
+    description: string | null;
+  },
+) {
+  const state = getOrganizationDemoState();
+  const index = state.jobPositions.findIndex((position) =>
+    normalized.id ? position.id === normalized.id : position.code === normalized.code,
+  );
+  const before = index >= 0 ? state.jobPositions[index] : null;
+  const department = normalized.departmentId
+    ? state.departments.find((item) => item.id === normalized.departmentId)
+    : null;
+  const level = normalized.levelId
+    ? state.jobLevels.find((item) => item.id === normalized.levelId)
+    : null;
+  const next = {
+    id: before?.id ?? crypto.randomUUID(),
+    code: normalized.code,
+    title: normalized.title,
+    family: normalized.family,
+    status: normalized.status,
+    description: normalized.description,
+    departmentId: normalized.departmentId,
+    departmentName: department?.name ?? null,
+    levelId: normalized.levelId,
+    levelCode: level?.code ?? null,
+    levelName: level?.name ?? null,
+    employeeCount: before?.employeeCount ?? 0,
+  } satisfies OrganizationJobPositionSettings;
+  if (index >= 0) {
+    state.jobPositions[index] = next;
+  } else {
+    state.jobPositions.push(next);
+  }
+  refreshDemoJobCounts(state);
+  writeDemoAuditLog({
+    tenantId: session.tenantId ?? "demo-tenant",
+    companyId: session.companyId ?? "demo-company",
+    actorUserId: session.user?.id,
+    actorEmployeeId: session.employee?.id,
+    actorName: session.user?.displayName ?? session.employee?.displayName,
+    action: before ? "update" : "create",
+    entityType: "job_position",
+    entityId: next.id,
+    before,
+    after: next,
+    metadata: {
+      code: next.code,
+      family: next.family,
+      status: next.status,
+      departmentChanged: before?.departmentId !== next.departmentId,
+      levelChanged: before?.levelId !== next.levelId,
+    },
+  });
+  return next;
+}
+
 function buildOrganizationSettingsView(state: OrganizationDemoState): OrganizationSettingsView {
+  const jobLevels = buildJobLevelsWithCounts(state);
+  const jobPositions = buildJobPositionsWithCounts(state);
   const jobTitles = summarizeJobTitles(state.employees);
-  const readiness = buildReadiness(state, jobTitles);
+  const readiness = buildReadiness({ ...state, jobLevels, jobPositions }, jobTitles);
   return {
     company: state.company,
     departments: [...state.departments].sort((a, b) => a.code.localeCompare(b.code)),
+    jobLevels,
+    jobPositions,
     jobTitles,
     managerLines: state.employees
       .filter((employee) => employee.directReportCount > 0)
@@ -466,13 +880,17 @@ function buildOrganizationSettingsView(state: OrganizationDemoState): Organizati
       "公司資料變更",
       "部門建立與更新",
       "上層部門調整",
-      "未來職務表與主管線調整",
+      "職務/職等建立與更新",
+      "未來主管線調整",
     ],
   };
 }
 
 function buildReadiness(
-  state: Pick<OrganizationDemoState, "company" | "departments" | "employees">,
+  state: Pick<OrganizationDemoState, "company" | "departments" | "employees"> & {
+    jobLevels: OrganizationJobLevelSettings[];
+    jobPositions: OrganizationJobPositionSettings[];
+  },
   jobTitles: OrganizationJobTitleSummary[],
 ): OrganizationReadiness {
   const blockers: string[] = [];
@@ -481,6 +899,7 @@ function buildReadiness(
   const unassignedEmployees = state.employees.filter((employee) => !employee.departmentId).length;
   const missingManagerEmployees = state.employees.filter((employee) => !employee.managerId && employee.directReportCount === 0).length;
   const departmentsWithoutManagers = state.departments.filter((department) => department.managerCount === 0).length;
+  const employeesWithoutJobPosition = state.employees.filter((employee) => !employee.jobPositionId).length;
 
   if (!state.company.name || !state.company.legalName) {
     blockers.push("公司名稱與登記名稱必填。");
@@ -500,17 +919,26 @@ function buildReadiness(
   if (missingManagerEmployees > 0) {
     warnings.push(`${missingManagerEmployees} 位非主管員工尚未設定直屬主管。`);
   }
-  if (jobTitles.length > 12) {
-    warnings.push("職務名稱較分散，建議建立職務表與標準職稱。");
+  if (state.jobLevels.length === 0) {
+    warnings.push("尚未建立標準職等。");
+  }
+  if (state.jobPositions.length === 0) {
+    warnings.push("尚未建立標準職務。");
+  }
+  if (jobTitles.length > state.jobPositions.length) {
+    warnings.push("仍有職務名稱尚未納入標準職務。");
+  }
+  if (employeesWithoutJobPosition > 0) {
+    warnings.push(`${employeesWithoutJobPosition} 位員工尚未連到標準職務。`);
   }
 
   if (blockers.length > 0) {
     nextActions.push("先補齊公司資料與至少一個部門。");
   }
   if (warnings.length > 0) {
-    nextActions.push("接著清理未歸屬部門、缺主管與職務名稱標準化。");
+    nextActions.push("接著清理未歸屬部門、缺主管與標準職務未連結員工。");
   }
-  nextActions.push("下一階段建立獨立職務/職等資料表，讓薪資、權限與簽核能引用標準職務。");
+  nextActions.push("下一階段將員工異動、薪資與權限引用標準職務/職等。");
 
   return {
     status: blockers.length > 0 ? "blocked" : warnings.length > 0 ? "warning" : "ready",
@@ -557,6 +985,98 @@ function normalizeDepartmentInput(
     throw new Error("上層部門不存在。");
   }
   return { id, code, name, parentDepartmentId };
+}
+
+function normalizeJobLevelInput(
+  input: OrganizationJobLevelInput,
+  levels: OrganizationJobLevelSettings[],
+) {
+  const id = cleanText(input.id) || null;
+  const code = cleanRequiredText(input.code, "職等代碼必填。").toUpperCase();
+  const name = cleanRequiredText(input.name, "職等名稱必填。");
+  const rank = normalizeInteger(input.rank, "職等排序必須是數字。", 0, 999);
+  const status = normalizeStatus(input.status);
+  const description = cleanOptionalText(input.description);
+  if (!/^[A-Z0-9_-]{1,24}$/.test(code)) {
+    throw new Error("職等代碼需為 1-24 個英數字、底線或連字號。");
+  }
+  const duplicate = levels.find((level) => level.code === code && level.id !== id);
+  if (duplicate) {
+    throw new Error("職等代碼已存在。");
+  }
+  return { id, code, name, rank, status, description };
+}
+
+function normalizeJobPositionInput(
+  input: OrganizationJobPositionInput,
+  current: OrganizationSettingsView,
+) {
+  const id = cleanText(input.id) || null;
+  const code = cleanRequiredText(input.code, "職務代碼必填。").toUpperCase();
+  const title = cleanRequiredText(input.title, "職務名稱必填。");
+  const family = cleanRequiredText(input.family ?? "general", "職務族群必填。");
+  const status = normalizeStatus(input.status);
+  const departmentId = cleanText(input.departmentId) || null;
+  const levelId = cleanText(input.levelId) || null;
+  const description = cleanOptionalText(input.description);
+  if (!/^[A-Z0-9_-]{2,32}$/.test(code)) {
+    throw new Error("職務代碼需為 2-32 個英數字、底線或連字號。");
+  }
+  const duplicate = current.jobPositions.find((position) => position.code === code && position.id !== id);
+  if (duplicate) {
+    throw new Error("職務代碼已存在。");
+  }
+  if (departmentId && !current.departments.some((department) => department.id === departmentId)) {
+    throw new Error("部門不存在。");
+  }
+  if (levelId && !current.jobLevels.some((level) => level.id === levelId)) {
+    throw new Error("職等不存在。");
+  }
+  return { id, code, title, family, status, departmentId, levelId, description };
+}
+
+function buildJobLevelsWithCounts(state: Pick<OrganizationDemoState, "jobLevels" | "jobPositions">) {
+  const positionCountByLevel = new Map<string, number>();
+  for (const position of state.jobPositions) {
+    if (!position.levelId) continue;
+    positionCountByLevel.set(position.levelId, (positionCountByLevel.get(position.levelId) ?? 0) + 1);
+  }
+  return [...state.jobLevels]
+    .map((level) => ({
+      ...level,
+      positionCount: positionCountByLevel.get(level.id) ?? 0,
+    }))
+    .sort((a, b) => a.rank - b.rank || a.code.localeCompare(b.code));
+}
+
+function buildJobPositionsWithCounts(
+  state: Pick<OrganizationDemoState, "jobLevels" | "jobPositions" | "departments" | "employees">,
+) {
+  const employeeCountByPosition = new Map<string, number>();
+  for (const employee of state.employees) {
+    if (!employee.jobPositionId) continue;
+    employeeCountByPosition.set(employee.jobPositionId, (employeeCountByPosition.get(employee.jobPositionId) ?? 0) + 1);
+  }
+  return [...state.jobPositions]
+    .map((position) => {
+      const department = position.departmentId
+        ? state.departments.find((item) => item.id === position.departmentId)
+        : null;
+      const level = position.levelId ? state.jobLevels.find((item) => item.id === position.levelId) : null;
+      return {
+        ...position,
+        departmentName: department?.name ?? null,
+        levelCode: level?.code ?? null,
+        levelName: level?.name ?? null,
+        employeeCount: employeeCountByPosition.get(position.id) ?? 0,
+      };
+    })
+    .sort((a, b) => a.family.localeCompare(b.family) || a.code.localeCompare(b.code));
+}
+
+function refreshDemoJobCounts(state: OrganizationDemoState) {
+  state.jobPositions = buildJobPositionsWithCounts(state);
+  state.jobLevels = buildJobLevelsWithCounts(state);
 }
 
 function summarizeJobTitles(employees: OrganizationEmployeeRecord[]) {
@@ -617,8 +1137,25 @@ function cleanRequiredText(value: unknown, message: string) {
   return text.slice(0, 120);
 }
 
+function cleanOptionalText(value: unknown) {
+  const text = cleanText(value);
+  return text ? text.slice(0, 500) : null;
+}
+
 function cleanText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeInteger(value: unknown, message: string, min: number, max: number) {
+  const number = typeof value === "number" ? value : Number(cleanText(value));
+  if (!Number.isInteger(number) || number < min || number > max) {
+    throw new Error(message);
+  }
+  return number;
+}
+
+function normalizeStatus(value: unknown): "active" | "inactive" {
+  return cleanText(value) === "inactive" ? "inactive" : "active";
 }
 
 function normalizeTimezone(value: unknown) {
@@ -633,4 +1170,94 @@ function normalizeCurrency(value: unknown) {
 
 function canUseDatabase(session: SessionLike) {
   return Boolean(process.env.DATABASE_URL && session.tenantId && session.companyId);
+}
+
+function demoJobLevels(): OrganizationJobLevelSettings[] {
+  return [
+    {
+      id: "demo-level-l1",
+      code: "L1",
+      name: "專員 / Associate",
+      rank: 1,
+      status: "active",
+      description: "可獨立完成日常任務的初階到中階職務。",
+      positionCount: 0,
+    },
+    {
+      id: "demo-level-l2",
+      code: "L2",
+      name: "資深專員 / Specialist",
+      rank: 2,
+      status: "active",
+      description: "可負責跨部門任務或核心模組的資深職務。",
+      positionCount: 0,
+    },
+    {
+      id: "demo-level-m1",
+      code: "M1",
+      name: "主管 / Manager",
+      rank: 10,
+      status: "active",
+      description: "具備直屬團隊管理與簽核責任的主管職等。",
+      positionCount: 0,
+    },
+  ];
+}
+
+function demoJobPositions(employees: OrganizationEmployeeRecord[]): OrganizationJobPositionSettings[] {
+  const titleMap = new Map<string, OrganizationEmployeeRecord>();
+  for (const employee of employees) {
+    if (!titleMap.has(employee.jobTitle)) {
+      titleMap.set(employee.jobTitle, employee);
+    }
+  }
+  return [...titleMap.entries()].map(([title, employee]) => {
+    const levelId = demoLevelIdForTitle(title);
+    return {
+      id: demoJobPositionId(title),
+      code: demoJobPositionCode(title),
+      title,
+      family: demoJobFamily(title),
+      status: "active",
+      description: `${title} 示範職務，正式導入前請由 HR 檢查職責與職等。`,
+      departmentId: employee.departmentId,
+      departmentName: employee.departmentName,
+      levelId,
+      levelCode: levelId === "demo-level-m1" ? "M1" : levelId === "demo-level-l2" ? "L2" : "L1",
+      levelName: levelId === "demo-level-m1"
+        ? "主管 / Manager"
+        : levelId === "demo-level-l2"
+          ? "資深專員 / Specialist"
+          : "專員 / Associate",
+      employeeCount: 0,
+    };
+  });
+}
+
+function demoJobPositionId(title: string) {
+  return `demo-position-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+}
+
+function demoJobPositionCode(title: string) {
+  const abbreviation = title
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+  return abbreviation || "JOB";
+}
+
+function demoJobFamily(title: string) {
+  if (/engineer|engineering|qa/i.test(title)) return "Engineering";
+  if (/hr|people/i.test(title)) return "People";
+  if (/designer|product|service/i.test(title)) return "Product";
+  if (/finance/i.test(title)) return "Finance";
+  if (/care/i.test(title)) return "Care";
+  return "Operations";
+}
+
+function demoLevelIdForTitle(title: string) {
+  if (/manager/i.test(title)) return "demo-level-m1";
+  if (/admin|engineer|designer/i.test(title)) return "demo-level-l2";
+  return "demo-level-l1";
 }
