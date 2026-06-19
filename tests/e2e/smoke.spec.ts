@@ -675,6 +675,34 @@ test("後台表單中心提供常用簽核樣板", async ({ page }) => {
   await expect(templateLibrary.getByText("在職證明申請單", { exact: true })).toBeVisible();
 });
 
+test("HR 可以用人事異動工作台記錄調部升遷", async ({ page }) => {
+  await page.goto("/app");
+  await page.getByLabel("示範角色").selectOption("hr_admin");
+  await page.getByRole("button", { name: "切換" }).click();
+  await page.goto("/hr/employee-lifecycle");
+
+  await expect(page.getByRole("heading", { name: "人事異動工作台" })).toBeVisible();
+  await expect(page.getByLabel("人事異動工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("人事異動訊號板").getByText("在職員工", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("人事異動訊號板").getByText("稽核事件", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("人事異動作業卡").getByRole("heading", { name: "調部與升遷" })).toBeVisible();
+  await expect(page.getByLabel("人事異動作業卡").getByRole("heading", { name: "離職法遵" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "人事異動精靈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "員工狀態" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "人事異動治理原則" })).toBeVisible();
+
+  const wizard = page.locator("#employee-lifecycle-wizard");
+  await wizard.getByLabel("異動類型").selectOption("promotion");
+  await wizard.getByLabel("生效日").fill("2026-07-01");
+  await wizard.getByLabel("新職稱").fill("行政主任");
+  await wizard.getByLabel("HR 核准原因或證據編號").fill("年度職務調整核准");
+  await wizard.getByRole("button", { name: "記錄人事異動" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/employee-lifecycle$/);
+  await expect(page.locator("#employee-lifecycle-timeline").getByText("年度職務調整核准")).toBeVisible();
+  await expect(page.locator("#employee-lifecycle-timeline").getByText("升遷")).toBeVisible();
+});
+
 async function switchDemoRole(page: Page, role: "employee" | "manager" | "hr_admin" | "owner") {
   await page.getByLabel("示範角色").selectOption(role);
   await page.getByRole("button", { name: "切換" }).click();

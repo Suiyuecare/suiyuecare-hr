@@ -5188,6 +5188,121 @@ legend {
   line-height: 1.45;
 }
 
+.employee-lifecycle-page {
+  max-width: 1280px;
+}
+
+.employee-lifecycle-alerts {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.employee-lifecycle-command-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.employee-lifecycle-command-grid .settings-command-card {
+  min-height: 286px;
+}
+
+.employee-lifecycle-wizard {
+  align-content: start;
+  align-self: start;
+}
+
+.employee-lifecycle-checklist {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.employee-lifecycle-status-list,
+.employee-lifecycle-timeline {
+  gap: 12px;
+}
+
+.employee-lifecycle-status-list {
+  max-height: 860px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.employee-lifecycle-task {
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.employee-lifecycle-task.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.employee-lifecycle-task.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.employee-lifecycle-task.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.employee-lifecycle-task.muted {
+  border-color: var(--panel-border);
+  background: #f8fafc;
+}
+
+.employee-lifecycle-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.employee-lifecycle-copy strong {
+  color: var(--foreground);
+  font-size: 16px;
+  font-weight: 1000;
+  line-height: 1.25;
+}
+
+.employee-lifecycle-copy small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.45;
+}
+
+.employee-lifecycle-guardrail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.employee-lifecycle-guardrail-grid article {
+  display: grid;
+  gap: 9px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.employee-lifecycle-guardrail-grid strong {
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.employee-lifecycle-guardrail-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+  line-height: 1.45;
+}
+
 .report-workspace-page {
   max-width: 1280px;
 }
@@ -5716,6 +5831,10 @@ legend {
   .hr-form-command-grid,
   .hr-form-template-task,
   .hr-form-guardrail-grid,
+  .employee-lifecycle-command-grid,
+  .employee-lifecycle-checklist,
+  .employee-lifecycle-task,
+  .employee-lifecycle-guardrail-grid,
   .report-command-grid,
   .report-lane-grid,
   .report-step,
@@ -5939,6 +6058,26 @@ legend {
   .hr-form-template-task {
     display: grid;
     align-items: stretch;
+  }
+
+  .employee-lifecycle-page .section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .employee-lifecycle-page .section-heading .button {
+    width: 100%;
+  }
+
+  .employee-lifecycle-task {
+    display: grid;
+    align-items: stretch;
+  }
+
+  .employee-lifecycle-status-list {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
   }
 
   .employee-hero-actions {

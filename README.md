@@ -15,7 +15,7 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 
 ## 下一階段
 
-- UI/UX 持續升級：員工前台首頁已加入 Finance-style 今日任務板與下一步提示，主管 Inbox 已加入簽核指揮台、風險先看與類型分布，HR 月結首頁已改成 Finance-style 指揮台、今日先處理、月結訊號板與安全閘門，出勤異常頁已改成月結前清異常工作台，工時法遵頁已改成月結前掃描、工時約定、風險清單與法規來源的工作台，排班設定頁已改成班別管理、一日排班、跨日班複核與月結護欄的工作台，表單中心已改成自建表單精靈、條件欄位、統一 Inbox 與敏感流程治理工作台，後台設定首頁已改成設定中樞、狀態訊號板與設定作業區，法規規則頁已改成台灣法規規則控制台，公司導入精靈已改成 20-50 人試用導入工作台，HR KPI 頁已改成上線販售指標指揮台，報表分析頁已改成自訂報表、人事/出勤/薪酬分析與下載封存的工作台，發薪匯出頁已改成封存與下載中心，付款安全頁已改成銀行檔上線 Gate 工作台，薪資科目頁已改成會計分錄封存工作台，薪資資料頁已改成敏感薪資設定檔工作台，付款資料頁已改成發薪帳戶安全工作台，薪資/付款批次匯入頁已改成遮罩預覽精靈；下一步要把人事、公司管理等後台模組列表統一成同一套色彩、資訊密度、卡片層級、文字大小、表格/工作流元件。
+- UI/UX 持續升級：員工前台首頁已加入 Finance-style 今日任務板與下一步提示，主管 Inbox 已加入簽核指揮台、風險先看與類型分布，HR 月結首頁已改成 Finance-style 指揮台、今日先處理、月結訊號板與安全閘門，出勤異常頁已改成月結前清異常工作台，工時法遵頁已改成月結前掃描、工時約定、風險清單與法規來源的工作台，排班設定頁已改成班別管理、一日排班、跨日班複核與月結護欄的工作台，表單中心已改成自建表單精靈、條件欄位、統一 Inbox 與敏感流程治理工作台，人事異動頁已改成調部/升遷、留停/復職、離職法遵、權限與薪資聯動的人事工作台，後台設定首頁已改成設定中樞、狀態訊號板與設定作業區，法規規則頁已改成台灣法規規則控制台，公司導入精靈已改成 20-50 人試用導入工作台，HR KPI 頁已改成上線販售指標指揮台，報表分析頁已改成自訂報表、人事/出勤/薪酬分析與下載封存的工作台，發薪匯出頁已改成封存與下載中心，付款安全頁已改成銀行檔上線 Gate 工作台，薪資科目頁已改成會計分錄封存工作台，薪資資料頁已改成敏感薪資設定檔工作台，付款資料頁已改成發薪帳戶安全工作台，薪資/付款批次匯入頁已改成遮罩預覽精靈；下一步要把公司管理、員工主檔與剩餘後台細節統一成同一套色彩、資訊密度、卡片層級、文字大小、表格/工作流元件。
 - 報表基礎工程：把 `/hr/reports` 的自訂報表精靈串成真正的 report_datasets、report_fields、report_permissions、report_jobs 與 export archives，並確保欄位權限、薪資遮罩、下載期限、內容 hash、申請人與 audit log 全部落地。
 - 補齊人事基礎資料閉環：把員工主檔、任用異動、權限、薪資 profile、報表與匯入精靈全部改為引用標準部門、職務、職等與主管線，避免每個模組各自使用自由文字職稱。
 - 強化後台管理系統：完成公司規章、權限矩陣、打卡設定、排班規則、薪資科目、薪資計算規則、保險/所得稅規則、報表設定與下載封存等管理工具的 wizard 化設定。
@@ -53,7 +53,7 @@ Current live production-pilot status and blockers are tracked in [`docs/pilot-pr
 - HR employee CSV import wizard with preview validation, department-code mapping, managerEmployeeNo reporting-line checks, 20-50 person Beta pilot readiness scoring, confirmation step, RBAC, and audit logs.
 - HR onboarding readiness workspace that turns customer setup gaps into missing employee, manager, labor roster, salary, payment, payroll compliance, statutory insurance enrollment, time setup, and Taiwan rule action lists before production verification.
 - HR payroll profile CSV import wizard for salary, payment, and payroll compliance profiles with preview validation, per-profile audit logs, and a redacted batch import audit log.
-- HR employee lifecycle management for transfers, promotions, leave of absence, return to work, and termination with effective dates and audit logs.
+- Finance-style HR employee lifecycle workspace for transfers, promotions, leave of absence, return to work, and termination with today-first focus, status signals, guided change wizard, employee status board, lifecycle timeline, Taiwan termination compliance guardrails, salary/severance amount masking, and audit logs.
 - Employment Terms Center for versioned working-condition summaries, wage-basis hashes, employee acknowledgement, and redacted audit evidence.
 - Labor Roster Center for Taiwan worker roster completeness, HR verification, source references, sensitive-field hashes, and redacted audit evidence.
 - HR termination compliance foundation for Taiwan advance notice and severance review: lifecycle termination events capture reason category, labor pension/legacy scheme, optional average monthly wage, sourced notice/severance estimates, offboarding readiness for final wage review, unused leave settlement, statutory insurance withdrawal, access revocation, record retention, employment certificate readiness, human-review flags, and redacted audit metadata.
