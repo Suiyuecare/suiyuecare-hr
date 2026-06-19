@@ -49,7 +49,7 @@ export type AiPayrollExplanation = {
 };
 
 export type AiApprovalSummary = {
-  label: "AI suggestion";
+  label: "AI 建議";
   summary: string;
   verify: string[];
   outputHash: string;

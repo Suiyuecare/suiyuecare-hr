@@ -97,6 +97,9 @@ test("主管可以從 Inbox 快速核准請假", async ({ page }) => {
   await expect(page.getByText("簽核中").first()).toBeVisible();
 
   await switchDemoRole(page, "manager");
+  await expect(page.getByLabel("主管簽核指揮台").getByText("主管簽核工作台")).toBeVisible();
+  await expect(page.getByLabel("主管簽核摘要").getByText("今日簽核節奏")).toBeVisible();
+  await expect(page.getByLabel("風險摘要").getByRole("heading", { name: "風險先看" })).toBeVisible();
   const leaveCard = page.locator(".approval-card").filter({ hasText: "快速請假" });
   await expect(leaveCard).toBeVisible();
   await leaveCard.getByRole("button", { name: "快速核准" }).click();

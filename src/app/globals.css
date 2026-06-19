@@ -555,6 +555,214 @@ textarea {
   gap: 16px;
 }
 
+.manager-inbox-page {
+  max-width: 1180px;
+}
+
+.manager-inbox-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+  gap: 16px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(17, 24, 39, 0.96);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #111827 0%, #1e293b 62%, #3b2a14 100%);
+  color: #ffffff;
+  padding: 18px;
+  box-shadow: var(--shadow-strong);
+}
+
+.manager-inbox-hero .muted {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.manager-inbox-hero h1 {
+  margin: 6px 0;
+  font-size: 34px;
+  font-weight: 1000;
+  line-height: 1.08;
+}
+
+.manager-inbox-hero p {
+  max-width: 760px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-weight: 850;
+  line-height: 1.55;
+}
+
+.manager-inbox-focus {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 190px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 16px;
+}
+
+.manager-inbox-focus strong {
+  color: #ffffff;
+  font-size: 25px;
+  font-weight: 1000;
+  line-height: 1.1;
+}
+
+.manager-inbox-focus small {
+  color: rgba(255, 255, 255, 0.68);
+  font-weight: 850;
+  line-height: 1.4;
+}
+
+.manager-inbox-focus .button {
+  width: 100%;
+  margin-top: auto;
+}
+
+.manager-inbox-command-strip {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.35fr) repeat(3, minmax(0, 0.72fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.manager-inbox-command-copy,
+.manager-inbox-command-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 132px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.manager-inbox-command-copy {
+  border-color: var(--command-bg);
+  background: var(--command-bg);
+  color: #ffffff;
+}
+
+.manager-inbox-command-copy .muted,
+.manager-inbox-command-copy small {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.manager-inbox-command-copy strong {
+  max-width: 760px;
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.manager-inbox-command-card.focus {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.manager-inbox-command-card span,
+.manager-inbox-mix-card span,
+.manager-risk-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.manager-inbox-command-card strong {
+  color: var(--foreground);
+  font-size: 30px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.manager-inbox-command-card small,
+.manager-inbox-mix-card small,
+.manager-risk-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.38;
+}
+
+.manager-inbox-command-card:hover,
+.manager-inbox-mix-card:hover,
+.manager-risk-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.manager-inbox-mix {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.manager-inbox-mix-card {
+  display: grid;
+  gap: 6px;
+  min-height: 104px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 13px;
+  box-shadow: var(--shadow);
+}
+
+.manager-inbox-mix-card.active {
+  border-color: var(--accent);
+  background: #fffaf3;
+}
+
+.manager-inbox-mix-card strong {
+  color: var(--foreground);
+  font-size: 24px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.manager-risk-summary {
+  background: #ffffff;
+}
+
+.manager-risk-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.manager-risk-card {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-height: 122px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--cream);
+  padding: 13px;
+}
+
+.manager-risk-card.warning {
+  border-color: #facc15;
+  background: #fff8e8;
+}
+
+.manager-risk-card.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.manager-risk-card strong {
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
 .hr-command-center > .metric,
 .inbox-command-center > .metric {
   min-height: 118px;
@@ -3572,6 +3780,10 @@ legend {
   .employee-hero,
   .employee-signal-board,
   .employee-pilot-strip,
+  .manager-inbox-hero,
+  .manager-inbox-command-strip,
+  .manager-inbox-mix,
+  .manager-risk-grid,
   .employee-command-grid,
   .leave-balance-strip,
   .quick-leave-grid,

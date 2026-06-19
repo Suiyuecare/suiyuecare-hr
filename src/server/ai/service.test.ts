@@ -112,7 +112,9 @@ describe("AI Copilot safety", () => {
       timeline: [],
     });
 
-    expect(summary.verify.join(" ")).toContain("attachment evidence metadata");
+    expect(summary.label).toBe("AI 建議");
+    expect(summary.summary).toContain("特休申請");
+    expect(summary.verify.join(" ")).toContain("附件證據中繼資料");
     expect(summary.verify.join(" ")).not.toContain("placeholder");
   });
 

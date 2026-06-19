@@ -141,12 +141,12 @@ export async function summarizeApprovalRequest(
 ): Promise<AiApprovalSummary> {
   assertPermission(session.role, "ai:approval_summary");
   const draft: AiApprovalSummary = {
-    label: "AI suggestion",
-    summary: `${request.employeeName} submitted ${request.title}. ${shorten(request.detail, 120)}`,
+    label: "AI 建議",
+    summary: `${request.employeeName} 送出「${localizeRequestTitle(request.title)}」。${shorten(request.detail, 120)}`,
     verify: [
       request.riskSummary,
-      "Check dates, balances, attachment evidence metadata, and the current approval step.",
-      "Make the final approve or reject decision yourself.",
+      "請確認日期、餘額、附件證據中繼資料與目前簽核關卡。",
+      "最後核准或退回必須由主管自行決定。",
     ],
     outputHash: "",
   };
@@ -163,6 +163,15 @@ function inferFormTitle(prompt: string) {
   if (/training|course|learning|訓練|課程/.test(prompt.toLowerCase())) return "Training request";
   if (/equipment|laptop|badge|設備|識別證/.test(prompt.toLowerCase())) return "Equipment request";
   return "Employee request";
+}
+
+function localizeRequestTitle(title: string) {
+  const normalized = title.trim().toLowerCase();
+  if (normalized === "annual leave") return "特休申請";
+  if (normalized === "overtime request") return "加班申請";
+  if (normalized === "punch correction") return "補打卡申請";
+  if (normalized === "payroll adjustment") return "薪資調整申請";
+  return title;
 }
 
 function inferCategory(prompt: string) {
