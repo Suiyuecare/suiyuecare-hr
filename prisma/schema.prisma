@@ -562,29 +562,38 @@ model EmployeeDocument {
 }
 
 model EmployeeEmploymentTerm {
-  id                      String    @id @default(cuid())
-  tenantId                String
-  companyId               String
-  company                 Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employeeId              String
-  employee                Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  version                 String
-  status                  String    @default("draft")
-  effectiveFrom           DateTime
-  jobTitle                String
-  workLocation            String
-  regularWorkSchedule     String
-  wagePaymentDay          String
-  wageBasisSummaryHash    String
-  benefitsSummary         String
-  sourceRef               String?
-  acknowledgementRequired Boolean   @default(true)
-  acknowledgementHash     String?
-  acknowledgedAt          DateTime?
-  createdByUserId         String?
-  updatedByUserId         String?
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
+  id                                      String    @id @default(cuid())
+  tenantId                                String
+  companyId                               String
+  company                                 Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId                              String
+  employee                                Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  version                                 String
+  status                                  String    @default("draft")
+  effectiveFrom                           DateTime
+  jobTitle                                String
+  workLocation                            String
+  regularWorkSchedule                     String
+  wagePaymentDay                          String
+  wageBasisSummaryHash                    String
+  benefitsSummary                         String
+  contractLifecycleSummaryHash            String?
+  severancePensionBonusSummaryHash        String?
+  mealLodgingToolCostSummaryHash          String?
+  safetyHealthSummaryHash                 String?
+  trainingSummaryHash                     String?
+  disasterCompensationSicknessSummaryHash String?
+  disciplineSummaryHash                   String?
+  rewardDisciplineSummaryHash             String?
+  rightsObligationsSummaryHash            String?
+  sourceRef                               String?
+  acknowledgementRequired                 Boolean   @default(true)
+  acknowledgementHash                     String?
+  acknowledgedAt                          DateTime?
+  createdByUserId                         String?
+  updatedByUserId                         String?
+  createdAt                               DateTime  @default(now())
+  updatedAt                               DateTime  @updatedAt
 
   @@unique([employeeId, version])
   @@index([tenantId, companyId, status])

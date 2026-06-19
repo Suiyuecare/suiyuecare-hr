@@ -721,6 +721,64 @@ test("HR 可以用勞工名卡工作台補齊第 7 條資料", async ({ page }) 
   await expect(page.locator("body")).not.toContainText("salary-profile-demo-employee-4");
 });
 
+test("HR 可以發布工作條件且員工能在前台確認", async ({ page }) => {
+  await page.goto("/app");
+  await page.getByLabel("示範角色").selectOption("hr_admin");
+  await page.getByRole("button", { name: "切換" }).click();
+  await page.goto("/hr/employment-terms");
+
+  await expect(page.getByRole("heading", { name: "工作條件工作台" })).toBeVisible();
+  await expect(page.getByLabel("工作條件工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("工作條件訊號板").getByText("第 7 條完整")).toBeVisible();
+  await expect(page.getByLabel("工作條件作業卡").getByRole("heading", { name: "第 7 條欄位" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "工作條件精靈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "工作條件 readiness 清單" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "工作條件治理原則" })).toBeVisible();
+
+  const wizard = page.locator("#employment-terms-wizard");
+  await wizard.locator('select[name="employeeId"]').selectOption("demo-employee-1");
+  await wizard.locator('input[name="version"]').fill("2026.07-e2e");
+  await wizard.locator('select[name="status"]').selectOption("active");
+  await wizard.locator('input[name="effectiveFrom"]').fill("2026-07-01");
+  await wizard.locator('input[name="jobTitle"]').fill("照服專員");
+  await wizard.locator('input[name="workLocation"]').fill("台北辦公室 / 經核准外勤據點");
+  await wizard.locator('textarea[name="regularWorkSchedule"]').fill("09:00-18:00，休息一小時；排班與休假依有效政策。");
+  await wizard.locator('textarea[name="wageBasisSummary"]').fill("月薪 66000 測試資料，送出後不得回顯。");
+  await wizard.locator('input[name="wagePaymentDay"]').fill("每月 5 個營業日內匯款");
+  await wizard.locator('textarea[name="contractLifecycleSummary"]').fill("契約訂定、終止及退休依公司工作規則與台灣法規辦理。");
+  await wizard.locator('textarea[name="severancePensionBonusSummary"]').fill("資遣費、退休金、津貼及獎金依核准薪資規則辦理。");
+  await wizard.locator('textarea[name="mealLodgingToolCostSummary"]').fill("除合法核准外，員工不負擔膳宿與工作用具費用。");
+  await wizard.locator('textarea[name="safetyHealthSummary"]').fill("依職場安全衛生政策與事故通報流程辦理。");
+  await wizard.locator('textarea[name="trainingSummary"]').fill("到職、職安與法遵訓練依有效訓練政策辦理。");
+  await wizard.locator('textarea[name="benefitsSummary"]').fill("勞健保、勞退、特休與公司福利依有效政策辦理。");
+  await wizard.locator('textarea[name="disasterCompensationSicknessSummary"]').fill("職災補償與普通傷病補助依法規、保險與公司政策辦理。");
+  await wizard.locator('textarea[name="disciplineSummary"]').fill("服務紀律依核准工作規則與員工手冊辦理。");
+  await wizard.locator('textarea[name="rewardDisciplineSummary"]').fill("獎懲依核准工作規則、事實紀錄與人工審核流程辦理。");
+  await wizard.locator('textarea[name="rightsObligationsSummary"]').fill("其他勞資權利義務依公司規章、個別約定與政策文件辦理。");
+  await wizard.locator('input[name="sourceRef"]').fill("evidence://employment-terms/e2e");
+  await wizard.getByRole("button", { name: "儲存工作條件" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/employment-terms$/);
+  const termCard = page.locator("#employment-terms-list .employment-terms-task", { hasText: "2026.07-e2e" });
+  await expect(termCard).toBeVisible();
+  await expect(termCard.getByText("待確認")).toBeVisible();
+  await expect(termCard.getByText("無")).toBeVisible();
+  await expect(termCard.getByText(/[a-f0-9]{12}/).first()).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("66000");
+
+  await page.goto("/app");
+  await switchDemoRole(page, "employee");
+  await page.goto("/app/employment-terms");
+
+  await expect(page.getByRole("heading", { name: "我的工作條件" })).toBeVisible();
+  await expect(page.getByLabel("今日工作條件任務").getByText("請確認新版工作條件")).toBeVisible();
+  const employeeTerm = page.locator(".employee-terms-card", { hasText: "2026.07-e2e" });
+  await expect(employeeTerm).toBeVisible();
+  await employeeTerm.getByRole("button", { name: "我已閱讀並確認" }).click();
+  await expect(page).toHaveURL(/\/app\/employment-terms$/);
+  await expect(page.locator(".employee-terms-card", { hasText: "2026.07-e2e" }).getByText("已確認")).toBeVisible();
+});
+
 test("HR 可以用人事異動工作台記錄調部升遷", async ({ page }) => {
   await page.goto("/app");
   await page.getByLabel("示範角色").selectOption("hr_admin");
