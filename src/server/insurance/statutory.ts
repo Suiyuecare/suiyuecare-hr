@@ -79,11 +79,7 @@ const globalForInsurance = globalThis as unknown as {
 export async function getStatutoryInsuranceWorkspace(session: SessionLike): Promise<StatutoryInsuranceWorkspace> {
   assertPermission(session.role, "payroll:manage");
   if (canUseDatabase(session)) {
-    try {
-      return await getDbWorkspace(session);
-    } catch {
-      return getDemoWorkspace();
-    }
+    return getDbWorkspace(session);
   }
   return getDemoWorkspace();
 }
@@ -95,11 +91,7 @@ export async function updateStatutoryInsuranceRecord(
   assertPermission(session.role, "payroll:manage");
   const normalized = normalizeInput(input);
   if (canUseDatabase(session)) {
-    try {
-      return await updateDbRecord(session, normalized);
-    } catch {
-      return updateDemoRecord(session, normalized);
-    }
+    return updateDbRecord(session, normalized);
   }
   return updateDemoRecord(session, normalized);
 }

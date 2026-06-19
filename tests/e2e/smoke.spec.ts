@@ -779,6 +779,36 @@ test("HR 可以發布工作條件且員工能在前台確認", async ({ page }) 
   await expect(page.locator(".employee-terms-card", { hasText: "2026.07-e2e" }).getByText("已確認")).toBeVisible();
 });
 
+test("HR 可以用投保工作台補法定投保證據", async ({ page }) => {
+  await page.goto("/app");
+  await page.getByLabel("示範角色").selectOption("hr_admin");
+  await page.getByRole("button", { name: "切換" }).click();
+  await page.goto("/hr/insurance");
+
+  await expect(page.getByRole("heading", { name: "投保作業工作台" })).toBeVisible();
+  await expect(page.getByLabel("投保作業工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("投保訊號板").getByText("逾期待補")).toBeVisible();
+  await expect(page.getByLabel("投保作業卡").getByRole("heading", { name: "到職投保" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "員工投保清單" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "投保治理原則" })).toBeVisible();
+
+  const insuranceCard = page.locator("#statutory-insurance-list .statutory-insurance-task", { hasText: "E005 · 黃小宇" });
+  await expect(insuranceCard).toBeVisible();
+  await insuranceCard.locator('select[name="insuranceType"]').selectOption("labor_insurance");
+  await insuranceCard.locator('select[name="status"]').selectOption("enrolled");
+  await insuranceCard.locator('input[name="effectiveDate"]').fill("2026-06-13");
+  await insuranceCard.locator('input[name="evidenceRef"]').fill("portal://sensitive-insurance-e2e-case");
+  await insuranceCard.locator('input[name="notes"]').fill("private statutory insurance note e2e");
+  await insuranceCard.getByRole("button", { name: "儲存投保證據" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/insurance$/);
+  const updatedCard = page.locator("#statutory-insurance-list .statutory-insurance-task", { hasText: "E005 · 黃小宇" });
+  await expect(updatedCard.getByLabel("黃小宇 投保狀態").getByText("勞工保險")).toBeVisible();
+  await expect(updatedCard.getByText(/evidence [a-f0-9]{10}/).first()).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("portal://sensitive-insurance-e2e-case");
+  await expect(page.locator("body")).not.toContainText("private statutory insurance note e2e");
+});
+
 test("HR 可以用人事異動工作台記錄調部升遷", async ({ page }) => {
   await page.goto("/app");
   await page.getByLabel("示範角色").selectOption("hr_admin");
