@@ -703,6 +703,45 @@ test("HR 可以用人事異動工作台記錄調部升遷", async ({ page }) => 
   await expect(page.locator("#employee-lifecycle-timeline").getByText("升遷")).toBeVisible();
 });
 
+test("HR 可以用離職交接工作台完成交接任務", async ({ page }) => {
+  await page.goto("/app");
+  await page.getByLabel("示範角色").selectOption("hr_admin");
+  await page.getByRole("button", { name: "切換" }).click();
+
+  await page.request.post("/api/employees/lifecycle", {
+    form: {
+      employeeId: "demo-employee-3",
+      eventType: "termination",
+      effectiveDate: "2026-07-31",
+      terminationReasonCategory: "contract_end",
+      pensionScheme: "labor_pension_new",
+      reason: "合約期滿，HR 啟動離職交接。",
+    },
+  });
+
+  await page.goto("/hr/offboarding");
+  await expect(page.getByRole("heading", { name: "離職交接工作台" })).toBeVisible();
+  await expect(page.getByLabel("離職交接工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("離職交接訊號板").getByText("待處理")).toBeVisible();
+  await expect(page.getByLabel("離職交接作業卡").getByRole("heading", { name: "最終工資" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "離職交接清單" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "離職交接治理原則" })).toBeVisible();
+
+  const offboardingList = page.locator("#offboarding-task-list");
+  await expect(offboardingList.locator(".offboarding-mini-task", { hasText: "最終工資複核" }).first()).toBeVisible();
+
+  const updateForm = offboardingList.getByRole("form").first();
+  await updateForm.locator('select[name="taskType"]').selectOption("final_wage_review");
+  await updateForm.locator('select[name="status"]').selectOption("completed");
+  await updateForm.locator('input[name="completedAt"]').fill("2026-07-31");
+  await updateForm.locator('input[name="evidenceRef"]').fill("payroll-run-offboarding-001");
+  await updateForm.getByRole("button", { name: "儲存交接任務" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/offboarding$/);
+  await expect(page.locator("#offboarding-task-list .offboarding-mini-task", { hasText: /證據 [a-f0-9]{10}/ }).first()).toBeVisible();
+  await expect(page.locator("#offboarding-task-list").getByText("已完成").first()).toBeVisible();
+});
+
 test("HR 可以用公司行事曆工作台完成年度審核與日期設定", async ({ page }) => {
   await page.goto("/app");
   await page.getByLabel("示範角色").selectOption("hr_admin");
