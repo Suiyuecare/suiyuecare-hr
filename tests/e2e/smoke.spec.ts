@@ -382,6 +382,40 @@ test("HR 可以用中文付款資料工作台新增發薪帳戶", async ({ page 
   await expect(page.locator("body")).not.toContainText("12345678901234567");
 });
 
+test("HR 可以用中文批次匯入精靈預覽並確認薪資付款資料", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr/payroll-profile-import");
+
+  await expect(page.getByRole("heading", { name: "薪資與付款批次匯入工作台" })).toBeVisible();
+  await expect(page.getByLabel("薪資與付款批次匯入工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("批次匯入訊號板").getByText("敏感資料")).toBeVisible();
+  await expect(page.getByLabel("批次匯入作業卡").getByRole("heading", { name: "確認匯入" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "三步匯入精靈" })).toBeVisible();
+
+  await page.getByLabel("薪資與付款 CSV").fill(
+    [
+      "employeeNo,baseSalary,hourlyWage,allowanceCode,allowanceName,allowanceAmount,deductionCode,deductionName,deductionAmount,taxResidency,dependentCount,laborInsuranceMonthlyWage,healthInsuranceMonthlyWage,laborPensionMonthlyWage,nonResidentWithholdingRatePercent,bankCode,bankBranchCode,accountName,accountNumber,effectiveFrom",
+      "E003,66000,,meal,伙食津貼,2000,welfare,福利金扣款,1000,resident,1,,,,,004,0123,張小安,12345678901234567,2026-07-01",
+    ].join("\n"),
+  );
+  await page.getByRole("button", { name: "預覽匯入資料" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/payroll-profile-import\?preview=1$/);
+  await expect(page.getByRole("heading", { name: "預覽與確認" })).toBeVisible();
+  await expect(page.getByText("CSV 原文未回顯")).toBeVisible();
+  await expect(page.getByText("第 2 列 · E003 · 張小安")).toBeVisible();
+  await expect(page.getByText(/銀行 004 · 末四碼 4567/)).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("12345678901234567");
+  await expect(page.locator("body")).not.toContainText("66000");
+
+  await page.getByRole("button", { name: "確認匯入" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/payroll-profile-import\?imported=1$/);
+  await expect(page.getByText("批次匯入完成")).toBeVisible();
+  await expect(page.getByLabel("今日先處理").getByText("回到月結前檢查")).toBeVisible();
+});
+
 test("HR 可以用中文薪資科目工作台調整會計分錄封存", async ({ page }) => {
   await page.goto("/app");
   await switchDemoRole(page, "hr_admin");

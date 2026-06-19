@@ -4449,6 +4449,101 @@ legend {
   overflow-wrap: anywhere;
 }
 
+.payroll-import-page {
+  max-width: 1280px;
+}
+
+.payroll-import-alerts {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.payroll-import-command-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.payroll-import-command-grid .settings-command-card {
+  min-height: 292px;
+}
+
+.payroll-import-form {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.payroll-import-fieldset {
+  display: grid;
+  gap: 12px;
+}
+
+.payroll-import-header {
+  display: block;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--foreground);
+  padding: 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.payroll-import-note {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  background: #fffbeb;
+  padding: 12px;
+}
+
+.payroll-import-note strong {
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.payroll-import-note p,
+.payroll-import-more {
+  margin: 0;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.45;
+}
+
+.payroll-import-more {
+  margin-top: 10px;
+}
+
+.payroll-import-employee-task,
+.payroll-import-preview-task {
+  align-items: flex-start;
+}
+
+.payroll-import-employee-task > span:first-child,
+.payroll-import-preview-task > span:first-child {
+  display: grid;
+  gap: 5px;
+  overflow-wrap: anywhere;
+}
+
+.payroll-import-preview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.payroll-import-confirm-form {
+  align-items: center;
+}
+
 .payroll-accounting-page {
   max-width: 1280px;
 }
@@ -4989,6 +5084,9 @@ legend {
   .payment-profile-command-grid,
   .payment-profile-task,
   .payment-profile-missing-task,
+  .payroll-import-command-grid,
+  .payroll-import-employee-task,
+  .payroll-import-preview-task,
   .payroll-accounting-map-grid,
   .payroll-accounting-preview-task,
   .salary-profile-command-grid,
@@ -5121,6 +5219,15 @@ legend {
   }
 
   .payment-profile-page .section-heading .button {
+    width: 100%;
+  }
+
+  .payroll-import-page .section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .payroll-import-page .section-heading .button {
     width: 100%;
   }
 

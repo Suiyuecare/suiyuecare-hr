@@ -70,7 +70,7 @@ export async function getPayrollProfileImportWorkspace(
 ): Promise<PayrollProfileImportWorkspace> {
   assertPermission(session.role, "payroll:manage");
   return {
-    preview: latestPreview(),
+    preview: latestPreviewForUi(),
     employees: await listEmployees(session),
   };
 }
@@ -328,6 +328,21 @@ function recordFromLine(headers: string[], line: string) {
 
 function latestPreview() {
   return getDemoState().previews[0] ?? null;
+}
+
+function latestPreviewForUi() {
+  const preview = latestPreview();
+  if (!preview) return null;
+  return {
+    ...preview,
+    rawCsv: "",
+    rows: preview.rows.map((row) => ({
+      ...row,
+      baseSalary: null,
+      hourlyWage: null,
+      accountName: "",
+    })),
+  } satisfies PayrollProfileImportPreview;
 }
 
 function getDemoState() {

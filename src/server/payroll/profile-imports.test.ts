@@ -53,6 +53,22 @@ E003,56000,,meal,Meal allowance,2000,welfare,Welfare deduction,1000,resident,1,,
       accountNumberLast4: "9012",
       status: "valid",
     });
+    const workspace = await getPayrollProfileImportWorkspace(hrSession);
+    const workspaceText = JSON.stringify(workspace.preview);
+
+    expect(workspace.preview?.rawCsv).toBe("");
+    expect(workspace.preview?.rows[0]).toMatchObject({
+      employeeNo: "E003",
+      employeeName: "張小安",
+      baseSalary: null,
+      hourlyWage: null,
+      accountName: "",
+      accountNumberLast4: "9012",
+      status: "valid",
+    });
+    expect(workspaceText).not.toContain("123456789012");
+    expect(workspaceText).not.toContain("56000");
+    expect(workspaceText).not.toContain("張小安,123456789012");
 
     const result = await confirmPayrollProfileImport(hrSession, preview.id);
     const auditText = JSON.stringify(getAuditDemoState().logs);
