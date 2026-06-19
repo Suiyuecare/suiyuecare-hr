@@ -128,7 +128,7 @@ const moduleProfiles: Record<string, ConsoleModuleProfile> = {
       {
         title: "整理員工主檔與到職條件",
         detail: "員工資料、到職日、部門主管、職務與勞動條件是薪資與假勤的源頭。",
-        href: "/hr/employee-lifecycle",
+        href: "/hr/employees",
         status: "主檔優先",
         tone: "warning",
       },
@@ -165,7 +165,7 @@ const moduleProfiles: Record<string, ConsoleModuleProfile> = {
       },
     ],
     setupLinks: [
-      { label: "員工資料", href: "/hr/employee-lifecycle", permission: "employee:read" },
+      { label: "員工資料", href: "/hr/employees", permission: "employee:read" },
       { label: "員工匯入", href: "/hr/employee-import", permission: "employee:write" },
       { label: "勞動條件", href: "/hr/employment-terms", permission: "employment_terms:manage" },
       { label: "離職作業", href: "/hr/offboarding", permission: "employee:write" },
@@ -543,13 +543,14 @@ const modules: ConsoleModule[] = [
     id: "people",
     title: "人事管理",
     summary: "處理員工資料、人事異動、離職復職與訓練發展。",
-    primary: { label: "開啟員工資料", href: "/hr/employee-lifecycle", permission: "employee:read" },
+    primary: { label: "開啟員工資料", href: "/hr/employees", permission: "employee:read" },
     statusLabel: "人員作業",
     sections: [
       {
         title: "人事建檔",
         links: [
-          { label: "員工資料", href: "/hr/employee-lifecycle", permission: "employee:read" },
+          { label: "員工資料", href: "/hr/employees", permission: "employee:read" },
+          { label: "員工匯入", href: "/hr/employee-import", permission: "employee:write" },
         ],
       },
       {

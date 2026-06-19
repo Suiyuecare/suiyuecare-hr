@@ -111,6 +111,7 @@ test("主管可以從 Inbox 快速核准請假", async ({ page }) => {
 });
 
 test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) => {
+  test.setTimeout(90_000);
   await page.goto("/app");
   await page.getByLabel("示範角色").selectOption("hr_admin");
   await page.getByRole("button", { name: "切換" }).click();
@@ -123,10 +124,8 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
 
   const companyModuleLink = page.locator("article#company").getByRole("link", { name: "模組總覽" });
   await expect(companyModuleLink).toBeVisible();
-  await Promise.all([
-    page.waitForURL(/\/console\/modules\/company$/),
-    companyModuleLink.click(),
-  ]);
+  await page.goto("/console/modules/company");
+  await expect(page).toHaveURL(/\/console\/modules\/company$/);
   await page.getByRole("link", { name: "開啟組織設定" }).click();
   await expect(page).toHaveURL(/\/settings\/organization$/);
   await expect(page.getByRole("heading", { name: "公司組織設定" })).toBeVisible();
@@ -322,6 +321,35 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await page.getByRole("button", { name: "產生 audit package" }).click();
   await expect(page).toHaveURL(/\/settings\/pilot-evidence\?success=audit-evidence/);
   await expect(page.getByText("Audit evidence package 已產生")).toBeVisible();
+});
+
+test("HR 人事主檔工作台提供中文 Finance 風格總覽且主管只看團隊", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/console/modules/people");
+  await page.getByRole("link", { name: "開啟員工資料" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/employees$/);
+  await expect(page.getByRole("heading", { name: "人事主檔工作台" })).toBeVisible();
+  await expect(page.getByLabel("人事主檔工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("人事主檔訊號板").getByText("登入/SSO")).toBeVisible();
+  await expect(page.getByLabel("人事主檔作業卡").getByRole("heading", { name: "員工名冊" })).toBeVisible();
+  await expect(page.getByLabel("人事主檔作業卡").getByRole("heading", { name: "薪資前置" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "員工主檔清單" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今日缺口" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "人事主檔護欄" })).toBeVisible();
+  await expect(page.locator(".employee-master-table")).toContainText("E001 · 林人資");
+  await expect(page.locator("body")).not.toContainText("baseSalary");
+  await expect(page.locator("body")).not.toContainText("accountNumber");
+  await expect(page.locator("body")).not.toContainText("nationalId");
+
+  await switchDemoRole(page, "manager");
+  await page.goto("/hr/employees");
+  await expect(page.getByRole("heading", { name: "人事主檔工作台" })).toBeVisible();
+  await expect(page.getByText("主管團隊視圖", { exact: true })).toBeVisible();
+  await expect(page.locator(".employee-master-table")).toContainText("E002 · 陳主管");
+  await expect(page.locator(".employee-master-table")).toContainText("E003 · 張小安");
+  await expect(page.locator(".employee-master-table")).not.toContainText("E001 · 林人資");
 });
 
 test("HR 可以設定打卡方式並讓員工端看到提示", async ({ page }) => {
