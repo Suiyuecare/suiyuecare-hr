@@ -4237,6 +4237,57 @@ legend {
   line-height: 1.25;
 }
 
+.payroll-export-page {
+  max-width: 1280px;
+}
+
+.payroll-export-alerts {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.payroll-export-package-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.payroll-export-package-card {
+  grid-template-rows: auto auto minmax(96px, auto) auto 1fr;
+}
+
+.payroll-export-package-card form,
+.payroll-export-package-card .button {
+  width: 100%;
+}
+
+.payroll-export-package-card .button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.payroll-export-empty {
+  display: grid;
+  gap: 12px;
+}
+
+.payroll-export-empty .button {
+  width: min(220px, 100%);
+}
+
+.payroll-export-task {
+  align-items: flex-start;
+}
+
+.payroll-export-task > span:first-child {
+  display: grid;
+  gap: 5px;
+  overflow-wrap: anywhere;
+}
+
+.payroll-export-task .stacked-actions .button {
+  white-space: nowrap;
+}
+
 .hr-close-command-band {
   display: grid;
   grid-template-columns: minmax(260px, 1.15fr) repeat(4, minmax(0, 1fr));
@@ -4603,6 +4654,8 @@ legend {
   .settings-command-grid,
   .hr-kpi-owner-grid,
   .hr-kpi-list-item,
+  .payroll-export-package-grid,
+  .payroll-export-task,
   .law-rules-hero,
   .law-rule-signal-board,
   .law-rule-governance-grid,

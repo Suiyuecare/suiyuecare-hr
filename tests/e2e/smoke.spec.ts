@@ -432,6 +432,18 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   await page.getByRole("button", { name: "Day 7 下一步：發布薪資單" }).click();
   await expect(page.getByText("已發布").first()).toBeVisible();
 
+  await page.goto("/hr/payroll-exports");
+  await expect(page.getByRole("heading", { name: "發薪匯出與封存中心" })).toBeVisible();
+  await expect(page.getByLabel("發薪匯出封存工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("發薪匯出訊號板").getByText("下載封存")).toBeVisible();
+  await expect(page.getByLabel("封存包產生").getByRole("heading", { name: "會計分錄封存" })).toBeVisible();
+  await expect(page.getByLabel("封存包產生").getByRole("heading", { name: "台灣法定申報草稿" })).toBeVisible();
+  await page.getByRole("button", { name: "產生會計分錄封存" }).click();
+  await expect(page).toHaveURL(/\/hr\/payroll-exports$/);
+  await expect(page.getByRole("heading", { name: "最近封存包" })).toBeVisible();
+  await expect(page.getByText("會計分錄封存 · HR One 會計分錄")).toBeVisible();
+  await expect(page.getByRole("link", { name: "下載封存清單" })).toBeVisible();
+
   await switchDemoRole(page, "manager");
   await page.goto("/app/payslip");
   await expect(page.getByRole("heading", { name: "無法查看薪資單" })).toBeVisible();
