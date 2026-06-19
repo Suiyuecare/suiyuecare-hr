@@ -548,7 +548,50 @@ test("公告發布後員工可回傳回條", async ({ page }) => {
   await expect(page.getByText("已回條").first()).toBeVisible();
 });
 
+test("HR 可以用中文文件金庫釋出員工文件", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr/documents");
+
+  await expect(page.getByRole("heading", { name: "員工文件金庫" })).toBeVisible();
+  await expect(page.getByLabel("員工文件金庫").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("文件安全訊號板").getByText("文件 metadata")).toBeVisible();
+  await expect(page.getByLabel("文件金庫作業卡").getByRole("heading", { name: "正式儲存 Gate" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "文件 metadata 精靈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "文件金庫清單" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "文件治理原則" })).toBeVisible();
+
+  const wizard = page.locator("#employee-document-wizard");
+  await wizard.getByLabel("文件所屬員工").selectOption("demo-employee-1");
+  await wizard.getByLabel("文件分類").selectOption("certificate");
+  await wizard.getByLabel("文件標題").fill("在職證明 E2E");
+  await wizard.getByLabel("檔名").fill("employment-certificate-e2e.pdf");
+  await wizard.getByLabel("MIME 類型").fill("application/pdf");
+  await wizard.getByLabel("檔案大小 bytes").fill("128000");
+  await wizard.getByLabel("到期日").fill("2026-12-31");
+  await wizard.getByLabel("釋出給員工自助查看").check();
+  await wizard.getByRole("button", { name: "儲存文件 metadata" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/documents$/);
+  const documentCard = page.locator("#employee-document-list .employee-document-task", { hasText: "在職證明 E2E" });
+  await expect(documentCard).toBeVisible();
+  await expect(documentCard.getByText("員工可見")).toBeVisible();
+  await expect(documentCard.getByText("證明文件 · employment-certificate-e2e.pdf · 125 KB")).toBeVisible();
+  await expect(documentCard.getByText(/ref [a-f0-9-]{8}/)).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("demo_object_storage://");
+  await expect(page.locator("body")).not.toContainText("hr-one/demo-tenant");
+
+  await switchDemoRole(page, "employee");
+  await page.goto("/app/documents");
+  await expect(page.getByRole("heading", { name: "HR 釋出的文件" })).toBeVisible();
+  await expect(page.getByText("在職證明 E2E")).toBeVisible();
+  await expect(page.getByText("證明文件 · employment-certificate-e2e.pdf")).toBeVisible();
+  await expect(page.getByText("到期日 2026-12-31")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("demo_object_storage://");
+});
+
 test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
+  test.setTimeout(60_000);
   const leaveReason = "E2E 兩週試用請假流程";
   const approvalComment = "快速核准：已確認排班與餘額。";
   const announcementTitle = "兩週試用公告確認";
