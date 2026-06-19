@@ -10,6 +10,8 @@ import {
 } from "@/server/readiness/company-setup-actions";
 import {
   getCompanySetupWizardReport,
+  type CompanySetupWizardReport,
+  type CompanySetupWizardStep,
   type CompanySetupStepStatus,
 } from "@/server/readiness/company-setup-wizard";
 
@@ -33,64 +35,115 @@ export default async function CompanySetupPage({ searchParams }: { searchParams:
   }
 
   const report = await getCompanySetupWizardReport(session);
+  const completionPercent = Math.round((report.completedStepCount / report.totalStepCount) * 100);
+  const focusStep = getFocusStep(report);
+  const focusStatus = focusStep?.status ?? report.status;
+  const commandCards = buildSetupCommandCards(report);
 
   return (
-    <main className="page">
-      <section className="page-header">
-        <h1>公司導入精靈</h1>
-        <p>把正式試用前的設定收斂成 9 個步驟：公司、人員、帳號、班表、打卡、假別、簽核、公告、薪資與 audit。</p>
+    <main className="page settings-control-page company-setup-page">
+      <section className="settings-control-hero company-setup-hero" aria-label="公司導入工作台">
+        <div className="settings-control-hero-main">
+          <div className="settings-control-hero-topline">
+            <span className="badge">20-50 人兩週試用</span>
+            <span className={`badge ${badgeClass(report.status)}`}>{statusTitle(report.status)}</span>
+          </div>
+          <h1>公司導入精靈</h1>
+          <p>
+            把正式試用前的設定收斂成 HR 能每天操作的導入工作台：公司、人員、帳號、班表、打卡、假別、簽核、公告、月結預演、薪資單與 audit 證據都在同一條路徑上。
+          </p>
+          <div className="settings-control-hero-actions">
+            <Link className="button primary" href="/settings/pilot-import-preflight">
+              先做匯入預檢
+            </Link>
+            <Link className="button" href="/settings/pilot-invite-readiness">
+              檢查邀請就緒
+            </Link>
+            <Link className="button" href="/settings/pilot-operations">
+              開啟每日戰情
+            </Link>
+          </div>
+        </div>
+        <aside className={`settings-control-focus ${focusBoxClass(focusStatus)}`} aria-label="今日先處理">
+          <span className="badge">今日先處理</span>
+          <strong>{focusStep ? focusStep.title : "可以準備邀請員工"}</strong>
+          <p>
+            {focusStep
+              ? `${focusStep.owner} 負責。${focusStep.missing[0] ?? focusStep.detail}`
+              : "導入條件已達最低門檻，請跑邀請就緒與 Go/No-Go，再發出第一批員工邀請。"}
+          </p>
+          <small>
+            {report.companyName ?? "尚未建立公司"} · {report.completedStepCount}/{report.totalStepCount} 步完成 ·
+            導入進度 {completionPercent}%
+          </small>
+          <Link className="button primary" href={focusStep?.primaryHref ?? "/settings/pilot-go-no-go"}>
+            {focusStep?.primaryLabel ?? "跑 Go/No-Go"}
+          </Link>
+        </aside>
       </section>
 
-      <section className="grid">
+      <section className="company-setup-alerts" aria-live="polite">
         {params.error ? (
-          <div className="panel span-12 risk-box danger-box">
+          <div className="panel risk-box danger-box">
             <strong>無法執行導入動作</strong>
             <p>{params.error}</p>
           </div>
         ) : null}
 
         {params.success && isCompanySetupActionId(params.success) ? (
-          <div className={`panel span-12 risk-box ${params.status === "needs_review" ? "warning-box" : "success-box"}`}>
+          <div className={`panel risk-box ${params.status === "needs_review" ? "warning-box" : "success-box"}`}>
             <strong>{companySetupActionLabels[params.success]}</strong>
             <p>{actionSuccessMessage(params.success, params.status)}</p>
           </div>
         ) : null}
+      </section>
 
-        <section className={`panel span-12 risk-box ${statusBoxClass(report.status)}`}>
-          <div className="section-heading">
-            <div>
-              <h2>{statusTitle(report.status)}</h2>
-              <p className="muted">
-                {report.companyName ?? "尚未建立公司"} · 目標是讓 20-50 人可以試用兩週，完成打卡、請假、簽核、公告、月結預演與薪資單查看。
-              </p>
+      <section className="settings-signal-board" aria-label="導入狀態訊號板">
+        <article className={`settings-signal-card ${signalCardClass(report.status)}`}>
+          <span>導入進度</span>
+          <strong>{completionPercent}%</strong>
+          <small>{report.completedStepCount}/{report.totalStepCount} 個導入步驟已完成</small>
+        </article>
+        <article className={`settings-signal-card ${report.pilotEmployeeRangeReady ? "done" : "danger"}`}>
+          <span>試用名單</span>
+          <strong>{report.pilotEmployeeRangeReady ? "人數 OK" : "未達門檻"}</strong>
+          <small>目標為 20-50 人，足夠驗證手機任務、簽核與月結。</small>
+        </article>
+        <article className={`settings-signal-card ${report.blockedStepCount ? "danger" : report.warningStepCount ? "warning" : "done"}`}>
+          <span>阻擋與提醒</span>
+          <strong>
+            {report.blockedStepCount} 阻擋 / {report.warningStepCount} 提醒
+          </strong>
+          <small>紅色阻擋清掉前，不建議邀請真實員工。</small>
+        </article>
+        <article className="settings-signal-card focus">
+          <span>下一個動作</span>
+          <strong>{focusStep?.primaryLabel ?? "跑邀請 Gate"}</strong>
+          <small>{focusStep?.detail ?? "確認邀請就緒、Go/No-Go 與證據掃描都完成。"}</small>
+        </article>
+      </section>
+
+      <section className="settings-command-grid" aria-label="導入作業區">
+        {commandCards.map((card) => (
+          <article className={`settings-command-card ${card.tone}`} key={card.title}>
+            <span className={`badge ${card.badgeClass}`}>{card.kicker}</span>
+            <h2>{card.title}</h2>
+            <p>{card.body}</p>
+            <Link className="button primary" href={card.href}>
+              {card.action}
+            </Link>
+            <div className="settings-command-links">
+              {card.links.map((link) => (
+                <Link href={link.href} key={link.href}>
+                  {link.label}
+                </Link>
+              ))}
             </div>
-            <span className={`badge ${report.blockedStepCount ? "danger" : report.warningStepCount ? "warning" : ""}`}>
-              {report.completedStepCount}/{report.totalStepCount} 完成
-            </span>
-          </div>
-        </section>
+          </article>
+        ))}
+      </section>
 
-        <div className="panel span-3 metric">
-          <span className="muted">完成</span>
-          <strong>{report.completedStepCount}</strong>
-          <span className="badge">導入步驟</span>
-        </div>
-        <div className="panel span-3 metric">
-          <span className="muted">阻擋</span>
-          <strong>{report.blockedStepCount}</strong>
-          <span className={`badge ${report.blockedStepCount ? "danger" : ""}`}>不可發邀請</span>
-        </div>
-        <div className="panel span-3 metric">
-          <span className="muted">提醒</span>
-          <strong>{report.warningStepCount}</strong>
-          <span className={`badge ${report.warningStepCount ? "warning" : ""}`}>需說明</span>
-        </div>
-        <div className="panel span-3 metric">
-          <span className="muted">試用人數</span>
-          <strong>{report.pilotEmployeeRangeReady ? "OK" : "未達"}</strong>
-          <span className={`badge ${report.pilotEmployeeRangeReady ? "" : "danger"}`}>20-50 人</span>
-        </div>
-
+      <section className="grid">
         <section className="panel span-8">
           <div className="section-heading">
             <div>
@@ -106,7 +159,7 @@ export default async function CompanySetupPage({ searchParams }: { searchParams:
               </Link>
             </div>
           </div>
-          <ol className="close-steps">
+          <ol className="close-steps company-setup-steps">
             {report.steps.map((step, index) => {
               const setupAction = setupActionForStep(step.id, session.role);
               return (
@@ -166,7 +219,7 @@ export default async function CompanySetupPage({ searchParams }: { searchParams:
           </ul>
         </section>
 
-        <section className="panel span-12">
+        <section className="panel span-12 company-setup-guardrails">
           <div className="section-heading">
             <div>
               <h2>隱私與權限護欄</h2>
@@ -256,11 +309,111 @@ function statusLabel(status: CompanySetupStepStatus) {
 function badgeClass(status: CompanySetupStepStatus) {
   if (status === "blocked") return "danger";
   if (status === "warning") return "warning";
+  return "done";
+}
+
+function signalCardClass(status: CompanySetupStepStatus) {
+  if (status === "complete") return "done";
+  if (status === "warning") return "warning";
+  return "danger";
+}
+
+function focusBoxClass(status: CompanySetupStepStatus) {
+  if (status === "blocked") return "danger";
+  if (status === "warning") return "warning";
   return "";
 }
 
-function statusBoxClass(status: CompanySetupStepStatus) {
-  if (status === "complete") return "success-box";
-  if (status === "blocked") return "danger-box";
-  return "";
+function getFocusStep(report: CompanySetupWizardReport) {
+  return (
+    report.steps.find((step) => step.status === "blocked") ??
+    report.steps.find((step) => step.status === "warning") ??
+    null
+  );
+}
+
+type SetupCommandCard = {
+  kicker: string;
+  title: string;
+  body: string;
+  action: string;
+  href: string;
+  tone: "ready" | "warning" | "danger";
+  badgeClass: "done" | "warning" | "danger";
+  links: Array<{ label: string; href: string }>;
+};
+
+function buildSetupCommandCards(report: CompanySetupWizardReport): SetupCommandCard[] {
+  const cardInputs = [
+    {
+      kicker: "公司基礎",
+      title: "試用名單與匯入",
+      body: "先把公司、部門、主管線、員工登入與 RBAC 收斂，避免後續簽核、薪資或公告找不到負責人。",
+      action: "開啟匯入預檢",
+      href: "/settings/pilot-import-preflight",
+      stepIds: ["company_structure", "employee_access"],
+      links: [
+        { label: "員工資料", href: "/hr/employee-lifecycle" },
+        { label: "權限管理", href: "/settings/access" },
+      ],
+    },
+    {
+      kicker: "員工任務",
+      title: "假勤、排班與簽核",
+      body: "員工手機打卡、請假、加班與補打卡都要能在三步內完成，主管只從統一 Inbox 處理。",
+      action: "設定打卡與假別",
+      href: "/hr/attendance-policies",
+      stepIds: ["shift_schedule", "attendance_punch", "leave_balance", "approval_inbox"],
+      links: [
+        { label: "排班規則", href: "/hr/shift-templates" },
+        { label: "假別餘額", href: "/hr/leave-policies" },
+        { label: "簽核 Inbox", href: "/manager/inbox" },
+      ],
+    },
+    {
+      kicker: "Day 1 啟用",
+      title: "公告、教學與回條",
+      body: "發布第一則試用公告與員工回條，讓第一週教學時間壓在 10 分鐘內，且每筆回覆可追蹤。",
+      action: "準備試用公告",
+      href: "/hr/announcements",
+      stepIds: ["announcement_receipts"],
+      links: [
+        { label: "邀請就緒檢查", href: "/settings/pilot-invite-readiness" },
+        { label: "每日戰情", href: "/settings/pilot-operations" },
+      ],
+    },
+    {
+      kicker: "Day 7-14",
+      title: "月結預演與證據",
+      body: "月結前先看出勤完整性、待簽核、薪資單釋出與 audit 覆蓋，不讓系統靜默鎖薪。",
+      action: "開啟試用批次",
+      href: "/settings/pilot-trial-run",
+      stepIds: ["payroll_payslip", "audit_privacy"],
+      links: [
+        { label: "HR 月結", href: "/hr" },
+        { label: "證據包", href: "/settings/pilot-evidence" },
+        { label: "上線 Gate", href: "/settings/readiness" },
+      ],
+    },
+  ];
+
+  return cardInputs.map((card) => {
+    const { stepIds, ...commandCard } = card;
+    const status = worstStatus(stepIds.map((id) => report.steps.find((step) => step.id === id)).filter(isStep));
+    return {
+      ...commandCard,
+      tone: status === "complete" ? "ready" : status === "warning" ? "warning" : "danger",
+      badgeClass: badgeClass(status) as "done" | "warning" | "danger",
+    };
+  });
+}
+
+function worstStatus(steps: CompanySetupWizardStep[]) {
+  if (steps.some((step) => step.status === "blocked")) return "blocked";
+  if (steps.some((step) => step.status === "warning")) return "warning";
+  return "complete";
+}
+
+function isStep(step: CompanySetupWizardStep | undefined): step is CompanySetupWizardStep {
+  return Boolean(step);
 }

@@ -195,6 +195,10 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
 
   await page.goto("/settings/company-setup");
   await expect(page.getByRole("heading", { name: "公司導入精靈" })).toBeVisible();
+  await expect(page.getByLabel("公司導入工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("導入狀態訊號板").getByText("導入進度")).toBeVisible();
+  await expect(page.getByLabel("導入作業區").getByRole("heading", { name: "試用名單與匯入" })).toBeVisible();
+  await expect(page.getByLabel("導入作業區").getByRole("heading", { name: "假勤、排班與簽核" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "導入步驟" })).toBeVisible();
   await expect(page.locator(".close-step").filter({ hasText: "打卡與出勤規則" })).toBeVisible();
   await expect(page.locator(".close-step").filter({ hasText: "HR 月結預演與薪資單" })).toBeVisible();
@@ -202,7 +206,7 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page).toHaveURL(/\/settings\/company-setup\?success=sync_leave_balances&status=completed/);
   await expect(page.getByText("已完成導入動作，精靈狀態已重新整理。")).toBeVisible();
 
-  await page.getByRole("link", { name: "邀請就緒" }).click();
+  await page.getByRole("link", { name: "邀請就緒", exact: true }).click();
   await expect(page).toHaveURL(/\/settings\/pilot-invite-readiness/);
   await expect(page.getByRole("heading", { name: "試用邀請就緒" })).toBeVisible();
   await expect(page.getByText(/不輸出個資、薪資、銀行帳號/)).toBeVisible();
