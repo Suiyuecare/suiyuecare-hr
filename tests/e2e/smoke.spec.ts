@@ -328,6 +328,34 @@ test("HR 可以設定打卡方式並讓員工端看到提示", async ({ page }) 
   await expect(page.getByText("請連公司網路，並在公司 300 公尺內完成打卡。")).toBeVisible();
 });
 
+test("HR 可以用中文付款安全工作台完成銀行檔閘門", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr/payroll-payment-security");
+
+  await expect(page.getByRole("heading", { name: "付款安全設定工作台" })).toBeVisible();
+  await expect(page.getByLabel("付款安全設定工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("付款安全訊號板").getByText("付款金庫")).toBeVisible();
+  await expect(page.getByLabel("付款安全設定步驟").getByRole("heading", { name: "金庫與金鑰" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "三步設定精靈" })).toBeVisible();
+
+  await page.getByLabel("金庫服務").selectOption("aws_secrets_manager");
+  await page.getByLabel("金庫參照").fill("vault://customer/payroll-payment");
+  await page.getByLabel("KMS 金鑰參照").fill("alias/customer-payroll-payment");
+  await page.getByLabel("銀行檔格式代碼").fill("suiyuecare_bank_csv");
+  await page.getByLabel("格式版本").fill("v1");
+  await page.getByLabel("驗證狀態").selectOption("verified");
+  await page.getByLabel("客戶銀行格式已完成測試").check();
+  await page.getByLabel("驗證備註").fill("2026-07-01 客戶銀行沙盒驗證通過，證據保存於客戶核准資料夾。");
+  await page.getByRole("button", { name: "儲存付款安全設定" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/payroll-payment-security$/);
+  await expect(page.getByLabel("付款安全設定工作台").getByText("可產生銀行檔")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "銀行檔上線檢查" })).toBeVisible();
+  await expect(page.getByText("已通過付款安全閘門")).toBeVisible();
+  await expect(page.getByText("已於").first()).toBeVisible();
+});
+
 test("公告發布後員工可回傳回條", async ({ page }) => {
   await page.goto("/app");
   await switchDemoRole(page, "hr_admin");

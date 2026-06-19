@@ -4288,6 +4288,98 @@ legend {
   white-space: nowrap;
 }
 
+.payroll-payment-security-page {
+  max-width: 1280px;
+}
+
+.payroll-payment-security-alerts {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.payroll-payment-security-step-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.payroll-payment-security-step-card {
+  min-height: 236px;
+}
+
+.payroll-payment-security-form {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.payroll-payment-security-fieldset {
+  display: grid;
+  gap: 12px;
+}
+
+.payroll-payment-column-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.payroll-payment-column {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-height: 118px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.payroll-payment-column.selected {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.payroll-payment-column strong {
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 1000;
+  line-height: 1.25;
+}
+
+.payroll-payment-column small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.payroll-payment-security-note {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  background: #fffbeb;
+  padding: 12px;
+}
+
+.payroll-payment-security-note strong {
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.payroll-payment-security-note p {
+  margin: 0;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.45;
+}
+
+.payroll-payment-security-checklist .task {
+  align-items: flex-start;
+}
+
 .hr-close-command-band {
   display: grid;
   grid-template-columns: minmax(260px, 1.15fr) repeat(4, minmax(0, 1fr));
@@ -4656,6 +4748,7 @@ legend {
   .hr-kpi-list-item,
   .payroll-export-package-grid,
   .payroll-export-task,
+  .payroll-payment-column-board,
   .law-rules-hero,
   .law-rule-signal-board,
   .law-rule-governance-grid,
