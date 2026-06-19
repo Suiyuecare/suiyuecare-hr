@@ -565,6 +565,19 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   await expect(page.locator("#first_leave_success_time").getByText("新員工第一次請假成功時間")).toBeVisible();
   await expect(page.locator("#unauthorized_payroll_access").getByText("薪資資料未授權存取測試漏洞")).toBeVisible();
 
+  await page.goto("/hr/reports");
+  await expect(page.getByRole("heading", { name: "報表分析工作台" })).toBeVisible();
+  await expect(page.getByLabel("報表分析工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("報表訊號板").getByText("人事分析")).toBeVisible();
+  await expect(page.getByLabel("報表訊號板").getByText("出勤分析")).toBeVisible();
+  await expect(page.getByLabel("報表訊號板").getByText("薪酬分析")).toBeVisible();
+  await expect(page.getByLabel("報表作業卡").getByRole("heading", { name: "自訂報表設定" })).toBeVisible();
+  await expect(page.getByLabel("報表作業卡").getByRole("heading", { name: "薪酬分析" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "自訂報表精靈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "報表設定與封存" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "下一階段基礎工程" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "下載封存資料" }).first()).toBeVisible();
+
   await page.goto("/hr");
   await expect(page.getByRole("heading", { name: "HR 月結指揮台" })).toBeVisible();
   await page.getByRole("button", { name: "Day 7 下一步：建立薪資批次" }).click();

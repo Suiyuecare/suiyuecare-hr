@@ -1,0 +1,552 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { dashboardPathForRole, hasPermission } from "@/server/auth/rbac";
+import { getDemoSession } from "@/server/auth/session";
+import { getAuditLogs } from "@/server/audit/queries";
+import { listAttendanceExceptions, summarizeAttendanceExceptionResolution } from "@/server/attendance/exceptions";
+import { getHrOneKpis, summarizeHrOneKpis, type HrOneKpi } from "@/server/kpis/hr-one";
+import { getPayrollDashboard } from "@/server/payroll/service";
+import type { PayrollCloseChecklist, PayrollRunView } from "@/server/payroll/types";
+
+export default async function HrReportsPage() {
+  const session = await getDemoSession();
+  if (!hasPermission(session.role, "dashboard:hr")) {
+    redirect(dashboardPathForRole(session.role));
+  }
+
+  const [kpis, exceptions, payroll, auditLogs] = await Promise.all([
+    getHrOneKpis(session),
+    listAttendanceExceptions(session),
+    getPayrollDashboard(session),
+    getAuditLogs(session, 8),
+  ]);
+  const kpiSummary = summarizeHrOneKpis(kpis);
+  const attendanceSummary = summarizeAttendanceExceptionResolution(exceptions);
+  const focus = buildReportFocus({
+    kpis,
+    payrollRun: payroll.run,
+    payrollChecklist: payroll.checklist,
+    pendingExceptionCount: attendanceSummary.pendingCount,
+    auditEventCount: auditLogs.length,
+  });
+  const reportCards = buildReportCards({
+    kpiSummary,
+    attendanceSummary,
+    payrollRun: payroll.run,
+    payrollChecklist: payroll.checklist,
+    auditEventCount: auditLogs.length,
+  });
+  const customReportSteps = buildCustomReportSteps();
+  const nextStageItems = buildNextStageItems();
+
+  return (
+    <main className="page report-workspace-page">
+      <section className="hr-monthly-hero report-workspace-hero" aria-label="報表分析工作台">
+        <div className="hr-monthly-hero-main">
+          <div className="hr-monthly-hero-topline">
+            <span className="badge">報表工具</span>
+            <span className={`badge ${kpiSummary.readyForSale ? "done" : kpiSummary.failing ? "danger" : "warning"}`}>
+              {kpiSummary.passing}/{kpiSummary.total} KPI 達標
+            </span>
+          </div>
+          <h1>報表分析工作台</h1>
+          <p>
+            給執行長、人資與行政主任看的後台報表入口。人事、出勤、薪酬、自訂報表、報表設定與下載封存都收斂在同一頁；薪資與個資只顯示授權後的彙總狀態，不把明細放進報表摘要。
+          </p>
+          <div className="hr-monthly-hero-actions">
+            <Link className="button primary" href="#report-builder">
+              建立自訂報表
+            </Link>
+            <Link className="button" href="/hr/attendance-exceptions">
+              出勤分析
+            </Link>
+            <Link className="button" href="/settings/audit">
+              下載封存資料
+            </Link>
+          </div>
+        </div>
+
+        <aside className={`hr-monthly-hero-focus ${focus.tone}`} aria-label="今日先處理">
+          <span className="badge">今日先處理</span>
+          <strong>{focus.title}</strong>
+          <p>{focus.detail}</p>
+          <small>{focus.note}</small>
+          <Link className="button primary" href={focus.href}>
+            {focus.actionLabel}
+          </Link>
+        </aside>
+      </section>
+
+      <section className="hr-monthly-signal-board report-signal-board" aria-label="報表訊號板">
+        {reportCards.map((card) => (
+          <Link className={`hr-monthly-signal-card ${card.tone}`} href={card.href} key={card.label}>
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
+            <small>{card.detail}</small>
+          </Link>
+        ))}
+      </section>
+
+      <section className="settings-command-grid report-command-grid" aria-label="報表作業卡">
+        <article className="settings-command-card warning">
+          <span className="badge warning">測試版</span>
+          <h2>自訂報表設定</h2>
+          <p>先選角色、資料範圍與欄位授權，避免自訂報表繞過薪資、身分證、銀行帳號與健康資料權限。</p>
+          <Link className="button primary" href="#report-builder">
+            開始設定
+          </Link>
+        </article>
+        <article className="settings-command-card ready">
+          <span className="badge done">可查詢</span>
+          <h2>人事分析</h2>
+          <p>查看員工資料完整度、任用異動、到離職流程、文件與訓練缺口，支援老闆與人資快速掌握組織狀態。</p>
+          <Link className="button" href="#people-analytics">
+            查看人事分析
+          </Link>
+        </article>
+        <article className={`settings-command-card ${attendanceSummary.pendingCount ? "danger" : "ready"}`}>
+          <span className={`badge ${attendanceSummary.pendingCount ? "danger" : "done"}`}>
+            {attendanceSummary.pendingCount ? `${attendanceSummary.pendingCount} 筆異常` : "已清空"}
+          </span>
+          <h2>出勤分析</h2>
+          <p>月底前優先看漏打卡、工時風險與安全建議，目標是異常在月結前自動解決率高於 90%。</p>
+          <Link className="button" href="/hr/attendance-exceptions">
+            處理出勤
+          </Link>
+        </article>
+        <article className="settings-command-card warning">
+          <span className="badge warning">限薪資權限</span>
+          <h2>薪酬分析</h2>
+          <p>只顯示薪資月結狀態、資料完整度與風險，不在報表首頁顯示薪資金額或員工薪資明細。</p>
+          <Link className="button" href="#payroll-analytics">
+            查看薪酬狀態
+          </Link>
+        </article>
+      </section>
+
+      <section className="grid">
+        <section className="panel span-7" id="report-builder">
+          <div className="section-heading">
+            <div>
+              <h2>自訂報表精靈</h2>
+              <p className="muted">用非工程語言完成報表設定；正式儲存前仍需把欄位授權、匯出遮罩與稽核紀錄寫入後端。</p>
+            </div>
+            <span className="badge warning">下一階段串接</span>
+          </div>
+          <ol className="report-step-list">
+            {customReportSteps.map((step) => (
+              <li className={`report-step ${step.tone}`} key={step.title}>
+                <span>{step.index}</span>
+                <div>
+                  <strong>{step.title}</strong>
+                  <p>{step.detail}</p>
+                </div>
+                <span className={`badge ${step.badgeClass}`}>{step.status}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section className="panel span-5" id="report-settings">
+          <div className="section-heading">
+            <div>
+              <h2>報表設定與封存</h2>
+              <p className="muted">報表不是單純下載 Excel；每次產生都要能說明誰下載、下載什麼、是否遮罩。</p>
+            </div>
+          </div>
+          <div className="report-settings-stack">
+            <Link className="report-settings-card" href="/settings/audit">
+              <strong>下載封存資料</strong>
+              <small>產生只保留雜湊的稽核證據包，不輸出原始個資與薪資。</small>
+            </Link>
+            <Link className="report-settings-card" href="/settings/privacy">
+              <strong>欄位與個資治理</strong>
+              <small>先把敏感欄位、保存期限與員工權利請求納入報表規則。</small>
+            </Link>
+            <Link className="report-settings-card" href="/settings/access">
+              <strong>報表權限矩陣</strong>
+              <small>老闆、人資、行政主任、主管只能看到自己職務需要的欄位。</small>
+            </Link>
+          </div>
+        </section>
+
+        <section className="panel span-12" id="people-analytics">
+          <div className="section-heading">
+            <div>
+              <h2>人事 / 出勤 / 薪酬分析</h2>
+              <p className="muted">先用狀態與風險摘要取代大表格，讓後台使用者不用猜下一步。</p>
+            </div>
+            <Link className="button" href="/console/modules/reports">
+              回報表模組
+            </Link>
+          </div>
+          <div className="report-lane-grid">
+            <ReportLane
+              badge="人事報表"
+              title="人事分析"
+              detail="員工資料、任用異動、到離職、文件與訓練準備度。"
+              href="/hr/onboarding-readiness"
+              links={[
+                { label: "員工匯入", href: "/hr/employee-import" },
+                { label: "人事異動", href: "/hr/employee-lifecycle" },
+                { label: "文件證明", href: "/hr/documents" },
+              ]}
+            />
+            <ReportLane
+              badge="假勤報表"
+              title="出勤分析"
+              detail={`${attendanceSummary.resolutionRate}% 異常解決率，${attendanceSummary.autoResolvableCount} 筆可安全建議，${attendanceSummary.highRiskCount} 筆高風險需人資檢查。`}
+              href="/hr/attendance-exceptions"
+              links={[
+                { label: "出勤異常", href: "/hr/attendance-exceptions" },
+                { label: "工時分析", href: "/hr/worktime-compliance" },
+                { label: "特休管理", href: "/hr/annual-leave-grants" },
+              ]}
+            />
+            <ReportLane
+              badge="薪酬報表"
+              title="薪酬分析"
+              detail={`${labelPayrollStatus(payroll.run?.status ?? "not_started")}；${payroll.checklist.steps.filter((step) => step.status !== "done").length} 個月結步驟仍需處理。`}
+              href="/hr/payroll-exports"
+              links={[
+                { label: "薪資資料", href: "/hr/salary-profiles" },
+                { label: "薪資科目", href: "/hr/payroll-accounting" },
+                { label: "發薪紀錄", href: "/hr/payroll-exports" },
+              ]}
+            />
+          </div>
+        </section>
+
+        <section className="panel span-7" id="payroll-analytics">
+          <div className="section-heading">
+            <div>
+              <h2>薪酬安全摘要</h2>
+              <p className="muted">這裡只顯示月結狀態與流程風險；薪資金額、銀行帳號與個人薪資明細不在報表中心呈現。</p>
+            </div>
+            <span className="badge warning">最小揭露</span>
+          </div>
+          <ul className="task-list compact">
+            {payroll.checklist.steps.map((step) => (
+              <li className="task report-payroll-task" key={step.step}>
+                <span>
+                  <strong>
+                    {String(step.step).padStart(2, "0")} · {localizePayrollStepTitle(step.title)}
+                  </strong>
+                  <small>{localizePayrollStepDetail(step.detail)}</small>
+                </span>
+                <span className={`badge ${step.status === "done" ? "done" : step.status === "blocked" ? "danger" : "warning"}`}>
+                  {labelChecklistStatus(step.status)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="panel span-5">
+          <div className="section-heading">
+            <div>
+              <h2>下一階段基礎工程</h2>
+              <p className="muted">接下來要把報表從漂亮入口推進到可販售的可配置能力。</p>
+            </div>
+          </div>
+          <ul className="task-list compact">
+            {nextStageItems.map((item) => (
+              <li className="task report-next-task" key={item.title}>
+                <span>
+                  <strong>{item.title}</strong>
+                  <small>{item.detail}</small>
+                </span>
+                <span className={`badge ${item.tone}`}>{item.status}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </section>
+    </main>
+  );
+}
+
+function ReportLane({
+  badge,
+  title,
+  detail,
+  href,
+  links,
+}: {
+  badge: string;
+  title: string;
+  detail: string;
+  href: string;
+  links: Array<{ label: string; href: string }>;
+}) {
+  return (
+    <article className="report-lane-card">
+      <span className="badge">{badge}</span>
+      <h3>{title}</h3>
+      <p>{detail}</p>
+      <Link className="button primary" href={href}>
+        開啟
+      </Link>
+      <div className="settings-command-links">
+        {links.map((link) => (
+          <Link href={link.href} key={link.href}>
+            {link.label}
+          </Link>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function buildReportFocus(input: {
+  kpis: HrOneKpi[];
+  payrollRun: PayrollRunView | null;
+  payrollChecklist: PayrollCloseChecklist;
+  pendingExceptionCount: number;
+  auditEventCount: number;
+}) {
+  const blockedPayrollStep = input.payrollChecklist.steps.find((step) => step.status === "blocked");
+  const focusKpi = input.kpis.find((kpi) => kpi.status === "failing") ?? input.kpis.find((kpi) => kpi.status === "watch");
+
+  if (input.pendingExceptionCount > 0) {
+    return {
+      title: "先處理出勤異常",
+      detail: `${input.pendingExceptionCount} 筆漏打卡或工時風險會影響薪資月結與出勤分析。`,
+      note: "目標：月底前自動解決率高於 90%，高風險仍由人資人工確認。",
+      href: "/hr/attendance-exceptions",
+      actionLabel: "處理出勤異常",
+      tone: "danger",
+    };
+  }
+
+  if (blockedPayrollStep) {
+    return {
+      title: localizePayrollStepTitle(blockedPayrollStep.title),
+      detail: localizePayrollStepDetail(blockedPayrollStep.detail),
+      note: "薪酬分析只顯示流程狀態，不在報表中心顯示薪資明細。",
+      href: "/hr",
+      actionLabel: "回月結處理",
+      tone: "warning",
+    };
+  }
+
+  if (focusKpi) {
+    return {
+      title: localizeKpiName(focusKpi),
+      detail: `目前 ${localizeKpiValue(focusKpi.current)}，目標 ${focusKpi.target}。`,
+      note: localizeKpiNextStep(focusKpi.nextStep),
+      href: "/hr/kpis",
+      actionLabel: "查看 KPI",
+      tone: focusKpi.status === "failing" ? "danger" : "warning",
+    };
+  }
+
+  return {
+    title: "整理封存資料",
+    detail: `${input.auditEventCount} 筆近期稽核事件可作為報表與勞檢證據包基礎。`,
+    note: "下載封存只保留彙總、內容雜湊與遮罩欄位，避免外洩個資與薪資。",
+    href: "/settings/audit",
+    actionLabel: "下載封存資料",
+    tone: "ready",
+  };
+}
+
+function buildReportCards(input: {
+  kpiSummary: ReturnType<typeof summarizeHrOneKpis>;
+  attendanceSummary: ReturnType<typeof summarizeAttendanceExceptionResolution>;
+  payrollRun: PayrollRunView | null;
+  payrollChecklist: PayrollCloseChecklist;
+  auditEventCount: number;
+}) {
+  const payrollOpenSteps = input.payrollChecklist.steps.filter((step) => step.status !== "done").length;
+  return [
+    {
+      label: "人事分析",
+      value: `${input.kpiSummary.passing}/${input.kpiSummary.total}`,
+      detail: "用贏面 KPI 與人事準備度判斷導入是否會卡住。",
+      href: "/hr/kpis",
+      tone: input.kpiSummary.readyForSale ? "done" : "warning",
+    },
+    {
+      label: "出勤分析",
+      value: input.attendanceSummary.pendingCount ? `${input.attendanceSummary.pendingCount} 筆異常` : "已清空",
+      detail: `${input.attendanceSummary.resolutionRate}% 解決率；目標月底前高於 90%。`,
+      href: "/hr/attendance-exceptions",
+      tone: input.attendanceSummary.pendingCount ? "danger" : "done",
+    },
+    {
+      label: "薪酬分析",
+      value: labelPayrollStatus(input.payrollRun?.status ?? "not_started"),
+      detail: `${payrollOpenSteps} 個月結步驟待處理；報表中心不顯示薪資金額。`,
+      href: "/hr/payroll-exports",
+      tone: payrollOpenSteps ? "warning" : "done",
+    },
+    {
+      label: "下載封存",
+      value: `${input.auditEventCount} 筆`,
+      detail: "最近稽核事件可產生遮罩證據包，供內控、勞檢與客戶驗收。",
+      href: "/settings/audit",
+      tone: input.auditEventCount ? "done" : "warning",
+    },
+  ];
+}
+
+function buildCustomReportSteps() {
+  return [
+    {
+      index: "01",
+      title: "選擇使用者與用途",
+      detail: "老闆看趨勢、人資看異常、行政主任看作業缺口，預設不給深層欄位清單。",
+      status: "角色先行",
+      badgeClass: "done",
+      tone: "ready",
+    },
+    {
+      index: "02",
+      title: "選資料域與欄位",
+      detail: "人事、出勤、薪酬、表單與稽核資料分開授權；敏感欄位預設遮罩或不可選。",
+      status: "需後端權限表",
+      badgeClass: "warning",
+      tone: "warning",
+    },
+    {
+      index: "03",
+      title: "設定頻率與封存",
+      detail: "每次匯出都要寫稽核紀錄，封存只保留內容雜湊、期間、筆數與遮罩摘要。",
+      status: "需匯出佇列",
+      badgeClass: "warning",
+      tone: "warning",
+    },
+  ];
+}
+
+function buildNextStageItems() {
+  return [
+    {
+      title: "報表資料集與欄位權限",
+      detail: "建立報表資料集、欄位與權限設定，讓自訂報表不靠工程師硬寫。",
+      status: "基礎工程",
+      tone: "warning",
+    },
+    {
+      title: "封存匯出工作佇列",
+      detail: "匯出改成背景工作，產出檔案、內容雜湊、下載期限、申請人與稽核證據。",
+      status: "資安工程",
+      tone: "warning",
+    },
+    {
+      title: "後台模組列表全面財務系統風格化",
+      detail: "人事、出勤、排班、表單、薪資與公司管理的清單頁要統一成財務系統風格。",
+      status: "體驗",
+      tone: "warning",
+    },
+    {
+      title: "真實試用資料與正式上線閘門",
+      detail: "匯入 20-50 人試用資料，修好 Supabase/Vercel 正式環境準備度後才可對外販售。",
+      status: "上線閘門",
+      tone: "danger",
+    },
+  ];
+}
+
+function localizePayrollStepTitle(title: string) {
+  const labels: Record<string, string> = {
+    "Attendance completeness check": "出勤完整性檢查",
+    "Pending approvals check": "待簽核檢查",
+    "Payroll calculation draft": "薪資試算草稿",
+    "Exception review": "例外檢查",
+    "HR confirmation": "人資確認",
+    "Payroll lock": "薪資鎖定",
+    "Payslip generation": "薪資單產生",
+  };
+  return labels[title] ?? title;
+}
+
+function localizePayrollStepDetail(detail: string) {
+  const labels: Record<string, string> = {
+    "Missing punches must be resolved.": "漏打卡必須先處理。",
+    "0 pending approval(s).": "目前沒有待簽核。",
+    "Calculate after blockers are clear.": "阻擋項清除後才能試算。",
+    "0 payroll exception(s).": "目前沒有薪資例外。",
+    "HR confirmation required.": "需要人資確認。",
+    "Lock prevents silent mutation.": "鎖定後不可靜默修改。",
+    "Release after lock.": "鎖定後才能發布薪資單。",
+  };
+  return labels[detail] ?? detail;
+}
+
+function labelPayrollStatus(status: PayrollRunView["status"] | "not_started") {
+  const labels: Record<PayrollRunView["status"] | "not_started", string> = {
+    not_started: "尚未建立",
+    draft: "草稿",
+    blocked: "已阻擋",
+    calculated: "已試算",
+    confirmed: "已確認",
+    locked: "已鎖定",
+    released: "已發布",
+  };
+  return labels[status];
+}
+
+function labelChecklistStatus(status: PayrollCloseChecklist["steps"][number]["status"]) {
+  const labels: Record<PayrollCloseChecklist["steps"][number]["status"], string> = {
+    done: "完成",
+    ready: "可處理",
+    blocked: "阻擋",
+  };
+  return labels[status];
+}
+
+function localizeKpiName(kpi: HrOneKpi) {
+  const labels: Record<string, string> = {
+    first_leave_success_time: "新員工第一次請假成功時間",
+    manager_leave_approval_time: "主管簽核一筆請假平均時間",
+    payroll_close_reduction: "人資每月薪資結算時間",
+    attendance_exception_auto_resolution: "出勤異常月底前自動解決率",
+    employee_mobile_task_completion: "員工手機端任務完成率",
+    hr_self_serve_form_creation: "人資自建表單比例",
+    audit_log_coverage: "重要資料修改稽核紀錄覆蓋率",
+    unauthorized_payroll_access: "薪資資料未授權存取測試",
+    ai_answers_with_sources: "AI 回答有來源比例",
+    first_week_training_time: "導入第一週員工教學時間",
+  };
+  return labels[kpi.id] ?? kpi.name;
+}
+
+function localizeKpiValue(value: string) {
+  return value
+    .replace("seconds", "秒")
+    .replace("second", "秒")
+    .replace("minutes", "分鐘")
+    .replace("minute", "分鐘")
+    .replace("No audit events yet", "尚無稽核事件")
+    .replace("100% covered in guarded demo flows", "受保護流程 100% 覆蓋")
+    .replace("0 known escapes in payroll access matrix tests", "權限矩陣測試 0 個已知漏洞")
+    .replace("100% for policy Q&A tests", "政策 Q&A 測試 100% 有來源");
+}
+
+function localizeKpiNextStep(nextStep: string) {
+  const labels: Record<string, string> = {
+    "Keep leave submission visible on the Today card and avoid adding required fields.":
+      "請假入口保持在今日卡，不增加非必要欄位。",
+    "Keep all approval types in the unified Inbox with one-tap approve/reject.":
+      "所有簽核類型維持在統一 Inbox，保留一鍵核准/退補。",
+    "Automate remaining payroll blockers: unresolved punches, pending approvals, and payment profile gaps.":
+      "自動化剩餘月結阻擋：未解出勤、待簽核與付款資料缺口。",
+    "Turn worktime compliance findings into employee/manager nudges before payroll close.":
+      "把工時合規結果轉成員工與主管的月結前提醒。",
+    "Instrument task start/complete events for punch, leave, overtime, correction, forms, and payslip views.":
+      "補齊打卡、請假、加班、補卡、表單與薪資單的開始/完成事件。",
+    "Add reusable field presets and workflow templates for common Taiwan HR forms.":
+      "加入台灣常見 HR 表單欄位預設與簽核範本。",
+    "Keep mutation tests asserting audit logs for every sensitive create/update/delete action.":
+      "所有敏感新增/更新/刪除都用測試確保稽核紀錄寫入。",
+    "Extend the matrix when adding payroll APIs, exports, analytics, or support impersonation.":
+      "新增薪資 API、匯出、分析或客服代登入時同步擴充權限矩陣。",
+    "Require source references for every retrieval-backed AI feature before provider integration.":
+      "所有檢索式 AI 功能在串 provider 前都必須要求來源引用。",
+    "Keep first-week workflows task-card based and avoid deep menu onboarding.":
+      "第一週流程維持任務卡，不用深層選單教學。",
+  };
+  return labels[nextStep] ?? nextStep;
+}

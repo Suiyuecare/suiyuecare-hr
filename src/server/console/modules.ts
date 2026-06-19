@@ -395,15 +395,15 @@ const moduleProfiles: Record<string, ConsoleModuleProfile> = {
     tasks: [
       {
         title: "查看販售 KPI",
-        detail: "先看請假速度、簽核時間、月結縮短、手機完成率與 audit 覆蓋率。",
-        href: "/hr/kpis",
+        detail: "先看請假速度、簽核時間、月結縮短、手機完成率與稽核覆蓋率。",
+        href: "/hr/reports",
         status: "產品指標",
         tone: "warning",
       },
       {
         title: "檢查人事與出勤分析",
-        detail: "報表要支援 CEO、HR 與行政主任快速看異常與趨勢。",
-        href: "/hr/kpis",
+        detail: "報表要支援老闆、人資與行政主任快速看異常與趨勢。",
+        href: "/hr/reports",
         status: "分析入口",
         tone: "ready",
       },
@@ -428,11 +428,12 @@ const moduleProfiles: Record<string, ConsoleModuleProfile> = {
       },
       {
         title: "封存資料需可稽核",
-        detail: "下載封存資料應留下請求人、範圍、時間與 hash-only 證據。",
+        detail: "下載封存資料應留下請求人、範圍、時間與只含雜湊的證據。",
         tone: "warning",
       },
     ],
     setupLinks: [
+      { label: "報表工作台", href: "/hr/reports", permission: "dashboard:hr" },
       { label: "人資 KPI", href: "/hr/kpis", permission: "dashboard:hr" },
       { label: "出勤分析", href: "/hr/attendance-exceptions", permission: "attendance:write" },
       { label: "稽核紀錄", href: "/settings/audit", permission: "audit:read" },
@@ -705,29 +706,29 @@ const modules: ConsoleModule[] = [
     id: "reports",
     title: "報表工具",
     summary: "查看人事、出勤、薪酬分析與自訂報表。",
-    primary: { label: "開啟 KPI 報表", href: "/hr/kpis", permission: "dashboard:hr" },
+    primary: { label: "開啟報表工作台", href: "/hr/reports", permission: "dashboard:hr" },
     statusLabel: "分析報表",
     sections: [
       {
         title: "自訂報表",
-        badge: "Beta",
+        badge: "測試版",
         links: [
-          { label: "自訂報表設定", href: "/hr/kpis", permission: "dashboard:hr" },
-          { label: "自訂報表", href: "/hr/kpis", permission: "dashboard:hr" },
+          { label: "自訂報表設定", href: "/hr/reports#report-builder", permission: "dashboard:hr" },
+          { label: "自訂報表", href: "/hr/reports#report-builder", permission: "dashboard:hr" },
         ],
       },
       {
         title: "人資報表",
         links: [
-          { label: "人事分析", href: "/hr/kpis", permission: "dashboard:hr" },
+          { label: "人事分析", href: "/hr/reports#people-analytics", permission: "dashboard:hr" },
           { label: "出勤分析", href: "/hr/attendance-exceptions", permission: "attendance:write" },
-          { label: "薪酬分析", href: "/hr", permission: "payroll:manage" },
+          { label: "薪酬分析", href: "/hr/reports#payroll-analytics", permission: "payroll:manage" },
         ],
       },
       {
         title: "管理工具",
         links: [
-          { label: "報表設定", href: "/hr/kpis", permission: "dashboard:hr" },
+          { label: "報表設定", href: "/hr/reports#report-settings", permission: "dashboard:hr" },
           { label: "下載封存資料", href: "/settings/audit", permission: "audit:read" },
         ],
       },
