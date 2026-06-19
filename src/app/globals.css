@@ -4712,6 +4712,119 @@ legend {
   justify-items: end;
 }
 
+.attendance-exception-page {
+  max-width: 1280px;
+}
+
+.attendance-exception-alerts {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.attendance-exception-focus-form,
+.attendance-exception-focus-form .button {
+  width: 100%;
+}
+
+.attendance-exception-command-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.attendance-exception-command-grid .settings-command-card {
+  min-height: 286px;
+}
+
+.attendance-exception-command-grid form {
+  width: 100%;
+}
+
+.attendance-exception-command-grid button {
+  width: 100%;
+}
+
+.attendance-exception-list {
+  gap: 12px;
+}
+
+.attendance-exception-task {
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.attendance-exception-task.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.attendance-exception-task.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.attendance-exception-task.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.attendance-exception-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.attendance-exception-copy strong {
+  color: var(--foreground);
+  font-size: 16px;
+  font-weight: 1000;
+  line-height: 1.25;
+}
+
+.attendance-exception-resolve-form {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.2fr) minmax(128px, 0.8fr) minmax(150px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: min(100%, 720px);
+}
+
+.attendance-exception-resolve-form input,
+.attendance-exception-resolve-form select {
+  min-width: 0;
+}
+
+.attendance-exception-guardrail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.attendance-exception-guardrail-grid article {
+  display: grid;
+  gap: 9px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.attendance-exception-guardrail-grid strong {
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.attendance-exception-guardrail-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+  line-height: 1.45;
+}
+
 .report-workspace-page {
   max-width: 1280px;
 }
@@ -5226,6 +5339,10 @@ legend {
   .payment-profile-command-grid,
   .payment-profile-task,
   .payment-profile-missing-task,
+  .attendance-exception-command-grid,
+  .attendance-exception-task,
+  .attendance-exception-resolve-form,
+  .attendance-exception-guardrail-grid,
   .report-command-grid,
   .report-lane-grid,
   .report-step,
@@ -5385,6 +5502,25 @@ legend {
 
   .report-workspace-page .section-heading .button {
     width: 100%;
+  }
+
+  .attendance-exception-page .section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .attendance-exception-page .section-heading .button,
+  .attendance-exception-resolve-form .button {
+    width: 100%;
+  }
+
+  .attendance-exception-task {
+    display: grid;
+    align-items: stretch;
+  }
+
+  .attendance-exception-resolve-form {
+    min-width: 0;
   }
 
   .employee-hero-actions {

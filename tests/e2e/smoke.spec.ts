@@ -554,6 +554,15 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   await expect(page.getByText("Day 7 月結預演")).toBeVisible();
   await expect(page.getByText("薪資資料不在摘要外洩")).toBeVisible();
 
+  await page.goto("/hr/attendance-exceptions");
+  await expect(page.getByRole("heading", { name: "出勤異常處理工作台" })).toBeVisible();
+  await expect(page.getByLabel("出勤異常處理工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("出勤異常訊號板").getByText("異常解決率")).toBeVisible();
+  await expect(page.getByLabel("出勤異常訊號板").getByText("高風險工時")).toBeVisible();
+  await expect(page.getByLabel("出勤異常作業卡").getByRole("heading", { name: "安全建議不自動套用" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "異常處理清單" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "處理原則" })).toBeVisible();
+
   await page.goto("/hr/kpis");
   await expect(page.getByRole("heading", { name: "HR One 贏面 KPI 指揮台" })).toBeVisible();
   await expect(page.getByLabel("HR One KPI 指揮台").getByText("今日先看")).toBeVisible();
