@@ -182,6 +182,17 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByRole("heading", { name: "來源更新精靈" })).toBeVisible();
   await expect(page.getByText("最低月薪")).toBeVisible();
 
+  await page.goto("/hr/shift-templates");
+  await expect(page.getByRole("heading", { name: "排班設定工作台" })).toBeVisible();
+  await expect(page.getByLabel("排班設定工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("排班設定訊號板").getByText("啟用班別", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("排班設定訊號板").getByText("跨日班", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("排班設定作業卡").getByRole("heading", { name: "班別管理" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "班別設定精靈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "產生日排班" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "班別清單" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "排班處理原則" })).toBeVisible();
+
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "後台設定中樞" })).toBeVisible();
   await expect(page.getByLabel("設定狀態訊號板").getByText("資安與權限")).toBeVisible();
