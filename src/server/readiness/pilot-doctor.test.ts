@@ -165,6 +165,47 @@ describe("pilot doctor", () => {
     );
   });
 
+  it("fails closed but still reports next actions when Vercel env inspection is unavailable", () => {
+    const report = buildPilotDoctorReport({
+      vercelEnvNames: [],
+      vercelEnvInspection: {
+        status: "failed",
+        detail: "403 Forbidden while reading env keys; DATABASE_URL=postgresql://hrone:secret@db.example.com/hrone?schema=hr_one",
+      },
+      productionGate: buildProductionPilotGateReport({
+        appUrl: "https://hr.suiyuecare.com",
+        expectedHost: "hr.suiyuecare.com",
+        healthReport: readyHealth,
+      }),
+      supabasePilot: {
+        status: "passed",
+        detail: "pilot seed verified",
+      },
+      localEnvDraft: {
+        status: "ready",
+        detail: "local draft ready",
+      },
+    });
+    const output = formatPilotDoctorReport(report);
+
+    expect(report.status).toBe("blocked");
+    expect(report.checks.find((check) => check.name === "Vercel production env")).toMatchObject({
+      passed: false,
+      detail: expect.stringContaining("unable to prove required Production env keys"),
+    });
+    expect(report.checks.find((check) => check.name === "local production env draft")).toMatchObject({
+      passed: true,
+    });
+    expect(report.nextActions).toEqual(
+      expect.arrayContaining([
+        "Restore Vercel Production env read access with an authenticated CLI token or matching team scope, then rerun pnpm pilot:doctor so the required env keys can be proven.",
+        "After Vercel env read access is restored, rerun pnpm pilot:doctor before inviting employees; a ready local draft is not enough proof that Production received the values.",
+      ]),
+    );
+    expect(output).not.toContain("postgresql://");
+    expect(output).not.toContain("secret@db.example.com");
+  });
+
   it("does not suggest known-env bootstrap after bootstrap keys are already present", () => {
     const missingAfterBootstrap = [
       "DATABASE_URL",
@@ -204,6 +245,30 @@ describe("pilot doctor", () => {
     );
     expect(report.nextActions).toContain(
       "Known Vercel bootstrap env values are already present; fill remaining operator-managed Production values: DATABASE_URL, HR_ONE_OBJECT_STORAGE_SECRET_REF, HR_ONE_RATE_LIMIT_SECRET_REF, HR_ONE_BACKUP_ENCRYPTION_KEY_REF, HR_ONE_BACKUP_RESTORE_TESTED_AT.",
+    );
+  });
+
+  it("adds a clear next action when Supabase CLI cannot reach the database network", () => {
+    const report = buildPilotDoctorReport({
+      vercelEnvNames: [...requiredProductionPilotEnvKeys],
+      productionGate: buildProductionPilotGateReport({
+        appUrl: "https://hr.suiyuecare.com",
+        expectedHost: "hr.suiyuecare.com",
+        healthReport: readyHealth,
+      }),
+      supabasePilot: {
+        status: "failed",
+        detail: "IPv6 is not supported on your current network: no route to host. Run supabase link --project-ref aruncclorusswpfnpgsn.",
+      },
+      localEnvDraft: {
+        status: "ready",
+        detail: "local draft ready",
+      },
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.nextActions).toContain(
+      "Fix Supabase CLI database reachability before relying on seed verification: run supabase link for the project or rerun verification from a network path that can reach the Supabase database host.",
     );
   });
 

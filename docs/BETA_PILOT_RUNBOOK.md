@@ -72,6 +72,7 @@ Goal: production data must survive deploys and must not fall back to in-memory d
    ```
 
    Owner/HR can also open `/settings/production-database` to see the same hard blocker in the management UI. The page and CLI explain whether the current root cause is a Supabase direct-host network path, pooler configuration, missing `DATABASE_URL`, production env posture, or an unreachable health endpoint. The CLI also inspects the local `.env.vercel.production` draft by default and reports only database shape, failed check names, and unresolved placeholder keys. Use `--skip-env-file` for a live-health-only report. They never display the actual database URL or secret values.
+   If `pilot:doctor` or `db:supabase:seed-pilot --verify-only` reports Supabase CLI IPv6/no-route reachability, run `supabase link --project-ref=<supabase-project-ref>` or rerun verification from a network path that can reach the Supabase database host. Treat that as a blocked verification, not as proof the seed is missing or unsafe.
 
 Expected evidence:
 

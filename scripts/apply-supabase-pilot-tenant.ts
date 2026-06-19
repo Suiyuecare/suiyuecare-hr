@@ -9,6 +9,7 @@ import {
   supabasePilotTenantVerificationPassed,
   type SupabasePilotTenantVerificationSnapshot,
 } from "../src/server/readiness/supabase-pilot-tenant";
+import { redactSensitiveDetail } from "../src/server/readiness/production-pilot-gate";
 
 type SupabaseCliQueryResult = {
   rows?: unknown[];
@@ -247,4 +248,21 @@ function readArg(args: string[], name: string) {
   return null;
 }
 
-main();
+try {
+  main();
+} catch (error) {
+  console.error(`Supabase pilot tenant seed failed: ${formatSupabasePilotError(errorMessage(error))}`);
+  process.exit(1);
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function formatSupabasePilotError(message: string) {
+  const redacted = redactSensitiveDetail(message);
+  if (/IPv6 is not supported|no[-\s]?route|Supabase CLI could not reach/i.test(redacted)) {
+    return "Supabase CLI could not reach the linked database from this network (IPv6/no route). Run supabase link --project-ref <project-ref> to set up the CLI connection, or rerun from a network path that can reach the Supabase database host.";
+  }
+  return redacted;
+}

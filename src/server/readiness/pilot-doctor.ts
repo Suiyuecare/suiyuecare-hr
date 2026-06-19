@@ -39,6 +39,7 @@ export type PilotDoctorOptions = {
   checkedAt?: Date;
   productionGate: ProductionPilotGateReport;
   vercelEnvNames: string[];
+  vercelEnvInspection?: PilotDoctorExternalCheck;
   supabasePilot: PilotDoctorExternalCheck;
   localEnvDraft?: PilotDoctorLocalEnvDraft;
 };
@@ -77,15 +78,21 @@ export const requiredProductionPilotEnvKeys = [
 
 export function buildPilotDoctorReport(options: PilotDoctorOptions): PilotDoctorReport {
   const checkedAt = options.checkedAt ?? new Date();
-  const missingEnvKeys = getMissingProductionPilotEnvKeys(options.vercelEnvNames);
+  const vercelEnvInspection = options.vercelEnvInspection ?? {
+    status: "passed" as const,
+    detail: "Vercel production env key list was read successfully.",
+  };
+  const vercelEnvReadable = vercelEnvInspection.status === "passed";
+  const missingEnvKeys = vercelEnvReadable ? getMissingProductionPilotEnvKeys(options.vercelEnvNames) : [];
   const checks = [
-    buildVercelEnvCheck(options.vercelEnvNames, missingEnvKeys),
-    buildLocalEnvDraftCheck(options.localEnvDraft, missingEnvKeys),
+    buildVercelEnvCheck(options.vercelEnvNames, missingEnvKeys, vercelEnvInspection),
+    buildLocalEnvDraftCheck(options.localEnvDraft, missingEnvKeys, vercelEnvInspection),
     buildProductionGateCheck(options.productionGate),
     buildSupabasePilotCheck(options.supabasePilot),
   ];
   const nextActions = buildNextActions({
     missingEnvKeys,
+    vercelEnvInspection,
     productionGate: options.productionGate,
     supabasePilot: options.supabasePilot,
     localEnvDraft: options.localEnvDraft,
@@ -128,7 +135,19 @@ export function formatPilotDoctorReport(report: PilotDoctorReport) {
   return lines.join("\n");
 }
 
-function buildVercelEnvCheck(envNames: string[], missingEnvKeys: readonly string[]): PilotDoctorCheck {
+function buildVercelEnvCheck(
+  envNames: string[],
+  missingEnvKeys: readonly string[],
+  inspection: PilotDoctorExternalCheck,
+): PilotDoctorCheck {
+  if (inspection.status !== "passed") {
+    return check(
+      "Vercel production env",
+      false,
+      `${inspection.detail}; unable to prove required Production env keys. ${envNames.length} key(s) available from partial inspection.`,
+    );
+  }
+
   const presentCount = requiredProductionPilotEnvKeys.length - missingEnvKeys.length;
   const missingDetail = missingEnvKeys.length > 0
     ? `missing ${missingEnvKeys.length} key(s): ${missingEnvKeys.join(", ")}`
@@ -143,8 +162,9 @@ function buildVercelEnvCheck(envNames: string[], missingEnvKeys: readonly string
 function buildLocalEnvDraftCheck(
   localEnvDraft: PilotDoctorLocalEnvDraft | undefined,
   missingEnvKeys: readonly string[],
+  vercelEnvInspection: PilotDoctorExternalCheck,
 ): PilotDoctorCheck {
-  const localDraftRequired = missingEnvKeys.length > 0;
+  const localDraftRequired = missingEnvKeys.length > 0 || vercelEnvInspection.status !== "passed";
   if (!localDraftRequired && (!localEnvDraft || localEnvDraft.status === "missing" || localEnvDraft.status === "skipped")) {
     return check(
       "local production env draft",
@@ -183,15 +203,23 @@ function buildSupabasePilotCheck(supabasePilot: PilotDoctorExternalCheck): Pilot
 
 function buildNextActions(options: {
   missingEnvKeys: readonly string[];
+  vercelEnvInspection: PilotDoctorExternalCheck;
   productionGate: ProductionPilotGateReport;
   supabasePilot: PilotDoctorExternalCheck;
   localEnvDraft?: PilotDoctorLocalEnvDraft;
 }) {
   const actions: string[] = [];
-  const missingBootstrapKeys = getMissingBootstrapEnvKeys(options.missingEnvKeys);
-  const missingOperatorManagedKeys = getMissingOperatorManagedEnvKeys(options.missingEnvKeys);
+  const vercelEnvReadable = options.vercelEnvInspection.status === "passed";
+  const missingBootstrapKeys = vercelEnvReadable ? getMissingBootstrapEnvKeys(options.missingEnvKeys) : [];
+  const missingOperatorManagedKeys = vercelEnvReadable ? getMissingOperatorManagedEnvKeys(options.missingEnvKeys) : [];
 
-  if (options.missingEnvKeys.length > 0 && (!options.localEnvDraft || options.localEnvDraft.status === "missing")) {
+  if (options.vercelEnvInspection.status !== "passed") {
+    actions.push("Restore Vercel Production env read access with an authenticated CLI token or matching team scope, then rerun pnpm pilot:doctor so the required env keys can be proven.");
+  }
+  if (
+    (options.missingEnvKeys.length > 0 || options.vercelEnvInspection.status !== "passed") &&
+    (!options.localEnvDraft || options.localEnvDraft.status === "missing")
+  ) {
     actions.push("Run pnpm vercel:create-production-env-draft to create a gitignored .env.vercel.production draft with generated local secrets.");
   }
   if (options.localEnvDraft?.unresolvedPlaceholderKeys?.length) {
@@ -214,6 +242,9 @@ function buildNextActions(options: {
   if (options.localEnvDraft?.status === "ready" && !productionPilotGatePassed(options.productionGate)) {
     actions.push("Apply the verified production env draft with pnpm vercel:apply-production-env -- --env-file=.env.vercel.production, then trigger a new Vercel production deployment.");
   }
+  if (options.localEnvDraft?.status === "ready" && options.vercelEnvInspection.status !== "passed") {
+    actions.push("After Vercel env read access is restored, rerun pnpm pilot:doctor before inviting employees; a ready local draft is not enough proof that Production received the values.");
+  }
   if (
     options.missingEnvKeys.includes("DATABASE_URL") ||
     options.localEnvDraft?.failedCheckNames?.some((name) =>
@@ -227,6 +258,9 @@ function buildNextActions(options: {
   }
   if (options.supabasePilot.status !== "passed") {
     actions.push("Run pnpm db:supabase:seed-pilot -- --project-ref=<supabase-project-ref> --schema=hr_one --verify-only and fix any failed pilot data checks.");
+    if (isSupabaseCliNetworkFailure(options.supabasePilot.detail)) {
+      actions.push("Fix Supabase CLI database reachability before relying on seed verification: run supabase link for the project or rerun verification from a network path that can reach the Supabase database host.");
+    }
   }
   if (actions.length > 0) {
     actions.push("Only start the 20-50 person two-week pilot after pnpm pilot:doctor returns ready.");
@@ -261,4 +295,8 @@ function check(name: string, passed: boolean, detail: string): PilotDoctorCheck 
 
 function dedupe(items: string[]) {
   return Array.from(new Set(items));
+}
+
+function isSupabaseCliNetworkFailure(detail: string) {
+  return /IPv6 is not supported|no[-\s]?route|Supabase CLI could not reach|supabase link --project-ref/i.test(detail);
 }

@@ -7,6 +7,7 @@ import {
   buildPilotDoctorReport,
   formatPilotDoctorReport,
   pilotDoctorPassed,
+  type PilotDoctorExternalCheck,
   type PilotDoctorLocalEnvDraft,
 } from "../src/server/readiness/pilot-doctor";
 import {
@@ -37,9 +38,9 @@ async function main() {
   const envFile = resolve(readArg(args, "--env-file") ?? ".env.vercel.production");
   const json = args.includes("--json");
 
-  const [healthReport, vercelEnvNames, supabasePilot, localEnvDraft] = await Promise.all([
+  const [healthReport, vercelEnvInspection, supabasePilot, localEnvDraft] = await Promise.all([
     fetchHealthReport(buildReadinessUrl(appUrl), timeoutMs),
-    Promise.resolve(readVercelProductionEnvNames()),
+    Promise.resolve(readVercelProductionEnvInspection()),
     Promise.resolve(skipSupabase ? {
       status: "skipped" as const,
       detail: "Supabase pilot verification skipped by --skip-supabase.",
@@ -58,7 +59,8 @@ async function main() {
   });
   const report = buildPilotDoctorReport({
     productionGate,
-    vercelEnvNames,
+    vercelEnvNames: vercelEnvInspection.names,
+    vercelEnvInspection: vercelEnvInspection.check,
     supabasePilot,
     localEnvDraft,
   });
@@ -90,6 +92,30 @@ async function fetchHealthReport(readinessUrl: string, timeoutMs: number): Promi
     return null;
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+function readVercelProductionEnvInspection(): {
+  names: string[];
+  check: PilotDoctorExternalCheck;
+} {
+  try {
+    const names = readVercelProductionEnvNames();
+    return {
+      names,
+      check: {
+        status: "passed",
+        detail: `${names.length} Vercel production env key(s) are readable.`,
+      },
+    };
+  } catch (error) {
+    return {
+      names: [],
+      check: {
+        status: "failed",
+        detail: `Unable to read Vercel production env keys: ${redactSensitiveDetail(errorMessage(error))}`,
+      },
+    };
   }
 }
 
@@ -135,12 +161,24 @@ function verifySupabasePilot(projectRef: string, schemaName: string) {
 
   return {
     status: "failed" as const,
-    detail: redactSensitiveDetail([
+    detail: summarizeSupabasePilotFailure(projectRef, schemaName, [
       `pilot seed verification failed for Supabase project ${projectRef}, schema ${schemaName}`,
       result.stdout.trim(),
       result.stderr.trim(),
     ].filter(Boolean).join("\n")),
   };
+}
+
+function summarizeSupabasePilotFailure(projectRef: string, schemaName: string, detail: string) {
+  const redacted = redactSensitiveDetail(detail);
+  if (/IPv6 is not supported|no[-\s]?route|Supabase CLI could not reach/i.test(redacted)) {
+    return [
+      `pilot seed verification could not reach Supabase project ${projectRef}, schema ${schemaName}.`,
+      "Supabase CLI reported an IPv6/no-route database network failure.",
+      `Run supabase link --project-ref ${projectRef} to set up the CLI connection, or rerun verification from a network path that can reach the Supabase database host.`,
+    ].join(" ");
+  }
+  return redacted;
 }
 
 function inspectLocalEnvDraft(envFile: string): PilotDoctorLocalEnvDraft {
