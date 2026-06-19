@@ -21,6 +21,7 @@ describe("console modules", () => {
 
     expect(companyModule?.sections.flatMap((section) => section.links)).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({ label: "組織圖", href: "/settings/organization" }),
         expect.objectContaining({ label: "公司導入精靈", href: "/settings/company-setup" }),
         expect.objectContaining({ label: "正式環境資料庫 Gate", href: "/settings/production-database" }),
         expect.objectContaining({ label: "試用批次控制台", href: "/settings/pilot-trial-run" }),

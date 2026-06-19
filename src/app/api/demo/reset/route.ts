@@ -24,6 +24,7 @@ import { resetAnnualLeaveSettlementDemoState } from "@/server/leave/annual-leave
 import { resetAnnualLeaveGrantDemoState } from "@/server/leave/annual-leave-grants";
 import { resetLeavePolicyDemoState } from "@/server/leave/policies";
 import { resetNotificationDemoState } from "@/server/notifications/service";
+import { resetOrganizationSettingsDemoState } from "@/server/organization/settings";
 import {
   demoCookieOptions,
   defaultDemoAuthClaimsForRole,
@@ -103,6 +104,7 @@ export async function POST() {
     resetAnnualLeaveSettlementDemoState();
     resetLeavePolicyDemoState();
     resetNotificationDemoState();
+    resetOrganizationSettingsDemoState();
     resetAnnouncementDemoState();
     resetRuleSettingsDemoState();
     resetSecuritySettingsDemoState();

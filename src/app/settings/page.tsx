@@ -75,7 +75,9 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
           <ul className="task-list">
             <li className="task">
               <span>公司資料</span>
-              <span className="badge">已設定</span>
+              <a className="button" href="/settings/organization">
+                管理
+              </a>
             </li>
             <li className="task">
               <span>部門與主管</span>

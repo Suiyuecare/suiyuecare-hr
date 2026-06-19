@@ -116,6 +116,21 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByLabel("兩週試用 Gate").getByText("今日先處理")).toBeVisible();
   await expect(page.getByLabel("Day 0 到 Day 14 檢查點")).toBeVisible();
 
+  await page.locator('article#company a[href="/console/modules/company"]').click();
+  await expect(page).toHaveURL(/\/console\/modules\/company$/);
+  await page.getByRole("link", { name: "開啟組織設定" }).click();
+  await expect(page).toHaveURL(/\/settings\/organization$/);
+  await expect(page.getByRole("heading", { name: "公司組織設定" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "部門管理" })).toBeVisible();
+  const newDepartment = page.locator(".organization-new-department");
+  await newDepartment.getByLabel("代碼").fill("ADM");
+  await newDepartment.getByLabel("名稱").fill("行政管理部");
+  await newDepartment.getByRole("button", { name: "新增" }).click();
+  await expect(page).toHaveURL(/\/settings\/organization\?success=department#departments$/);
+  await expect(page.getByText("部門設定已保存")).toBeVisible();
+  await expect(page.locator(".department-stats").filter({ hasText: "ADM" })).toBeVisible();
+
+  await page.goto("/console");
   await page.locator("#payroll").getByRole("link", { name: "模組總覽" }).click();
   await expect(page).toHaveURL(/\/console\/modules\/payroll$/);
   await expect(page.getByRole("heading", { name: "薪資管理" })).toBeVisible();

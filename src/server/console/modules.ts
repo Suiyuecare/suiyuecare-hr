@@ -110,6 +110,7 @@ const moduleProfiles: Record<string, ConsoleModuleProfile> = {
       },
     ],
     setupLinks: [
+      { label: "組織設定", href: "/settings/organization", permission: "settings:read" },
       { label: "公司導入精靈", href: "/settings/company-setup", permission: "settings:read" },
       { label: "權限管理", href: "/settings/access", permission: "settings:write" },
       { label: "上線準備度", href: "/settings/readiness", permission: "settings:read" },
@@ -497,13 +498,13 @@ const modules: ConsoleModule[] = [
     id: "company",
     title: "公司管理",
     summary: "維護公司組織、規章、權限與基本資料。",
-    primary: { label: "開啟公司設定", href: "/settings", permission: "settings:read" },
+    primary: { label: "開啟組織設定", href: "/settings/organization", permission: "settings:read" },
     statusLabel: "基礎設定",
     sections: [
       {
         title: "公司管理",
         links: [
-          { label: "組織圖", href: "/hr/onboarding-readiness", permission: "employee:read" },
+          { label: "組織圖", href: "/settings/organization", permission: "settings:read" },
           { label: "公司規章管理", href: "/hr/work-rules", permission: "work_rule:manage" },
         ],
       },
@@ -524,8 +525,8 @@ const modules: ConsoleModule[] = [
       },
     ],
     pinned: [
-      { label: "公司資料", href: "/settings", permission: "settings:read" },
-      { label: "職務管理", href: "/hr/employee-lifecycle", permission: "employee:write" },
+      { label: "公司資料", href: "/settings/organization", permission: "settings:read" },
+      { label: "職務管理", href: "/settings/organization", permission: "settings:read" },
       { label: "公司導入精靈", href: "/settings/company-setup", permission: "settings:read" },
       { label: "正式環境資料庫 Gate", href: "/settings/production-database", permission: "settings:read" },
       { label: "試用批次控制台", href: "/settings/pilot-trial-run", permission: "settings:read" },
