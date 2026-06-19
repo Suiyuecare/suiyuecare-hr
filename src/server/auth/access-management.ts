@@ -4,6 +4,7 @@ import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { stableHash } from "@/server/audit/redaction";
 import { getCompanySecuritySettingsForAuth } from "@/server/settings/security";
 import { getDb } from "@/server/db/client";
+import { getFallbackCompanyOverview } from "@/server/demo/fallback";
 import { assertPermission, roleKeys, type RoleKey } from "./rbac";
 
 type SessionLike = {
@@ -23,6 +24,7 @@ export type UserAccessRow = {
   status: UserAccessStatus;
   roles: RoleKey[];
   externalIdentities: UserExternalIdentityRow[];
+  employee: UserAccessEmployeeLink | null;
   authRequirement: "sso" | "password_or_sso";
   createdAt: Date;
   updatedAt: Date;
@@ -32,15 +34,27 @@ export type UserExternalIdentityRow = {
   id: string;
   provider: string;
   issuer: string;
-  subject: string;
+  subjectHash: string;
   emailAtLink: string | null;
   lastSeenAt: Date | null;
 };
 
 export type UserAccessWorkspace = {
   users: UserAccessRow[];
+  employees: UserAccessEmployeeOption[];
   allowedEmailDomains: string[];
   ssoEnabled: boolean;
+};
+
+export type UserAccessEmployeeLink = {
+  id: string;
+  employeeNo: string;
+  displayName: string;
+  departmentName: string | null;
+};
+
+export type UserAccessEmployeeOption = UserAccessEmployeeLink & {
+  userId: string | null;
 };
 
 export type InviteUserInput = {
@@ -62,6 +76,11 @@ export type LinkUserExternalIdentityInput = {
   subject: string;
 };
 
+export type LinkUserEmployeeInput = {
+  userId: string;
+  employeeId?: string | null;
+};
+
 type AccessDemoState = {
   users: UserAccessRow[];
 };
@@ -75,9 +94,9 @@ const privilegedRoles = new Set<RoleKey>(["owner", "hr_admin", "manager"]);
 export async function getUserAccessWorkspace(session: SessionLike): Promise<UserAccessWorkspace> {
   assertPermission(session.role, "settings:read");
   const securitySettings = await getCompanySecuritySettingsForAuth(session);
-  const users = canUseDatabase(session)
-    ? await listDbUsers(session).catch(() => getDemoState().users)
-    : getDemoState().users;
+  const { users, employees } = canUseDatabase(session)
+    ? await readDbWorkspace(session)
+    : readDemoWorkspace();
 
   return {
     users: users.map((user) => ({
@@ -85,6 +104,7 @@ export async function getUserAccessWorkspace(session: SessionLike): Promise<User
       roles: normalizeRoles(user.roles),
       authRequirement: requiresSso(user.roles, securitySettings.ssoEnabled) ? "sso" : "password_or_sso",
     })),
+    employees,
     allowedEmailDomains: securitySettings.allowedEmailDomains,
     ssoEnabled: securitySettings.ssoEnabled,
   };
@@ -103,11 +123,7 @@ export async function inviteUser(session: SessionLike, input: InviteUserInput) {
   assertAllowedEmailDomain(normalized.email, securitySettings.allowedEmailDomains);
 
   if (canUseDatabase(session)) {
-    try {
-      return inviteDbUser(session, normalized);
-    } catch {
-      return inviteDemoUser(session, normalized);
-    }
+    return inviteDbUser(session, normalized);
   }
   return inviteDemoUser(session, normalized);
 }
@@ -122,11 +138,7 @@ export async function updateUserAccess(session: SessionLike, input: UpdateUserAc
   if (!normalized.userId) throw new Error("User is required.");
 
   if (canUseDatabase(session)) {
-    try {
-      return updateDbUserAccess(session, normalized);
-    } catch {
-      return updateDemoUserAccess(session, normalized);
-    }
+    return updateDbUserAccess(session, normalized);
   }
   return updateDemoUserAccess(session, normalized);
 }
@@ -150,15 +162,41 @@ export async function linkUserExternalIdentity(session: SessionLike, input: Link
   return linkDemoUserExternalIdentity(session, normalized);
 }
 
+export async function linkUserEmployee(session: SessionLike, input: LinkUserEmployeeInput) {
+  assertPermission(session.role, "settings:write");
+  const normalized = {
+    userId: input.userId.trim(),
+    employeeId: input.employeeId?.trim() || null,
+  };
+  if (!normalized.userId) throw new Error("User is required.");
+
+  if (canUseDatabase(session)) {
+    return linkDbUserEmployee(session, normalized);
+  }
+  return linkDemoUserEmployee(session, normalized);
+}
+
 export function resetAccessDemoState() {
   const now = new Date();
   globalForAccess.hrOneAccessDemoState = {
     users: [
       row("demo-user-owner", "owner@hrone.test", "王執行長", "active", ["owner"], now),
-      row("demo-user-hr_admin", "hr_admin@hrone.test", "林人資", "active", ["hr_admin"], now),
-      row("demo-user-manager", "manager@hrone.test", "陳主管", "active", ["manager"], now),
-      row("demo-user-employee", "employee@hrone.test", "張小安", "active", ["employee"], now),
+      row("demo-user-hr_admin", "hr_admin@hrone.test", "林人資", "active", ["hr_admin"], now, demoEmployeeLink("demo-hr-employee")),
+      row("demo-user-manager", "manager@hrone.test", "陳主管", "active", ["manager"], now, demoEmployeeLink("demo-manager-employee")),
+      row("demo-user-employee", "employee@hrone.test", "張小安", "active", ["employee"], now, demoEmployeeLink("demo-employee-1")),
     ],
+  };
+}
+
+async function readDbWorkspace(session: SessionLike & { tenantId: string; companyId: string }) {
+  const [users, employees] = await Promise.all([listDbUsers(session), listDbEmployees(session)]);
+  return { users, employees };
+}
+
+function readDemoWorkspace() {
+  return {
+    users: getDemoState().users,
+    employees: demoEmployeeOptions(),
   };
 }
 
@@ -166,6 +204,9 @@ async function listDbUsers(session: SessionLike & { tenantId: string; companyId:
   const users = await getDb().user.findMany({
     where: { tenantId: session.tenantId },
     include: {
+      employee: {
+        include: { department: true },
+      },
       userRoles: {
         where: { companyId: session.companyId },
         include: { role: true },
@@ -178,12 +219,32 @@ async function listDbUsers(session: SessionLike & { tenantId: string; companyId:
     id: user.id,
     email: user.email,
     displayName: user.displayName,
-  status: normalizeStatus(user.status) ?? "active",
+    status: normalizeStatus(user.status) ?? "active",
     roles: normalizeRoles(user.userRoles.map((item) => item.role.key)),
     externalIdentities: mapExternalIdentities(user.externalIdentities),
+    employee: mapEmployeeLink(user.employee),
     authRequirement: "password_or_sso" as const,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
+  }));
+}
+
+async function listDbEmployees(session: SessionLike & { tenantId: string; companyId: string }): Promise<UserAccessEmployeeOption[]> {
+  const employees = await getDb().employee.findMany({
+    where: {
+      tenantId: session.tenantId,
+      companyId: session.companyId,
+      employmentStatus: "active",
+    },
+    include: { department: true },
+    orderBy: [{ employeeNo: "asc" }],
+  });
+  return employees.map((employee) => ({
+    id: employee.id,
+    employeeNo: employee.employeeNo,
+    displayName: employee.displayName,
+    departmentName: employee.department?.name ?? null,
+    userId: employee.userId,
   }));
 }
 
@@ -331,6 +392,78 @@ async function linkDbUserExternalIdentity(
   });
 }
 
+async function linkDbUserEmployee(
+  session: SessionLike & { tenantId: string; companyId: string },
+  input: { userId: string; employeeId: string | null },
+) {
+  const db = getDb();
+  return db.$transaction(async (tx) => {
+    const before = await readDbUser(tx, session, input.userId);
+    if (!before) throw new Error("User not found.");
+
+    let operation: "link_employee" | "unlink_employee" = "unlink_employee";
+    if (input.employeeId) {
+      const employee = await tx.employee.findFirst({
+        where: {
+          id: input.employeeId,
+          tenantId: session.tenantId,
+          companyId: session.companyId,
+        },
+        select: {
+          id: true,
+          userId: true,
+        },
+      });
+      if (!employee) throw new Error("Employee not found.");
+      if (employee.userId && employee.userId !== input.userId) {
+        throw new Error("Employee is already linked to another user.");
+      }
+      await tx.employee.updateMany({
+        where: {
+          tenantId: session.tenantId,
+          companyId: session.companyId,
+          userId: input.userId,
+        },
+        data: { userId: null },
+      });
+      await tx.employee.update({
+        where: { id: employee.id },
+        data: { userId: input.userId },
+      });
+      operation = "link_employee";
+    } else {
+      await tx.employee.updateMany({
+        where: {
+          tenantId: session.tenantId,
+          companyId: session.companyId,
+          userId: input.userId,
+        },
+        data: { userId: null },
+      });
+    }
+
+    const after = await readDbUser(tx, session, input.userId);
+    await writeAuditLog(tx, {
+      tenantId: session.tenantId,
+      companyId: session.companyId,
+      actorUserId: session.user?.id,
+      actorEmployeeId: session.employee?.id,
+      action: "update",
+      entityType: "user_employee_link",
+      entityId: input.userId,
+      before,
+      after,
+      metadata: {
+        operation,
+        employeeRefHash: input.employeeId ? stableHash({ employeeId: input.employeeId }) : null,
+        rawEmployeePersonalDataStored: false,
+      },
+    });
+
+    return after;
+  });
+}
+
 function inviteDemoUser(session: SessionLike, input: Required<InviteUserInput>) {
   const state = getDemoState();
   const before = state.users.find((user) => user.email === input.email);
@@ -396,8 +529,9 @@ function linkDemoUserExternalIdentity(session: SessionLike, input: LinkUserExter
   const user = state.users.find((item) => item.id === input.userId);
   if (!user) throw new Error("User not found.");
   const before = { ...user, roles: [...user.roles], externalIdentities: [...user.externalIdentities] };
+  const subjectHash = stableIdentitySubject(input.subject);
   const existing = user.externalIdentities.find(
-    (identity) => identity.issuer === input.issuer && identity.subject === input.subject,
+    (identity) => identity.issuer === input.issuer && identity.subjectHash === subjectHash,
   );
   if (existing) {
     existing.provider = input.provider;
@@ -407,7 +541,7 @@ function linkDemoUserExternalIdentity(session: SessionLike, input: LinkUserExter
       id: crypto.randomUUID(),
       provider: input.provider,
       issuer: input.issuer,
-      subject: input.subject,
+      subjectHash,
       emailAtLink: user.email,
       lastSeenAt: null,
     });
@@ -430,6 +564,50 @@ function linkDemoUserExternalIdentity(session: SessionLike, input: LinkUserExter
       issuer: input.issuer,
       subjectHash: stableIdentitySubject(input.subject),
       rawTokenStored: false,
+    },
+  });
+  return user;
+}
+
+function linkDemoUserEmployee(session: SessionLike, input: { userId: string; employeeId: string | null }) {
+  const state = getDemoState();
+  const user = state.users.find((item) => item.id === input.userId);
+  if (!user) throw new Error("User not found.");
+  const before = userAccessAuditSnapshot(user);
+
+  if (input.employeeId) {
+    const employee = demoEmployeeOptions().find((item) => item.id === input.employeeId);
+    if (!employee) throw new Error("Employee not found.");
+    const linkedByAnotherUser = state.users.find(
+      (item) => item.id !== user.id && item.employee?.id === employee.id,
+    );
+    if (linkedByAnotherUser) throw new Error("Employee is already linked to another user.");
+    user.employee = {
+      id: employee.id,
+      employeeNo: employee.employeeNo,
+      displayName: employee.displayName,
+      departmentName: employee.departmentName,
+    };
+  } else {
+    user.employee = null;
+  }
+
+  user.updatedAt = new Date();
+  writeDemoAuditLog({
+    tenantId: session.tenantId ?? "demo-tenant",
+    companyId: session.companyId ?? "demo-company",
+    actorUserId: session.user?.id,
+    actorEmployeeId: session.employee?.id,
+    actorName: session.user?.displayName ?? session.employee?.displayName,
+    action: "update",
+    entityType: "user_employee_link",
+    entityId: user.id,
+    before,
+    after: userAccessAuditSnapshot(user),
+    metadata: {
+      operation: input.employeeId ? "link_employee" : "unlink_employee",
+      employeeRefHash: input.employeeId ? stableHash({ employeeId: input.employeeId }) : null,
+      rawEmployeePersonalDataStored: false,
     },
   });
   return user;
@@ -467,7 +645,10 @@ async function readDbUser(
   const user = await tx.user.findFirst({
     where: { id: userId, tenantId: session.tenantId },
     include: {
-    userRoles: {
+      employee: {
+        include: { department: true },
+      },
+      userRoles: {
         where: { companyId: session.companyId },
         include: { role: true },
       },
@@ -491,6 +672,12 @@ function mapDbUser(user: {
     emailAtLink: string | null;
     lastSeenAt: Date | null;
   }>;
+  employee?: {
+    id: string;
+    employeeNo: string;
+    displayName: string;
+    department?: { name: string } | null;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }): UserAccessRow {
@@ -501,6 +688,7 @@ function mapDbUser(user: {
     status: normalizeStatus(user.status) ?? "active",
     roles: normalizeRoles(user.userRoles.map((item) => item.role.key)),
     externalIdentities: mapExternalIdentities(user.externalIdentities ?? []),
+    employee: mapEmployeeLink(user.employee),
     authRequirement: "password_or_sso",
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
@@ -521,6 +709,7 @@ function row(
   status: UserAccessStatus,
   roles: RoleKey[],
   date: Date,
+  employee: UserAccessEmployeeLink | null = null,
 ): UserAccessRow {
   return {
     id,
@@ -529,6 +718,7 @@ function row(
     status,
     roles,
     externalIdentities: [],
+    employee,
     authRequirement: "password_or_sso",
     createdAt: date,
     updatedAt: date,
@@ -575,10 +765,63 @@ function mapExternalIdentities(identities: Array<{
     id: identity.id,
     provider: identity.provider,
     issuer: identity.issuer,
-    subject: identity.subject,
+    subjectHash: stableIdentitySubject(identity.subject),
     emailAtLink: identity.emailAtLink,
     lastSeenAt: identity.lastSeenAt,
   }));
+}
+
+function mapEmployeeLink(employee: {
+  id: string;
+  employeeNo: string;
+  displayName: string;
+  department?: { name: string } | null;
+} | null | undefined): UserAccessEmployeeLink | null {
+  if (!employee) return null;
+  return {
+    id: employee.id,
+    employeeNo: employee.employeeNo,
+    displayName: employee.displayName,
+    departmentName: employee.department?.name ?? null,
+  };
+}
+
+function demoEmployeeLink(employeeId: string): UserAccessEmployeeLink | null {
+  const employee = getFallbackCompanyOverview().company.employees.find((item) => item.id === employeeId);
+  return employee
+    ? {
+        id: employee.id,
+        employeeNo: employee.employeeNo,
+        displayName: employee.displayName,
+        departmentName: employee.department?.name ?? null,
+      }
+    : null;
+}
+
+function demoEmployeeOptions(): UserAccessEmployeeOption[] {
+  const linkedUserIdByEmployeeId = new Map(
+    getDemoState().users.flatMap((user) => user.employee ? [[user.employee.id, user.id] as const] : []),
+  );
+  return getFallbackCompanyOverview().company.employees.map((employee) => ({
+    id: employee.id,
+    employeeNo: employee.employeeNo,
+    displayName: employee.displayName,
+    departmentName: employee.department?.name ?? null,
+    userId: linkedUserIdByEmployeeId.get(employee.id) ?? null,
+  }));
+}
+
+function userAccessAuditSnapshot(user: UserAccessRow | null) {
+  if (!user) return null;
+  return {
+    id: user.id,
+    emailHash: stableHash({ email: user.email.toLowerCase() }),
+    displayNameHash: stableHash({ displayName: user.displayName }),
+    status: user.status,
+    roles: user.roles,
+    employeeIdHash: user.employee ? stableHash({ employeeId: user.employee.id }) : null,
+    externalIdentityCount: user.externalIdentities.length,
+  };
 }
 
 function stableIdentitySubject(subject: string) {

@@ -323,6 +323,47 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByText("Audit evidence package 已產生")).toBeVisible();
 });
 
+test("Owner 可以用中文權限中樞邀請帳號並綁定員工", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "owner");
+  await page.goto("/settings/access");
+
+  await expect(page.getByRole("heading", { name: "權限與登入中樞" })).toBeVisible();
+  await expect(page.getByLabel("權限狀態訊號板").getByText("員工登入綁定")).toBeVisible();
+  await expect(page.getByLabel("權限作業區").getByRole("heading", { name: "邀請帳號" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "新增使用者" })).toBeVisible();
+
+  const inviteForm = page.getByRole("form", { name: "新增使用者" });
+  await inviteForm.getByLabel("公司 Email").fill("ops.lead@hrone.test");
+  await inviteForm.getByLabel("顯示名稱").fill("營運主管");
+  await inviteForm.locator('input[name="roles"][value="manager"]').check();
+  await inviteForm.getByRole("button", { name: "建立邀請" }).click();
+  await expect(page).toHaveURL(/\/settings\/access\?success=invite#access-invite/);
+  await expect(page.getByText("使用者邀請已建立")).toBeVisible();
+
+  let userCard = page.locator(".access-user-card", { hasText: "營運主管" });
+  await expect(userCard).toBeVisible();
+  await userCard.getByLabel("員工主檔").selectOption("demo-employee-2");
+  await userCard.getByRole("button", { name: "儲存員工綁定" }).click();
+  await expect(page).toHaveURL(/\/settings\/access\?success=employee#access-employee/);
+  await expect(page.getByText("帳號與員工主檔綁定已更新")).toBeVisible();
+
+  userCard = page.locator(".access-user-card", { hasText: "營運主管" });
+  await expect(userCard).toContainText("E004 · 李小真");
+  await userCard.locator("summary", { hasText: "SSO 身分" }).click();
+  await userCard.getByLabel("SSO 提供者").fill("Entra ID");
+  await userCard.getByLabel("Issuer URL").fill("https://login.example.com/customer/v2.0");
+  await userCard.getByLabel("Immutable subject").fill("subject-secret-e2e");
+  await userCard.getByRole("button", { name: "儲存 SSO 綁定" }).click();
+  await expect(page).toHaveURL(/\/settings\/access\?success=identity#access-identity/);
+  await expect(page.getByText("SSO 身分已綁定")).toBeVisible();
+  await expect(page.locator("body")).toContainText("subject hash");
+  await expect(page.locator("body")).not.toContainText("subject-secret-e2e");
+  await expect(page.locator("body")).not.toContainText("baseSalary");
+  await expect(page.locator("body")).not.toContainText("accountNumber");
+  await expect(page.locator("body")).not.toContainText("nationalId");
+});
+
 test("HR 人事主檔工作台提供中文 Finance 風格總覽且主管只看團隊", async ({ page }) => {
   await page.goto("/app");
   await switchDemoRole(page, "hr_admin");

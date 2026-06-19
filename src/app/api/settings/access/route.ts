@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireTenantSession } from "@/server/auth/guards";
 import {
   inviteUser,
+  linkUserEmployee,
   linkUserExternalIdentity,
   updateUserAccess,
   type UserAccessStatus,
@@ -21,7 +22,12 @@ export async function POST(request: Request) {
         roles: readRoles(formData),
       });
     } else {
-      if (action === "identity") {
+      if (action === "employee") {
+        await linkUserEmployee(session, {
+          userId: readString(formData.get("userId")),
+          employeeId: readString(formData.get("employeeId")) || null,
+        });
+      } else if (action === "identity") {
         await linkUserExternalIdentity(session, {
           userId: readString(formData.get("userId")),
           provider: readString(formData.get("provider")),
@@ -36,7 +42,7 @@ export async function POST(request: Request) {
         });
       }
     }
-    return NextResponse.redirect(new URL("/settings/access", request.url), 303);
+    return NextResponse.redirect(new URL(`/settings/access?success=${encodeURIComponent(action || "update")}#access-${action || "update"}`, request.url), 303);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to update user access.";
     return NextResponse.redirect(

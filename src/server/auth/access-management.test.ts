@@ -3,6 +3,7 @@ import { getAuditDemoState, resetAuditDemoState } from "@/server/audit/demo-stor
 import {
   getUserAccessWorkspace,
   inviteUser,
+  linkUserEmployee,
   linkUserExternalIdentity,
   resetAccessDemoState,
   updateUserAccess,
@@ -108,9 +109,9 @@ describe("access management", () => {
     expect(user?.externalIdentities[0]).toMatchObject({
       provider: "Entra ID",
       issuer: "https://login.example.com/customer/v2.0",
-      subject: "00000000-0000-0000-0000-000000000001",
       emailAtLink: "sso.user@hrone.test",
     });
+    expect(user?.externalIdentities[0]?.subjectHash).toMatch(/[a-f0-9]{16}/);
     expect(getAuditDemoState().logs[0]).toMatchObject({
       action: "update",
       entityType: "user_external_identity",
@@ -121,6 +122,56 @@ describe("access management", () => {
       },
     });
     expect(JSON.stringify(getAuditDemoState().logs[0].metadataJson)).not.toContain("00000000-0000");
+  });
+
+  it("links users to employee master records with redacted audit evidence", async () => {
+    const invited = await inviteUser(ownerSession, {
+      email: "linked.employee@hrone.test",
+      displayName: "Linked Employee",
+      roles: ["employee"],
+    });
+    expect(invited).not.toBeNull();
+
+    await linkUserEmployee(ownerSession, {
+      userId: invited!.id,
+      employeeId: "demo-employee-2",
+    });
+
+    const workspace = await getUserAccessWorkspace(ownerSession);
+    const user = workspace.users.find((item) => item.id === invited!.id);
+    const linkedEmployee = workspace.employees.find((employee) => employee.id === "demo-employee-2");
+
+    expect(user?.employee).toMatchObject({
+      id: "demo-employee-2",
+      employeeNo: "E004",
+      displayName: "李小真",
+    });
+    expect(linkedEmployee?.userId).toBe(invited!.id);
+    expect(getAuditDemoState().logs[0]).toMatchObject({
+      action: "update",
+      entityType: "user_employee_link",
+      metadataJson: {
+        operation: "link_employee",
+        rawEmployeePersonalDataStored: false,
+      },
+    });
+    expect(JSON.stringify(getAuditDemoState().logs[0].metadataJson)).not.toContain("李小真");
+    expect(JSON.stringify(getAuditDemoState().logs[0].metadataJson)).not.toContain("E004");
+  });
+
+  it("prevents two users from sharing the same employee link", async () => {
+    const invited = await inviteUser(ownerSession, {
+      email: "duplicate.employee@hrone.test",
+      displayName: "Duplicate Employee",
+      roles: ["employee"],
+    });
+
+    await expect(
+      linkUserEmployee(ownerSession, {
+        userId: invited!.id,
+        employeeId: "demo-employee-1",
+      }),
+    ).rejects.toThrow(/already linked/);
   });
 
   it("validates external identity inputs", async () => {

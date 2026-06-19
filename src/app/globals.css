@@ -3648,6 +3648,258 @@ legend {
   color: var(--accent-strong);
 }
 
+.access-control-page {
+  max-width: 1280px;
+}
+
+.access-control-hero {
+  margin-bottom: 14px;
+}
+
+.access-result-banner {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: #f0fdf4;
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+}
+
+.access-result-banner strong {
+  color: #166534;
+  font-size: 16px;
+  font-weight: 1000;
+}
+
+.access-result-banner p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+  line-height: 1.5;
+}
+
+.access-command-grid .settings-command-card {
+  min-height: 276px;
+}
+
+.access-invite-panel {
+  scroll-margin-top: 24px;
+}
+
+.access-invite-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-color: var(--accent-mid);
+  background: var(--accent-soft);
+}
+
+.access-invite-form .form-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 188px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.access-invite-form legend {
+  padding: 0;
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 1000;
+}
+
+.role-pill-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.role-pill {
+  align-items: flex-start;
+  min-height: 74px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.role-pill span {
+  display: block;
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+.role-pill small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.access-user-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.access-user-card {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.access-user-card.invited {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.access-user-card.suspended {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.access-user-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.access-user-card-head h3 {
+  margin: 4px 0 0;
+  color: var(--foreground);
+  font-size: 22px;
+  font-weight: 1000;
+  line-height: 1.16;
+}
+
+.access-fact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.access-fact-grid div {
+  min-height: 76px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.76);
+  padding: 10px;
+}
+
+.access-fact-grid dt {
+  margin: 0 0 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.access-fact-grid dd {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 950;
+  line-height: 1.35;
+}
+
+.access-user-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.access-inline-form {
+  display: flex;
+}
+
+.access-inline-form .button,
+.access-edit-panel .button {
+  width: 100%;
+}
+
+.access-edit-panel {
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.access-edit-panel summary {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 1000;
+  list-style: none;
+}
+
+.access-edit-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.access-edit-panel summary::after {
+  color: var(--accent-strong);
+  content: "＋";
+  font-size: 18px;
+  font-weight: 1000;
+}
+
+.access-edit-panel[open] summary::after {
+  content: "－";
+}
+
+.access-edit-panel .mini-form {
+  border: 0;
+  border-top: 1px solid var(--panel-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.access-sso-list {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--panel-border);
+  padding: 12px 14px;
+}
+
+.access-sso-list p {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.access-sso-list strong {
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+.access-sso-list span,
+.access-sso-list small {
+  overflow-wrap: anywhere;
+}
+
 .company-setup-page {
   max-width: 1280px;
 }
@@ -7701,6 +7953,10 @@ legend {
   .settings-control-hero,
   .settings-signal-board,
   .settings-command-grid,
+  .access-invite-form,
+  .role-pill-grid,
+  .access-user-grid,
+  .access-fact-grid,
   .hr-kpi-owner-grid,
   .hr-kpi-list-item,
   .payroll-export-package-grid,
@@ -7803,6 +8059,26 @@ legend {
   .console-pinned ul,
   .quick-approval-row {
     grid-template-columns: 1fr;
+  }
+
+  .access-control-page .section-heading,
+  .access-user-card-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .access-invite-form .form-card,
+  .access-user-card,
+  .access-fact-grid div {
+    min-height: auto;
+  }
+
+  .access-inline-form {
+    display: grid;
+  }
+
+  .access-edit-panel summary {
+    min-height: 44px;
   }
 
   .employee-hero {
