@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetAuditDemoState } from "@/server/audit/demo-store";
 import { getAuditLogs } from "@/server/audit/queries";
 import {
   getActiveTaiwanLaborStandardsConfig,
+  getTaiwanLaborRuleCenter,
   resetRuleSettingsDemoState,
   updateTaiwanLaborStandardsConfig,
 } from "./settings";
@@ -25,8 +26,14 @@ const managerSession = {
 
 describe("rule settings", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-19T04:00:00.000Z"));
     resetRuleSettingsDemoState();
     resetAuditDemoState();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("allows owner to create a company-specific Taiwan labor standards version", async () => {
@@ -131,6 +138,46 @@ describe("rule settings", () => {
         }),
       }),
     ]);
+  });
+
+  it("summarizes rule center readiness and version history for HR operations", async () => {
+    const initial = await getTaiwanLaborRuleCenter(ownerSession);
+
+    expect(initial.readiness.status).toBe("ready");
+    expect(initial.versionHistory).toEqual([
+      expect.objectContaining({
+        version: expect.stringContaining("2026.01"),
+        status: "active",
+        validationPassed: true,
+      }),
+    ]);
+
+    await updateTaiwanLaborStandardsConfig(ownerSession, {
+      changeControl: {
+        reason: "HR imported draft labor rule settings for legal review",
+        sourceUrl: "https://laws.mol.gov.tw/",
+        reviewedBy: "Payroll owner",
+        reviewStatus: "pending_legal_review",
+        requiresPayrollRecalculation: true,
+      },
+      minimumHourlyWage: 206,
+    });
+
+    const draft = await getTaiwanLaborRuleCenter(ownerSession);
+
+    expect(draft.readiness.status).toBe("needs_review");
+    expect(draft.readiness.warnings).toEqual(expect.arrayContaining([
+      "目前版本尚待法務或人資負責人審核",
+      "薪資草稿需重新試算檢查",
+    ]));
+    expect(draft.versionHistory).toHaveLength(2);
+    expect(draft.versionHistory[0]).toMatchObject({
+      status: "active",
+      reviewStatus: "pending_legal_review",
+      requiresPayrollRecalculation: true,
+      validationPassed: true,
+    });
+    expect(draft.versionHistory[1].status).toBe("superseded");
   });
 
   it("versions statutory filing package mappings without code changes", async () => {

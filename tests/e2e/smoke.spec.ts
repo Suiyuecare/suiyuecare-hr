@@ -123,8 +123,13 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByRole("heading", { name: "薪資作業" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "公告中心" })).toHaveCount(0);
 
-  await page.getByRole("link", { name: "清除" }).click();
-  await expect(page).toHaveURL(/\/console$/);
+  await page.getByRole("link", { name: "薪資計算規則" }).click();
+  await expect(page).toHaveURL(/\/settings\/law-rules$/);
+  await expect(page.getByRole("heading", { name: "勞基法與薪資規則" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "來源更新精靈" })).toBeVisible();
+  await expect(page.getByText("最低月薪")).toBeVisible();
+
+  await page.goto("/console");
   await expect(page.getByRole("heading", { name: "公告中心" })).toBeVisible();
 
   await page.goto("/settings/company-setup");

@@ -45,7 +45,7 @@ describe("Taiwan labor rule validation", () => {
 
   it("tracks legal source freshness against the launch review window", () => {
     const fresh = evaluateLegalSourceFreshness(defaultTaiwanLaborStandardsConfig.sources, {
-      now: new Date("2026-06-13T00:00:00.000Z"),
+      now: new Date("2026-06-19T00:00:00.000Z"),
       maxAgeDays: 180,
     });
 

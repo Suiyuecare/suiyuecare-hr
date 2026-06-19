@@ -15,6 +15,7 @@ import {
 import {
   buildRuleVersionTestCases,
   evaluateLegalSourceFreshness,
+  readRuleValidationSummary,
   summarizeLegalSourceFreshness,
   validateTaiwanLaborStandardsRuleSet,
 } from "./validation";
@@ -23,6 +24,7 @@ const taiwanLaborSettingsRuleKey = "tw_labor_standards_settings";
 
 type RuleSettingsDemoState = {
   taiwanLaborStandards: TaiwanLaborStandardsConfig;
+  versionHistory: TaiwanLaborRuleVersionSummary[];
   auditCount: number;
 };
 
@@ -36,6 +38,36 @@ type SessionLike = {
   companyId: string | null;
   user?: { id: string; displayName: string } | null;
   employee?: { id: string; displayName: string } | null;
+};
+
+export type TaiwanLaborRuleVersionSummary = {
+  id: string;
+  version: string;
+  status: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  createdAt: string;
+  reviewStatus: RuleChangeControl["reviewStatus"];
+  reviewedBy: string | null;
+  requiresPayrollRecalculation: boolean;
+  sourceCount: number;
+  validationPassed: boolean | null;
+};
+
+export type TaiwanLaborRuleCenterReadiness = {
+  status: "ready" | "needs_review" | "blocked";
+  label: string;
+  blockers: string[];
+  warnings: string[];
+  nextActions: string[];
+};
+
+export type TaiwanLaborRuleCenter = {
+  config: TaiwanLaborStandardsConfig;
+  validation: ReturnType<typeof validateTaiwanLaborStandardsRuleSet>;
+  sourceFreshness: ReturnType<typeof evaluateLegalSourceFreshness>;
+  versionHistory: TaiwanLaborRuleVersionSummary[];
+  readiness: TaiwanLaborRuleCenterReadiness;
 };
 
 type TaiwanLaborSettingsInput = Partial<Pick<
@@ -67,6 +99,12 @@ export function getRuleSettingsDemoState() {
   if (!globalForRuleSettings.hrOneRuleSettingsDemoState) {
     globalForRuleSettings.hrOneRuleSettingsDemoState = {
       taiwanLaborStandards: structuredClone(defaultTaiwanLaborStandardsConfig),
+      versionHistory: [buildRuleVersionSummary("demo-baseline", defaultTaiwanLaborStandardsConfig, {
+        status: "active",
+        effectiveFrom: defaultTaiwanLaborStandardsConfig.effectiveFrom,
+        effectiveTo: null,
+        createdAt: defaultTaiwanLaborStandardsConfig.effectiveFrom,
+      })],
       auditCount: 0,
     };
   }
@@ -76,6 +114,12 @@ export function getRuleSettingsDemoState() {
 export function resetRuleSettingsDemoState() {
   globalForRuleSettings.hrOneRuleSettingsDemoState = {
     taiwanLaborStandards: structuredClone(defaultTaiwanLaborStandardsConfig),
+    versionHistory: [buildRuleVersionSummary("demo-baseline", defaultTaiwanLaborStandardsConfig, {
+      status: "active",
+      effectiveFrom: defaultTaiwanLaborStandardsConfig.effectiveFrom,
+      effectiveTo: null,
+      createdAt: defaultTaiwanLaborStandardsConfig.effectiveFrom,
+    })],
     auditCount: 0,
   };
 }
@@ -109,6 +153,23 @@ export async function getTaiwanLaborStandardsConfig(session?: SessionLike) {
   return getActiveTaiwanLaborStandardsConfig();
 }
 
+export async function getTaiwanLaborRuleCenter(session?: SessionLike): Promise<TaiwanLaborRuleCenter> {
+  const config = await getTaiwanLaborStandardsConfig(session);
+  const validation = validateTaiwanLaborStandardsRuleSet(config);
+  const sourceFreshness = evaluateLegalSourceFreshness(config.sources);
+  const versionHistory = session && canUseDatabase(session)
+    ? await getDbTaiwanLaborRuleVersionHistory(session)
+    : getRuleSettingsDemoState().versionHistory;
+
+  return {
+    config,
+    validation,
+    sourceFreshness,
+    versionHistory,
+    readiness: buildRuleCenterReadiness(config, validation, sourceFreshness, versionHistory),
+  };
+}
+
 export async function updateTaiwanLaborStandardsConfig(
   session: SessionLike,
   input: TaiwanLaborSettingsInput,
@@ -133,6 +194,19 @@ export async function updateTaiwanLaborStandardsConfig(
     ...after,
   };
   state.auditCount += 1;
+  state.versionHistory = [
+    buildRuleVersionSummary(`demo-company-${state.auditCount}`, state.taiwanLaborStandards, {
+      status: "active",
+      effectiveFrom: state.taiwanLaborStandards.effectiveFrom,
+      effectiveTo: null,
+      createdAt: new Date().toISOString(),
+    }),
+    ...state.versionHistory.map((version) => (
+      version.status === "active"
+        ? { ...version, status: "superseded", effectiveTo: new Date().toISOString() }
+        : version
+    )),
+  ].slice(0, 12);
   writeDemoAuditLog({
     tenantId: session.tenantId ?? "demo-tenant",
     companyId: session.companyId ?? "demo-company",
@@ -154,6 +228,92 @@ export async function updateTaiwanLaborStandardsConfig(
     },
   });
   return state.taiwanLaborStandards;
+}
+
+async function getDbTaiwanLaborRuleVersionHistory(session: SessionLike) {
+  try {
+    const versions = await getDb().ruleVersion.findMany({
+      where: {
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+        lawRule: {
+          ruleKey: taiwanLaborSettingsRuleKey,
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+    });
+    return versions.map((version) => {
+      const config = readTaiwanLaborConfig(version.definitionJson);
+      return buildRuleVersionSummary(version.id, config, {
+        status: version.status,
+        effectiveFrom: version.effectiveFrom.toISOString(),
+        effectiveTo: version.effectiveTo?.toISOString() ?? null,
+        createdAt: version.createdAt.toISOString(),
+        validationPassed: readRuleValidationSummary(version.definitionJson)?.passed ?? null,
+      });
+    });
+  } catch {
+    return getRuleSettingsDemoState().versionHistory;
+  }
+}
+
+function buildRuleVersionSummary(
+  id: string,
+  config: TaiwanLaborStandardsConfig,
+  options: {
+    status: string;
+    effectiveFrom: string;
+    effectiveTo: string | null;
+    createdAt: string;
+    validationPassed?: boolean | null;
+  },
+): TaiwanLaborRuleVersionSummary {
+  return {
+    id,
+    version: config.version,
+    status: options.status,
+    effectiveFrom: options.effectiveFrom,
+    effectiveTo: options.effectiveTo,
+    createdAt: options.createdAt,
+    reviewStatus: config.changeControl.reviewStatus,
+    reviewedBy: config.changeControl.reviewedBy,
+    requiresPayrollRecalculation: config.changeControl.requiresPayrollRecalculation,
+    sourceCount: config.sources.length,
+    validationPassed: options.validationPassed ?? validateTaiwanLaborStandardsRuleSet(config).passed,
+  };
+}
+
+function buildRuleCenterReadiness(
+  config: TaiwanLaborStandardsConfig,
+  validation: ReturnType<typeof validateTaiwanLaborStandardsRuleSet>,
+  sourceFreshness: ReturnType<typeof evaluateLegalSourceFreshness>,
+  versionHistory: TaiwanLaborRuleVersionSummary[],
+): TaiwanLaborRuleCenterReadiness {
+  const blockers = [
+    !validation.passed ? "法規規則測試案例未全部通過" : null,
+    versionHistory.length === 0 ? "缺少 rule_versions 版本紀錄" : null,
+  ].filter((item): item is string => Boolean(item));
+  const warnings = [
+    config.changeControl.reviewStatus !== "approved" ? "目前版本尚待法務或人資負責人審核" : null,
+    !sourceFreshness.passed ? "官方來源超過檢查期限或有日期格式問題" : null,
+    config.changeControl.requiresPayrollRecalculation ? "薪資草稿需重新試算檢查" : null,
+  ].filter((item): item is string => Boolean(item));
+  const status = blockers.length > 0 ? "blocked" : warnings.length > 0 ? "needs_review" : "ready";
+
+  return {
+    status,
+    label: status === "ready" ? "可用於薪資與假勤試算" : status === "blocked" ? "阻擋上線" : "需審核",
+    blockers,
+    warnings,
+    nextActions: [
+      !validation.passed ? "修正法規設定後重新儲存，直到所有測試案例通過。" : null,
+      !sourceFreshness.passed ? "更新官方來源檢查日與 URL，並由 HR/法務確認。" : null,
+      config.changeControl.reviewStatus !== "approved" ? "補上審核人並將狀態改為已核准。" : null,
+      config.changeControl.requiresPayrollRecalculation ? "重新試算尚未鎖定的薪資草稿。" : null,
+      versionHistory.length === 0 ? "建立第一筆 rule_versions 紀錄。" : null,
+    ].filter((item): item is string => Boolean(item)),
+  };
 }
 
 async function updateDbTaiwanLaborStandardsConfig(

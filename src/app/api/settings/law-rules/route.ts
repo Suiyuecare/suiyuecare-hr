@@ -4,6 +4,7 @@ import { updateTaiwanLaborStandardsConfig } from "@/server/rules/settings";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
+  const returnTo = normalizeLawRulesReturnTo(parseText(formData.get("returnTo")));
   try {
     await updateTaiwanLaborStandardsConfig(await requireTenantSession({ permission: "settings:write" }), {
       changeControl: {
@@ -91,13 +92,27 @@ export async function POST(request: Request) {
         statutoryFilingReports: parseStatutoryFilingReportsCsv(formData.get("statutoryFilingReportsCsv")),
       },
     });
-    return NextResponse.redirect(new URL("/settings", request.url), 303);
+    return NextResponse.redirect(new URL(returnTo, request.url), 303);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to update law rules.";
-    return NextResponse.redirect(
-      new URL(`/settings?error=${encodeURIComponent(message)}`, request.url),
-      303,
-    );
+    const url = new URL(returnTo, request.url);
+    url.searchParams.delete("success");
+    url.searchParams.set("error", message);
+    return NextResponse.redirect(url, 303);
+  }
+}
+
+function normalizeLawRulesReturnTo(value: string | undefined) {
+  const fallback = "/settings?success=law-rules#law-rules-setup";
+  if (!value) return fallback;
+  if (!value.startsWith("/") || value.startsWith("//")) return fallback;
+  try {
+    const url = new URL(value, "https://hr-one.local");
+    const allowed = new Set(["/settings", "/settings/law-rules"]);
+    if (!allowed.has(url.pathname)) return fallback;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return fallback;
   }
 }
 

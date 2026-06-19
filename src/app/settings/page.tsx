@@ -155,7 +155,9 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
             </li>
             <li className="task">
               <span>法規規則</span>
-              <span className="badge">{laborConfig.version}</span>
+              <a className="button" href="/settings/law-rules">
+                管理
+              </a>
             </li>
           </ul>
         </div>

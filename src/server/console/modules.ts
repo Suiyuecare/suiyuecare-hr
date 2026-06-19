@@ -191,7 +191,7 @@ const modules: ConsoleModule[] = [
     pinned: [
       { label: "保費明細", href: "/hr/insurance", permission: "payroll:manage" },
       { label: "保險證明", href: "/hr/documents", permission: "employee:read" },
-      { label: "薪資計算規則", href: "/settings#law-rules-setup", permission: "settings:read" },
+      { label: "薪資計算規則", href: "/settings/law-rules", permission: "settings:read" },
       { label: "保險規則", href: "/hr/insurance", permission: "payroll:manage" },
       { label: "所得稅規則", href: "/hr/payroll-compliance", permission: "payroll:manage" },
       { label: "薪資媒體檔設定", href: "/hr/payroll-exports", permission: "payroll:manage" },

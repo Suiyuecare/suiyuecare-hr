@@ -304,12 +304,20 @@ textarea {
   gap: 14px;
 }
 
+.grid > *,
+.field-grid > *,
+.decision-grid > *,
+.console-module-main > * {
+  min-width: 0;
+}
+
 .panel {
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: var(--panel);
   padding: 16px;
   box-shadow: var(--shadow);
+  min-width: 0;
 }
 
 .auth-panel {
@@ -351,6 +359,14 @@ textarea {
 
 .span-6 {
   grid-column: span 6;
+}
+
+.span-5 {
+  grid-column: span 5;
+}
+
+.span-7 {
+  grid-column: span 7;
 }
 
 .span-8 {
@@ -465,6 +481,7 @@ textarea {
 .task small {
   color: var(--muted);
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .task small.warning-text {
@@ -1446,6 +1463,7 @@ label {
 input,
 select,
 textarea {
+  width: 100%;
   min-height: 50px;
   min-width: 0;
   border: 1px solid var(--panel-border);
@@ -2795,7 +2813,9 @@ legend {
 
   .span-4,
   .span-3,
+  .span-5,
   .span-6,
+  .span-7,
   .span-8,
   .span-12 {
     grid-column: span 1;
