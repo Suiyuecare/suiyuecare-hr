@@ -6902,6 +6902,48 @@ legend {
   min-height: 286px;
 }
 
+.employee-master-update-panel {
+  align-self: start;
+}
+
+.employee-master-update-form {
+  align-items: stretch;
+}
+
+.employee-master-update-form .form-card {
+  align-content: start;
+  min-height: 100%;
+}
+
+.employee-master-update-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.employee-master-readonly-note {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  background: #fff7ed;
+  padding: 16px;
+}
+
+.employee-master-readonly-note strong {
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 1000;
+}
+
+.employee-master-readonly-note p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+  line-height: 1.45;
+}
+
 .employee-master-grid {
   align-items: start;
 }
@@ -7082,6 +7124,7 @@ legend {
   .employee-document-detail-grid,
   .employee-document-guardrail-grid,
   .employee-master-command-grid,
+  .employee-master-update-grid,
   .employee-master-department-grid,
   .employee-master-guardrail-grid {
     grid-template-columns: 1fr;

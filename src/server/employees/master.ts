@@ -1,3 +1,7 @@
+import type { Prisma } from "@prisma/client";
+import { writeAuditLog } from "@/server/audit/audit";
+import { writeDemoAuditLog } from "@/server/audit/demo-store";
+import { stableHash } from "@/server/audit/redaction";
 import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
 import { getFallbackCompanyOverview } from "@/server/demo/fallback";
@@ -18,6 +22,7 @@ export type EmployeeMasterRow = {
   departmentCode: string | null;
   departmentName: string | null;
   jobTitle: string;
+  jobPositionId: string | null;
   jobPositionTitle: string | null;
   jobLevelCode: string | null;
   managerId: string | null;
@@ -36,6 +41,16 @@ export type EmployeeMasterRow = {
   profileGapLabels: string[];
 };
 
+export type EmployeeMasterJobPosition = {
+  id: string;
+  code: string;
+  title: string;
+  family: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  levelCode: string | null;
+};
+
 export type EmployeeMasterWorkspace = {
   scopeLabel: string;
   companyName: string;
@@ -45,6 +60,7 @@ export type EmployeeMasterWorkspace = {
     name: string;
     employeeCount: number;
   }>;
+  jobPositions: EmployeeMasterJobPosition[];
   employees: EmployeeMasterRow[];
   summary: {
     visibleEmployeeCount: number;
@@ -68,6 +84,56 @@ export type EmployeeMasterWorkspace = {
   };
 };
 
+export type EmployeeMasterUpdateInput = {
+  employeeId: string;
+  departmentId?: string | null;
+  managerId?: string | null;
+  jobPositionId?: string | null;
+  jobTitle: string;
+  changeReason?: string | null;
+};
+
+type EmployeeMasterDemoOverride = {
+  departmentId?: string | null;
+  managerId?: string | null;
+  jobPositionId?: string | null;
+  jobTitle?: string;
+};
+
+type EmployeeMasterDemoState = {
+  overrides: Record<string, EmployeeMasterDemoOverride>;
+};
+
+type DemoMasterRecord = {
+  id: string;
+  index: number;
+  employeeNo: string;
+  displayName: string;
+  departmentId: string | null;
+  departmentCode: string | null;
+  departmentName: string | null;
+  jobTitle: string;
+  jobPositionId: string | null;
+  jobPositionTitle: string | null;
+  jobLevelCode: string | null;
+  managerId: string | null;
+  managerName: string | null;
+  directReportCount: number;
+};
+
+type SafeAuditEmployee = {
+  id: string;
+  employeeNo: string;
+  departmentId: string | null;
+  managerId: string | null;
+  jobPositionId: string | null;
+  jobTitle: string;
+};
+
+const globalForEmployeeMaster = globalThis as unknown as {
+  hrOneEmployeeMasterDemoState?: EmployeeMasterDemoState;
+};
+
 export async function getEmployeeMasterWorkspace(
   session: SessionLike,
 ): Promise<EmployeeMasterWorkspace> {
@@ -76,6 +142,24 @@ export async function getEmployeeMasterWorkspace(
     return getDbEmployeeMasterWorkspace(session);
   }
   return getDemoEmployeeMasterWorkspace(session);
+}
+
+export async function updateEmployeeMasterProfile(
+  session: SessionLike,
+  input: EmployeeMasterUpdateInput,
+) {
+  assertPermission(session.role, "employee:write");
+  const normalized = normalizeUpdateInput(input);
+  if (canUseDatabase(session)) {
+    return updateDbEmployeeMasterProfile(session, normalized);
+  }
+  return updateDemoEmployeeMasterProfile(session, normalized);
+}
+
+export function resetEmployeeMasterDemoState() {
+  globalForEmployeeMaster.hrOneEmployeeMasterDemoState = {
+    overrides: {},
+  };
 }
 
 function canUseDatabase(session: SessionLike) {
@@ -101,6 +185,24 @@ async function getDbEmployeeMasterWorkspace(session: SessionLike) {
         orderBy: {
           code: "asc",
         },
+      },
+      jobPositions: {
+        where: {
+          status: "active",
+        },
+        include: {
+          department: {
+            select: {
+              name: true,
+            },
+          },
+          level: {
+            select: {
+              code: true,
+            },
+          },
+        },
+        orderBy: [{ family: "asc" }, { code: "asc" }],
       },
       employees: {
         where: visibilityWhere,
@@ -235,6 +337,7 @@ async function getDbEmployeeMasterWorkspace(session: SessionLike) {
       departmentCode: employee.department?.code ?? null,
       departmentName: employee.department?.name ?? null,
       jobTitle: employee.jobTitle,
+      jobPositionId: employee.jobPositionId,
       jobPositionTitle: employee.jobPosition?.title ?? null,
       jobLevelCode: employee.jobPosition?.level?.code ?? null,
       managerId: employee.managerId,
@@ -272,6 +375,15 @@ async function getDbEmployeeMasterWorkspace(session: SessionLike) {
       name: department.name,
       employeeCount: department._count.employees,
     })),
+    jobPositions: company.jobPositions.map((position) => ({
+      id: position.id,
+      code: position.code,
+      title: position.title,
+      family: position.family,
+      departmentId: position.departmentId,
+      departmentName: position.department?.name ?? null,
+      levelCode: position.level?.code ?? null,
+    })),
     employees: rows,
   });
 }
@@ -296,43 +408,43 @@ function managerVisibilityWhere(session: SessionLike) {
 }
 
 function getDemoEmployeeMasterWorkspace(session: SessionLike) {
-  const overview = getFallbackCompanyOverview();
-  const visibleEmployees = overview.company.employees
+  const { departments, jobPositions, records } = getDemoMasterRecords();
+  const visibleEmployees = records
     .filter((employee) => canSeeDemoEmployee(session, employee.id, employee.managerId))
-    .map((employee, index) => {
-      const laborRoster = index < 20 ? "complete" : index < 23 ? "needs_review" : "missing";
-      const terms = index < 18 ? "acknowledged" : index < 22 ? "published" : "missing";
-      const payroll = index < 20 ? "ready" : index < 24 ? "partial" : "missing";
-      const statutory = index < 21 ? "ready" : index < 24 ? "partial" : "missing";
-      const jobArchitectureMissing = index > 18;
-      const loginMissing = index > 8;
+    .map((employee) => {
+      const laborRoster = employee.index < 20 ? "complete" : employee.index < 23 ? "needs_review" : "missing";
+      const terms = employee.index < 18 ? "acknowledged" : employee.index < 22 ? "published" : "missing";
+      const payroll = employee.index < 20 ? "ready" : employee.index < 24 ? "partial" : "missing";
+      const statutory = employee.index < 21 ? "ready" : employee.index < 24 ? "partial" : "missing";
+      const loginMissing = employee.index > 8;
       return {
         id: employee.id,
         employeeNo: employee.employeeNo,
         displayName: employee.displayName,
-        departmentId: employee.department?.id ?? null,
-        departmentCode: employee.department?.code ?? null,
-        departmentName: employee.department?.name ?? null,
+        departmentId: employee.departmentId,
+        departmentCode: employee.departmentCode,
+        departmentName: employee.departmentName,
         jobTitle: employee.jobTitle,
-        jobPositionTitle: jobArchitectureMissing ? null : employee.jobTitle,
-        jobLevelCode: index < 2 ? "L4" : index < 8 ? "L3" : "L2",
+        jobPositionId: employee.jobPositionId,
+        jobPositionTitle: employee.jobPositionTitle,
+        jobLevelCode: employee.jobLevelCode,
         managerId: employee.managerId,
-        managerName: employee.managerId ? "陳主管" : null,
-        directReportCount: employee.directReports.length,
+        managerName: employee.managerName,
+        directReportCount: employee.directReportCount,
         employmentStatus: "active",
-        hireDate: new Date(Date.UTC(2025, index % 12, 1)),
+        hireDate: new Date(Date.UTC(2025, employee.index % 12, 1)),
         userLinked: !loginMissing,
         userStatus: loginMissing ? null : "active",
         roleLabels: demoRoleLabels(employee.id),
-        externalIdentityLinked: index < 6,
+        externalIdentityLinked: employee.index < 6,
         laborRosterStatus: laborRoster,
         employmentTermsStatus: terms,
         payrollSetupStatus: payroll,
         statutoryInsuranceStatus: statutory,
         profileGapLabels: profileGapLabels({
-          departmentMissing: !employee.department,
-          managerMissing: !employee.managerId && employee.directReports.length === 0,
-          jobArchitectureMissing,
+          departmentMissing: !employee.departmentId,
+          managerMissing: !employee.managerId && employee.directReportCount === 0,
+          jobArchitectureMissing: !employee.jobPositionId,
           loginMissing,
           laborRosterStatus: laborRoster,
           employmentTermsStatus: terms,
@@ -343,14 +455,10 @@ function getDemoEmployeeMasterWorkspace(session: SessionLike) {
     });
 
   return buildWorkspace({
-    companyName: overview.company.name,
+    companyName: getFallbackCompanyOverview().company.name,
     scopeLabel: scopeLabel(session.role),
-    departments: overview.company.departments.map((department) => ({
-      id: department.id,
-      code: department.code,
-      name: department.name,
-      employeeCount: department._count.employees,
-    })),
+    departments,
+    jobPositions,
     employees: visibleEmployees,
   });
 }
@@ -359,6 +467,7 @@ function buildWorkspace(input: {
   companyName: string;
   scopeLabel: string;
   departments: EmployeeMasterWorkspace["departments"];
+  jobPositions: EmployeeMasterWorkspace["jobPositions"];
   employees: EmployeeMasterRow[];
 }): EmployeeMasterWorkspace {
   const summary = summarizeRows(input.employees, input.departments.length);
@@ -367,6 +476,147 @@ function buildWorkspace(input: {
     summary,
     readiness: readinessFor(summary),
   };
+}
+
+async function updateDbEmployeeMasterProfile(
+  session: SessionLike,
+  input: ReturnType<typeof normalizeUpdateInput>,
+) {
+  const db = getDb();
+  return db.$transaction(async (tx) => {
+    const before = await tx.employee.findFirstOrThrow({
+      where: {
+        id: input.employeeId,
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+      },
+      select: {
+        id: true,
+        employeeNo: true,
+        jobTitle: true,
+        departmentId: true,
+        managerId: true,
+        jobPositionId: true,
+      },
+    });
+
+    if (input.departmentId) {
+      await tx.department.findFirstOrThrow({
+        where: {
+          id: input.departmentId,
+          tenantId: session.tenantId!,
+          companyId: session.companyId!,
+        },
+      });
+    }
+    if (input.jobPositionId) {
+      await tx.jobPosition.findFirstOrThrow({
+        where: {
+          id: input.jobPositionId,
+          tenantId: session.tenantId!,
+          companyId: session.companyId!,
+          status: "active",
+        },
+      });
+    }
+    if (input.managerId) {
+      await tx.employee.findFirstOrThrow({
+        where: {
+          id: input.managerId,
+          tenantId: session.tenantId!,
+          companyId: session.companyId!,
+          employmentStatus: "active",
+        },
+      });
+      await assertNoDbManagerCycle(tx, session, input.employeeId, input.managerId);
+    }
+
+    const updated = await tx.employee.update({
+      where: {
+        id: input.employeeId,
+      },
+      data: {
+        departmentId: input.departmentId,
+        managerId: input.managerId,
+        jobPositionId: input.jobPositionId,
+        jobTitle: input.jobTitle,
+      },
+      select: {
+        id: true,
+        employeeNo: true,
+        jobTitle: true,
+        departmentId: true,
+        managerId: true,
+        jobPositionId: true,
+      },
+    });
+
+    const beforePayload = safeAuditPayload(before);
+    const afterPayload = safeAuditPayload(updated);
+    const changed = changedFields(beforePayload, afterPayload);
+    await writeAuditLog(tx, {
+      tenantId: session.tenantId!,
+      companyId: session.companyId!,
+      actorUserId: session.user?.id,
+      actorEmployeeId: session.employee?.id,
+      action: "update",
+      entityType: "employee_master_profile",
+      entityId: updated.id,
+      before: beforePayload,
+      after: afterPayload,
+      metadata: updateAuditMetadata(changed, input.changeReason),
+    });
+
+    return updated;
+  });
+}
+
+function updateDemoEmployeeMasterProfile(
+  session: SessionLike,
+  input: ReturnType<typeof normalizeUpdateInput>,
+) {
+  const { departments, jobPositions, records } = getDemoMasterRecords();
+  const employee = records.find((record) => record.id === input.employeeId);
+  if (!employee) throw new Error("Employee not found.");
+  if (input.departmentId && !departments.some((department) => department.id === input.departmentId)) {
+    throw new Error("Department not found.");
+  }
+  if (input.jobPositionId && !jobPositions.some((position) => position.id === input.jobPositionId)) {
+    throw new Error("Job position not found.");
+  }
+  if (input.managerId) {
+    if (input.managerId === input.employeeId) throw new Error("Employee cannot be their own manager.");
+    if (!records.some((record) => record.id === input.managerId)) throw new Error("Manager not found.");
+    assertNoDemoManagerCycle(records, input.employeeId, input.managerId);
+  }
+
+  const state = getEmployeeMasterDemoState();
+  const beforePayload = safeAuditPayload(employee);
+  state.overrides[input.employeeId] = {
+    departmentId: input.departmentId,
+    managerId: input.managerId,
+    jobPositionId: input.jobPositionId,
+    jobTitle: input.jobTitle,
+  };
+
+  const afterRecord = getDemoMasterRecords().records.find((record) => record.id === input.employeeId);
+  if (!afterRecord) throw new Error("Employee not found after update.");
+  const afterPayload = safeAuditPayload(afterRecord);
+  const changed = changedFields(beforePayload, afterPayload);
+  writeDemoAuditLog({
+    tenantId: session.tenantId ?? "demo-tenant",
+    companyId: session.companyId ?? "demo-company",
+    actorUserId: session.user?.id,
+    actorEmployeeId: session.employee?.id,
+    actorName: session.user?.displayName ?? session.employee?.displayName,
+    action: "update",
+    entityType: "employee_master_profile",
+    entityId: input.employeeId,
+    before: beforePayload,
+    after: afterPayload,
+    metadata: updateAuditMetadata(changed, input.changeReason),
+  });
+  return afterRecord;
 }
 
 function summarizeRows(
@@ -436,6 +686,77 @@ function readinessFor(summary: EmployeeMasterWorkspace["summary"]): EmployeeMast
   };
 }
 
+function getDemoMasterRecords() {
+  const overview = getFallbackCompanyOverview();
+  const state = getEmployeeMasterDemoState();
+  const jobPositions = buildDemoJobPositions(overview.company.employees);
+  const baseDepartments = overview.company.departments.map((department) => ({
+    id: department.id,
+    code: department.code,
+    name: department.name,
+    employeeCount: 0,
+  }));
+  const departmentById = new Map(baseDepartments.map((department) => [department.id, department]));
+  const jobPositionById = new Map(jobPositions.map((position) => [position.id, position]));
+
+  const records = overview.company.employees.map((employee, index) => {
+    const override = state.overrides[employee.id] ?? {};
+    const defaultJobPositionId = index > 18 ? null : demoJobPositionId(employee.jobTitle);
+    const jobPositionId = override.jobPositionId !== undefined ? override.jobPositionId : defaultJobPositionId;
+    const jobPosition = jobPositionId ? jobPositionById.get(jobPositionId) ?? null : null;
+    const departmentId = override.departmentId !== undefined ? override.departmentId : employee.department?.id ?? null;
+    const department = departmentId ? departmentById.get(departmentId) ?? null : null;
+    return {
+      id: employee.id,
+      index,
+      employeeNo: employee.employeeNo,
+      displayName: employee.displayName,
+      departmentId,
+      departmentCode: department?.code ?? null,
+      departmentName: department?.name ?? null,
+      jobTitle: override.jobTitle ?? employee.jobTitle,
+      jobPositionId,
+      jobPositionTitle: jobPosition?.title ?? null,
+      jobLevelCode: jobPosition?.levelCode ?? null,
+      managerId: override.managerId !== undefined ? override.managerId : employee.managerId,
+      managerName: null,
+      directReportCount: 0,
+    } satisfies DemoMasterRecord;
+  });
+
+  const recordById = new Map(records.map((record) => [record.id, record]));
+  const directReportCountByManager = new Map<string, number>();
+  const employeeCountByDepartment = new Map<string, number>();
+  for (const record of records) {
+    if (record.managerId) {
+      directReportCountByManager.set(record.managerId, (directReportCountByManager.get(record.managerId) ?? 0) + 1);
+    }
+    if (record.departmentId) {
+      employeeCountByDepartment.set(record.departmentId, (employeeCountByDepartment.get(record.departmentId) ?? 0) + 1);
+    }
+  }
+
+  return {
+    departments: baseDepartments.map((department) => ({
+      ...department,
+      employeeCount: employeeCountByDepartment.get(department.id) ?? 0,
+    })),
+    jobPositions,
+    records: records.map((record) => ({
+      ...record,
+      managerName: record.managerId ? recordById.get(record.managerId)?.displayName ?? null : null,
+      directReportCount: directReportCountByManager.get(record.id) ?? 0,
+    })),
+  };
+}
+
+function getEmployeeMasterDemoState() {
+  if (!globalForEmployeeMaster.hrOneEmployeeMasterDemoState) {
+    resetEmployeeMasterDemoState();
+  }
+  return globalForEmployeeMaster.hrOneEmployeeMasterDemoState!;
+}
+
 function canSeeDemoEmployee(
   session: SessionLike,
   employeeId: string,
@@ -443,6 +764,104 @@ function canSeeDemoEmployee(
 ) {
   if (session.role !== "manager") return true;
   return employeeId === session.employee?.id || managerId === session.employee?.id;
+}
+
+function normalizeUpdateInput(input: EmployeeMasterUpdateInput) {
+  const employeeId = cleanRequired(input.employeeId, "Employee is required.");
+  const jobTitle = cleanRequired(input.jobTitle, "Job title is required.");
+  if (jobTitle.length > 80) throw new Error("Job title is too long.");
+  return {
+    employeeId,
+    departmentId: cleanOptionalId(input.departmentId),
+    managerId: cleanOptionalId(input.managerId),
+    jobPositionId: cleanOptionalId(input.jobPositionId),
+    jobTitle,
+    changeReason: cleanOptionalText(input.changeReason, 500),
+  };
+}
+
+function cleanRequired(value: unknown, message: string) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text) throw new Error(message);
+  return text;
+}
+
+function cleanOptionalId(value: unknown) {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text || null;
+}
+
+function cleanOptionalText(value: unknown, maxLength: number) {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text ? text.slice(0, maxLength) : null;
+}
+
+async function assertNoDbManagerCycle(
+  tx: Prisma.TransactionClient,
+  session: SessionLike,
+  employeeId: string,
+  managerId: string,
+) {
+  if (employeeId === managerId) throw new Error("Employee cannot be their own manager.");
+  let cursor: string | null = managerId;
+  const seen = new Set<string>();
+  for (let depth = 0; cursor && depth < 100; depth += 1) {
+    if (cursor === employeeId) throw new Error("Manager line cannot create a reporting cycle.");
+    if (seen.has(cursor)) throw new Error("Manager line contains a reporting cycle.");
+    seen.add(cursor);
+    const manager: { managerId: string | null } | null = await tx.employee.findFirst({
+      where: {
+        id: cursor,
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+      },
+      select: {
+        managerId: true,
+      },
+    });
+    cursor = manager?.managerId ?? null;
+  }
+}
+
+function assertNoDemoManagerCycle(
+  records: DemoMasterRecord[],
+  employeeId: string,
+  managerId: string,
+) {
+  let cursor: string | null = managerId;
+  const managerByEmployee = new Map(records.map((record) => [record.id, record.managerId]));
+  const seen = new Set<string>();
+  for (let depth = 0; cursor && depth < 100; depth += 1) {
+    if (cursor === employeeId) throw new Error("Manager line cannot create a reporting cycle.");
+    if (seen.has(cursor)) throw new Error("Manager line contains a reporting cycle.");
+    seen.add(cursor);
+    cursor = managerByEmployee.get(cursor) ?? null;
+  }
+}
+
+function changedFields(before: SafeAuditEmployee, after: SafeAuditEmployee) {
+  return (Object.keys(after) as Array<keyof SafeAuditEmployee>).filter((key) => before[key] !== after[key]);
+}
+
+function safeAuditPayload(input: SafeAuditEmployee): SafeAuditEmployee {
+  return {
+    id: input.id,
+    employeeNo: input.employeeNo,
+    departmentId: input.departmentId,
+    managerId: input.managerId,
+    jobPositionId: input.jobPositionId,
+    jobTitle: input.jobTitle,
+  };
+}
+
+function updateAuditMetadata(changedFields: Array<keyof SafeAuditEmployee>, changeReason: string | null) {
+  return {
+    source: "employee_master_workspace",
+    changedFields,
+    changeReasonProvided: Boolean(changeReason),
+    changeReasonHash: changeReason ? stableHash(changeReason) : null,
+    rawSensitiveValuesStored: false,
+  };
 }
 
 function hasActiveEffectiveRecord(records: Array<{ effectiveTo: Date | null }>) {
@@ -543,4 +962,55 @@ function demoRoleLabels(employeeId: string) {
   if (employeeId === "demo-hr-employee") return ["HR"];
   if (employeeId === "demo-manager-employee") return ["主管"];
   return ["員工"];
+}
+
+type FallbackEmployee = ReturnType<typeof getFallbackCompanyOverview>["company"]["employees"][number];
+
+function buildDemoJobPositions(employees: FallbackEmployee[]): EmployeeMasterJobPosition[] {
+  const titleMap = new Map<string, FallbackEmployee>();
+  for (const employee of employees) {
+    if (!titleMap.has(employee.jobTitle)) {
+      titleMap.set(employee.jobTitle, employee);
+    }
+  }
+  return [...titleMap.entries()].map(([title, employee]) => {
+    const levelCode = demoLevelCodeForTitle(title);
+    return {
+      id: demoJobPositionId(title),
+      code: demoJobPositionCode(title),
+      title,
+      family: demoJobFamily(title),
+      departmentId: employee.department?.id ?? null,
+      departmentName: employee.department?.name ?? null,
+      levelCode,
+    };
+  });
+}
+
+function demoJobPositionId(title: string) {
+  return `demo-position-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+}
+
+function demoJobPositionCode(title: string) {
+  const abbreviation = title
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+  return abbreviation || "JOB";
+}
+
+function demoJobFamily(title: string) {
+  if (/engineer|engineering|qa/i.test(title)) return "Engineering";
+  if (/hr|people/i.test(title)) return "People";
+  if (/designer|product|service/i.test(title)) return "Product";
+  if (/finance/i.test(title)) return "Finance";
+  if (/care/i.test(title)) return "Care";
+  return "Operations";
+}
+
+function demoLevelCodeForTitle(title: string) {
+  if (/manager/i.test(title)) return "M1";
+  if (/admin|engineer|designer/i.test(title)) return "L2";
+  return "L1";
 }

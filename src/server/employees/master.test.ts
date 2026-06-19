@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { getEmployeeMasterWorkspace } from "./master";
+import { beforeEach, describe, expect, it } from "vitest";
+import { getAuditDemoState, resetAuditDemoState } from "@/server/audit/demo-store";
+import {
+  getEmployeeMasterWorkspace,
+  resetEmployeeMasterDemoState,
+  updateEmployeeMasterProfile,
+} from "./master";
 
 const hrSession = {
   role: "hr_admin" as const,
@@ -26,6 +31,11 @@ const employeeSession = {
 };
 
 describe("employee master workspace", () => {
+  beforeEach(() => {
+    resetEmployeeMasterDemoState();
+    resetAuditDemoState();
+  });
+
   it("shows HR an aggregate company master view without salary values", async () => {
     const workspace = await getEmployeeMasterWorkspace(hrSession);
     const serialized = JSON.stringify(workspace);
@@ -55,5 +65,68 @@ describe("employee master workspace", () => {
 
   it("blocks normal employees from the HR master workspace", async () => {
     await expect(getEmployeeMasterWorkspace(employeeSession)).rejects.toThrow(/employee:read/);
+  });
+
+  it("lets HR update organization master fields with redacted audit metadata", async () => {
+    await updateEmployeeMasterProfile(hrSession, {
+      employeeId: "demo-employee-23",
+      departmentId: "demo-dept-people",
+      managerId: "demo-hr-employee",
+      jobPositionId: "demo-position-frontend-engineer",
+      jobTitle: "Frontend Engineer",
+      changeReason: "私人匯入備註：主管線與標準職務補正",
+    });
+
+    const workspace = await getEmployeeMasterWorkspace(hrSession);
+    const employee = workspace.employees.find((row) => row.id === "demo-employee-23");
+    const auditLog = getAuditDemoState().logs[0];
+
+    expect(employee).toMatchObject({
+      departmentId: "demo-dept-people",
+      managerId: "demo-hr-employee",
+      jobPositionId: "demo-position-frontend-engineer",
+      jobPositionTitle: "Frontend Engineer",
+      managerName: "林人資",
+    });
+    expect(auditLog).toMatchObject({
+      action: "update",
+      entityType: "employee_master_profile",
+      entityId: "demo-employee-23",
+      metadataJson: expect.objectContaining({
+        source: "employee_master_workspace",
+        changeReasonProvided: true,
+        rawSensitiveValuesStored: false,
+      }),
+    });
+    expect(auditLog.metadataJson.changedFields).toEqual(expect.arrayContaining([
+      "departmentId",
+      "managerId",
+      "jobPositionId",
+    ]));
+    expect(JSON.stringify(auditLog.metadataJson)).not.toContain("私人匯入備註");
+  });
+
+  it("blocks managers from master profile mutations", async () => {
+    await expect(
+      updateEmployeeMasterProfile(managerSession, {
+        employeeId: "demo-employee-1",
+        departmentId: "demo-dept-product",
+        managerId: "demo-manager-employee",
+        jobPositionId: "demo-position-frontend-engineer",
+        jobTitle: "Frontend Engineer",
+      }),
+    ).rejects.toThrow(/employee:write/);
+  });
+
+  it("prevents reporting cycles", async () => {
+    await expect(
+      updateEmployeeMasterProfile(hrSession, {
+        employeeId: "demo-manager-employee",
+        departmentId: "demo-dept-product",
+        managerId: "demo-employee-1",
+        jobPositionId: "demo-position-engineering-manager",
+        jobTitle: "Engineering Manager",
+      }),
+    ).rejects.toThrow(/reporting cycle/);
   });
 });

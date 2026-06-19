@@ -15,6 +15,7 @@ import { resetEmploymentTermsDemoState } from "@/server/employees/employment-ter
 import { resetEmployeeImportDemoState } from "@/server/employees/imports";
 import { resetLaborRosterDemoState } from "@/server/employees/labor-roster";
 import { resetEmployeeLifecycleDemoState } from "@/server/employees/lifecycle";
+import { resetEmployeeMasterDemoState } from "@/server/employees/master";
 import { resetOffboardingDemoState } from "@/server/employees/offboarding";
 import { resetFileStorageDemoState } from "@/server/files/storage";
 import { resetStatutoryInsuranceDemoState } from "@/server/insurance/statutory";
@@ -95,6 +96,7 @@ export async function POST() {
     resetEmployeeImportDemoState();
     resetLaborRosterDemoState();
     resetEmployeeLifecycleDemoState();
+    resetEmployeeMasterDemoState();
     resetOffboardingDemoState();
     resetFileStorageDemoState();
     resetStatutoryInsuranceDemoState();

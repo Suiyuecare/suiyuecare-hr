@@ -8,8 +8,13 @@ import {
   type EmployeeMasterWorkspace,
 } from "@/server/employees/master";
 
-export default async function EmployeeMasterPage() {
-  const session = await getDemoSession();
+type SearchParams = Promise<{
+  success?: string;
+  error?: string;
+}>;
+
+export default async function EmployeeMasterPage({ searchParams }: { searchParams: SearchParams }) {
+  const [params, session] = await Promise.all([searchParams, getDemoSession()]);
   if (!hasPermission(session.role, "employee:read")) {
     return (
       <main className="page">
@@ -26,8 +31,10 @@ export default async function EmployeeMasterPage() {
   }
 
   const workspace = await getEmployeeMasterWorkspace(session);
+  const writable = hasPermission(session.role, "employee:write");
   const focus = buildMasterFocus(workspace);
   const urgentRows = workspace.employees.filter((employee) => employee.profileGapLabels.length > 0).slice(0, 6);
+  const defaultEmployee = workspace.employees.find((employee) => employee.profileGapLabels.length > 0) ?? workspace.employees[0];
 
   return (
     <main className="page employee-master-page">
@@ -91,6 +98,19 @@ export default async function EmployeeMasterPage() {
         </article>
       </section>
 
+      {params.error ? (
+        <section className="panel risk-box danger-box" aria-live="polite">
+          <strong>無法更新人事主檔</strong>
+          <p>{localizeMasterError(params.error)}</p>
+        </section>
+      ) : null}
+      {params.success ? (
+        <section className="panel risk-box success-box" aria-live="polite">
+          <strong>人事主檔已更新</strong>
+          <p>部門、主管線、標準職務或職稱修正已保存，並寫入 audit log。</p>
+        </section>
+      ) : null}
+
       <section className="settings-command-grid employee-master-command-grid" aria-label="人事主檔作業卡">
         <article className={`settings-command-card ${workspace.summary.visibleEmployeeCount ? "ready" : "danger"}`}>
           <span className={`badge ${workspace.summary.visibleEmployeeCount ? "done" : "danger"}`}>
@@ -135,6 +155,98 @@ export default async function EmployeeMasterPage() {
       </section>
 
       <section className="grid employee-master-grid">
+        <section className="panel span-12 employee-master-update-panel" id="employee-master-update">
+          <div className="section-heading">
+            <div>
+              <h2>主檔修正精靈</h2>
+              <p className="muted">三步修正員工的部門、主管線、標準職務與職稱。離職、留停與薪資仍需走各自受控流程。</p>
+            </div>
+            <span className={`badge ${writable ? "warning" : "danger"}`}>
+              {writable ? "會寫入稽核" : "只讀模式"}
+            </span>
+          </div>
+          {writable && defaultEmployee ? (
+            <form action="/api/employees/master" method="post" className="wizard-form employee-master-update-form" aria-label="人事主檔修正">
+              <fieldset className="form-card">
+                <legend>1. 選擇員工</legend>
+                <p className="muted">先選要修正的員工；若是新員工，請先走員工匯入。</p>
+                <label>
+                  修正員工
+                  <select name="employeeId" defaultValue={defaultEmployee.id} required>
+                    {workspace.employees.map((employee) => (
+                      <option value={employee.id} key={employee.id}>
+                        {employee.employeeNo} · {employee.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </fieldset>
+
+              <fieldset className="form-card">
+                <legend>2. 組織與職務</legend>
+                <p className="muted">這裡只修正營運主檔。薪資金額、付款資料、身分證與健康資料不會出現在此表單。</p>
+                <div className="employee-master-update-grid">
+                  <label>
+                    修正後部門
+                    <select name="departmentId" defaultValue={defaultEmployee.departmentId ?? ""}>
+                      <option value="">未指定</option>
+                      {workspace.departments.map((department) => (
+                        <option value={department.id} key={department.id}>
+                          {department.code} · {department.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    直屬主管
+                    <select name="managerId" defaultValue={defaultEmployee.managerId ?? ""}>
+                      <option value="">未指定</option>
+                      {workspace.employees.map((employee) => (
+                        <option value={employee.id} key={employee.id}>
+                          {employee.employeeNo} · {employee.displayName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    標準職務
+                    <select name="jobPositionId" defaultValue={defaultEmployee.jobPositionId ?? ""}>
+                      <option value="">未指定</option>
+                      {workspace.jobPositions.map((position) => (
+                        <option value={position.id} key={position.id}>
+                          {position.code} · {position.title}
+                          {position.levelCode ? ` · ${position.levelCode}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    職稱顯示名稱
+                    <input name="jobTitle" defaultValue={defaultEmployee.jobTitle} maxLength={80} required />
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset className="form-card">
+                <legend>3. 修正原因</legend>
+                <p className="muted">原因原文不寫入 audit metadata；系統只保存 hash、異動欄位與操作者。</p>
+                <label>
+                  修正原因
+                  <textarea name="changeReason" rows={3} placeholder="例：匯入後補正主管線與標準職務對應。" />
+                </label>
+                <button className="button primary" type="submit">
+                  儲存主檔修正
+                </button>
+              </fieldset>
+            </form>
+          ) : (
+            <div className="employee-master-readonly-note">
+              <strong>{defaultEmployee ? "目前角色只能檢視" : "尚無員工可修正"}</strong>
+              <p>{defaultEmployee ? "主管可查看團隊主檔狀態，但不可直接改部門、主管線或職務。" : "請先匯入員工後再進行主檔修正。"}</p>
+            </div>
+          )}
+        </section>
+
         <section className="panel span-8" id="employee-master-list">
           <div className="section-heading">
             <div>
@@ -401,4 +513,17 @@ function setupBadgeClass(status: EmployeeMasterRow["payrollSetupStatus"] | Emplo
 
 function formatDate(date: Date) {
   return date.toISOString().slice(0, 10);
+}
+
+function localizeMasterError(error: string) {
+  if (error.includes("employee:write")) return "目前角色沒有修正員工主檔的權限，請切換 HR 或 Owner。";
+  if (error.includes("Employee is required")) return "請選擇要修正的員工。";
+  if (error.includes("Employee not found")) return "找不到指定員工，請重新整理後再試。";
+  if (error.includes("Department not found")) return "找不到指定部門，請先確認組織設定。";
+  if (error.includes("Job position not found")) return "找不到指定標準職務，請先確認組織與職務設定。";
+  if (error.includes("Manager not found")) return "找不到指定主管，請確認主管仍為在職員工。";
+  if (error.includes("own manager")) return "員工不能設定自己為自己的主管。";
+  if (error.includes("reporting cycle")) return "主管線不能形成循環，請重新選擇直屬主管。";
+  if (error.includes("Job title")) return "職稱必填，且長度不可超過 80 字。";
+  return "人事主檔修正失敗，請確認欄位、權限與主管線後再試一次。";
 }
