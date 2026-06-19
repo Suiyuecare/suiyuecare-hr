@@ -121,8 +121,12 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByLabel("兩週試用 Gate").getByText("今日先處理")).toBeVisible();
   await expect(page.getByLabel("Day 0 到 Day 14 檢查點")).toBeVisible();
 
-  await page.locator('article#company a[href="/console/modules/company"]').click();
-  await expect(page).toHaveURL(/\/console\/modules\/company$/);
+  const companyModuleLink = page.locator("article#company").getByRole("link", { name: "模組總覽" });
+  await expect(companyModuleLink).toBeVisible();
+  await Promise.all([
+    page.waitForURL(/\/console\/modules\/company$/),
+    companyModuleLink.click(),
+  ]);
   await page.getByRole("link", { name: "開啟組織設定" }).click();
   await expect(page).toHaveURL(/\/settings\/organization$/);
   await expect(page.getByRole("heading", { name: "公司組織設定" })).toBeVisible();
@@ -337,6 +341,42 @@ test("HR 可以設定打卡方式並讓員工端看到提示", async ({ page }) 
   await page.getByLabel("示範角色").selectOption("employee");
   await page.getByRole("button", { name: "切換" }).click();
   await expect(page.getByText("請連公司網路，並在公司 300 公尺內完成打卡。")).toBeVisible();
+});
+
+test("HR 可以用中文假別政策工作台補法定假別", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr/leave-policies");
+
+  await expect(page.getByRole("heading", { name: "假別政策工作台" })).toBeVisible();
+  await expect(page.getByLabel("假別政策工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("假別政策訊號板").getByText("法定覆蓋")).toBeVisible();
+  await expect(page.getByLabel("假別政策作業卡").getByRole("heading", { name: "法定假別 Gate" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "假別設定精靈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "假別政策清單" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "假別治理原則" })).toBeVisible();
+
+  const wizard = page.locator("#leave-policy-wizard");
+  await wizard.getByLabel("假別代碼").fill("family-care-e2e");
+  await wizard.getByLabel("假別名稱").fill("家庭照顧假 E2E");
+  await wizard.getByLabel("單位").selectOption("hour");
+  await wizard.getByLabel("年度額度").fill("56");
+  await wizard.getByLabel("累積方式").selectOption("annual_grant");
+  await wizard.getByLabel("最少預告天數").fill("0");
+  await wizard.getByLabel("給薪比例").fill("0");
+  await wizard.getByLabel("規則備註").fill("性別平等工作法第 20 條；全年七日併入事假，員工端仍需三步內完成。");
+  await wizard.getByLabel("法定分類").selectOption("family_care");
+  await wizard.getByLabel("適用資格").selectOption("caregiver");
+  await wizard.getByLabel("補齊員工餘額").check();
+  await wizard.getByRole("button", { name: "儲存假別政策" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/leave-policies$/);
+  const policyCard = page.locator("#leave-policy-list .leave-policy-task", { hasText: "家庭照顧假 E2E" });
+  await expect(policyCard).toBeVisible();
+  await expect(policyCard.getByText("啟用 · 家庭照顧假 · 家庭照顧者")).toBeVisible();
+  await expect(policyCard.getByText("56小時")).toBeVisible();
+  await expect(policyCard.getByText("0%")).toBeVisible();
+  await expect(policyCard.getByText("可用")).toBeVisible();
 });
 
 test("HR 可以用中文付款安全工作台完成銀行檔閘門", async ({ page }) => {
