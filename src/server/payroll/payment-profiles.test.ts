@@ -54,6 +54,8 @@ describe("payment profiles", () => {
       entityType: "employee_payment_profile",
     });
     expect(JSON.stringify(getAuditDemoState().logs[0])).not.toContain("123456789012");
+    expect(JSON.stringify(getAuditDemoState().logs[0])).not.toContain("Chang Xiao An");
+    expect(getAuditDemoState().logs[0].afterHash).toEqual(expect.any(String));
     expect(getAuditDemoState().logs[0].metadataJson).toMatchObject({
       sensitiveValuesRedacted: true,
     });

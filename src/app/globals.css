@@ -4380,6 +4380,75 @@ legend {
   align-items: flex-start;
 }
 
+.payment-profile-page {
+  max-width: 1280px;
+}
+
+.payment-profile-alerts {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.payment-profile-command-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.payment-profile-command-grid .settings-command-card {
+  min-height: 278px;
+}
+
+.payment-profile-form {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.payment-profile-fieldset {
+  display: grid;
+  gap: 12px;
+}
+
+.payment-profile-note {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  background: #fffbeb;
+  padding: 12px;
+}
+
+.payment-profile-note strong {
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.payment-profile-note p,
+.payment-profile-more {
+  margin: 0;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.45;
+}
+
+.payment-profile-more {
+  margin-top: 10px;
+}
+
+.payment-profile-task,
+.payment-profile-missing-task {
+  align-items: flex-start;
+}
+
+.payment-profile-task > span:first-child,
+.payment-profile-missing-task > span:first-child {
+  display: grid;
+  gap: 5px;
+  overflow-wrap: anywhere;
+}
+
 .payroll-accounting-page {
   max-width: 1280px;
 }
@@ -4917,6 +4986,9 @@ legend {
   .payroll-export-package-grid,
   .payroll-export-task,
   .payroll-payment-column-board,
+  .payment-profile-command-grid,
+  .payment-profile-task,
+  .payment-profile-missing-task,
   .payroll-accounting-map-grid,
   .payroll-accounting-preview-task,
   .salary-profile-command-grid,
@@ -5040,6 +5112,15 @@ legend {
   }
 
   .company-setup-guardrails .button {
+    width: 100%;
+  }
+
+  .payment-profile-page .section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .payment-profile-page .section-heading .button {
     width: 100%;
   }
 

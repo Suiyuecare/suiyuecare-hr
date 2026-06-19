@@ -356,6 +356,32 @@ test("HR 可以用中文付款安全工作台完成銀行檔閘門", async ({ pa
   await expect(page.getByText("已於").first()).toBeVisible();
 });
 
+test("HR 可以用中文付款資料工作台新增發薪帳戶", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr/payment-profiles");
+
+  await expect(page.getByRole("heading", { name: "發薪帳戶安全工作台" })).toBeVisible();
+  await expect(page.getByLabel("發薪帳戶安全工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("發薪帳戶訊號板").getByText("帳戶覆蓋率")).toBeVisible();
+  await expect(page.getByLabel("付款資料作業卡").getByRole("heading", { name: "帳號不落地" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "發薪帳戶設定精靈" })).toBeVisible();
+
+  await page.getByLabel("員工").selectOption("demo-employee-4");
+  await page.getByLabel("銀行代碼").fill("004");
+  await page.getByLabel("分行代碼（選填）").fill("0123");
+  await page.getByLabel("戶名").fill("周宜庭");
+  await page.getByLabel("銀行帳號").fill("12345678901234567");
+  await page.getByRole("button", { name: "儲存付款資料" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/payment-profiles$/);
+  await expect(page.getByLabel("今日先處理").getByText("先補缺漏發薪帳戶")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "目前與歷史付款資料" })).toBeVisible();
+  await expect(page.getByText("周宜庭 · E006")).toBeVisible();
+  await expect(page.getByText("銀行 004-0123 · 末四碼 4567")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("12345678901234567");
+});
+
 test("HR 可以用中文薪資科目工作台調整會計分錄封存", async ({ page }) => {
   await page.goto("/app");
   await switchDemoRole(page, "hr_admin");

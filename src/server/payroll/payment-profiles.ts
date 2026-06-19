@@ -217,7 +217,7 @@ async function saveDbPaymentProfile(
         paymentMethod: created.paymentMethod,
         bankCode: created.bankCode,
         bankBranchCode: created.bankBranchCode,
-        accountName: created.accountName,
+        accountNameHash: input.accountNameHash,
         accountNumberHash: created.accountNumberHash,
         accountNumberLast4: created.accountNumberLast4,
         effectiveFrom: created.effectiveFrom,
@@ -262,7 +262,7 @@ function saveDemoPaymentProfile(
       paymentMethod: "bank_transfer",
       bankCode: input.bankCode,
       bankBranchCode: input.bankBranchCode,
-      accountName: input.accountName,
+      accountNameHash: input.accountNameHash,
       accountNumberHash: input.accountNumberHash,
       accountNumberLast4: input.accountNumberLast4,
       effectiveFrom: input.effectiveFrom,
@@ -360,6 +360,10 @@ function normalizePaymentProfileInput(input: PaymentProfileInput) {
     bankCode,
     bankBranchCode,
     accountName,
+    accountNameHash: stableHash({
+      employeeId: input.employeeId,
+      accountName,
+    }),
     accountNumberHash: stableHash({
       employeeId: input.employeeId,
       accountNumber,
