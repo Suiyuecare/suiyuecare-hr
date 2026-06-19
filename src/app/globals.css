@@ -3423,6 +3423,184 @@ legend {
   margin: -2px 0 14px;
 }
 
+.hr-monthly-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+  align-items: stretch;
+  gap: 16px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(17, 24, 39, 0.96);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #111827 0%, #1e293b 58%, #3b2a14 100%);
+  color: #ffffff;
+  padding: 18px;
+  box-shadow: var(--shadow-strong);
+}
+
+.hr-monthly-hero-main {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.hr-monthly-hero-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hr-monthly-hero .muted {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.hr-monthly-hero h1 {
+  max-width: 680px;
+  margin: 0;
+  color: #ffffff;
+  font-size: 34px;
+  font-weight: 1000;
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.hr-monthly-hero p {
+  max-width: 760px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 15px;
+  font-weight: 850;
+  line-height: 1.55;
+}
+
+.hr-monthly-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.hr-monthly-hero-actions .button,
+.hr-monthly-focus-footer .button {
+  min-width: 142px;
+}
+
+.hr-monthly-hero-focus {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 212px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 16px;
+}
+
+.hr-monthly-hero-focus strong {
+  display: block;
+  margin-top: 6px;
+  color: #ffffff;
+  font-size: 26px;
+  font-weight: 1000;
+  line-height: 1.12;
+}
+
+.hr-monthly-hero-focus p {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.hr-monthly-hero-focus small {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.4;
+}
+
+.hr-monthly-hero-focus.warning {
+  border-color: rgba(253, 232, 188, 0.48);
+  background: rgba(234, 136, 12, 0.12);
+}
+
+.hr-monthly-hero-focus.danger {
+  border-color: rgba(254, 202, 202, 0.5);
+  background: rgba(185, 28, 28, 0.18);
+}
+
+.hr-monthly-focus-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin-top: auto;
+}
+
+.hr-monthly-focus-footer form,
+.hr-monthly-focus-footer .button {
+  width: 100%;
+}
+
+.hr-monthly-signal-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.hr-monthly-signal-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 124px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.hr-monthly-signal-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.hr-monthly-signal-card strong {
+  color: var(--foreground);
+  font-size: 19px;
+  font-weight: 1000;
+  line-height: 1.16;
+}
+
+.hr-monthly-signal-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.hr-monthly-signal-card.focus,
+.hr-monthly-signal-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.hr-monthly-signal-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.hr-monthly-signal-card.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.hr-monthly-signal-card.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
 .hr-close-command-band {
   display: grid;
   grid-template-columns: minmax(260px, 1.15fr) repeat(4, minmax(0, 1fr));
@@ -3784,6 +3962,8 @@ legend {
   .manager-inbox-command-strip,
   .manager-inbox-mix,
   .manager-risk-grid,
+  .hr-monthly-hero,
+  .hr-monthly-signal-board,
   .employee-command-grid,
   .leave-balance-strip,
   .quick-leave-grid,
@@ -3840,6 +4020,23 @@ legend {
     font-size: 27px;
   }
 
+  .hr-monthly-hero {
+    padding: 16px;
+  }
+
+  .hr-monthly-hero h1 {
+    font-size: 27px;
+  }
+
+  .hr-monthly-hero-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .hr-monthly-hero-actions .button {
+    width: 100%;
+  }
+
   .employee-hero-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3869,6 +4066,8 @@ legend {
   .console-command-card,
   .console-pilot-gate-main,
   .console-pilot-gate-step,
+  .hr-monthly-hero-focus,
+  .hr-monthly-signal-card,
   .hr-close-command-copy,
   .hr-close-command-card,
   .payroll-day7-action,

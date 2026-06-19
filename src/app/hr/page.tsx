@@ -65,9 +65,78 @@ export default async function HrDashboardPage() {
 
   return (
     <main className="page">
-      <section className="page-header">
-        <h1>月結主控台</h1>
-        <p>人資首頁以待處理流程與異常為核心，而不是一長串功能選單。</p>
+      <section className="hr-monthly-hero" aria-label="HR 月結指揮台">
+        <div className="hr-monthly-hero-main">
+          <div className="hr-monthly-hero-topline">
+            <span className="muted">財務系統風格人資營運台</span>
+            <span className={`badge ${kpiSummary.readyForSale ? "" : "warning"}`}>
+              {kpiSummary.passing}/{kpiSummary.total} KPI 達標
+            </span>
+          </div>
+          <h1>HR 月結指揮台</h1>
+          <p>
+            把出勤異常、待簽核、薪資試算、鎖定與薪資單發布收斂成同一條月結路線；HR 今天只需要先處理會阻擋發薪與上線販售的事項。
+          </p>
+          <div className="hr-monthly-hero-actions">
+            <a className="button primary" href="/hr/attendance-exceptions">
+              處理出勤異常
+            </a>
+            <a className="button" href="/manager/inbox">
+              開啟簽核 Inbox
+            </a>
+            <a className="button" href="/settings/readiness">
+              檢查上線閘門
+            </a>
+          </div>
+        </div>
+
+        <aside className={`hr-monthly-hero-focus ${payrollRunway.tone}`}>
+          <div>
+            <span className="muted">今日先處理</span>
+            <strong>{payrollRunway.title}</strong>
+            <p>{payrollRunway.detail}</p>
+          </div>
+          <div className="hr-monthly-focus-footer">
+            <span className={`badge ${payrollRunway.tone === "ready" ? "" : payrollRunway.tone}`}>
+              {payrollRunway.status}
+            </span>
+            {payrollRunway.formAction ? (
+              <form action={payrollRunway.formAction} method="post">
+                <button className="button primary" type="submit" aria-label={`今日先處理：${payrollRunway.actionLabel}`}>
+                  {payrollRunway.actionLabel}
+                </button>
+              </form>
+            ) : (
+              <a className="button primary" href={payrollRunway.href}>
+                {payrollRunway.actionLabel}
+              </a>
+            )}
+          </div>
+          <small>{payrollRunway.actionNote}</small>
+        </aside>
+      </section>
+
+      <section className="hr-monthly-signal-board" aria-label="HR 月結訊號板">
+        <a className={`hr-monthly-signal-card ${pendingExceptionCount ? "danger" : "done"}`} href="/hr/attendance-exceptions">
+          <span>出勤完整性</span>
+          <strong>{pendingExceptionCount ? `${pendingExceptionCount} 筆異常` : "已清空"}</strong>
+          <small>漏打卡、工時風險與員工出勤確認先於薪資試算。</small>
+        </a>
+        <a className="hr-monthly-signal-card focus" href="/manager/inbox">
+          <span>簽核集中</span>
+          <strong>統一 Inbox</strong>
+          <small>請假、加班、補打卡與自訂表單集中處理。</small>
+        </a>
+        <a className={`hr-monthly-signal-card ${payroll.run?.status === "released" ? "done" : "warning"}`} href="/hr">
+          <span>月結閘門</span>
+          <strong>{closeHealth.ready}/{closeHealth.total} 步</strong>
+          <small>{labelStatus(payroll.run?.status ?? "not started")}；鎖定前不得靜默修改薪資。</small>
+        </a>
+        <a className={`hr-monthly-signal-card ${kpiSummary.readyForSale ? "done" : "warning"}`} href="/hr/kpis">
+          <span>販售 KPI</span>
+          <strong>{kpiSummary.watch + kpiSummary.failing} 項待改善</strong>
+          <small>持續追蹤 60 秒請假、15 秒簽核與薪資月結時間。</small>
+        </a>
       </section>
 
       <section className="hr-close-command-band" aria-label="HR 月結任務帶">

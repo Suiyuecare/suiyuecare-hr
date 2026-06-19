@@ -15,7 +15,7 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 
 ## 下一階段
 
-- UI/UX 持續升級：員工前台首頁已加入 Finance-style 今日任務板與下一步提示，主管 Inbox 已加入簽核指揮台、風險先看與類型分布；下一步要把 HR 月結、設定 wizard 與報表頁統一成同一套色彩、資訊密度、卡片層級、文字大小、表格/工作流元件，讓員工三步內完成任務、主管 Inbox 15 秒可簽核、HR 首頁聚焦月結與異常。
+- UI/UX 持續升級：員工前台首頁已加入 Finance-style 今日任務板與下一步提示，主管 Inbox 已加入簽核指揮台、風險先看與類型分布，HR 月結首頁已改成 Finance-style 指揮台、今日先處理、月結訊號板與安全閘門；下一步要把設定 wizard、報表頁與各後台模組統一成同一套色彩、資訊密度、卡片層級、文字大小、表格/工作流元件，讓員工三步內完成任務、主管 Inbox 15 秒可簽核、HR 首頁聚焦月結與異常。
 - 補齊人事基礎資料閉環：把員工主檔、任用異動、權限、薪資 profile、報表與匯入精靈全部改為引用標準部門、職務、職等與主管線，避免每個模組各自使用自由文字職稱。
 - 強化後台管理系統：完成公司規章、權限矩陣、打卡設定、排班規則、薪資科目、薪資計算規則、保險/所得稅規則、報表設定與下載封存等管理工具的 wizard 化設定。
 - 修復 production gate：設定 Supabase transaction pooler `DATABASE_URL` 或 IPv4 add-on attestation、正式 OIDC/SSO、vault/KMS 參照、備份還原演練證據，讓 `https://hr.suiyuecare.com/api/health/ready` 變成 ok。
@@ -71,7 +71,7 @@ Current live production-pilot status and blockers are tracked in [`docs/pilot-pr
 - Employee request timeline and in-app notifications.
 - Notification channel settings and delivery metadata for in-app, email, LINE, Slack, and Teams, with external payload hashes instead of raw sensitive content.
 - HR attendance exception view.
-- HR monthly close command center with finance-style close health, next actions, attendance exception queue, employee readiness gaps, payroll close cockpit, and KPI focus instead of a deep function menu.
+- HR monthly close command center with a Finance-style hero, today-first action, signal board, close health, attendance exception queue, employee readiness gaps, payroll close cockpit, and KPI focus instead of a deep function menu.
 - HR winning KPI scorecard for leave speed, manager approval speed, payroll close reduction, attendance auto-resolution, mobile task completion, form self-service, audit coverage, payroll access security, sourced AI answers, and rollout training time.
 - Privacy-safe product telemetry for KPI measurement, automatically recording key leave, approval, mobile self-service, and HR form-builder events as workflow, step, duration, success, and redacted metadata instead of raw HR content, salary, national IDs, or bank data.
 - Database verification script checks migrated/seeded PostgreSQL readiness for tenant/company, users, core role assignment coverage, employees, security settings, operational backup/restore evidence, attendance policy, shift template, annual Taiwan calendar review, statutory leave policy coverage, rule versions, rule validation evidence, executable Taiwan rule-engine checks, legal-source freshness evidence, per-active-employee labor roster/leave/payroll profile coverage, form workflows, audit baseline, sensitive onboarding audit coverage, support access governance, and product telemetry. Production mode additionally blocks demo tenant identity, demo storage, missing SSO metadata, missing privileged SSO identity bindings, default email domains, missing external notifications, missing backup/restore drill evidence, missing or unreviewed statutory leave categories, unsafe support access grants, and payroll rule recalculation gaps.

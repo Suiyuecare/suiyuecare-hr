@@ -382,7 +382,10 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   await expect(page.getByText(announcementTitle)).toBeVisible();
 
   await page.goto("/hr");
-  await expect(page.getByRole("heading", { name: "月結主控台" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "HR 月結指揮台" })).toBeVisible();
+  await expect(page.getByLabel("HR 月結指揮台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("HR 月結訊號板").getByText("月結閘門")).toBeVisible();
+  await expect(page.getByLabel("HR 月結訊號板").getByText("販售 KPI")).toBeVisible();
   await expect(page.getByText("Day 7 月結預演")).toBeVisible();
   await expect(page.getByText("薪資資料不在摘要外洩")).toBeVisible();
   await page.getByRole("button", { name: "Day 7 下一步：建立薪資批次" }).click();
