@@ -388,6 +388,34 @@ test("HR 可以用中文薪資科目工作台調整會計分錄封存", async ({
   await expect(page.getByText("2202 · 應付薪資")).toBeVisible();
 });
 
+test("HR 可以用中文薪資資料工作台新增薪資設定檔", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr/salary-profiles");
+
+  await expect(page.getByRole("heading", { name: "薪資資料安全工作台" })).toBeVisible();
+  await expect(page.getByLabel("薪資資料安全工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("薪資資料訊號板").getByText("薪資覆蓋率")).toBeVisible();
+  await expect(page.getByLabel("薪資資料作業卡").getByRole("heading", { name: "台灣最低工資" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "薪資設定檔精靈" })).toBeVisible();
+
+  await page.getByLabel("員工").selectOption("demo-employee-4");
+  await page.getByLabel("本薪").fill("66000");
+  await page.getByLabel("時薪（選填）").fill("250");
+  await page.getByLabel("津貼名稱").fill("交通津貼");
+  await page.getByLabel("津貼金額").fill("3000");
+  await page.getByLabel("扣款名稱").fill("福利金扣款");
+  await page.getByLabel("扣款金額").fill("1200");
+  await page.getByRole("button", { name: "儲存薪資設定檔" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/salary-profiles$/);
+  await expect(page.getByLabel("今日先處理").getByText("先補缺漏薪資設定檔")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "目前與歷史薪資設定檔" })).toBeVisible();
+  await expect(page.getByText("周宜庭 · E006")).toBeVisible();
+  await expect(page.getByText("$66,000").first()).toBeVisible();
+  await expect(page.getByText("固定津貼 交通津貼 $3,000")).toBeVisible();
+});
+
 test("公告發布後員工可回傳回條", async ({ page }) => {
   await page.goto("/app");
   await switchDemoRole(page, "hr_admin");
