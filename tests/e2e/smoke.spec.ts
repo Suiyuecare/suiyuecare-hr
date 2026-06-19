@@ -116,6 +116,15 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByLabel("兩週試用 Gate").getByText("今日先處理")).toBeVisible();
   await expect(page.getByLabel("Day 0 到 Day 14 檢查點")).toBeVisible();
 
+  await page.locator("#payroll").getByRole("link", { name: "模組總覽" }).click();
+  await expect(page).toHaveURL(/\/console\/modules\/payroll$/);
+  await expect(page.getByRole("heading", { name: "薪資管理" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今日優先" })).toBeVisible();
+  await expect(page.getByText("薪資未授權漏洞")).toBeVisible();
+  await expect(page.getByText("薪資資料最小可見")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "常用作業" })).toBeVisible();
+
+  await page.goto("/console");
   await page.getByLabel("搜尋功能").fill("薪資");
   await page.getByRole("button", { name: "搜尋" }).click();
   await expect(page).toHaveURL(/\/console\?q=%E8%96%AA%E8%B3%87$/);

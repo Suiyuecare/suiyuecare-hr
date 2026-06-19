@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterConsoleModules, getConsoleModules } from "./modules";
+import { filterConsoleModules, getConsoleModuleDetail, getConsoleModules, hasConsoleModuleDefinition } from "./modules";
 
 describe("console modules", () => {
   it("keeps employee role out of management console modules", () => {
@@ -74,5 +74,33 @@ describe("console modules", () => {
 
     expect(modules.some((module) => module.title === "薪資管理")).toBe(false);
     expect(filterConsoleModules(modules, "薪資")).toHaveLength(0);
+  });
+
+  it("builds module detail pages from role-filtered console modules", () => {
+    const payrollDetail = getConsoleModuleDetail("hr_admin", "payroll");
+    const managerPayrollDetail = getConsoleModuleDetail("manager", "payroll");
+    const attendanceDetail = getConsoleModuleDetail("manager", "attendance");
+
+    expect(hasConsoleModuleDefinition("payroll")).toBe(true);
+    expect(payrollDetail?.module.title).toBe("薪資管理");
+    expect(payrollDetail?.tasks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ title: "跑薪資月結安全流程" }),
+        expect.objectContaining({ href: "/settings/law-rules" }),
+      ]),
+    );
+    expect(payrollDetail?.guardrails).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ title: "薪資資料最小可見", tone: "danger" }),
+      ]),
+    );
+    expect(payrollDetail?.setupLinks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "薪資主檔", href: "/hr/salary-profiles" }),
+      ]),
+    );
+    expect(managerPayrollDetail).toBeNull();
+    expect(attendanceDetail?.module.title).toBe("出勤管理");
+    expect(attendanceDetail?.setupLinks.some((link) => link.label === "工時合規")).toBe(true);
   });
 });

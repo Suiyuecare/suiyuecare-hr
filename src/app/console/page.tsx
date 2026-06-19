@@ -174,9 +174,14 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
                   <h2>{module.title}</h2>
                   <p>{module.summary}</p>
                 </div>
-                <Link className="button primary" href={module.primary.href}>
-                  {module.primary.label}
-                </Link>
+                <div className="console-module-actions">
+                  <Link className="button" href={`/console/modules/${module.id}`}>
+                    模組總覽
+                  </Link>
+                  <Link className="button primary" href={module.primary.href}>
+                    {module.primary.label}
+                  </Link>
+                </div>
               </div>
               <div className="console-module-main">
                 {module.sections.map((section) => (
