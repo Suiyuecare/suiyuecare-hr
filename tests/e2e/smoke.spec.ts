@@ -703,6 +703,38 @@ test("HR 可以用人事異動工作台記錄調部升遷", async ({ page }) => 
   await expect(page.locator("#employee-lifecycle-timeline").getByText("升遷")).toBeVisible();
 });
 
+test("HR 可以用公司行事曆工作台完成年度審核與日期設定", async ({ page }) => {
+  await page.goto("/app");
+  await page.getByLabel("示範角色").selectOption("hr_admin");
+  await page.getByRole("button", { name: "切換" }).click();
+  await page.goto("/hr/calendar");
+
+  await expect(page.getByRole("heading", { name: "公司行事曆工作台" })).toBeVisible();
+  await expect(page.getByLabel("公司行事曆工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("行事曆訊號板").getByText(/年審核/)).toBeVisible();
+  await expect(page.getByLabel("行事曆作業卡").getByRole("heading", { name: "年度官方來源" })).toBeVisible();
+  await expect(page.getByLabel("行事曆作業卡").getByRole("heading", { name: "補班日排班" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "年度行事曆審核精靈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "日期設定精靈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "行事曆治理原則" })).toBeVisible();
+
+  const reviewWizard = page.locator("#calendar-review-wizard");
+  await reviewWizard.getByLabel("審核狀態").selectOption("approved");
+  await reviewWizard.getByLabel("審核人").fill("林人資");
+  await reviewWizard.getByRole("button", { name: "儲存年度審核" }).click();
+  await expect(page).toHaveURL(/\/hr\/calendar$/);
+  await expect(page.getByLabel("行事曆訊號板").getByText("通過")).toBeVisible();
+
+  const dayWizard = page.locator("#calendar-day-wizard");
+  await dayWizard.locator('input[name="calendarDate"]').fill("2026-06-22");
+  await dayWizard.locator('select[name="dayType"]').selectOption("company_holiday");
+  await dayWizard.locator('input[name="name"]').fill("端午節補假");
+  await dayWizard.locator('select[name="source"]').selectOption("company");
+  await dayWizard.getByRole("button", { name: "儲存日期" }).click();
+  await expect(page).toHaveURL(/\/hr\/calendar$/);
+  await expect(page.locator("#calendar-day-list").getByText("端午節補假")).toBeVisible();
+});
+
 async function switchDemoRole(page: Page, role: "employee" | "manager" | "hr_admin" | "owner") {
   await page.getByLabel("示範角色").selectOption(role);
   await page.getByRole("button", { name: "切換" }).click();
