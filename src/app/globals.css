@@ -3423,6 +3423,231 @@ legend {
   margin: -2px 0 14px;
 }
 
+.settings-control-page {
+  max-width: 1280px;
+}
+
+.settings-control-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.24fr) minmax(300px, 0.76fr);
+  align-items: stretch;
+  gap: 16px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(17, 24, 39, 0.96);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #111827 0%, #1e293b 58%, #3b2a14 100%);
+  color: #ffffff;
+  padding: 18px;
+  box-shadow: var(--shadow-strong);
+}
+
+.settings-control-hero-main {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.settings-control-hero-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.settings-control-hero .muted {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.settings-control-hero h1 {
+  max-width: 680px;
+  margin: 0;
+  color: #ffffff;
+  font-size: 34px;
+  font-weight: 1000;
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.settings-control-hero p {
+  max-width: 780px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 15px;
+  font-weight: 850;
+  line-height: 1.55;
+}
+
+.settings-control-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.settings-control-focus {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 214px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 16px;
+}
+
+.settings-control-focus strong {
+  display: block;
+  color: #ffffff;
+  font-size: 26px;
+  font-weight: 1000;
+  line-height: 1.12;
+}
+
+.settings-control-focus p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.settings-control-focus .button {
+  width: 100%;
+  margin-top: auto;
+}
+
+.settings-signal-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.settings-signal-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 124px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.settings-signal-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.settings-signal-card strong {
+  color: var(--foreground);
+  font-size: 19px;
+  font-weight: 1000;
+  line-height: 1.16;
+}
+
+.settings-signal-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.settings-signal-card.focus,
+.settings-signal-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.settings-signal-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.settings-signal-card.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.settings-signal-card.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.settings-command-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.settings-command-card {
+  display: grid;
+  grid-template-rows: auto auto minmax(72px, auto) auto 1fr;
+  align-content: start;
+  gap: 12px;
+  min-height: 292px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.settings-command-card h2 {
+  margin: 4px 0 0;
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 1000;
+  line-height: 1.15;
+}
+
+.settings-command-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+  line-height: 1.5;
+}
+
+.settings-command-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.settings-command-card.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.settings-command-card.ready {
+  border-color: var(--panel-border);
+}
+
+.settings-command-card .button {
+  width: 100%;
+}
+
+.settings-command-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 8px 12px;
+}
+
+.settings-command-links a {
+  overflow: hidden;
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-command-links a:hover {
+  color: var(--accent-strong);
+}
+
 .hr-monthly-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
@@ -3962,6 +4187,9 @@ legend {
   .manager-inbox-command-strip,
   .manager-inbox-mix,
   .manager-risk-grid,
+  .settings-control-hero,
+  .settings-signal-board,
+  .settings-command-grid,
   .hr-monthly-hero,
   .hr-monthly-signal-board,
   .employee-command-grid,
@@ -4037,6 +4265,23 @@ legend {
     width: 100%;
   }
 
+  .settings-control-hero {
+    padding: 16px;
+  }
+
+  .settings-control-hero h1 {
+    font-size: 27px;
+  }
+
+  .settings-control-hero-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .settings-control-hero-actions .button {
+    width: 100%;
+  }
+
   .employee-hero-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4066,6 +4311,9 @@ legend {
   .console-command-card,
   .console-pilot-gate-main,
   .console-pilot-gate-step,
+  .settings-control-focus,
+  .settings-signal-card,
+  .settings-command-card,
   .hr-monthly-hero-focus,
   .hr-monthly-signal-card,
   .hr-close-command-copy,

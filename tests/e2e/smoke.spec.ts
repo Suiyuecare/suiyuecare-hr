@@ -29,7 +29,7 @@ test("API middleware rate limits bursty AI requests", async ({ request }, testIn
   };
 
   let blocked;
-  for (let index = 0; index < 80; index += 1) {
+  for (let index = 0; index < 140; index += 1) {
     const response = await request.post("/api/ai/policy", {
       form: { question: "leave policy" },
       headers,
@@ -176,6 +176,14 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByRole("heading", { name: "勞基法與薪資規則" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "來源更新精靈" })).toBeVisible();
   await expect(page.getByText("最低月薪")).toBeVisible();
+
+  await page.goto("/settings");
+  await expect(page.getByRole("heading", { name: "後台設定中樞" })).toBeVisible();
+  await expect(page.getByLabel("設定狀態訊號板").getByText("資安與權限")).toBeVisible();
+  await expect(page.getByLabel("設定狀態訊號板").getByText("台灣法規規則")).toBeVisible();
+  await expect(page.getByLabel("後台設定作業區").getByRole("heading", { name: "公司、部門與職務" })).toBeVisible();
+  await expect(page.getByLabel("後台設定作業區").getByRole("heading", { name: "登入、稽核與資料保護" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "開始導入精靈" })).toBeVisible();
 
   await page.goto("/console");
   await expect(page.getByRole("heading", { name: "公告中心" })).toBeVisible();

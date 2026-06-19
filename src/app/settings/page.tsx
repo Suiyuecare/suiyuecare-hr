@@ -27,6 +27,24 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
   const sourceFreshness = evaluateLegalSourceFreshness(laborConfig.sources);
   const staleSourceIds = new Set(sourceFreshness.staleSourceIds);
   const invalidSourceIds = new Set(sourceFreshness.invalidSourceIds);
+  const securityGapCount = [
+    securitySettings.mfaRequiredForAdmins,
+    securitySettings.ssoEnabled && ssoMetadataReady,
+    fileStorageSettings.provider !== "demo_object_storage",
+    securitySettings.allowedEmailDomains.length > 0,
+  ].filter((ready) => !ready).length;
+  const lawRuleGapCount = [
+    ruleValidation.passed,
+    sourceFreshness.passed,
+    laborConfig.changeControl.reviewStatus === "approved",
+    !laborConfig.changeControl.requiresPayrollRecalculation,
+  ].filter((ready) => !ready).length;
+  const setupCommandGroups = buildSetupCommandGroups({
+    securityGapCount,
+    lawRuleGapCount,
+    auditCount: overview?.auditCount ?? 0,
+  });
+  const setupFocus = buildSetupFocus({ securityGapCount, lawRuleGapCount });
 
   if (!overview) {
     return (
@@ -40,10 +58,87 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
   }
 
   return (
-    <main className="page">
-      <section className="page-header">
-        <h1>公司設定</h1>
-        <p>老闆與管理員可在此設定租戶、資安、角色權限與稽核準備度。</p>
+    <main className="page settings-control-page">
+      <section className="settings-control-hero" aria-label="後台設定中樞">
+        <div className="settings-control-hero-main">
+          <div className="settings-control-hero-topline">
+            <span className="muted">老闆、人資、行政主管共用</span>
+            <span className={`badge ${securityGapCount + lawRuleGapCount === 0 ? "" : "warning"}`}>
+              {securityGapCount + lawRuleGapCount} 個設定缺口
+            </span>
+          </div>
+          <h1>後台設定中樞</h1>
+          <p>
+            把公司架構、權限、資安、台灣勞基法規則、檔案儲存、試用導入與上線閘門集中管理；複雜設定用精靈引導，避免人資在功能清單裡迷路。
+          </p>
+          <div className="settings-control-hero-actions">
+            <a className="button primary" href="/settings/company-setup">
+              開始導入精靈
+            </a>
+            <a className="button" href="/settings/law-rules">
+              管理勞基法規則
+            </a>
+            <a className="button" href="/settings/readiness">
+              檢查上線閘門
+            </a>
+          </div>
+        </div>
+        <aside className="settings-control-focus">
+          <span className="muted">今日先補</span>
+          <strong>{setupFocus.title}</strong>
+          <p>{setupFocus.detail}</p>
+          <a className="button primary" href={setupFocus.href}>
+            {setupFocus.label}
+          </a>
+        </aside>
+      </section>
+
+      <section className="settings-signal-board" aria-label="設定狀態訊號板">
+        <a className="settings-signal-card done" href="/settings/organization">
+          <span>公司與組織</span>
+          <strong>{overview.company.name}</strong>
+          <small>{overview.company.departments.length} 個部門 · {overview.managerCount} 位主管線。</small>
+        </a>
+        <a className={`settings-signal-card ${securityGapCount ? "warning" : "done"}`} href="#security-setup">
+          <span>資安與權限</span>
+          <strong>{securityGapCount ? `${securityGapCount} 個缺口` : "已就緒"}</strong>
+          <small>MFA、SSO、允許網域、檔案儲存與支援存取都要可稽核。</small>
+        </a>
+        <a className={`settings-signal-card ${lawRuleGapCount ? "warning" : "done"}`} href="#law-rules-setup">
+          <span>台灣法規規則</span>
+          <strong>{lawRuleGapCount ? `${lawRuleGapCount} 項待補` : "已審核"}</strong>
+          <small>{ruleValidation.passedCount}/{ruleValidation.fixtureCount} 個規則測試通過，來源需定期更新。</small>
+        </a>
+        <a className="settings-signal-card focus" href="/settings/production-database">
+          <span>上線閘門</span>
+          <strong>正式環境</strong>
+          <small>Supabase、Vercel、備份還原、開跑判斷與證據包要一起通過。</small>
+        </a>
+      </section>
+
+      <section className="settings-command-grid" aria-label="後台設定作業區">
+        {setupCommandGroups.map((group) => (
+          <article className={`settings-command-card ${group.tone}`} key={group.id}>
+            <div>
+              <span className="muted">{group.area}</span>
+              <h2>{group.title}</h2>
+            </div>
+            <span className={`badge ${group.tone === "warning" ? "warning" : group.tone === "danger" ? "danger" : ""}`}>
+              {group.status}
+            </span>
+            <p>{group.summary}</p>
+            <a className="button primary" href={group.primary.href}>
+              {group.primary.label}
+            </a>
+            <div className="settings-command-links">
+              {group.links.map((link) => (
+                <a href={link.href} key={link.href}>
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          </article>
+        ))}
       </section>
 
       <section className="grid">
@@ -1171,6 +1266,115 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
       </section>
     </main>
   );
+}
+
+type SetupCommandGroup = {
+  id: string;
+  area: string;
+  title: string;
+  summary: string;
+  status: string;
+  tone: "ready" | "warning" | "danger";
+  primary: {
+    href: string;
+    label: string;
+  };
+  links: Array<{
+    href: string;
+    label: string;
+  }>;
+};
+
+function buildSetupFocus(input: { securityGapCount: number; lawRuleGapCount: number }) {
+  if (input.securityGapCount > 0) {
+    return {
+      title: "正式登入與資安護欄",
+      detail: "先補管理員 MFA、正式 SSO、檔案儲存與允許網域，避免正式試用時權限與文件外洩。",
+      href: "#security-setup",
+      label: "補資安設定",
+    };
+  }
+
+  if (input.lawRuleGapCount > 0) {
+    return {
+      title: "台灣法規來源與規則審核",
+      detail: "薪資、出勤、請假與離職規則要保留版本、來源與審核狀態，不能藏在程式碼裡。",
+      href: "#law-rules-setup",
+      label: "補規則審核",
+    };
+  }
+
+  return {
+    title: "試用導入證據",
+    detail: "設定已接近可用，接著保存正式環境閘門、開跑判斷與試用證據包。",
+    href: "/settings/pilot-evidence",
+    label: "整理證據包",
+  };
+}
+
+function buildSetupCommandGroups(input: {
+  securityGapCount: number;
+  lawRuleGapCount: number;
+  auditCount: number;
+}): SetupCommandGroup[] {
+  return [
+    {
+      id: "company",
+      area: "公司管理",
+      title: "公司、部門與職務",
+      summary: "先把公司資料、部門、主管線、職等與標準職務整理好，後續薪資、報表、權限才不會各自發散。",
+      status: "基礎資料",
+      tone: "ready",
+      primary: { href: "/settings/organization", label: "整理組織" },
+      links: [
+        { href: "/settings/company-setup", label: "導入精靈" },
+        { href: "/settings/access", label: "權限管理" },
+        { href: "/settings/subscription", label: "商務訂閱" },
+      ],
+    },
+    {
+      id: "security",
+      area: "資安管理",
+      title: "登入、稽核與資料保護",
+      summary: "正式登入、多因素驗證、單一登入、支援存取、個資治理、檔案儲存與稽核紀錄要先過關，薪資與員工資料才安全。",
+      status: input.securityGapCount ? `${input.securityGapCount} 個缺口` : "已就緒",
+      tone: input.securityGapCount ? "warning" : "ready",
+      primary: { href: "#security-setup", label: "補資安設定" },
+      links: [
+        { href: "/settings/audit", label: `稽核 ${input.auditCount}` },
+        { href: "/settings/support-access", label: "支援存取" },
+        { href: "/settings/privacy", label: "個資治理" },
+      ],
+    },
+    {
+      id: "rules",
+      area: "台灣法遵",
+      title: "勞基法與薪資規則",
+      summary: "最低工資、工時、加班、特休、離職、勞健保、所得稅與薪資等級表都從版本化規則讀取。",
+      status: input.lawRuleGapCount ? `${input.lawRuleGapCount} 項待補` : "已審核",
+      tone: input.lawRuleGapCount ? "warning" : "ready",
+      primary: { href: "#law-rules-setup", label: "檢查規則" },
+      links: [
+        { href: "/settings/law-rules", label: "規則頁" },
+        { href: "/hr/payroll-compliance", label: "薪資合規" },
+        { href: "/hr/worktime-compliance", label: "工時合規" },
+      ],
+    },
+    {
+      id: "pilot",
+      area: "試用上線",
+      title: "正式環境與兩週試用",
+      summary: "把正式資料庫閘門、匯入預檢、邀請就緒、開跑判斷、每日戰情與結案證據串成可交付流程。",
+      status: "上線閘門",
+      tone: "warning",
+      primary: { href: "/settings/production-database", label: "修復正式環境" },
+      links: [
+        { href: "/settings/pilot-import-preflight", label: "匯入預檢" },
+        { href: "/settings/pilot-go-no-go", label: "開跑判斷" },
+        { href: "/settings/pilot-evidence", label: "證據包" },
+      ],
+    },
+  ];
 }
 
 function formatPercentInput(value: number) {
