@@ -23,10 +23,16 @@ export type LaborRosterProfileInput = {
   birthDate?: Date | null;
   gender: string;
   nationality: string;
+  hometown?: string | null;
   registeredAddress: string;
   emergencyContact: string;
   educationSummary?: string | null;
   workExperienceSummary?: string | null;
+  wageInfo?: string | null;
+  laborInsuranceEnrollmentDate?: Date | null;
+  rewardDisciplineSummary?: string | null;
+  injurySicknessSummary?: string | null;
+  otherNecessaryItems?: string | null;
   rosterSourceRef?: string | null;
   verificationStatus: LaborRosterVerificationStatus;
 };
@@ -45,10 +51,16 @@ export type LaborRosterProfileView = {
   birthDate: Date | null;
   gender: string | null;
   nationality: string | null;
+  hometown: string | null;
   registeredAddressHash: string | null;
   emergencyContactHash: string | null;
   educationSummary: string | null;
   workExperienceSummary: string | null;
+  wageInfoHash: string | null;
+  laborInsuranceEnrollmentDate: Date | null;
+  rewardDisciplineSummaryHash: string | null;
+  injurySicknessSummaryHash: string | null;
+  otherNecessaryItemsHash: string | null;
   rosterSourceRef: string | null;
   requiredFields: string[];
   missingFields: string[];
@@ -74,8 +86,14 @@ const requiredRosterFields = [
   "birth_date",
   "gender",
   "nationality",
+  "hometown",
   "registered_address",
   "emergency_contact",
+  "wage_info",
+  "labor_insurance_enrollment_date",
+  "reward_discipline_summary",
+  "injury_sickness_summary",
+  "other_necessary_items",
   "hire_date",
   "job_title",
   "department",
@@ -138,10 +156,16 @@ export function resetLaborRosterDemoState() {
     birthDate: new Date(Date.UTC(1986 + (index % 20), 0, 1)),
     gender: index === 1 ? "male" : "female",
     nationality: "TW",
+    hometown: "Taiwan",
     registeredAddress: `Taipei demo address ${index + 1}`,
     emergencyContact: `Emergency contact ${index + 1}`,
     educationSummary: "University degree on file",
     workExperienceSummary: "Prior experience reviewed",
+    wageInfo: `Wage profile evidence ${index + 1}`,
+    laborInsuranceEnrollmentDate: new Date(Date.UTC(2025, 0, 1)),
+    rewardDisciplineSummary: "No reward or discipline record requiring disclosure",
+    injurySicknessSummary: "No injury or sickness record requiring disclosure",
+    otherNecessaryItems: "Article 7 necessary items reviewed",
     rosterSourceRef: "demo://labor-roster/2026.01",
     verificationStatus: "verified" as const,
   }));
@@ -173,8 +197,14 @@ async function saveDbProfile(session: SessionLike, input: ReturnType<typeof norm
       birthDate: input.birthDate,
       gender: input.gender,
       nationality: input.nationality,
+      hometown: input.hometown,
       registeredAddressHash: hashOptional(input.registeredAddress),
       emergencyContactHash: hashOptional(input.emergencyContact),
+      wageInfoHash: hashOptional(input.wageInfo),
+      laborInsuranceEnrollmentDate: input.laborInsuranceEnrollmentDate,
+      rewardDisciplineSummaryHash: hashOptional(input.rewardDisciplineSummary),
+      injurySicknessSummaryHash: hashOptional(input.injurySicknessSummary),
+      otherNecessaryItemsHash: hashOptional(input.otherNecessaryItems),
       employee,
     });
     const status = statusFor(missingFields, input.verificationStatus);
@@ -190,10 +220,16 @@ async function saveDbProfile(session: SessionLike, input: ReturnType<typeof norm
         birthDate: input.birthDate,
         gender: input.gender,
         nationality: input.nationality,
+        hometown: input.hometown,
         registeredAddressHash: hashOptional(input.registeredAddress),
         emergencyContactHash: hashOptional(input.emergencyContact),
         educationSummary: input.educationSummary,
         workExperienceSummary: input.workExperienceSummary,
+        wageInfoHash: hashOptional(input.wageInfo),
+        laborInsuranceEnrollmentDate: input.laborInsuranceEnrollmentDate,
+        rewardDisciplineSummaryHash: hashOptional(input.rewardDisciplineSummary),
+        injurySicknessSummaryHash: hashOptional(input.injurySicknessSummary),
+        otherNecessaryItemsHash: hashOptional(input.otherNecessaryItems),
         rosterSourceRef: input.rosterSourceRef,
         requiredFieldsJson: requiredFields,
         missingFieldsJson: missingFields,
@@ -208,10 +244,16 @@ async function saveDbProfile(session: SessionLike, input: ReturnType<typeof norm
         birthDate: input.birthDate,
         gender: input.gender,
         nationality: input.nationality,
+        hometown: input.hometown,
         registeredAddressHash: hashOptional(input.registeredAddress),
         emergencyContactHash: hashOptional(input.emergencyContact),
         educationSummary: input.educationSummary,
         workExperienceSummary: input.workExperienceSummary,
+        wageInfoHash: hashOptional(input.wageInfo),
+        laborInsuranceEnrollmentDate: input.laborInsuranceEnrollmentDate,
+        rewardDisciplineSummaryHash: hashOptional(input.rewardDisciplineSummary),
+        injurySicknessSummaryHash: hashOptional(input.injurySicknessSummary),
+        otherNecessaryItemsHash: hashOptional(input.otherNecessaryItems),
         rosterSourceRef: input.rosterSourceRef,
         requiredFieldsJson: requiredFields,
         missingFieldsJson: missingFields,
@@ -322,10 +364,16 @@ function emptyProfileForEmployee(employee: { id: string; employeeNo: string; dis
     birthDate: null,
     gender: null,
     nationality: null,
+    hometown: null,
     registeredAddressHash: null,
     emergencyContactHash: null,
     educationSummary: null,
     workExperienceSummary: null,
+    wageInfoHash: null,
+    laborInsuranceEnrollmentDate: null,
+    rewardDisciplineSummaryHash: null,
+    injurySicknessSummaryHash: null,
+    otherNecessaryItemsHash: null,
     rosterSourceRef: null,
     requiredFields: [...requiredRosterFields],
     missingFields: [...requiredRosterFields],
@@ -348,10 +396,16 @@ function buildProfileView(input: {
     birthDate: Date | null;
     gender: string;
     nationality: string;
+    hometown?: string | null;
     registeredAddress: string;
     emergencyContact: string;
     educationSummary: string | null;
     workExperienceSummary: string | null;
+    wageInfo?: string | null;
+    laborInsuranceEnrollmentDate?: Date | null;
+    rewardDisciplineSummary?: string | null;
+    injurySicknessSummary?: string | null;
+    otherNecessaryItems?: string | null;
     rosterSourceRef: string | null;
     verificationStatus: LaborRosterVerificationStatus;
   };
@@ -362,6 +416,10 @@ function buildProfileView(input: {
     nationalIdHash: hashOptional(input.input.nationalId),
     registeredAddressHash: hashOptional(input.input.registeredAddress),
     emergencyContactHash: hashOptional(input.input.emergencyContact),
+    wageInfoHash: hashOptional(input.input.wageInfo),
+    rewardDisciplineSummaryHash: hashOptional(input.input.rewardDisciplineSummary),
+    injurySicknessSummaryHash: hashOptional(input.input.injurySicknessSummary),
+    otherNecessaryItemsHash: hashOptional(input.input.otherNecessaryItems),
   };
   const employee = {
     hireDate: input.hireDate,
@@ -373,6 +431,8 @@ function buildProfileView(input: {
     birthDate: input.input.birthDate,
     gender: input.input.gender,
     nationality: input.input.nationality,
+    hometown: input.input.hometown ?? null,
+    laborInsuranceEnrollmentDate: input.input.laborInsuranceEnrollmentDate ?? null,
     employee,
   });
   return {
@@ -388,8 +448,10 @@ function buildProfileView(input: {
     birthDate: input.input.birthDate,
     gender: input.input.gender,
     nationality: input.input.nationality,
+    hometown: input.input.hometown ?? null,
     educationSummary: input.input.educationSummary,
     workExperienceSummary: input.input.workExperienceSummary,
+    laborInsuranceEnrollmentDate: input.input.laborInsuranceEnrollmentDate ?? null,
     rosterSourceRef: input.input.rosterSourceRef,
     requiredFields: [...requiredRosterFields],
     missingFields,
@@ -416,8 +478,14 @@ function missingFieldsFor(input: {
   birthDate: Date | null;
   gender: string | null;
   nationality: string | null;
+  hometown: string | null;
   registeredAddressHash: string | null;
   emergencyContactHash: string | null;
+  wageInfoHash: string | null;
+  laborInsuranceEnrollmentDate: Date | null;
+  rewardDisciplineSummaryHash: string | null;
+  injurySicknessSummaryHash: string | null;
+  otherNecessaryItemsHash: string | null;
   employee: { hireDate?: Date | null; jobTitle?: string | null; department?: { name: string } | null };
 }) {
   const missing: string[] = [];
@@ -426,8 +494,14 @@ function missingFieldsFor(input: {
   if (!input.birthDate) missing.push("birth_date");
   if (!input.gender) missing.push("gender");
   if (!input.nationality) missing.push("nationality");
+  if (!input.hometown) missing.push("hometown");
   if (!input.registeredAddressHash) missing.push("registered_address");
   if (!input.emergencyContactHash) missing.push("emergency_contact");
+  if (!input.wageInfoHash) missing.push("wage_info");
+  if (!input.laborInsuranceEnrollmentDate) missing.push("labor_insurance_enrollment_date");
+  if (!input.rewardDisciplineSummaryHash) missing.push("reward_discipline_summary");
+  if (!input.injurySicknessSummaryHash) missing.push("injury_sickness_summary");
+  if (!input.otherNecessaryItemsHash) missing.push("other_necessary_items");
   if (!input.employee.hireDate) missing.push("hire_date");
   if (!input.employee.jobTitle) missing.push("job_title");
   if (!input.employee.department?.name) missing.push("department");
@@ -448,8 +522,14 @@ function auditPayload(profile: LaborRosterProfileView) {
     sourceConfigured: Boolean(profile.rosterSourceRef),
     legalNameHash: profile.legalNameHash,
     nationalIdHash: profile.nationalIdHash,
+    hometown: profile.hometown,
     registeredAddressHash: profile.registeredAddressHash,
     emergencyContactHash: profile.emergencyContactHash,
+    wageInfoHash: profile.wageInfoHash,
+    laborInsuranceEnrollmentDate: profile.laborInsuranceEnrollmentDate,
+    rewardDisciplineSummaryHash: profile.rewardDisciplineSummaryHash,
+    injurySicknessSummaryHash: profile.injurySicknessSummaryHash,
+    otherNecessaryItemsHash: profile.otherNecessaryItemsHash,
   };
 }
 
@@ -463,6 +543,11 @@ function auditMetadata(profile: LaborRosterProfileView) {
     hasNationalIdHash: Boolean(profile.nationalIdHash),
     hasAddressHash: Boolean(profile.registeredAddressHash),
     hasEmergencyContactHash: Boolean(profile.emergencyContactHash),
+    hasWageInfoHash: Boolean(profile.wageInfoHash),
+    hasRewardDisciplineSummaryHash: Boolean(profile.rewardDisciplineSummaryHash),
+    hasInjurySicknessSummaryHash: Boolean(profile.injurySicknessSummaryHash),
+    hasOtherNecessaryItemsHash: Boolean(profile.otherNecessaryItemsHash),
+    hasLaborInsuranceEnrollmentDate: Boolean(profile.laborInsuranceEnrollmentDate),
     rawRosterPiiIncluded: false,
   };
 }
@@ -475,10 +560,16 @@ function normalizeInput(input: LaborRosterProfileInput) {
     birthDate: validOptionalDate(input.birthDate),
     gender: cleanText(input.gender, 40),
     nationality: cleanText(input.nationality, 80) || "TW",
+    hometown: cleanText(input.hometown, 120) || null,
     registeredAddress: cleanText(input.registeredAddress, 300),
     emergencyContact: cleanText(input.emergencyContact, 240),
     educationSummary: cleanText(input.educationSummary, 240) || null,
     workExperienceSummary: cleanText(input.workExperienceSummary, 240) || null,
+    wageInfo: cleanText(input.wageInfo, 240) || null,
+    laborInsuranceEnrollmentDate: validOptionalDate(input.laborInsuranceEnrollmentDate),
+    rewardDisciplineSummary: cleanText(input.rewardDisciplineSummary, 240) || null,
+    injurySicknessSummary: cleanText(input.injurySicknessSummary, 240) || null,
+    otherNecessaryItems: cleanText(input.otherNecessaryItems, 240) || null,
     rosterSourceRef: cleanText(input.rosterSourceRef, 240) || null,
     verificationStatus: normalizeVerificationStatus(input.verificationStatus),
   };
@@ -500,16 +591,39 @@ function mapDbProfile(record: {
   birthDate: Date | null;
   gender: string | null;
   nationality: string | null;
+  hometown: string | null;
   registeredAddressHash: string | null;
   emergencyContactHash: string | null;
   educationSummary: string | null;
   workExperienceSummary: string | null;
+  wageInfoHash: string | null;
+  laborInsuranceEnrollmentDate: Date | null;
+  rewardDisciplineSummaryHash: string | null;
+  injurySicknessSummaryHash: string | null;
+  otherNecessaryItemsHash: string | null;
   rosterSourceRef: string | null;
   requiredFieldsJson: unknown;
   missingFieldsJson: unknown;
   verificationStatus: string;
   lastReviewedAt: Date | null;
 }): LaborRosterProfileView {
+  const verificationStatus = normalizeVerificationStatus(record.verificationStatus);
+  const missingFields = missingFieldsFor({
+    legalNameHash: record.legalNameHash,
+    nationalIdHash: record.nationalIdHash,
+    birthDate: record.birthDate,
+    gender: record.gender,
+    nationality: record.nationality,
+    hometown: record.hometown,
+    registeredAddressHash: record.registeredAddressHash,
+    emergencyContactHash: record.emergencyContactHash,
+    wageInfoHash: record.wageInfoHash,
+    laborInsuranceEnrollmentDate: record.laborInsuranceEnrollmentDate,
+    rewardDisciplineSummaryHash: record.rewardDisciplineSummaryHash,
+    injurySicknessSummaryHash: record.injurySicknessSummaryHash,
+    otherNecessaryItemsHash: record.otherNecessaryItemsHash,
+    employee: record.employee,
+  });
   return {
     id: record.id,
     employeeId: record.employeeId,
@@ -518,20 +632,26 @@ function mapDbProfile(record: {
     departmentName: record.employee.department?.name ?? null,
     jobTitle: record.employee.jobTitle,
     hireDate: record.employee.hireDate,
-    status: normalizeStatus(record.status),
+    status: statusFor(missingFields, verificationStatus),
     legalNameHash: record.legalNameHash,
     nationalIdHash: record.nationalIdHash,
     birthDate: record.birthDate,
     gender: record.gender,
     nationality: record.nationality,
+    hometown: record.hometown,
     registeredAddressHash: record.registeredAddressHash,
     emergencyContactHash: record.emergencyContactHash,
     educationSummary: record.educationSummary,
     workExperienceSummary: record.workExperienceSummary,
+    wageInfoHash: record.wageInfoHash,
+    laborInsuranceEnrollmentDate: record.laborInsuranceEnrollmentDate,
+    rewardDisciplineSummaryHash: record.rewardDisciplineSummaryHash,
+    injurySicknessSummaryHash: record.injurySicknessSummaryHash,
+    otherNecessaryItemsHash: record.otherNecessaryItemsHash,
     rosterSourceRef: record.rosterSourceRef,
     requiredFields: stringArray(record.requiredFieldsJson, [...requiredRosterFields]),
-    missingFields: stringArray(record.missingFieldsJson, []),
-    verificationStatus: normalizeVerificationStatus(record.verificationStatus),
+    missingFields,
+    verificationStatus,
     lastReviewedAt: record.lastReviewedAt,
   };
 }
@@ -572,11 +692,6 @@ function validOptionalDate(value: Date | string | null | undefined) {
 function normalizeVerificationStatus(value: unknown): LaborRosterVerificationStatus {
   if (value === "verified" || value === "needs_review" || value === "unverified") return value;
   return "unverified";
-}
-
-function normalizeStatus(value: string): LaborRosterStatus {
-  if (value === "complete" || value === "needs_review" || value === "incomplete") return value;
-  return "incomplete";
 }
 
 function stringArray(value: unknown, fallback: string[]) {

@@ -675,6 +675,52 @@ test("後台表單中心提供常用簽核樣板", async ({ page }) => {
   await expect(templateLibrary.getByText("在職證明申請單", { exact: true })).toBeVisible();
 });
 
+test("HR 可以用勞工名卡工作台補齊第 7 條資料", async ({ page }) => {
+  await page.goto("/app");
+  await page.getByLabel("示範角色").selectOption("hr_admin");
+  await page.getByRole("button", { name: "切換" }).click();
+  await page.goto("/hr/labor-roster");
+
+  await expect(page.getByRole("heading", { name: "勞工名卡工作台" })).toBeVisible();
+  await expect(page.getByLabel("勞工名卡工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("勞工名卡訊號板").getByText("名卡覆蓋率")).toBeVisible();
+  await expect(page.getByLabel("勞工名卡作業卡").getByRole("heading", { name: "法定欄位" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "名卡補齊精靈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "名卡 readiness 清單" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "名卡治理原則" })).toBeVisible();
+
+  const wizard = page.locator("#labor-roster-wizard");
+  await wizard.getByLabel("員工").selectOption("demo-employee-4");
+  await wizard.getByLabel("法定姓名").fill("周宜庭");
+  await wizard.getByLabel("身分證統一號碼").fill("A123456789");
+  await wizard.getByLabel("出生年月日").fill("1992-02-02");
+  await wizard.getByLabel("性別").selectOption("female");
+  await wizard.getByLabel("國籍").fill("TW");
+  await wizard.getByLabel("本籍").fill("Taiwan");
+  await wizard.getByLabel("住址").fill("台北市測試路一段一號");
+  await wizard.getByLabel("緊急聯絡人").fill("王小安 0912345678");
+  await wizard.getByLabel("教育程度摘要").fill("最高學歷文件已複核");
+  await wizard.getByLabel("經歷摘要").fill("到職前經歷已複核");
+  await wizard.getByLabel("工資摘要 hash 來源").fill("salary-profile-demo-employee-4");
+  await wizard.getByLabel("勞保投保日期").fill("2025-01-01");
+  await wizard.getByLabel("獎懲摘要 hash 來源").fill("無需揭露之獎懲紀錄");
+  await wizard.getByLabel("傷病摘要 hash 來源").fill("無需揭露之傷病紀錄");
+  await wizard.getByLabel("其他必要事項 hash 來源").fill("勞基法第 7 條必要事項已複核");
+  await wizard.getByLabel("來源參照").fill("evidence://labor-roster/e2e");
+  await wizard.getByLabel("複核狀態").selectOption("verified");
+  await wizard.getByRole("button", { name: "儲存勞工名卡" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/labor-roster$/);
+  const employeeRosterCard = page.locator("#labor-roster-list .labor-roster-profile-task", { hasText: "E006 · 周宜庭" });
+  await expect(employeeRosterCard).toBeVisible();
+  await expect(employeeRosterCard.getByText("完整")).toBeVisible();
+  await expect(employeeRosterCard.getByText(/身分 [a-f0-9]{10}/)).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("A123456789");
+  await expect(page.locator("body")).not.toContainText("台北市測試路一段一號");
+  await expect(page.locator("body")).not.toContainText("0912345678");
+  await expect(page.locator("body")).not.toContainText("salary-profile-demo-employee-4");
+});
+
 test("HR 可以用人事異動工作台記錄調部升遷", async ({ page }) => {
   await page.goto("/app");
   await page.getByLabel("示範角色").selectOption("hr_admin");

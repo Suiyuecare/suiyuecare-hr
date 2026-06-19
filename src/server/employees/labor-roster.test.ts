@@ -37,10 +37,16 @@ describe("labor roster", () => {
       birthDate: new Date("1992-02-02T00:00:00.000Z"),
       gender: "female",
       nationality: "TW",
+      hometown: "Taiwan",
       registeredAddress: "台北市測試路一段一號",
       emergencyContact: "王小安 0912345678",
       educationSummary: "Bachelor degree reviewed.",
       workExperienceSummary: "Experience reviewed.",
+      wageInfo: "薪資 profile 已由 HR 複核",
+      laborInsuranceEnrollmentDate: new Date("2025-01-01T00:00:00.000Z"),
+      rewardDisciplineSummary: "無獎懲紀錄",
+      injurySicknessSummary: "無傷病紀錄",
+      otherNecessaryItems: "其他必要事項已複核",
       rosterSourceRef: "demo://labor-roster/test",
       verificationStatus: "verified",
     });
@@ -51,5 +57,7 @@ describe("labor roster", () => {
     expect(profile.registeredAddressHash).toBeTruthy();
     expect(JSON.stringify(profile)).not.toContain("A123456789");
     expect(JSON.stringify(profile)).not.toContain("台北市測試路");
+    expect(JSON.stringify(profile)).not.toContain("薪資 profile");
+    expect(JSON.stringify(profile)).not.toContain("無獎懲紀錄");
   });
 });
