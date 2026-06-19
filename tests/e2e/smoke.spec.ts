@@ -356,6 +356,38 @@ test("HR 可以用中文付款安全工作台完成銀行檔閘門", async ({ pa
   await expect(page.getByText("已於").first()).toBeVisible();
 });
 
+test("HR 可以用中文薪資科目工作台調整會計分錄封存", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr/payroll-accounting");
+
+  await expect(page.getByRole("heading", { name: "薪資科目映射工作台" })).toBeVisible();
+  await expect(page.getByLabel("薪資科目映射工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("薪資科目訊號板").getByText("科目完整度")).toBeVisible();
+  await expect(page.getByLabel("薪資科目映射卡").getByRole("heading", { name: "薪資費用" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "科目映射精靈" })).toBeVisible();
+
+  const mappings = [
+    { legend: "薪資費用借方", code: "6101", name: "薪資費用" },
+    { legend: "雇主法定負擔借方", code: "6102", name: "雇主法定負擔" },
+    { legend: "員工扣款與代扣貸方", code: "2201", name: "薪資扣款應付" },
+    { legend: "應付淨薪貸方", code: "2202", name: "應付薪資" },
+  ];
+
+  for (const mapping of mappings) {
+    const fieldset = page.locator("fieldset").filter({ hasText: mapping.legend });
+    await fieldset.getByLabel("科目代碼").fill(mapping.code);
+    await fieldset.getByLabel("科目名稱").fill(mapping.name);
+  }
+  await page.getByRole("button", { name: "儲存薪資科目映射" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/payroll-accounting$/);
+  await expect(page.getByLabel("今日先處理").getByText("可產生會計分錄封存")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "會計分錄封存預覽" })).toBeVisible();
+  await expect(page.getByText("6101 · 薪資費用")).toBeVisible();
+  await expect(page.getByText("2202 · 應付薪資")).toBeVisible();
+});
+
 test("公告發布後員工可回傳回條", async ({ page }) => {
   await page.goto("/app");
   await switchDemoRole(page, "hr_admin");
