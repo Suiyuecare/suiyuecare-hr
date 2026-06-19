@@ -563,6 +563,16 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "異常處理清單" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "處理原則" })).toBeVisible();
 
+  await page.goto("/hr/worktime-compliance");
+  await expect(page.getByRole("heading", { name: "工時法遵工作台" })).toBeVisible();
+  await expect(page.getByLabel("工時法遵工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("工時法遵訊號板").getByText("工時風險", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("工時法遵訊號板").getByText("高風險", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("工時法遵作業卡").getByRole("heading", { name: "月結前掃描" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "月結掃描表單" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "風險清單" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "法遵處理原則" })).toBeVisible();
+
   await page.goto("/hr/kpis");
   await expect(page.getByRole("heading", { name: "HR One 贏面 KPI 指揮台" })).toBeVisible();
   await expect(page.getByLabel("HR One KPI 指揮台").getByText("今日先看")).toBeVisible();
