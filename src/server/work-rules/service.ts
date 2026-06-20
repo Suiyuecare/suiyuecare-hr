@@ -49,6 +49,10 @@ export type WorkRuleReadiness = {
   requiredAcknowledgementCount: number;
   acknowledgedCount: number;
   pendingReviewCount: number;
+  article70Required: boolean;
+  article70CoveredCount: number;
+  article70RequiredCount: number;
+  article70MissingItems: string[];
   missing: string[];
   detail: string;
 };
@@ -63,6 +67,21 @@ const fallbackEmployees = getFallbackCompanyOverview().company.employees.map((em
   id: employee.id,
   displayName: employee.displayName,
 }));
+
+export const article70WorkRuleItems = [
+  "工作時間、休息、休假、國定假日、特別休假與輪班方法",
+  "工資標準、計算方法與發放日期",
+  "延長工作時間",
+  "津貼及獎金",
+  "應遵守之紀律",
+  "考勤、請假、獎懲及升遷",
+  "受僱、解僱、資遣、離職及退休",
+  "災害傷病補償及撫卹",
+  "福利措施",
+  "職業安全衛生規定",
+  "勞雇溝通與合作方法",
+  "其他事項",
+] as const;
 
 type WorkRulesDemoState = {
   rules: CompanyWorkRuleView[];
@@ -124,6 +143,9 @@ export function evaluateWorkRuleReadiness(input: {
     (rule) => rule.status === "active" && rule.acknowledgementRequired,
   );
   const pendingReviewCount = input.rules.filter((rule) => rule.reviewStatus !== "approved").length;
+  const article70Required = input.activeEmployeeCount >= 30;
+  const article70CoveredItems = getArticle70CoveredItems(input.rules);
+  const article70MissingItems = article70WorkRuleItems.filter((item) => !article70CoveredItems.has(item));
   const activeEmployeeIds = input.activeEmployeeIds ?? fallbackEmployees.slice(0, input.activeEmployeeCount).map((employee) => employee.id);
   const requiredPairs = new Set<string>();
   for (const rule of activeRequiredRules) {
@@ -141,6 +163,9 @@ export function evaluateWorkRuleReadiness(input: {
   const missing = [
     activeRequiredRules.length === 0 ? "active company work rules or employee handbook" : null,
     pendingReviewCount > 0 ? "HR/legal review approval for all work rules" : null,
+    article70Required && article70MissingItems.length > 0
+      ? "Labor Standards Act Article 70 work-rule coverage"
+      : null,
     acknowledgedCount < requiredAcknowledgementCount ? "employee acknowledgement coverage" : null,
   ].filter(Boolean) as string[];
 
@@ -150,23 +175,27 @@ export function evaluateWorkRuleReadiness(input: {
     requiredAcknowledgementCount,
     acknowledgedCount,
     pendingReviewCount,
+    article70Required,
+    article70CoveredCount: article70CoveredItems.size,
+    article70RequiredCount: article70WorkRuleItems.length,
+    article70MissingItems,
     missing,
-    detail: `${activeRequiredRules.length} active required rule(s); ${acknowledgedCount}/${requiredAcknowledgementCount} acknowledgement(s); ${pendingReviewCount} pending review.`,
+    detail: `${activeRequiredRules.length} active required rule(s); ${acknowledgedCount}/${requiredAcknowledgementCount} acknowledgement(s); ${pendingReviewCount} pending review; Article 70 coverage ${article70CoveredItems.size}/${article70WorkRuleItems.length}.`,
   };
 }
 
 export function resetWorkRulesDemoState() {
   const rule: CompanyWorkRuleView = {
     id: "demo-work-rule-handbook",
-    title: "Employee handbook and work rules",
-    category: "Company rules",
+    title: "綜合工作規則與員工手冊",
+    category: "綜合工作規則",
     summary:
-      "Covers attendance, leave, overtime approval, payroll close evidence, information security, and respectful workplace expectations.",
+      "涵蓋出勤、請假、加班、薪資發放、資安、職場安全、獎懲與離職交接等公司工作規則。",
     version: "2026.01",
     status: "active",
     reviewStatus: "approved",
     sourceRef: "demo://work-rules/employee-handbook-2026",
-    contentHash: stableHash("demo-work-rules-2026.01"),
+    contentHash: stableHash("demo-work-rules-2026.01-zh"),
     acknowledgementRequired: true,
     effectiveFrom: new Date("2026-06-01T00:00:00.000Z"),
     publishedAt: new Date("2026-06-01T00:00:00.000Z"),
@@ -526,6 +555,31 @@ function workRuleAuditMetadata(rule: CompanyWorkRuleView) {
   };
 }
 
+function getArticle70CoveredItems(rules: CompanyWorkRuleView[]) {
+  const activeRules = rules.filter((rule) => rule.status === "active");
+  if (activeRules.some(isComprehensiveWorkRule)) {
+    return new Set(article70WorkRuleItems);
+  }
+  return new Set(
+    article70WorkRuleItems.filter((item) =>
+      activeRules.some((rule) => normalizeCoverageText(rule.category) === normalizeCoverageText(item)),
+    ),
+  );
+}
+
+function isComprehensiveWorkRule(rule: CompanyWorkRuleView) {
+  const text = normalizeCoverageText(`${rule.title} ${rule.category} ${rule.summary}`);
+  return [
+    "綜合工作規則",
+    "員工手冊",
+    "companyrules",
+    "workrules",
+    "employeehandbook",
+    "第70條",
+    "12款",
+  ].some((keyword) => text.includes(normalizeCoverageText(keyword)));
+}
+
 function assertWorkRuleRead(session: SessionLike) {
   if (hasPermission(session.role, "work_rule:manage") || hasPermission(session.role, "work_rule:self")) return;
   throw new Error(`Role ${session.role} cannot work_rule:read`);
@@ -563,4 +617,8 @@ function normalizeReviewStatus(value: unknown): WorkRuleReviewStatus {
 
 function cleanText(value: unknown, maxLength: number) {
   return typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, maxLength) : "";
+}
+
+function normalizeCoverageText(value: string) {
+  return value.toLowerCase().replace(/\s+/g, "").replace(/[，、,./()（）]/g, "");
 }

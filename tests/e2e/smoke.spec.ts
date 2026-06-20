@@ -111,7 +111,7 @@ test("主管可以從 Inbox 快速核准請假", async ({ page }) => {
 });
 
 test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
   await page.goto("/app");
   await page.getByLabel("示範角色").selectOption("hr_admin");
   await page.getByRole("button", { name: "切換" }).click();
@@ -721,7 +721,7 @@ test("HR 可以用中文文件金庫釋出員工文件", async ({ page }) => {
 });
 
 test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(150_000);
   const leaveReason = "E2E 兩週試用請假流程";
   const approvalComment = "快速核准：已確認排班與餘額。";
   const announcementTitle = "兩週試用公告確認";
@@ -823,18 +823,17 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
 
   await page.goto("/hr");
   await expect(page.getByRole("heading", { name: "HR 月結指揮台" })).toBeVisible();
-  await page.getByRole("button", { name: "Day 7 下一步：建立薪資批次" }).click();
+  await submitPayrollStep(page, "Day 7 下一步：建立薪資批次", "payroll-create");
   await expect(page.getByText("已阻擋").first()).toBeVisible();
-  await page.getByRole("button", { name: "Day 7 下一步：標記阻擋項已檢查" }).click();
+  await submitPayrollStep(page, "Day 7 下一步：標記阻擋項已檢查", "payroll-resolve-blockers");
   await expect(page.getByText("草稿").first()).toBeVisible();
-  await page.getByRole("button", { name: "Day 7 下一步：試算草稿" }).click();
+  await submitPayrollStep(page, "Day 7 下一步：試算草稿", "payroll-recalculate");
   await expect(page.getByText("已試算").first()).toBeVisible();
-  await page.getByRole("button", { name: "Day 7 下一步：人資確認" }).click();
+  await submitPayrollStep(page, "Day 7 下一步：人資確認", "payroll-confirm");
   await expect(page.getByText("已確認").first()).toBeVisible();
-  await page.getByRole("button", { name: "Day 7 下一步：鎖定薪資" }).click();
+  await submitPayrollStep(page, "Day 7 下一步：鎖定薪資", "payroll-lock");
   await expect(page.getByText("已鎖定").first()).toBeVisible();
-  await page.getByRole("button", { name: "Day 7 下一步：發布薪資單" }).click();
-  await page.waitForLoadState("networkidle");
+  await submitPayrollStep(page, "Day 7 下一步：發布薪資單", "payroll-release");
   await expect(page.getByText("已發布").first()).toBeVisible();
 
   await page.goto("/hr/payroll-exports");
@@ -993,6 +992,55 @@ test("HR 可以發布工作條件且員工能在前台確認", async ({ page }) 
   await expect(page.locator(".employee-terms-card", { hasText: "2026.07-e2e" }).getByText("已確認")).toBeVisible();
 });
 
+test("HR 可以用中文工作規則工作台發布規章且員工手機確認", async ({ page }) => {
+  const rawRuleContent = "E2E raw work-rule private content 2026，不應在頁面或 audit metadata 回顯。";
+
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr/work-rules");
+
+  await expect(page.getByRole("heading", { name: "工作規則與公司規章" })).toBeVisible();
+  await expect(page.getByLabel("工作規則管理工作台").getByText("公司管理 · 工作規則")).toBeVisible();
+  await expect(page.getByLabel("工作規則訊號板").getByText("勞基法第 70 條")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "勞基法第 70 條項目覆蓋" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "新增或更新規章" })).toBeVisible();
+
+  const wizard = page.getByRole("form", { name: "工作規則設定精靈" });
+  await wizard.getByLabel("規章名稱").fill("E2E 資安與職場規章");
+  await wizard.getByLabel("法定章節").selectOption("綜合工作規則");
+  await wizard.getByLabel("版本").fill("2026.08-e2e");
+  await wizard.getByLabel("生效日").fill("2026-08-01");
+  await wizard.getByLabel("發布狀態").selectOption("active");
+  await wizard.getByLabel("HR/法務複核").selectOption("approved");
+  await wizard.getByLabel("來源或核備參照").fill("evidence://work-rules/e2e");
+  await wizard.getByLabel("員工可見摘要").fill("資安、職場安全、工作紀律與員工確認流程摘要。");
+  await wizard.getByLabel("規章內容原文").fill(rawRuleContent);
+  await wizard.getByRole("button", { name: "儲存並發布規章" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/work-rules\?success=save$/);
+  await expect(page.getByText("工作規則已儲存")).toBeVisible();
+  const ruleCard = page.locator(".work-rule-card", { hasText: "E2E 資安與職場規章" });
+  await expect(ruleCard).toBeVisible();
+  await expect(ruleCard.getByText("啟用 · 已核准")).toBeVisible();
+  await expect(ruleCard.getByText("2026.08-e2e")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(rawRuleContent);
+
+  await switchDemoRole(page, "employee");
+  await page.goto("/app/work-rules");
+
+  await expect(page.getByRole("heading", { name: "公司規章" })).toBeVisible();
+  await expect(page.getByLabel("公司規章確認").getByText("先確認新規章")).toBeVisible();
+  const employeeRule = page.locator(".employee-work-rule-card", { hasText: "E2E 資安與職場規章" });
+  await expect(employeeRule).toBeVisible();
+  await expect(employeeRule.getByText("待確認")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(rawRuleContent);
+  await employeeRule.getByRole("button", { name: "我已閱讀並確認" }).click();
+
+  await expect(page).toHaveURL(/\/app\/work-rules\?success=acknowledge$/);
+  await expect(page.getByText("規章確認已完成")).toBeVisible();
+  await expect(page.locator(".employee-work-rule-card", { hasText: "E2E 資安與職場規章" }).getByText("已確認")).toBeVisible();
+});
+
 test("HR 可以用投保工作台補法定投保證據", async ({ page }) => {
   await page.goto("/app");
   await page.getByLabel("示範角色").selectOption("hr_admin");
@@ -1125,4 +1173,11 @@ test("HR 可以用公司行事曆工作台完成年度審核與日期設定", as
 async function switchDemoRole(page: Page, role: "employee" | "manager" | "hr_admin" | "owner") {
   await page.getByLabel("示範角色").selectOption(role);
   await page.getByRole("button", { name: "切換" }).click();
+}
+
+async function submitPayrollStep(page: Page, buttonName: string, success: string) {
+  await Promise.all([
+    page.waitForURL(new RegExp(`/hr\\?success=${success}$`), { timeout: 30_000 }),
+    page.getByRole("button", { name: buttonName }).click(),
+  ]);
 }

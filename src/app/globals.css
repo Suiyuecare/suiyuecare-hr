@@ -7930,6 +7930,170 @@ legend {
   background: #f0fdf4;
 }
 
+.work-rule-page {
+  max-width: 1280px;
+}
+
+.work-rule-hero .hr-monthly-hero-focus.ready {
+  border-color: rgba(187, 247, 208, 0.46);
+  background: rgba(21, 128, 61, 0.16);
+}
+
+.work-rule-hero .hr-monthly-hero-focus .button {
+  width: 100%;
+}
+
+.work-rule-gap-grid,
+.work-rule-article-grid,
+.work-rule-list,
+.employee-work-rule-list {
+  display: grid;
+  gap: 12px;
+}
+
+.work-rule-gap-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.work-rule-gap-card,
+.work-rule-article-item,
+.work-rule-card,
+.employee-work-rule-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.work-rule-gap-card strong,
+.work-rule-article-item strong,
+.work-rule-card h3,
+.employee-work-rule-card h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-weight: 1000;
+  line-height: 1.18;
+}
+
+.work-rule-gap-card p,
+.work-rule-card p,
+.employee-work-rule-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+  line-height: 1.45;
+}
+
+.work-rule-article-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.work-rule-article-item {
+  min-height: 86px;
+  align-content: space-between;
+}
+
+.work-rule-article-item span {
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 920;
+  line-height: 1.35;
+}
+
+.work-rule-article-item.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.work-rule-article-item.done strong {
+  color: var(--success);
+}
+
+.work-rule-article-item.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.work-rule-article-item.warning strong {
+  color: var(--warning);
+}
+
+.work-rule-wizard .form-card {
+  align-content: start;
+}
+
+.work-rule-list {
+  max-height: 760px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.work-rule-card {
+  align-content: start;
+}
+
+.work-rule-card.active {
+  border-color: rgba(187, 247, 208, 0.9);
+}
+
+.work-rule-card.retired {
+  opacity: 0.78;
+}
+
+.work-rule-card-head,
+.employee-work-rule-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.work-rule-card-head h3,
+.employee-work-rule-card-head h3 {
+  margin-top: 4px;
+  font-size: 20px;
+}
+
+.employee-work-rule-hero {
+  margin-bottom: 14px;
+}
+
+.employee-work-rule-today {
+  min-height: 156px;
+}
+
+.employee-work-rule-list {
+  grid-template-columns: 1fr;
+}
+
+.employee-work-rule-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.employee-work-rule-card.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.employee-work-rule-card .button {
+  width: 100%;
+}
+
+.employee-work-rule-proof {
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: rgba(240, 253, 244, 0.86);
+  padding: 10px 12px;
+  color: var(--success);
+  font-size: 13px;
+  font-weight: 950;
+}
+
 @media (max-width: 760px) {
   .app-shell {
     padding-left: 0;
@@ -8167,6 +8331,10 @@ legend {
   .pilot-trial-board,
   .pilot-trial-steps,
   .pilot-day-task-grid,
+  .work-rule-gap-grid,
+  .work-rule-article-grid,
+  .work-rule-card-head,
+  .employee-work-rule-card-head,
   .trial-summary-grid,
   .workspace-grid,
   .inbox-workspace,
@@ -8198,6 +8366,7 @@ legend {
   }
 
   .access-control-page .section-heading,
+  .work-rule-page .section-heading,
   .access-user-card-head {
     align-items: stretch;
     flex-direction: column;
@@ -8210,8 +8379,23 @@ legend {
   }
 
   .organization-manager-risk-card,
+  .work-rule-gap-card,
+  .work-rule-article-item,
+  .work-rule-card,
+  .employee-work-rule-card,
   .organization-manager-line-form .form-card {
     min-height: auto;
+  }
+
+  .work-rule-list {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .work-rule-page .button,
+  .employee-work-rule-page .button {
+    width: 100%;
   }
 
   .access-inline-form {

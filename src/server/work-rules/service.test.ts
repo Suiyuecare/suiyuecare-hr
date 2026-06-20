@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  article70WorkRuleItems,
   evaluateWorkRuleReadiness,
   getWorkRulesWorkspace,
   resetWorkRulesDemoState,
@@ -52,6 +53,8 @@ describe("work rules readiness", () => {
       acknowledgedCount: 25,
       requiredAcknowledgementCount: 25,
       pendingReviewCount: 0,
+      article70Required: false,
+      article70CoveredCount: article70WorkRuleItems.length,
     });
   });
 
@@ -65,6 +68,50 @@ describe("work rules readiness", () => {
 
     expect(report.ready).toBe(true);
     expect(report.detail).toContain("2/2 acknowledgement");
+    expect(report.article70Required).toBe(false);
+  });
+
+  it("checks Article 70 coverage when the company reaches 30 active employees", () => {
+    const report = evaluateWorkRuleReadiness({
+      rules: [
+        {
+          ...rule,
+          title: "出勤與加班規則",
+          category: "延長工作時間",
+          summary: "Only overtime handling is configured.",
+        },
+      ],
+      acknowledgements: Array.from({ length: 30 }, (_, index) => acknowledgement(`emp_${index + 1}`)),
+      activeEmployeeCount: 30,
+      activeEmployeeIds: Array.from({ length: 30 }, (_, index) => `emp_${index + 1}`),
+    });
+
+    expect(report.ready).toBe(false);
+    expect(report.article70Required).toBe(true);
+    expect(report.article70CoveredCount).toBe(1);
+    expect(report.article70MissingItems).toContain("工資標準、計算方法與發放日期");
+    expect(report.missing).toContain("Labor Standards Act Article 70 work-rule coverage");
+  });
+
+  it("treats a comprehensive employee handbook as covering Article 70 items", () => {
+    const report = evaluateWorkRuleReadiness({
+      rules: [
+        {
+          ...rule,
+          title: "綜合工作規則與員工手冊",
+          category: "綜合工作規則",
+          summary: "依勞基法第70條 12 款整理公司工作規則。",
+        },
+      ],
+      acknowledgements: Array.from({ length: 30 }, (_, index) => acknowledgement(`emp_${index + 1}`)),
+      activeEmployeeCount: 30,
+      activeEmployeeIds: Array.from({ length: 30 }, (_, index) => `emp_${index + 1}`),
+    });
+
+    expect(report.ready).toBe(true);
+    expect(report.article70Required).toBe(true);
+    expect(report.article70CoveredCount).toBe(article70WorkRuleItems.length);
+    expect(report.article70MissingItems).toHaveLength(0);
   });
 
   it("blocks when acknowledgement coverage is incomplete", () => {

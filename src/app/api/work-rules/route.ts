@@ -26,7 +26,7 @@ export async function POST(request: Request) {
         acknowledgementRequired: formData.get("acknowledgementRequired") === "on",
         effectiveFrom: parseDate(readString(formData.get("effectiveFrom"))),
       });
-      return NextResponse.redirect(new URL("/hr/work-rules", request.url), 303);
+      return NextResponse.redirect(new URL("/hr/work-rules?success=save", request.url), 303);
     }
 
     if (intent === "acknowledge") {
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
         await requireTenantSession({ permission: "work_rule:self", employeeRequired: true }),
         readString(formData.get("workRuleId")),
       );
-      return NextResponse.redirect(new URL("/app/work-rules", request.url), 303);
+      return NextResponse.redirect(new URL("/app/work-rules?success=acknowledge", request.url), 303);
     }
 
     throw new Error("Unknown work rules action.");
