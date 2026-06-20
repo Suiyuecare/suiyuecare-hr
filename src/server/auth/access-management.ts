@@ -66,6 +66,7 @@ export type InviteUserInput = {
 export type UpdateUserAccessInput = {
   userId: string;
   status?: UserAccessStatus;
+  statusReason?: string | null;
   roles?: RoleKey[];
 };
 
@@ -133,6 +134,7 @@ export async function updateUserAccess(session: SessionLike, input: UpdateUserAc
   const normalized = {
     userId: input.userId,
     status: normalizeStatus(input.status),
+    statusReason: normalizeStatus(input.status) ? cleanStatusReason(input.statusReason) : undefined,
     roles: input.roles ? normalizeRoles(input.roles) : undefined,
   };
   if (!normalized.userId) throw new Error("User is required.");
@@ -295,12 +297,14 @@ async function inviteDbUser(
 
 async function updateDbUserAccess(
   session: SessionLike & { tenantId: string; companyId: string },
-  input: { userId: string; status?: UserAccessStatus; roles?: RoleKey[] },
+  input: { userId: string; status?: UserAccessStatus; statusReason?: string; roles?: RoleKey[] },
 ) {
   const db = getDb();
   return db.$transaction(async (tx) => {
     const before = await readDbUser(tx, session, input.userId);
     if (!before) throw new Error("User not found.");
+    const users = await listDbUsersForOwnerGuard(tx, session);
+    assertActiveOwnerWouldRemain(users, input);
     if (input.status) {
       await tx.user.update({
         where: { id: input.userId },
@@ -321,10 +325,7 @@ async function updateDbUserAccess(
       entityId: input.userId,
       before,
       after,
-      metadata: {
-        operation: input.status ? "status" : "roles",
-        rawInviteTokenStored: false,
-      },
+      metadata: userAccessUpdateMetadata(input),
     });
     return after;
   });
@@ -496,11 +497,12 @@ function inviteDemoUser(session: SessionLike, input: Required<InviteUserInput>) 
 
 function updateDemoUserAccess(
   session: SessionLike,
-  input: { userId: string; status?: UserAccessStatus; roles?: RoleKey[] },
+  input: { userId: string; status?: UserAccessStatus; statusReason?: string; roles?: RoleKey[] },
 ) {
   const state = getDemoState();
   const user = state.users.find((item) => item.id === input.userId);
   if (!user) throw new Error("User not found.");
+  assertActiveOwnerWouldRemain(state.users, input);
   const before = { ...user, roles: [...user.roles] };
   if (input.status) user.status = input.status;
   if (input.roles) user.roles = input.roles;
@@ -516,10 +518,7 @@ function updateDemoUserAccess(
     entityId: user.id,
     before,
     after: { ...user, roles: [...user.roles] },
-    metadata: {
-      operation: input.status ? "status" : "roles",
-      rawInviteTokenStored: false,
-    },
+    metadata: userAccessUpdateMetadata(input),
   });
   return user;
 }
@@ -658,6 +657,28 @@ async function readDbUser(
   return user ? mapDbUser(user) : null;
 }
 
+async function listDbUsersForOwnerGuard(
+  tx: Prisma.TransactionClient,
+  session: SessionLike & { tenantId: string; companyId: string },
+) {
+  const users = await tx.user.findMany({
+    where: { tenantId: session.tenantId },
+    select: {
+      id: true,
+      status: true,
+      userRoles: {
+        where: { companyId: session.companyId },
+        include: { role: true },
+      },
+    },
+  });
+  return users.map((user) => ({
+    id: user.id,
+    status: normalizeStatus(user.status) ?? "active",
+    roles: normalizeRoles(user.userRoles.map((item) => item.role.key)),
+  }));
+}
+
 function mapDbUser(user: {
   id: string;
   email: string;
@@ -733,6 +754,12 @@ function normalizeRoles(values: RoleKey[]) {
 function normalizeStatus(value: unknown): UserAccessStatus | undefined {
   if (value === "active" || value === "suspended" || value === "invited") return value;
   return value === undefined ? undefined : "active";
+}
+
+function cleanStatusReason(value: string | null | undefined) {
+  const reason = (value ?? "").trim().replace(/\s+/g, " ").slice(0, 500);
+  if (!reason) throw new Error("Status change reason is required.");
+  return reason;
 }
 
 function normalizeEmail(value: string) {
@@ -821,6 +848,41 @@ function userAccessAuditSnapshot(user: UserAccessRow | null) {
     roles: user.roles,
     employeeIdHash: user.employee ? stableHash({ employeeId: user.employee.id }) : null,
     externalIdentityCount: user.externalIdentities.length,
+  };
+}
+
+function assertActiveOwnerWouldRemain(
+  users: Array<Pick<UserAccessRow, "id" | "status" | "roles">>,
+  input: { userId: string; status?: UserAccessStatus; roles?: RoleKey[] },
+) {
+  const projected = users.map((user) =>
+    user.id === input.userId
+      ? {
+          ...user,
+          status: input.status ?? user.status,
+          roles: input.roles ?? user.roles,
+        }
+      : user,
+  );
+  if (!projected.some((user) => user.status === "active" && user.roles.includes("owner"))) {
+    throw new Error("At least one active Owner must remain.");
+  }
+}
+
+function userAccessUpdateMetadata(input: {
+  status?: UserAccessStatus;
+  statusReason?: string;
+  roles?: RoleKey[];
+}) {
+  return {
+    operation: input.status ? "status" : "roles",
+    targetStatus: input.status ?? null,
+    targetRoles: input.roles ?? null,
+    statusReasonProvided: Boolean(input.statusReason),
+    statusReasonHash: input.statusReason ? stableHash({ statusReason: input.statusReason }) : null,
+    rawStatusReasonStored: false,
+    rawInviteTokenStored: false,
+    activeOwnerGuardChecked: true,
   };
 }
 

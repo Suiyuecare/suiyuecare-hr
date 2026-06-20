@@ -38,6 +38,7 @@ export async function POST(request: Request) {
         await updateUserAccess(session, {
           userId: readString(formData.get("userId")),
           status: readStatus(formData.get("status")),
+          statusReason: readString(formData.get("statusReason")),
           roles: formData.has("roles") ? readRoles(formData) : undefined,
         });
       }

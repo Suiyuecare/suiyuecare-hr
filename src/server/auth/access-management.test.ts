@@ -73,7 +73,9 @@ describe("access management", () => {
     const suspended = await updateUserAccess(ownerSession, {
       userId: invited!.id,
       status: "suspended",
+      statusReason: "離職交接完成，停用登入",
     });
+    const statusAudit = getAuditDemoState().logs[0];
     const updatedRoles = await updateUserAccess(ownerSession, {
       userId: invited!.id,
       roles: ["manager"],
@@ -81,10 +83,51 @@ describe("access management", () => {
 
     expect(suspended?.status).toBe("suspended");
     expect(updatedRoles?.roles).toEqual(["manager"]);
-    expect(getAuditDemoState().logs[0]).toMatchObject({
+    expect(statusAudit).toMatchObject({
       action: "update",
       entityType: "user_access",
+      metadataJson: {
+        operation: "status",
+        statusReasonProvided: true,
+        rawStatusReasonStored: false,
+        activeOwnerGuardChecked: true,
+      },
     });
+    expect(statusAudit.metadataJson.statusReasonHash).toMatch(/[a-f0-9]{64}/);
+    expect(JSON.stringify(statusAudit.metadataJson)).not.toContain("離職交接");
+    expect(getAuditDemoState().logs[0]).toMatchObject({
+      metadataJson: {
+        operation: "roles",
+        targetRoles: ["manager"],
+        activeOwnerGuardChecked: true,
+      },
+    });
+  });
+
+  it("requires a hashed reason for status changes", async () => {
+    await expect(
+      updateUserAccess(ownerSession, {
+        userId: "demo-user-manager",
+        status: "suspended",
+      }),
+    ).rejects.toThrow(/Status change reason/);
+  });
+
+  it("keeps at least one active Owner account", async () => {
+    await expect(
+      updateUserAccess(ownerSession, {
+        userId: "demo-user-owner",
+        status: "suspended",
+        statusReason: "測試停用最後 Owner",
+      }),
+    ).rejects.toThrow(/active Owner/);
+
+    await expect(
+      updateUserAccess(ownerSession, {
+        userId: "demo-user-owner",
+        roles: ["employee"],
+      }),
+    ).rejects.toThrow(/active Owner/);
   });
 
   it("links external SSO identities with an audit trail", async () => {

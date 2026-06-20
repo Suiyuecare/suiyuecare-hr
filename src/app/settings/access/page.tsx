@@ -255,7 +255,17 @@ export default async function AccessSettingsPage({ searchParams }: { searchParam
                       <input type="hidden" name="action" value="status" />
                       <input type="hidden" name="userId" value={user.id} />
                       <input type="hidden" name="status" value={user.status === "suspended" ? "active" : "suspended"} />
-                      <button className="button" type="submit">
+                      <label className="access-status-reason">
+                        {user.status === "suspended" ? "復用原因" : "停用原因"}
+                        <textarea
+                          name="statusReason"
+                          rows={2}
+                          placeholder={user.status === "suspended" ? "例：留停復職已完成權限複核" : "例：離職交接完成，停用登入"}
+                          required
+                        />
+                        <small>audit log 僅保存原因 hash，不保存原文。</small>
+                      </label>
+                      <button className={`button ${user.status === "suspended" ? "" : "danger"}`} type="submit">
                         {user.status === "suspended" ? "復用帳號" : "停用帳號"}
                       </button>
                     </form>
@@ -450,5 +460,7 @@ function localizeAccessError(error: string) {
   if (/already linked/i.test(error)) return "這位員工已綁定到其他帳號，請先解除原綁定再重試。";
   if (/Issuer/i.test(error)) return "Issuer 必須是有效的 HTTPS URL。";
   if (/settings:write/i.test(error)) return "目前角色沒有權限變更使用者與登入設定。";
+  if (/active Owner/i.test(error)) return "系統必須保留至少一個已啟用的 Owner，請先新增或啟用另一個 Owner 再調整。";
+  if (/Status change reason/i.test(error)) return "停用或復用帳號時必須填寫原因；系統只會保存原因 hash 作為 audit 證據。";
   return "請確認欄位、角色與員工綁定狀態後再試一次。";
 }

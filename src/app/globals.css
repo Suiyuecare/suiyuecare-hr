@@ -265,6 +265,18 @@ textarea {
   color: #ffffff;
 }
 
+.button.danger {
+  border-color: #fca5a5;
+  background: #fef2f2;
+  color: var(--danger);
+}
+
+.button.danger:hover {
+  border-color: var(--danger);
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .page {
   width: min(1280px, 100%);
   margin: 0 auto;
@@ -3922,7 +3934,29 @@ legend {
 }
 
 .access-inline-form {
-  display: flex;
+  display: grid;
+  gap: 8px;
+}
+
+.access-status-reason {
+  display: grid;
+  gap: 6px;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.access-status-reason textarea {
+  width: 100%;
+  min-height: 66px;
+  resize: vertical;
+}
+
+.access-status-reason small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.35;
 }
 
 .access-inline-form .button,

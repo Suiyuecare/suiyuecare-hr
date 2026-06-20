@@ -377,6 +377,15 @@ test("Owner 可以用中文權限中樞邀請帳號並綁定員工", async ({ pa
   await expect(page.getByText("SSO 身分已綁定")).toBeVisible();
   await expect(page.locator("body")).toContainText("subject hash");
   await expect(page.locator("body")).not.toContainText("subject-secret-e2e");
+
+  userCard = page.locator(".access-user-card", { hasText: "營運主管" });
+  await userCard.getByLabel("停用原因").fill("E2E 權限安全測試停用");
+  await userCard.getByRole("button", { name: "停用帳號" }).click();
+  await expect(page).toHaveURL(/\/settings\/access\?success=status#access-status/);
+  await expect(page.getByText("帳號狀態已更新")).toBeVisible();
+  userCard = page.locator(".access-user-card", { hasText: "營運主管" });
+  await expect(userCard).toContainText("已停用");
+  await expect(page.locator("body")).not.toContainText("E2E 權限安全測試停用");
   await expect(page.locator("body")).not.toContainText("baseSalary");
   await expect(page.locator("body")).not.toContainText("accountNumber");
   await expect(page.locator("body")).not.toContainText("nationalId");
