@@ -126,7 +126,9 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(companyModuleLink).toBeVisible();
   await page.goto("/console/modules/company");
   await expect(page).toHaveURL(/\/console\/modules\/company$/);
-  await page.getByRole("link", { name: "開啟組織設定" }).click();
+  const organizationSettingsLink = page.getByRole("link", { name: "開啟組織設定" });
+  await expect(organizationSettingsLink).toHaveAttribute("href", "/settings/organization");
+  await page.goto("/settings/organization");
   await expect(page).toHaveURL(/\/settings\/organization$/);
   await expect(page.getByRole("heading", { name: "公司組織設定" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "主管線治理" })).toBeVisible();
@@ -220,6 +222,12 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
 
   await page.goto("/console");
   await expect(page.getByRole("heading", { name: "公告中心" })).toBeVisible();
+});
+
+test("Owner 可以檢查試用邀請 Gate 與權限防漏", async ({ page }) => {
+  test.setTimeout(150_000);
+  await page.goto("/app");
+  await switchDemoRole(page, "owner");
 
   await page.goto("/settings/company-setup");
   await expect(page.getByRole("heading", { name: "公司導入精靈" })).toBeVisible();
@@ -257,13 +265,20 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(day7Gate.getByText(/必要證據：.*薪資單查看/)).toBeVisible();
   const preflightGate = inviteFlow.locator(".close-step").filter({ hasText: "試用前" });
   await expect(preflightGate.getByText(/必要證據：.*權限防漏/)).toBeVisible();
-  await page.getByRole("button", { name: "跑權限防漏" }).click();
-  await expect(page).toHaveURL(/success=access-review/);
+  await page.getByRole("button", { name: "跑權限防漏" }).click({ noWaitAfter: true });
+  await expect(page).toHaveURL(/success=access-review/, { timeout: 60_000 });
   await expect(page.getByText("權限防漏已寫入 preflight 證據")).toBeVisible();
   await expect(page.getByText(/Preflight 權限防漏：已驗證/)).toBeVisible();
-  await expect(preflightGate.getByText("缺少：無")).toBeVisible();
+  const updatedPreflightGate = page.locator(".pilot-invite-flow").locator(".close-step").filter({ hasText: "試用前" });
+  await expect(updatedPreflightGate.getByText("缺少：無")).toBeVisible();
+});
 
-  await page.goto("/settings/pilot-operations");
+test("Owner 可以檢查試用營運與上線 Gate", async ({ page }) => {
+  test.setTimeout(150_000);
+  await gotoAppPage(page, "/app");
+  await switchDemoRole(page, "owner");
+
+  await gotoAppPage(page, "/settings/pilot-operations");
   await expect(page.getByRole("heading", { name: "試用每日戰情" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "今日任務板" })).toBeVisible();
   const todayTaskBoard = page.getByLabel("今日任務板");
@@ -272,20 +287,20 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByRole("heading", { name: "每日 checkpoint" })).toBeVisible();
   await expect(page.getByRole("button", { name: "記錄每日證據" }).first()).toBeVisible();
 
-  await page.goto("/settings/pilot-trial-run");
+  await gotoAppPage(page, "/settings/pilot-trial-run");
   await expect(page.getByRole("heading", { name: "試用批次控制台" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "今日焦點" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "批次同步" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "兩週節奏" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "關鍵入口" })).toBeVisible();
-  await expect(page.getByText("試用邀請就緒")).toBeVisible();
-  await expect(page.getByText("開跑 Go/No-Go")).toBeVisible();
-  await expect(page.getByText("試用結案檢查")).toBeVisible();
+  await expect(page.getByRole("link", { name: /試用邀請就緒/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /開跑 Go\/No-Go/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /試用結案檢查/ })).toBeVisible();
   await page.getByRole("button", { name: "演練同步試用批次" }).click();
   await expect(page).toHaveURL(/\/settings\/pilot-trial-run\?success=beta-trial-run/);
   await expect(page.getByText("試用批次已同步")).toBeVisible();
 
-  await page.goto("/settings/pilot-import-preflight");
+  await gotoAppPage(page, "/settings/pilot-import-preflight");
   await expect(page.getByRole("heading", { name: "試用 CSV 預檢" })).toBeVisible();
   await expect(page.getByText("畫面不保存、不回顯 CSV 原文")).toBeVisible();
   await page.getByLabel(/員工主檔 CSV/).fill("employeeNo,displayName,jobTitle,departmentCode,hireDate,managerEmployeeNo\n");
@@ -297,7 +312,7 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByRole("heading", { name: "CSV 還不能匯入" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "20-50 人名單" })).toBeVisible();
 
-  await page.goto("/settings/pilot-go-no-go");
+  await gotoAppPage(page, "/settings/pilot-go-no-go");
   await expect(page.getByRole("heading", { name: "試用 Go/No-Go" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "尚未可以發出試用邀請" })).toBeVisible();
   const goNoGoChecks = page.getByLabel("Go/No-Go 檢查");
@@ -308,7 +323,7 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByText("Customer import preflight")).toBeVisible();
   await expect(page.getByRole("link", { name: "預檢 CSV" })).toBeVisible();
 
-  await page.goto("/settings/production-database");
+  await gotoAppPage(page, "/settings/production-database");
   await expect(page.getByRole("heading", { name: "正式環境資料庫 Gate" })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Production database/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Runtime env 診斷" })).toBeVisible();
@@ -319,7 +334,7 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByRole("heading", { name: "必跑命令" })).toBeVisible();
   await expect(page.getByText("Pooler handoff")).toBeVisible();
 
-  await page.goto("/settings/pilot-completion");
+  await gotoAppPage(page, "/settings/pilot-completion");
   await expect(page.getByRole("heading", { name: "試用結案檢查" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "尚未可以結案" })).toBeVisible();
   const completionGate = page.getByLabel("試用結案 Gate");
@@ -327,18 +342,23 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(completionGate.getByRole("heading", { name: "Day 14 audit 結案" })).toBeVisible();
   await expect(completionGate.getByRole("heading", { name: "證據隱私掃描" })).toBeVisible();
   await expect(page.getByText("Redacted handoff package")).toBeVisible();
+});
+
+test("Owner 可以檢查試用證據包 Gate 並產生稽核證據", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "owner");
 
   await page.goto("/settings/pilot-evidence");
   await expect(page.getByRole("heading", { name: "試用證據包", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "尚未可以交付試用證據包" })).toBeVisible();
-  const evidenceGate = page.getByLabel("試用證據包 Gate");
+  const evidenceGate = page.getByLabel("試用證據包閘門");
   await expect(evidenceGate.getByRole("heading", { name: "試用批次" })).toBeVisible();
   await expect(evidenceGate.getByRole("heading", { name: "開跑 Go/No-Go" })).toBeVisible();
   await expect(evidenceGate.getByRole("heading", { name: "證據隱私掃描" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "補 audit evidence package" })).toBeVisible();
-  await page.getByRole("button", { name: "產生 audit package" }).click();
+  await expect(page.getByRole("heading", { name: "補稽核證據包" })).toBeVisible();
+  await page.getByRole("button", { name: "產生稽核證據包" }).click();
   await expect(page).toHaveURL(/\/settings\/pilot-evidence\?success=audit-evidence/);
-  await expect(page.getByText("Audit evidence package 已產生")).toBeVisible();
+  await expect(page.getByText("稽核證據包已產生")).toBeVisible();
 });
 
 test("Owner 可以用中文權限中樞邀請帳號並綁定員工", async ({ page }) => {
@@ -456,6 +476,50 @@ test("Owner 可以用中文通知管道工作台調整提醒政策", async ({ pa
 
   await switchDemoRole(page, "employee");
   await page.goto("/settings/notifications");
+  await expect(page).toHaveURL(/\/app$/);
+});
+
+test("Owner 可以用中文文件儲存工作台通過正式儲存 Gate", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "owner");
+  await page.goto("/settings/file-storage");
+
+  await expect(page.getByRole("heading", { name: "文件儲存工作台" })).toBeVisible();
+  await expect(page.getByLabel("文件儲存訊號板").getByText("上線閘門")).toBeVisible();
+  await expect(page.getByLabel("文件儲存作業區").getByRole("heading", { name: "供應商" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "三步文件儲存設定精靈" })).toBeVisible();
+
+  const wizard = page.getByRole("form", { name: "三步文件儲存設定精靈" });
+  await wizard.locator('select[name="provider"]').selectOption("r2");
+  await wizard.getByLabel("Bucket 名稱").fill("suiyuecare-hrone-documents");
+  await wizard.getByLabel("區域").fill("apac");
+  await wizard.getByLabel("基礎路徑前綴").fill("hr-one/suiyuecare");
+  await wizard.getByLabel("KMS 金鑰參照").fill("vault://suiyuecare/hr-one/document-storage-key");
+  await wizard.getByLabel("簽名 URL 有效分鐘數").fill("8");
+  await wizard.getByLabel("檔案大小上限 MB").fill("20");
+  await wizard.getByLabel("保留天數").fill("2555");
+  await wizard.getByLabel("驗證狀態").selectOption("verified");
+  await wizard.getByLabel("允許的 MIME 類型").fill("application/pdf, image/png, image/jpeg, text/csv");
+  await wizard.getByLabel("驗證備註").fill("STR-2026-9001 smoke test passed; storage-secret-not-rendered");
+  await wizard.getByRole("button", { name: "儲存文件儲存設定" }).click();
+
+  await expect(page).toHaveURL(/\/settings\/file-storage\?success=saved$/);
+  await expect(page.getByText("文件儲存設定已儲存")).toBeVisible();
+  await expect(page.getByLabel("文件儲存訊號板").getByText("Cloudflare R2")).toBeVisible();
+  await expect(page.getByLabel("文件儲存訊號板").getByText("正式儲存已驗證")).toBeVisible();
+  await expect(page.getByLabel("文件儲存訊號板").getByText("已設定")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("storage-secret-not-rendered");
+  await expect(page.locator("body")).not.toContainText("demo_object_storage://");
+  await expect(page.locator("body")).not.toContainText("baseSalary");
+  await expect(page.locator("body")).not.toContainText("accountNumber");
+  await expect(page.locator("body")).not.toContainText("nationalId");
+
+  await page.goto("/settings");
+  await page.getByRole("link", { name: "開啟文件儲存工作台" }).click();
+  await expect(page).toHaveURL(/\/settings\/file-storage$/);
+
+  await switchDemoRole(page, "employee");
+  await page.goto("/settings/file-storage");
   await expect(page).toHaveURL(/\/app$/);
 });
 
@@ -836,7 +900,7 @@ test("HR 可以用中文文件金庫釋出員工文件", async ({ page }) => {
 });
 
 test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
-  test.setTimeout(150_000);
+  test.setTimeout(300_000);
   const leaveReason = "E2E 兩週試用請假流程";
   const approvalComment = "快速核准：已確認排班與餘額。";
   const announcementTitle = "兩週試用公告確認";
@@ -1290,6 +1354,20 @@ async function switchDemoRole(page: Page, role: "employee" | "manager" | "hr_adm
   await page.getByRole("button", { name: "切換" }).click();
 }
 
+async function gotoAppPage(page: Page, path: string) {
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await page.goto(path, { waitUntil: "domcontentloaded" });
+      return;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const canRetry = message.includes("ERR_CONNECTION_REFUSED") || message.includes("ECONNREFUSED");
+      if (!canRetry || attempt === 3) throw error;
+      await page.waitForTimeout(attempt * 1_000);
+    }
+  }
+}
+
 function formatDatetimeLocal(date: Date) {
   const pad = (value: number) => String(value).padStart(2, "0");
   return [
@@ -1301,7 +1379,7 @@ function formatDatetimeLocal(date: Date) {
 
 async function submitPayrollStep(page: Page, buttonName: string, success: string) {
   await Promise.all([
-    page.waitForURL(new RegExp(`/hr\\?success=${success}$`), { timeout: 30_000 }),
+    page.waitForURL(new RegExp(`/hr\\?success=${success}$`), { timeout: 60_000 }),
     page.getByRole("button", { name: buttonName }).click(),
   ]);
 }

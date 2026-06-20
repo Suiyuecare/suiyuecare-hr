@@ -376,7 +376,7 @@ export function buildLaunchReadinessReport(input: {
         : `Storage provider ${input.fileStorageSettings.provider}; KMS ${input.fileStorageSettings.kmsKeyRef ? "configured" : "missing"}; verification ${input.fileStorageSettings.verificationStatus}.`,
       nextStep: "Configure production object storage, KMS reference, retention, signed URL TTL, malware scanning, and verification evidence.",
       actionLabel: "Configure storage",
-      actionHref: "/settings#file-storage-setup",
+      actionHref: "/settings/file-storage",
     },
     {
       id: "support_access",
@@ -572,7 +572,7 @@ function buildSetupSteps(items: LaunchReadinessItem[]): LaunchSetupStep[] {
       itemIds: ["file_storage", "notifications", "payment_security"],
       summary: "Move documents off demo storage, enable approved external notification channels, and verify payroll payment vault/bank export readiness.",
       actionLabel: "Configure storage",
-      actionHref: "/settings#file-storage-setup",
+      actionHref: "/settings/file-storage",
       items,
     }),
     setupStep({

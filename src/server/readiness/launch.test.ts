@@ -145,7 +145,7 @@ describe("launch readiness", () => {
     expect(report.items.find((item) => item.id === "file_storage")).toMatchObject({
       status: "blocked",
       actionLabel: "Configure storage",
-      actionHref: "/settings#file-storage-setup",
+      actionHref: "/settings/file-storage",
     });
     expect(report.setupSteps[0]).toMatchObject({
       step: 1,
@@ -155,7 +155,7 @@ describe("launch readiness", () => {
     expect(report.setupSteps[2]).toMatchObject({
       step: 3,
       status: "blocked",
-      actionHref: "/settings#file-storage-setup",
+      actionHref: "/settings/file-storage",
     });
     expect(report.actionRequiredCount).toBeGreaterThan(0);
   });

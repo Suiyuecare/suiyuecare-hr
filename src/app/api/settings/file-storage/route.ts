@@ -20,11 +20,11 @@ export async function POST(request: Request) {
       verificationStatus: readVerificationStatus(formData.get("verificationStatus")),
       verificationNote: readString(formData.get("verificationNote")),
     });
-    return NextResponse.redirect(new URL("/settings", request.url), 303);
+    return NextResponse.redirect(new URL("/settings/file-storage?success=saved", request.url), 303);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to update file storage settings.";
     return NextResponse.redirect(
-      new URL(`/settings?error=${encodeURIComponent(message)}`, request.url),
+      new URL(`/settings/file-storage?error=${encodeURIComponent(message)}`, request.url),
       303,
     );
   }

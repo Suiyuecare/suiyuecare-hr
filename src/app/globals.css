@@ -5205,6 +5205,123 @@ legend {
   background: #ffffff;
 }
 
+.file-storage-page {
+  max-width: 1280px;
+}
+
+.file-storage-alerts {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.file-storage-command-card {
+  min-height: 250px;
+}
+
+.file-storage-form {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.file-storage-fieldset {
+  display: grid;
+  gap: 12px;
+}
+
+.file-storage-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.file-storage-provider-grid article {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 104px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.file-storage-provider-grid article.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.file-storage-provider-grid strong {
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.file-storage-provider-grid small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.35;
+}
+
+.file-storage-checklist .task {
+  align-items: flex-start;
+}
+
+.file-storage-policy-note {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: #f0fdf4;
+  padding: 12px;
+}
+
+.file-storage-policy-note strong {
+  color: #166534;
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.file-storage-policy-note p {
+  margin: 0;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.45;
+}
+
+.settings-storage-redirect-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, auto);
+  align-items: center;
+  gap: 16px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.settings-storage-redirect-card strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--foreground);
+  font-size: 21px;
+  font-weight: 1000;
+  line-height: 1.15;
+}
+
+.settings-storage-redirect-card p {
+  max-width: 780px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+  line-height: 1.5;
+}
+
 .payment-profile-page {
   max-width: 1280px;
 }
@@ -8697,6 +8814,8 @@ legend {
   .support-access-scope-grid,
   .support-access-grant-grid,
   .support-access-grant-meta,
+  .file-storage-provider-grid,
+  .settings-storage-redirect-card,
   .access-invite-form,
   .role-pill-grid,
   .access-user-grid,

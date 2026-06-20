@@ -1,7 +1,7 @@
 import { EmptyState } from "@/components/EmptyState";
 import { getDemoSession } from "@/server/auth/session";
 import { getCompanyOverview } from "@/server/dashboard/queries";
-import { getFileStorageSettings } from "@/server/files/storage";
+import { getFileStorageSettings, isProductionStorageVerified } from "@/server/files/storage";
 import { getTaiwanLaborStandardsConfig } from "@/server/rules/settings";
 import {
   evaluateLegalSourceFreshness,
@@ -308,9 +308,9 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
             </li>
             <li className="task">
               <span>檔案儲存</span>
-              <span className={`badge ${fileStorageSettings.provider === "demo_object_storage" ? "warning" : ""}`}>
-                {fileStorageSettings.provider}
-              </span>
+              <a className="button" href="/settings/file-storage">
+                設定
+              </a>
             </li>
             <li className="task">
               <span>通知管道</span>
@@ -415,98 +415,27 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
         <section className="panel span-12" id="file-storage-setup">
           <div className="section-heading">
             <div>
-              <h2>檔案儲存設定</h2>
+              <h2>文件儲存 Gate</h2>
               <p className="muted">
-                設定人資文件與未來附件的物件儲存政策；金鑰與密碼仍保留在供應商保管庫。
+                文件儲存已移到獨立工作台，集中處理 provider、bucket、KMS、掃描、簽名 URL、保留期限與 smoke test 證據。
               </p>
             </div>
-            <span className="badge">資料庫不存檔案內容</span>
+            <span className={`badge ${isProductionStorageVerified(fileStorageSettings) ? "" : "warning"}`}>
+              {isProductionStorageVerified(fileStorageSettings) ? "正式儲存已驗證" : "待通過"}
+            </span>
           </div>
-          <form action="/api/settings/file-storage" method="post" className="mini-form">
-            <div className="field-grid">
-              <label>
-                供應商
-                <select name="provider" defaultValue={fileStorageSettings.provider}>
-                  <option value="demo_object_storage">示範物件儲存</option>
-                  <option value="s3">Amazon S3 相容</option>
-                  <option value="r2">Cloudflare R2</option>
-                  <option value="gcs">Google Cloud Storage</option>
-                  <option value="azure_blob">Azure Blob</option>
-                  <option value="custom">自訂供應商</option>
-                </select>
-              </label>
-              <label>
-                Bucket 名稱
-                <input name="bucketName" defaultValue={fileStorageSettings.bucketName} required />
-              </label>
-              <label>
-                區域
-                <input name="region" defaultValue={fileStorageSettings.region ?? ""} placeholder="ap-northeast-1" />
-              </label>
-              <label>
-                基礎路徑前綴
-                <input name="basePrefix" defaultValue={fileStorageSettings.basePrefix} required />
-              </label>
-              <label>
-                KMS 金鑰參照
-                <input name="kmsKeyRef" defaultValue={fileStorageSettings.kmsKeyRef ?? ""} placeholder="alias/hr-one-documents" />
-              </label>
-              <label>
-                簽名 URL 有效分鐘數
-                <input
-                  name="signedUrlTtlMinutes"
-                  type="number"
-                  min="1"
-                  max="120"
-                  defaultValue={fileStorageSettings.signedUrlTtlMinutes}
-                />
-              </label>
-              <label>
-                檔案大小上限 MB
-                <input name="maxFileSizeMb" type="number" min="1" max="100" defaultValue={fileStorageSettings.maxFileSizeMb} />
-              </label>
-              <label>
-                保留天數
-                <input name="retentionDays" type="number" min="30" max="3650" defaultValue={fileStorageSettings.retentionDays} />
-              </label>
-              <label>
-                驗證狀態
-                <select name="verificationStatus" defaultValue={fileStorageSettings.verificationStatus}>
-                  <option value="unverified">未驗證</option>
-                  <option value="verified">已驗證</option>
-                  <option value="failed">驗證失敗</option>
-                </select>
-              </label>
-              <label>
-                上次驗證
-                <input value={fileStorageSettings.lastVerifiedAt?.toISOString() ?? "尚未驗證"} readOnly />
-              </label>
+          <div className="settings-storage-redirect-card">
+            <div>
+              <span className="muted">目前 provider</span>
+              <strong>{fileStorageSettings.provider}</strong>
+              <p>
+                正式販售前必須使用非 demo storage、KMS 參照、惡意程式掃描與驗證證據；檔案內容與供應商密鑰不可寫入資料庫或 audit log。
+              </p>
             </div>
-            <label className="check-row">
-              <input
-                name="malwareScanningRequired"
-                type="checkbox"
-                defaultChecked={fileStorageSettings.malwareScanningRequired}
-              />
-              下載前必須完成惡意程式掃描
-            </label>
-            <label>
-              允許的 MIME 類型
-              <input name="allowedMimeTypes" defaultValue={fileStorageSettings.allowedMimeTypes.join(", ")} />
-            </label>
-            <label>
-              驗證備註
-              <textarea
-                name="verificationNote"
-                rows={3}
-                defaultValue={fileStorageSettings.verificationNote ?? ""}
-                placeholder="記錄外部供應商 smoke test 結果，請勿貼上密鑰。"
-              />
-            </label>
-            <button className="button primary" type="submit">
-              儲存檔案儲存設定
-            </button>
-          </form>
+            <a className="button primary" href="/settings/file-storage">
+              開啟文件儲存工作台
+            </a>
+          </div>
         </section>
 
         <section className="panel span-12" id="law-rules-setup">
@@ -1344,6 +1273,7 @@ function buildSetupCommandGroups(input: {
         { href: "/settings/audit", label: `稽核 ${input.auditCount}` },
         { href: "/settings/support-access", label: "支援存取" },
         { href: "/settings/privacy", label: "個資治理" },
+        { href: "/settings/file-storage", label: "文件儲存" },
       ],
     },
     {

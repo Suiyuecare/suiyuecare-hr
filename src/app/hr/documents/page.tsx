@@ -78,7 +78,7 @@ export default async function HrDocumentsPage({ searchParams }: { searchParams: 
             <Link className="button primary" href="#employee-document-wizard">
               新增文件
             </Link>
-            <Link className="button" href="/settings#file-storage-setup">
+            <Link className="button" href="/settings/file-storage">
               儲存設定
             </Link>
             <Link className="button" href="/settings/audit">
@@ -137,7 +137,7 @@ export default async function HrDocumentsPage({ searchParams }: { searchParams: 
           </span>
           <h2>正式儲存 Gate</h2>
           <p>正式環境需設定物件儲存、bucket、保存天數、允許 MIME、簽名 URL 時效與 KMS/加密證據。</p>
-          <Link className="button primary" href="/settings#file-storage-setup">
+          <Link className="button primary" href="/settings/file-storage">
             儲存設定
           </Link>
         </article>
@@ -320,7 +320,7 @@ export default async function HrDocumentsPage({ searchParams }: { searchParams: 
               <h2>文件治理原則</h2>
               <p className="muted">文件庫要讓 HR 好用，也要讓資安、法遵與員工自助可以被驗證。</p>
             </div>
-            <Link className="button" href="/settings#file-storage-setup">
+            <Link className="button" href="/settings/file-storage">
               儲存政策
             </Link>
           </div>
@@ -355,7 +355,7 @@ function buildDocumentFocus(workspace: EmployeeDocumentWorkspace): DocumentFocus
       detail: "文件會包含契約、身分文件與附件 metadata，正式上線前需確認物件儲存、掃描與保留政策。",
       note: "demo_object_storage 只適合展示，不可用於正式客戶文件。",
       tone: "danger",
-      href: "/settings#file-storage-setup",
+      href: "/settings/file-storage",
       actionLabel: "設定儲存",
     };
   }
