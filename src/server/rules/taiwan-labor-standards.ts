@@ -287,6 +287,12 @@ export const defaultTaiwanLaborStandardsConfig: TaiwanLaborStandardsConfig = {
       checkedAt: "2026-06-12",
     },
     {
+      id: "tw-lsa-article-32",
+      title: "勞動基準法第 32 條：延長工作時間",
+      url: "https://law.moj.gov.tw/ENG/LawClass/LawAll.aspx?pcode=N0030001",
+      checkedAt: "2026-06-12",
+    },
+    {
       id: "tw-lsa-article-36",
       title: "勞動基準法第 36 條：例假與休息日",
       url: "https://laws.mol.gov.tw/FLAW/FLAWDAT09.aspx?flno=36&id=FL014930",
@@ -580,7 +586,7 @@ export function validateWorkingTime(input: {
     passed: issues.length === 0,
     issues,
     sources: config.sources.filter((source) =>
-      source.id === "tw-lsa-article-30" || source.id === "tw-lsa-article-24" || source.id === "tw-lsa-article-36",
+      source.id === "tw-lsa-article-30" || source.id === "tw-lsa-article-32" || source.id === "tw-lsa-article-24",
     ),
   };
 }

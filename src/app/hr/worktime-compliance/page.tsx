@@ -77,7 +77,7 @@ export default async function WorktimeCompliancePage({ searchParams }: { searchP
           </div>
           <h1>工時法遵工作台</h1>
           <p>
-            薪資月結前先掃描單日總工時、月加班上限與七日一例一休風險。系統只協助找出疑點與建立出勤異常，不會自動替人資關閉法遵風險或改動薪資。
+            薪資月結前先掃描單日總工時、每週正常工時、月加班上限與七日一例一休風險。系統只協助找出疑點與建立出勤異常，不會自動替人資關閉法遵風險或改動薪資。
           </p>
           <div className="hr-monthly-hero-actions">
             <Link className="button primary" href="#worktime-scan-form">
@@ -121,7 +121,7 @@ export default async function WorktimeCompliancePage({ searchParams }: { searchP
         <article className={`hr-monthly-signal-card ${dangerCount ? "danger" : "done"}`}>
           <span>高風險</span>
           <strong>{dangerCount} 筆</strong>
-          <small>{dangerCount ? "涉及單日工時或例休循環，需人工追溯班表與打卡。" : "目前沒有高風險工時項目。"}</small>
+          <small>{dangerCount ? "涉及單日、每週工時或例休循環，需人工追溯班表與打卡。" : "目前沒有高風險工時項目。"}</small>
         </article>
         <article className={`hr-monthly-signal-card ${workspace.agreementReady ? "done" : "warning"}`}>
           <span>工時約定</span>
@@ -161,7 +161,7 @@ export default async function WorktimeCompliancePage({ searchParams }: { searchP
             {dangerCount ? "需法遵複核" : "高風險清空"}
           </span>
           <h2>高風險人工處理</h2>
-          <p>超過單日總工時、例休循環不足等風險不批次結案，先回到出勤異常追蹤證據。</p>
+          <p>超過單日或每週正常工時、例休循環不足等風險不批次結案，先回到出勤異常追蹤證據。</p>
           <Link className="button" href="/hr/attendance-exceptions">
             處理異常
           </Link>
@@ -289,7 +289,7 @@ export default async function WorktimeCompliancePage({ searchParams }: { searchP
             <article>
               <span className="badge">規則來源</span>
               <strong>法規規則不可硬寫死</strong>
-              <p>單日工時、月加班與例休循環都引用版本化規則，方便日後因法規或公司政策更新而追溯。</p>
+              <p>單日工時、每週正常工時、月加班與例休循環都引用版本化規則，方便日後因法規或公司政策更新而追溯。</p>
             </article>
             <article>
               <span className="badge danger">敏感資料</span>
@@ -307,7 +307,7 @@ function buildWorktimeFocus(workspace: WorktimeComplianceWorkspace, dangerCount:
   if (dangerCount > 0) {
     return {
       title: "先看高風險工時",
-      detail: `${dangerCount} 筆涉及單日總工時或例休循環，月結前要先追溯班表、打卡與加班來源。`,
+      detail: `${dangerCount} 筆涉及單日、每週正常工時或例休循環，月結前要先追溯班表、打卡與加班來源。`,
       note: "高風險不批次關閉，避免薪資月結帶入未確認法遵疑點。",
       tone: "danger",
       href: "#worktime-risk-list",
@@ -351,6 +351,7 @@ function riskTone(risk: WorktimeComplianceRisk) {
 function localizeRiskType(riskType: WorktimeComplianceRisk["riskType"]) {
   const labels: Record<WorktimeComplianceRisk["riskType"], string> = {
     daily_worktime: "單日總工時",
+    weekly_regular_worktime: "每週正常工時",
     monthly_overtime: "月加班上限",
     rest_day_cycle: "七日一例一休",
   };

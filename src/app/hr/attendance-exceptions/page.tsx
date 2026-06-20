@@ -316,6 +316,7 @@ function localizeExceptionType(type: string) {
     missing_clock_out: "缺下班打卡",
     duplicate_punch: "重複打卡",
     worktime_daily_worktime: "每日工時風險",
+    worktime_weekly_regular_worktime: "每週正常工時風險",
     worktime_monthly_overtime: "月加班風險",
     worktime_rest_day: "休息日風險",
   };

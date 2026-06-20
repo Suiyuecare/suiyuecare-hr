@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { resetAuditDemoState } from "@/server/audit/demo-store";
 import {
   buildRestDayCycleDays,
+  buildWeeklyRegularWorktimeRisks,
   createWorktimeComplianceExceptions,
   getWorktimeComplianceWorkspace,
   resetWorktimeComplianceDemoState,
@@ -40,6 +41,11 @@ describe("worktime compliance", () => {
           severity: "warning",
         }),
         expect.objectContaining({
+          employeeName: "王小美",
+          riskType: "weekly_regular_worktime",
+          severity: "danger",
+        }),
+        expect.objectContaining({
           employeeName: "李小真",
           riskType: "rest_day_cycle",
           severity: "danger",
@@ -56,6 +62,30 @@ describe("worktime compliance", () => {
       periodEnd: workspace.periodEnd,
     });
     expect(after.auditCount).toBe(1);
+  });
+
+  it("builds weekly regular worktime risks from actual attendance records", () => {
+    const risks = buildWeeklyRegularWorktimeRisks({
+      employeeId: "employee-weekly-risk",
+      employeeName: "週工時員工",
+      records: [
+        buildAttendanceRecord("2026-06-01", 8),
+        buildAttendanceRecord("2026-06-02", 8),
+        buildAttendanceRecord("2026-06-03", 8),
+        buildAttendanceRecord("2026-06-04", 8),
+        buildAttendanceRecord("2026-06-05", 8),
+        buildAttendanceRecord("2026-06-06", 1),
+      ],
+    });
+
+    expect(risks).toHaveLength(1);
+    expect(risks[0]).toMatchObject({
+      employeeName: "週工時員工",
+      riskType: "weekly_regular_worktime",
+      severity: "danger",
+      detail: expect.stringContaining("2026-06-01 - 2026-06-07"),
+    });
+    expect(risks[0]?.sourceIds).toContain("tw-lsa-article-30");
   });
 
   it("builds rest-day cycle evidence from calendar, schedules, and attendance", () => {
@@ -87,3 +117,11 @@ describe("worktime compliance", () => {
     ]);
   });
 });
+
+function buildAttendanceRecord(date: string, hours: number) {
+  return {
+    workDate: new Date(`${date}T00:00:00.000Z`),
+    clockInAt: new Date(`${date}T01:00:00.000Z`),
+    clockOutAt: new Date(`${date}T${String(1 + hours).padStart(2, "0")}:00:00.000Z`),
+  };
+}

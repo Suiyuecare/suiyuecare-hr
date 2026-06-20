@@ -22,7 +22,7 @@ type SessionLike = {
 export type WorktimeComplianceRisk = {
   employeeId: string;
   employeeName: string;
-  riskType: "daily_worktime" | "monthly_overtime" | "rest_day_cycle";
+  riskType: "daily_worktime" | "weekly_regular_worktime" | "monthly_overtime" | "rest_day_cycle";
   severity: "warning" | "danger";
   detail: string;
   sourceIds: string[];
@@ -40,6 +40,12 @@ export type WorktimeComplianceWorkspace = {
 type RestDayCycleInputDay = {
   date: string;
   dayType: "workday" | "regular_leave" | "rest_day" | "holiday";
+};
+
+type WorktimeAttendanceRecordForWeekly = {
+  workDate: Date;
+  clockInAt: Date | null;
+  clockOutAt: Date | null;
 };
 
 type DemoState = {
@@ -110,6 +116,8 @@ async function scanDbWorktimeRisks(
   periodEnd: Date,
   agreementReady: boolean,
 ) {
+  const weeklyScanStart = startOfIsoWeek(periodStart);
+  const weeklyScanEnd = endOfIsoWeek(periodEnd);
   const [employees, calendarDays, laborConfig] = await Promise.all([
     getDb().employee.findMany({
       where: {
@@ -121,8 +129,8 @@ async function scanDbWorktimeRisks(
         attendanceRecords: {
           where: {
             workDate: {
-              gte: periodStart,
-              lte: periodEnd,
+              gte: weeklyScanStart,
+              lte: weeklyScanEnd,
             },
           },
         },
@@ -160,7 +168,10 @@ async function scanDbWorktimeRisks(
     getTaiwanLaborStandardsConfig(session),
   ]);
   return employees.flatMap((employee) => {
-    const dailyRisks = employee.attendanceRecords.flatMap((record) => {
+    const periodAttendanceRecords = employee.attendanceRecords.filter((record) =>
+      isDateInRange(record.workDate, periodStart, periodEnd),
+    );
+    const dailyRisks = periodAttendanceRecords.flatMap((record) => {
       const workMinutes = record.clockInAt && record.clockOutAt
         ? minutesBetween(record.clockInAt, record.clockOutAt)
         : 0;
@@ -169,7 +180,7 @@ async function scanDbWorktimeRisks(
       const validation = validateWorkingTime({
         regularMinutes,
         overtimeMinutes,
-        weeklyRegularMinutes: 0,
+        weeklyRegularMinutes: laborConfig.normalWeeklyMinutes,
         config: laborConfig,
       });
       return validation.issues.map((issue) => ({
@@ -181,11 +192,17 @@ async function scanDbWorktimeRisks(
         sourceIds: validation.sources.map((source) => source.id),
       }));
     });
+    const weeklyRisks = buildWeeklyRegularWorktimeRisks({
+      employeeId: employee.id,
+      employeeName: employee.displayName,
+      records: employee.attendanceRecords,
+      config: laborConfig,
+    });
     const approvedOvertimeMinutes = employee.overtimeRequests.reduce((sum, request) => sum + request.minutes, 0);
     const monthly = validateWorkingTime({
       regularMinutes: 0,
       overtimeMinutes: 0,
-      weeklyRegularMinutes: 0,
+      weeklyRegularMinutes: laborConfig.normalWeeklyMinutes,
       monthlyOvertimeMinutes: approvedOvertimeMinutes,
       threeMonthOvertimeMinutes: approvedOvertimeMinutes,
       laborManagementAgreement: agreementReady,
@@ -203,7 +220,7 @@ async function scanDbWorktimeRisks(
       days: buildRestDayCycleDays({
         periodStart,
         periodEnd,
-        attendanceDates: employee.attendanceRecords
+        attendanceDates: periodAttendanceRecords
           .filter((record) => record.clockInAt || record.clockOutAt)
           .map((record) => record.workDate),
         scheduleDates: employee.workSchedules.map((schedule) => schedule.workDate),
@@ -222,7 +239,7 @@ async function scanDbWorktimeRisks(
       detail: issue,
       sourceIds: restDayCycle.sources.map((source) => source.id),
     }));
-    return [...dailyRisks, ...monthlyRisks, ...restCycleRisks];
+    return [...dailyRisks, ...weeklyRisks, ...monthlyRisks, ...restCycleRisks];
   });
 }
 
@@ -323,6 +340,12 @@ function demoRisks(config: TaiwanLaborStandardsConfig, agreementReady = false): 
     weeklyRegularMinutes: 40 * 60,
     config,
   });
+  const weekly = validateWorkingTime({
+    regularMinutes: 0,
+    overtimeMinutes: 0,
+    weeklyRegularMinutes: 41 * 60,
+    config,
+  });
   const monthly = validateWorkingTime({
     regularMinutes: 8 * 60,
     overtimeMinutes: 0,
@@ -352,6 +375,14 @@ function demoRisks(config: TaiwanLaborStandardsConfig, agreementReady = false): 
       detail: issue,
       sourceIds: daily.sources.map((source) => source.id),
     })),
+    ...weekly.issues.map((issue) => ({
+      employeeId: "demo-employee-3",
+      employeeName: "王小美",
+      riskType: "weekly_regular_worktime" as const,
+      severity: "danger" as const,
+      detail: `2026-06-01 - 2026-06-07 · ${issue}`,
+      sourceIds: weekly.sources.map((source) => source.id),
+    })),
     ...monthly.issues.map((issue) => ({
       employeeId: "demo-manager-employee",
       employeeName: "陳主管",
@@ -369,6 +400,48 @@ function demoRisks(config: TaiwanLaborStandardsConfig, agreementReady = false): 
       sourceIds: rest.sources.map((source) => source.id),
     })),
   ];
+}
+
+export function buildWeeklyRegularWorktimeRisks(input: {
+  employeeId: string;
+  employeeName: string;
+  records: WorktimeAttendanceRecordForWeekly[];
+  config?: TaiwanLaborStandardsConfig;
+}): WorktimeComplianceRisk[] {
+  const config = input.config ?? defaultTaiwanLaborStandardsConfig;
+  const weeklySummaries = new Map<string, { weekStart: Date; weekEnd: Date; regularMinutes: number }>();
+  for (const record of input.records) {
+    const workMinutes = record.clockInAt && record.clockOutAt
+      ? minutesBetween(record.clockInAt, record.clockOutAt)
+      : 0;
+    const regularMinutes = Math.min(workMinutes, config.normalDailyMinutes);
+    const weekStart = startOfIsoWeek(record.workDate);
+    const weekKey = formatDate(weekStart);
+    const existing = weeklySummaries.get(weekKey) ?? {
+      weekStart,
+      weekEnd: endOfIsoWeek(record.workDate),
+      regularMinutes: 0,
+    };
+    existing.regularMinutes += regularMinutes;
+    weeklySummaries.set(weekKey, existing);
+  }
+
+  return Array.from(weeklySummaries.values()).flatMap((summary) => {
+    const validation = validateWorkingTime({
+      regularMinutes: 0,
+      overtimeMinutes: 0,
+      weeklyRegularMinutes: summary.regularMinutes,
+      config,
+    });
+    return validation.issues.map((issue) => ({
+      employeeId: input.employeeId,
+      employeeName: input.employeeName,
+      riskType: "weekly_regular_worktime" as const,
+      severity: "danger" as const,
+      detail: `${formatDate(summary.weekStart)} - ${formatDate(summary.weekEnd)} · ${issue}`,
+      sourceIds: validation.sources.map((source) => source.id),
+    }));
+  });
 }
 
 export function buildRestDayCycleDays(input: {
@@ -440,6 +513,23 @@ function startOfDate(date: Date) {
 
 function startOfUtcDate(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function startOfIsoWeek(date: Date) {
+  const clone = startOfUtcDate(date);
+  const day = clone.getUTCDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  clone.setUTCDate(clone.getUTCDate() + diff);
+  return clone;
+}
+
+function endOfIsoWeek(date: Date) {
+  return addUtcDays(startOfIsoWeek(date), 6);
+}
+
+function isDateInRange(date: Date, start: Date, end: Date) {
+  const time = startOfUtcDate(date).getTime();
+  return time >= startOfUtcDate(start).getTime() && time <= startOfUtcDate(end).getTime();
 }
 
 function addUtcDays(date: Date, days: number) {

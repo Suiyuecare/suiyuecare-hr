@@ -61,7 +61,7 @@ describe("RuleRegistryEngine", () => {
     expect(result.sourceIds).toEqual(expect.arrayContaining([
       "tw-lsa-article-30",
       "tw-lsa-article-24",
-      "tw-lsa-article-36",
+      "tw-lsa-article-32",
     ]));
   });
 
