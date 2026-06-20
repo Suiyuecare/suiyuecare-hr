@@ -311,6 +311,9 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await page.goto("/settings/production-database");
   await expect(page.getByRole("heading", { name: "正式環境資料庫 Gate" })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Production database/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Runtime env 診斷" })).toBeVisible();
+  await expect(page.getByLabel("Runtime env redacted 診斷")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("postgresql://");
   await expect(page.getByRole("heading", { name: "修復路線" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "路線 A：Supabase Transaction Pooler" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "必跑命令" })).toBeVisible();

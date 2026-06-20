@@ -4,6 +4,7 @@ import { hasPermission } from "@/server/auth/rbac";
 import { getDemoSession } from "@/server/auth/session";
 import {
   getProductionDatabaseRemediationReport,
+  type ProductionDatabaseEnvDraftReport,
   type ProductionDatabaseRemediationReport,
   type ProductionDatabaseRemediationStep,
 } from "@/server/readiness/production-database-remediation";
@@ -50,6 +51,7 @@ export default async function ProductionDatabasePage() {
         <MetricCard label="Production env" value={report.gate.checks.find((check) => check.name === "production environment")?.passed ? "OK" : "FAIL"} danger={!report.gate.checks.find((check) => check.name === "production environment")?.passed} />
         <MetricCard label="Database ping" value={report.gate.checks.find((check) => check.name === "production database")?.passed ? "OK" : "FAIL"} danger={!report.gate.checks.find((check) => check.name === "production database")?.passed} />
         <MetricCard label="Demo auth" value={report.gate.checks.find((check) => check.name === "demo auth disabled")?.passed ? "OFF" : "RISK"} danger={!report.gate.checks.find((check) => check.name === "demo auth disabled")?.passed} />
+        <MetricCard label="Runtime env" value={report.envDraft ? envDraftStatusLabel(report.envDraft.status) : "未讀"} danger={report.envDraft?.status !== "ready"} />
 
         <section className="panel span-7">
           <div className="section-heading">
@@ -85,6 +87,63 @@ export default async function ProductionDatabasePage() {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section className="panel span-12">
+          <div className="section-heading">
+            <div>
+              <h2>Runtime env 診斷</h2>
+              <p className="muted">從目前執行此頁面的 server runtime 產生，不顯示 DATABASE_URL、密碼或 secret，只顯示連線形狀與失敗檢查。</p>
+            </div>
+            <span className={`badge ${report.envDraft?.status === "ready" ? "" : "danger"}`}>
+              {report.envDraft ? envDraftStatusLabel(report.envDraft.status) : "未附加"}
+            </span>
+          </div>
+          {report.envDraft ? (
+            <div className="invite-prep-grid" aria-label="Runtime env redacted 診斷">
+              <article className={`invite-prep-card ${report.envDraft.status === "ready" ? "ready" : ""}`}>
+                <span className="badge">DB shape</span>
+                <h3>{report.envDraft.databaseUrlShape}</h3>
+                <p>{report.envDraft.source}</p>
+                <ul className="task-list">
+                  <li className="task">
+                    <span>
+                      <strong>連線姿態</strong>
+                      <small>{databasePostureLabel(report.envDraft.databaseConnectionPosture)}</small>
+                    </span>
+                  </li>
+                  <li className="task">
+                    <span>
+                      <strong>未替換 placeholder</strong>
+                      <small>{report.envDraft.unresolvedPlaceholderKeys.length ? report.envDraft.unresolvedPlaceholderKeys.join(", ") : "無"}</small>
+                    </span>
+                  </li>
+                  <li className="task">
+                    <span>
+                      <strong>失敗檢查</strong>
+                      <small>{report.envDraft.failedCheckNames.length ? report.envDraft.failedCheckNames.join(", ") : "無"}</small>
+                    </span>
+                  </li>
+                </ul>
+              </article>
+              <article className="invite-prep-card">
+                <span className="badge warning">下一步</span>
+                <h3>修到這些項目歸零</h3>
+                <ul className="task-list">
+                  {report.envDraft.nextActions.map((action) => (
+                    <li className="task" key={action}>
+                      <span>{action}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            </div>
+          ) : (
+            <EmptyState
+              title="尚未附加 runtime env 診斷"
+              body="若要檢查套用前的 env 草稿，請用 pnpm pilot:production-database 指定 --env-file 產生 redacted report。"
+            />
+          )}
         </section>
 
         <section className="panel span-12">
@@ -206,6 +265,26 @@ function stepBadgeClass(status: ProductionDatabaseRemediationStep["status"]) {
   if (status === "blocked") return "danger";
   if (status === "todo") return "warning";
   return "";
+}
+
+function envDraftStatusLabel(status: ProductionDatabaseEnvDraftReport["status"]) {
+  if (status === "ready") return "READY";
+  if (status === "blocked") return "BLOCK";
+  if (status === "missing") return "缺檔";
+  return "略過";
+}
+
+function databasePostureLabel(posture: ProductionDatabaseEnvDraftReport["databaseConnectionPosture"]) {
+  const labels: Record<ProductionDatabaseEnvDraftReport["databaseConnectionPosture"], string> = {
+    "supabase-direct": "Supabase direct host",
+    "supabase-pooler-session": "Supabase session pooler",
+    "supabase-pooler-transaction": "Supabase transaction pooler",
+    "supabase-pooler-unknown": "Supabase pooler port 待確認",
+    other: "其他 PostgreSQL URL",
+    invalid: "缺少或無效",
+    not_checked: "未檢查",
+  };
+  return labels[posture];
 }
 
 function formatDateTime(value: string) {

@@ -86,6 +86,8 @@ export type ProductionDatabaseWorkspaceOptions = {
   envDraft?: ProductionDatabaseEnvDraftReport | null;
   fetcher?: typeof fetch;
   generatedAt?: Date;
+  includeRuntimeEnvDiagnostics?: boolean;
+  runtimeEnv?: Record<string, string | undefined> | null;
   timeoutMs?: number;
 };
 
@@ -94,6 +96,7 @@ const defaultAppUrl = "https://hr.suiyuecare.com";
 export async function getProductionDatabaseRemediationReport(
   options: ProductionDatabaseWorkspaceOptions = {},
 ) {
+  const generatedAt = options.generatedAt ?? new Date();
   const appUrl = normalizeAppUrl(
     options.appUrl ??
     process.env.HR_ONE_APP_URL ??
@@ -101,13 +104,21 @@ export async function getProductionDatabaseRemediationReport(
     defaultAppUrl,
   );
   const fetched = await fetchLiveReadyHealth(appUrl, options.fetcher ?? fetch, options.timeoutMs ?? 5000);
+  const envDraft = Object.prototype.hasOwnProperty.call(options, "envDraft")
+    ? options.envDraft ?? null
+    : options.includeRuntimeEnvDiagnostics === false
+      ? null
+      : buildProductionDatabaseEnvDraftReport(options.runtimeEnv ?? process.env, {
+          source: "current server runtime env (redacted)",
+          now: generatedAt,
+        });
   return buildProductionDatabaseRemediationReport({
     appUrl,
     expectedHost: options.expectedHost ?? expectedHostFromUrl(appUrl),
     healthReport: fetched.healthReport,
     fetchedHealthStatusCode: fetched.statusCode,
-    envDraft: options.envDraft ?? null,
-    generatedAt: options.generatedAt,
+    envDraft,
+    generatedAt,
   });
 }
 

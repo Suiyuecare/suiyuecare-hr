@@ -139,6 +139,38 @@ describe("production database remediation", () => {
     expect(serialized).not.toContain("postgres.aruncclorusswpfnpgsn");
   });
 
+  it("attaches redacted current runtime env diagnostics by default", async () => {
+    const report = await getProductionDatabaseRemediationReport({
+      appUrl: "https://hr.suiyuecare.com",
+      expectedHost: "hr.suiyuecare.com",
+      generatedAt: new Date("2026-06-17T08:00:00.000Z"),
+      runtimeEnv: {
+        ...validProductionEnv(),
+        DATABASE_URL: "postgresql://postgres.aruncclorusswpfnpgsn:runtime-secret@aws-0-us-west-1.pooler.supabase.com:6543/postgres?schema=hr_one",
+      },
+      fetcher: async () =>
+        new Response(JSON.stringify(directHostFailureHealth), {
+          status: 503,
+          headers: {
+            "content-type": "application/json",
+          },
+        }),
+    });
+
+    expect(report.envDraft).toMatchObject({
+      status: "blocked",
+      source: "current server runtime env (redacted)",
+      databaseConnectionPosture: "supabase-pooler-transaction",
+      databaseUrlShape: "Supabase transaction pooler missing Prisma pooler params",
+    });
+    expect(report.envDraft?.nextActions.join("\n")).toContain("pgbouncer=true");
+
+    const serialized = JSON.stringify(report);
+    expect(serialized).not.toContain("postgresql://");
+    expect(serialized).not.toContain("runtime-secret");
+    expect(serialized).not.toContain("postgres.aruncclorusswpfnpgsn");
+  });
+
   it("classifies the live Supabase direct-host blocker and keeps remediation output redacted", () => {
     const report = buildProductionDatabaseRemediationReport({
       appUrl: "https://hr.suiyuecare.com",
