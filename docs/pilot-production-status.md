@@ -84,6 +84,7 @@ Supabase checks completed on 2026-06-17:
 5. Run:
 
 ```bash
+printf '%s' "$SUPABASE_TRANSACTION_POOLER_DATABASE_URL" | pnpm vercel:database-url-handoff -- --env-file=.env.vercel.production --output=/tmp/hr-one-vercel-database-url-handoff.md
 pnpm pilot:production-database -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --env-file=.env.vercel.production --output=/tmp/hr-one-production-database-gate.md
 pnpm pilot:gate:production -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com
 pnpm db:supabase:verify-schema -- --project-ref=aruncclorusswpfnpgsn --schema=hr_one --allow-tenant-data
@@ -98,6 +99,8 @@ pnpm pilot:workflow-readiness -- --require-production-evidence --url=https://hr.
 pnpm pilot:morning-brief -- --day=0 --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --project-ref=aruncclorusswpfnpgsn --schema=hr_one --env-file=.env.vercel.production --tenant-slug=<customer-slug> --output=/tmp/hr-one-pilot-morning-day-0.md
 pnpm pilot:evidence-package -- --path=<pilot-evidence-folder> --recursive --output=/tmp/hr-one-pilot-evidence-package.md
 ```
+
+The Vercel database URL handoff report is redacted. It proves the operator-supplied pooler URL shape and Vercel write plan without printing the URL, username, or password.
 
 Do not invite real employees until the production gate and go/no-go report pass.
 

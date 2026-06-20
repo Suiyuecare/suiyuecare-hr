@@ -27,6 +27,7 @@
     "env:verify:production": "tsx scripts/verify-env.ts --mode production",
     "vercel:create-production-env-draft": "tsx scripts/create-vercel-production-env-draft.ts",
     "vercel:refresh-production-env-draft": "tsx scripts/refresh-vercel-production-env-draft.ts",
+    "vercel:database-url-handoff": "tsx scripts/vercel-database-url-handoff.ts",
     "vercel:apply-production-env": "tsx scripts/apply-vercel-production-env.ts",
     "vercel:bootstrap-known-env": "tsx scripts/bootstrap-vercel-known-production-env.ts",
     "release:gate": "tsx scripts/release-gate.ts",

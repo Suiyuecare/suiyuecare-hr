@@ -241,11 +241,14 @@ Then run `pnpm env:verify:production` in the deployment environment before runni
 Before starting a 20-50 person two-week pilot, run the production pilot gate against the live domain:
 
 ```bash
+printf '%s' "$SUPABASE_TRANSACTION_POOLER_DATABASE_URL" | pnpm vercel:database-url-handoff -- --env-file=.env.vercel.production --output=/tmp/hr-one-vercel-database-url-handoff.md
 pnpm pilot:production-database -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --env-file=.env.vercel.production --output=/tmp/hr-one-production-database-gate.md
 pnpm pilot:gate:production -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com
 ```
 
 The production database report gives Owner/HR a redacted remediation checklist for Vercel-to-Supabase connectivity. The `/settings/production-database` page reads the live `/api/health/ready` payload and adds a redacted current runtime env diagnosis, while the CLI inspects `.env.vercel.production` for local draft posture by default. These env sections show only safe diagnostics such as database connection shape, unresolved placeholder keys, and failed verifier check names; they never print the database URL, runtime username, password, salary data, bank data, national IDs, or health data. Use `--skip-env-file` only when you intentionally want a live-health-only CLI report.
+
+The Vercel database URL handoff command validates the operator-provided Supabase transaction pooler URL from stdin and emits a redacted Markdown/JSON handoff that lists connection posture, changed env keys, Vercel variable key names, sensitivity types, and next actions. It never writes the env draft and never prints the URL, username, or password; after the handoff is ready, use `pnpm vercel:refresh-production-env-draft -- --database-url-stdin --apply`, `pnpm vercel:apply-production-env -- --dry-run`, then the actual Vercel env write and production redeploy.
 
 The production pilot gate reads `/api/health/ready` from the deployed app and blocks the pilot when the site is still non-production, using demo fallback, exposing demo auth, missing the production database, or exposing sensitive health payload values. It must pass after the Vercel production env vars are configured and the production deployment is redeployed.
 
@@ -558,6 +561,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `scripts/pilot-customer-import.ts`: production-only dry-run/apply orchestrator for employee, projected identity/SSO, projected payroll profile import, and invite readiness.
 - `scripts/pilot-identity-import.ts`: dry-run/apply CLI for linking active employees to users, employee/manager roles, and SSO subjects without logging raw identities.
 - `scripts/pilot-invite-readiness.ts`: aggregate-only invitation readiness gate for linked active users, employee/manager roles, SSO identities, allowed email domains, and department coverage.
+- `scripts/vercel-database-url-handoff.ts`: redacted Supabase pooler DATABASE_URL handoff report for the Vercel Production database blocker. It reads the real URL from stdin, validates shape/Prisma pooler params, and outputs only key names, connection posture, and next actions.
 - `scripts/pilot-go-no-go.ts`: one-command redacted pilot start/stop gate that aggregates production database, acceptance, Day 0, import preflight, invite readiness, workflow readiness, and evidence scan.
 - `scripts/pilot-invitation-release.ts`: final redacted invitation release gate that verifies production database, Go/No-Go, invite readiness, rollout kit, and evidence privacy reports before the first employee invitation.
 - `scripts/pilot-trial-completion.ts`: two-week pilot completion gate for checkpoint evidence, KPI status, and evidence privacy scan.

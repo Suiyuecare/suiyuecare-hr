@@ -9,6 +9,8 @@ import {
   type ProductionDatabaseRemediationStep,
 } from "@/server/readiness/production-database-remediation";
 
+const poolerHandoffCommand = "printf '%s' \"$SUPABASE_TRANSACTION_POOLER_DATABASE_URL\" | pnpm vercel:database-url-handoff -- --env-file=.env.vercel.production --output=/tmp/hr-one-vercel-database-url-handoff.md";
+
 export default async function ProductionDatabasePage() {
   const session = await getDemoSession();
   if (!hasPermission(session.role, "settings:read")) {
@@ -183,6 +185,12 @@ export default async function ProductionDatabasePage() {
         <section className="panel span-7">
           <h2>必跑命令</h2>
           <ul className="task-list">
+            <li className="task">
+              <span>
+                <strong>Pooler handoff</strong>
+                <small>{poolerHandoffCommand}</small>
+              </span>
+            </li>
             <li className="task">
               <span>
                 <strong>Production health</strong>
