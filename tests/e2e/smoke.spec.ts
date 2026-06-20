@@ -459,6 +459,53 @@ test("Owner 可以用中文通知管道工作台調整提醒政策", async ({ pa
   await expect(page).toHaveURL(/\/app$/);
 });
 
+test("Owner 可以用中文支援存取工作台核准並撤銷短效存取", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "owner");
+  await page.goto("/settings/support-access");
+
+  await expect(page.getByRole("heading", { name: "支援存取工作台" })).toBeVisible();
+  await expect(page.getByLabel("支援存取工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("支援存取訊號板").getByText("有效存取")).toBeVisible();
+  await expect(page.getByLabel("支援存取作業區").getByRole("heading", { name: "Ticket 綁定" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "三步支援存取精靈" })).toBeVisible();
+
+  const wizard = page.getByRole("form", { name: "三步支援存取精靈" });
+  await wizard.getByLabel("支援人員 Email").fill("support.engineer@hrone.example");
+  await wizard.getByLabel("支援人員名稱").fill("客服工程師");
+  await wizard.getByLabel("Ticket ID").fill("INC-2026-0001");
+  await wizard.getByLabel("到期時間").fill(formatDatetimeLocal(new Date(Date.now() + 2 * 60 * 60 * 1000)));
+  await wizard.getByLabel("核准理由").fill("客戶核准 INC-2026-0001，協助排查 SSO 登入設定，僅檢查 metadata。");
+  await wizard.getByLabel("事件處理").check();
+  await wizard.getByLabel("資料層級").selectOption("metadata_only");
+  await wizard.getByRole("button", { name: "核准支援存取" }).click();
+
+  await expect(page).toHaveURL(/\/settings\/support-access\?success=approved$/);
+  await expect(page.getByText("支援存取已核准")).toBeVisible();
+  await expect(page.getByLabel("支援存取訊號板").getByText("1 筆")).toBeVisible();
+  const grantCard = page.getByLabel("支援存取清單").locator(".support-access-grant-card", { hasText: "INC-2026-0001" });
+  await expect(grantCard).toContainText("客服工程師");
+  await expect(grantCard).toContainText("support...@hrone.example");
+  await expect(grantCard).toContainText("技術支援");
+  await expect(grantCard).toContainText("事件處理");
+  await expect(page.locator("body")).not.toContainText("support.engineer@hrone.example");
+  await expect(page.locator("body")).not.toContainText("客戶核准 INC-2026-0001");
+
+  await grantCard.getByLabel("撤銷原因").fill("支援作業完成，客戶確認關閉。");
+  await grantCard.getByRole("button", { name: "撤銷存取" }).click();
+  await expect(page).toHaveURL(/\/settings\/support-access\?success=revoked$/);
+  await expect(page.getByText("支援存取已撤銷")).toBeVisible();
+  await expect(page.getByLabel("支援存取清單").locator(".support-access-grant-card", { hasText: "INC-2026-0001" })).toContainText("已撤銷");
+  await expect(page.locator("body")).not.toContainText("支援作業完成");
+  await expect(page.locator("body")).not.toContainText("baseSalary");
+  await expect(page.locator("body")).not.toContainText("accountNumber");
+  await expect(page.locator("body")).not.toContainText("nationalId");
+
+  await switchDemoRole(page, "employee");
+  await page.goto("/settings/support-access");
+  await expect(page).toHaveURL(/\/app$/);
+});
+
 test("HR 人事主檔工作台提供中文 Finance 風格總覽且主管只看團隊", async ({ page }) => {
   await page.goto("/app");
   await switchDemoRole(page, "hr_admin");
@@ -1241,6 +1288,15 @@ test("HR 可以用公司行事曆工作台完成年度審核與日期設定", as
 async function switchDemoRole(page: Page, role: "employee" | "manager" | "hr_admin" | "owner") {
   await page.getByLabel("示範角色").selectOption(role);
   await page.getByRole("button", { name: "切換" }).click();
+}
+
+function formatDatetimeLocal(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join("-") + `T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 async function submitPayrollStep(page: Page, buttonName: string, success: string) {

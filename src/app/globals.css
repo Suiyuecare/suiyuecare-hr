@@ -5021,6 +5021,190 @@ legend {
   overflow-wrap: anywhere;
 }
 
+.support-access-page {
+  max-width: 1280px;
+}
+
+.support-access-alerts {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.support-access-command-card {
+  min-height: 250px;
+}
+
+.support-access-form {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.support-access-fieldset {
+  display: grid;
+  gap: 12px;
+}
+
+.support-access-scope-grid,
+.support-access-grant-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.support-access-scope-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.support-access-grant-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.support-access-scope-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  min-height: 138px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.support-access-scope-card strong {
+  display: block;
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.support-access-scope-card small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.35;
+}
+
+.support-access-checklist .task {
+  align-items: flex-start;
+}
+
+.support-access-policy-note {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  background: #fffbeb;
+  padding: 12px;
+}
+
+.support-access-policy-note strong {
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.support-access-policy-note p {
+  margin: 0;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.45;
+}
+
+.support-access-grant-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.support-access-grant-card.active {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.support-access-grant-card.expired {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.support-access-grant-card.revoked {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.support-access-grant-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.support-access-grant-head h3 {
+  margin: 3px 0 2px;
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 1000;
+  line-height: 1.18;
+}
+
+.support-access-grant-head small,
+.support-access-muted-proof {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.4;
+}
+
+.support-access-grant-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.35;
+}
+
+.support-access-scope-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.support-access-scope-strip span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--muted);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.support-access-scope-strip span.active {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.support-access-revoke-form {
+  border-color: #fde68a;
+  background: #ffffff;
+}
+
 .payment-profile-page {
   max-width: 1280px;
 }
@@ -8510,6 +8694,9 @@ legend {
   .notification-channel-grid,
   .notification-event-grid,
   .notification-delivery-grid,
+  .support-access-scope-grid,
+  .support-access-grant-grid,
+  .support-access-grant-meta,
   .access-invite-form,
   .role-pill-grid,
   .access-user-grid,

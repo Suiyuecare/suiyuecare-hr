@@ -31,7 +31,8 @@ export async function POST(request: Request) {
       });
     }
 
-    return NextResponse.redirect(new URL("/settings/support-access", request.url), 303);
+    const success = action === "revoke" ? "revoked" : "approved";
+    return NextResponse.redirect(new URL(`/settings/support-access?success=${success}`, request.url), 303);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to update support access.";
     return NextResponse.redirect(
