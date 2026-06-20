@@ -428,6 +428,37 @@ test("Owner 可以用中文資安工作台調整登入政策", async ({ page }) 
   await expect(page).toHaveURL(/\/app$/);
 });
 
+test("Owner 可以用中文通知管道工作台調整提醒政策", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "owner");
+  await page.goto("/settings/notifications");
+
+  await expect(page.getByRole("heading", { name: "通知管道工作台" })).toBeVisible();
+  await expect(page.getByLabel("通知管道工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("通知安全訊號板").getByText("站內通知")).toBeVisible();
+  await expect(page.getByLabel("通知設定作業區").getByRole("heading", { name: "外部管道" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "三步通知設定精靈" })).toBeVisible();
+
+  const wizard = page.getByRole("form", { name: "三步通知設定精靈" });
+  await wizard.getByLabel("Email").check();
+  await wizard.getByLabel("LINE").check();
+  await wizard.getByLabel("Slack").check();
+  await wizard.getByLabel("外部管道只接收摘要").check();
+  await wizard.getByRole("button", { name: "儲存通知設定" }).click();
+
+  await expect(page).toHaveURL(/\/settings\/notifications\?success=notifications$/);
+  await expect(page.getByText("通知設定已儲存")).toBeVisible();
+  await expect(page.getByLabel("通知安全訊號板").getByText("3 個外部")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "最近 delivery 證據" })).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("baseSalary");
+  await expect(page.locator("body")).not.toContainText("accountNumber");
+  await expect(page.locator("body")).not.toContainText("nationalId");
+
+  await switchDemoRole(page, "employee");
+  await page.goto("/settings/notifications");
+  await expect(page).toHaveURL(/\/app$/);
+});
+
 test("HR 人事主檔工作台提供中文 Finance 風格總覽且主管只看團隊", async ({ page }) => {
   await page.goto("/app");
   await switchDemoRole(page, "hr_admin");

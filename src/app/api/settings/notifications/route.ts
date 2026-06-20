@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       payrollReleasedEnabled: formData.get("payrollReleasedEnabled") === "on",
       systemAlertEnabled: formData.get("systemAlertEnabled") === "on",
     });
-    return NextResponse.redirect(new URL("/settings/notifications", request.url), 303);
+    return NextResponse.redirect(new URL("/settings/notifications?success=notifications", request.url), 303);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to update notification settings.";
     return NextResponse.redirect(
