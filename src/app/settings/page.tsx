@@ -99,7 +99,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
           <strong>{overview.company.name}</strong>
           <small>{overview.company.departments.length} 個部門 · {overview.managerCount} 位主管線。</small>
         </a>
-        <a className={`settings-signal-card ${securityGapCount ? "warning" : "done"}`} href="#security-setup">
+        <a className={`settings-signal-card ${securityGapCount ? "warning" : "done"}`} href="/settings/security">
           <span>資安與權限</span>
           <strong>{securityGapCount ? `${securityGapCount} 個缺口` : "已就緒"}</strong>
           <small>MFA、SSO、允許網域、檔案儲存與支援存取都要可稽核。</small>
@@ -1290,7 +1290,7 @@ function buildSetupFocus(input: { securityGapCount: number; lawRuleGapCount: num
     return {
       title: "正式登入與資安護欄",
       detail: "先補管理員 MFA、正式 SSO、檔案儲存與允許網域，避免正式試用時權限與文件外洩。",
-      href: "#security-setup",
+      href: "/settings/security",
       label: "補資安設定",
     };
   }
@@ -1339,7 +1339,7 @@ function buildSetupCommandGroups(input: {
       summary: "正式登入、多因素驗證、單一登入、支援存取、個資治理、檔案儲存與稽核紀錄要先過關，薪資與員工資料才安全。",
       status: input.securityGapCount ? `${input.securityGapCount} 個缺口` : "已就緒",
       tone: input.securityGapCount ? "warning" : "ready",
-      primary: { href: "#security-setup", label: "補資安設定" },
+      primary: { href: "/settings/security", label: "補資安設定" },
       links: [
         { href: "/settings/audit", label: `稽核 ${input.auditCount}` },
         { href: "/settings/support-access", label: "支援存取" },

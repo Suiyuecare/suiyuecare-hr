@@ -21,11 +21,11 @@ export async function POST(request: Request) {
       idleTimeoutMinutes: readNumber(formData.get("idleTimeoutMinutes")),
       allowedEmailDomains: readString(formData.get("allowedEmailDomains")).split(/[\s,]+/),
     });
-    return NextResponse.redirect(new URL("/settings", request.url), 303);
+    return NextResponse.redirect(new URL("/settings/security?success=security", request.url), 303);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to update security settings.";
     return NextResponse.redirect(
-      new URL(`/settings?error=${encodeURIComponent(message)}`, request.url),
+      new URL(`/settings/security?error=${encodeURIComponent(message)}`, request.url),
       303,
     );
   }

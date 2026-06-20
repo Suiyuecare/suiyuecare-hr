@@ -391,6 +391,43 @@ test("Owner 可以用中文權限中樞邀請帳號並綁定員工", async ({ pa
   await expect(page.locator("body")).not.toContainText("nationalId");
 });
 
+test("Owner 可以用中文資安工作台調整登入政策", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "owner");
+  await page.goto("/settings/security");
+
+  await expect(page.getByRole("heading", { name: "資安與登入政策工作台" })).toBeVisible();
+  await expect(page.getByLabel("資安與登入政策工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("資安政策訊號板").getByText("高權限 MFA")).toBeVisible();
+  await expect(page.getByLabel("資安設定步驟").getByRole("heading", { name: "登入邊界" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "三步資安設定精靈" })).toBeVisible();
+
+  await page.getByLabel("允許 Email 網域").fill("suiyuecare.com, hr.suiyuecare.com");
+  await page.getByLabel("啟用企業 SSO 政策").check();
+  await page.getByLabel("SSO 供應商").fill("Entra ID");
+  await page.getByLabel("Issuer URL").fill("https://login.example.com/customer/v2.0");
+  await page.getByLabel("Client ID").fill("hr-one-client-id");
+  await page.getByLabel("JWKS URL").fill("https://login.example.com/customer/discovery/keys");
+  await page.getByLabel("員工必須 MFA").check();
+  await page.getByLabel("密碼最小長度").fill("14");
+  await page.getByLabel("Session 總時長（分鐘）").fill("720");
+  await page.getByLabel("閒置逾時（分鐘）").fill("45");
+  await page.getByRole("button", { name: "儲存資安設定" }).click();
+
+  await expect(page).toHaveURL(/\/settings\/security\?success=security$/);
+  await expect(page.getByText("資安設定已儲存")).toBeVisible();
+  await expect(page.getByLabel("資安政策訊號板").getByText("Entra ID")).toBeVisible();
+  await expect(page.getByLabel("資安政策訊號板").getByText("2 個")).toBeVisible();
+  await expect(page.getByText("目前限制為 suiyuecare.com, hr.suiyuecare.com。")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("baseSalary");
+  await expect(page.locator("body")).not.toContainText("accountNumber");
+  await expect(page.locator("body")).not.toContainText("nationalId");
+
+  await switchDemoRole(page, "employee");
+  await page.goto("/settings/security");
+  await expect(page).toHaveURL(/\/app$/);
+});
+
 test("HR 人事主檔工作台提供中文 Finance 風格總覽且主管只看團隊", async ({ page }) => {
   await page.goto("/app");
   await switchDemoRole(page, "hr_admin");
