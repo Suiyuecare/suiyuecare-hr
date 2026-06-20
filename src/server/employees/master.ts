@@ -93,6 +93,17 @@ export type EmployeeMasterUpdateInput = {
   changeReason?: string | null;
 };
 
+export type EmployeeMasterCreateInput = {
+  employeeNo: string;
+  displayName: string;
+  hireDate: Date;
+  departmentId?: string | null;
+  managerId?: string | null;
+  jobPositionId?: string | null;
+  jobTitle: string;
+  onboardingNote?: string | null;
+};
+
 type EmployeeMasterDemoOverride = {
   departmentId?: string | null;
   managerId?: string | null;
@@ -102,6 +113,7 @@ type EmployeeMasterDemoOverride = {
 
 type EmployeeMasterDemoState = {
   overrides: Record<string, EmployeeMasterDemoOverride>;
+  createdRecords: DemoMasterRecord[];
 };
 
 type DemoMasterRecord = {
@@ -109,6 +121,7 @@ type DemoMasterRecord = {
   index: number;
   employeeNo: string;
   displayName: string;
+  hireDate?: Date;
   departmentId: string | null;
   departmentCode: string | null;
   departmentName: string | null;
@@ -156,9 +169,22 @@ export async function updateEmployeeMasterProfile(
   return updateDemoEmployeeMasterProfile(session, normalized);
 }
 
+export async function createEmployeeMasterProfile(
+  session: SessionLike,
+  input: EmployeeMasterCreateInput,
+) {
+  assertPermission(session.role, "employee:write");
+  const normalized = normalizeCreateInput(input);
+  if (canUseDatabase(session)) {
+    return createDbEmployeeMasterProfile(session, normalized);
+  }
+  return createDemoEmployeeMasterProfile(session, normalized);
+}
+
 export function resetEmployeeMasterDemoState() {
   globalForEmployeeMaster.hrOneEmployeeMasterDemoState = {
     overrides: {},
+    createdRecords: [],
   };
 }
 
@@ -432,7 +458,7 @@ function getDemoEmployeeMasterWorkspace(session: SessionLike) {
         managerName: employee.managerName,
         directReportCount: employee.directReportCount,
         employmentStatus: "active",
-        hireDate: new Date(Date.UTC(2025, employee.index % 12, 1)),
+        hireDate: employee.hireDate ?? new Date(Date.UTC(2025, employee.index % 12, 1)),
         userLinked: !loginMissing,
         userStatus: loginMissing ? null : "active",
         roleLabels: demoRoleLabels(employee.id),
@@ -619,6 +645,142 @@ function updateDemoEmployeeMasterProfile(
   return afterRecord;
 }
 
+async function createDbEmployeeMasterProfile(
+  session: SessionLike,
+  input: ReturnType<typeof normalizeCreateInput>,
+) {
+  const db = getDb();
+  return db.$transaction(async (tx) => {
+    const existing = await tx.employee.findFirst({
+      where: {
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+        employeeNo: input.employeeNo,
+      },
+      select: { id: true },
+    });
+    if (existing) throw new Error("Employee number already exists.");
+
+    if (input.departmentId) {
+      await tx.department.findFirstOrThrow({
+        where: {
+          id: input.departmentId,
+          tenantId: session.tenantId!,
+          companyId: session.companyId!,
+        },
+      });
+    }
+    if (input.jobPositionId) {
+      await tx.jobPosition.findFirstOrThrow({
+        where: {
+          id: input.jobPositionId,
+          tenantId: session.tenantId!,
+          companyId: session.companyId!,
+          status: "active",
+        },
+      });
+    }
+    if (input.managerId) {
+      await tx.employee.findFirstOrThrow({
+        where: {
+          id: input.managerId,
+          tenantId: session.tenantId!,
+          companyId: session.companyId!,
+          employmentStatus: "active",
+        },
+      });
+    }
+
+    const created = await tx.employee.create({
+      data: {
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+        employeeNo: input.employeeNo,
+        displayName: input.displayName,
+        hireDate: input.hireDate,
+        departmentId: input.departmentId,
+        managerId: input.managerId,
+        jobPositionId: input.jobPositionId,
+        jobTitle: input.jobTitle,
+        employmentStatus: "active",
+      },
+      select: {
+        id: true,
+        employeeNo: true,
+        jobTitle: true,
+        departmentId: true,
+        managerId: true,
+        jobPositionId: true,
+      },
+    });
+
+    await writeAuditLog(tx, {
+      tenantId: session.tenantId!,
+      companyId: session.companyId!,
+      actorUserId: session.user?.id,
+      actorEmployeeId: session.employee?.id,
+      action: "create",
+      entityType: "employee_master_profile",
+      entityId: created.id,
+      before: null,
+      after: safeAuditPayload(created),
+      metadata: createAuditMetadata(input),
+    });
+
+    return created;
+  });
+}
+
+function createDemoEmployeeMasterProfile(
+  session: SessionLike,
+  input: ReturnType<typeof normalizeCreateInput>,
+) {
+  const { departments, jobPositions, records } = getDemoMasterRecords();
+  if (records.some((record) => record.employeeNo === input.employeeNo)) {
+    throw new Error("Employee number already exists.");
+  }
+  const department = input.departmentId ? departments.find((item) => item.id === input.departmentId) : null;
+  if (input.departmentId && !department) throw new Error("Department not found.");
+  const jobPosition = input.jobPositionId ? jobPositions.find((item) => item.id === input.jobPositionId) : null;
+  if (input.jobPositionId && !jobPosition) throw new Error("Job position not found.");
+  if (input.managerId && !records.some((record) => record.id === input.managerId)) {
+    throw new Error("Manager not found.");
+  }
+
+  const created: DemoMasterRecord = {
+    id: `demo-employee-manual-${crypto.randomUUID()}`,
+    index: records.length + 1,
+    employeeNo: input.employeeNo,
+    displayName: input.displayName,
+    hireDate: input.hireDate,
+    departmentId: input.departmentId,
+    departmentCode: department?.code ?? null,
+    departmentName: department?.name ?? null,
+    jobTitle: input.jobTitle,
+    jobPositionId: input.jobPositionId,
+    jobPositionTitle: jobPosition?.title ?? null,
+    jobLevelCode: jobPosition?.levelCode ?? null,
+    managerId: input.managerId,
+    managerName: null,
+    directReportCount: 0,
+  };
+  getEmployeeMasterDemoState().createdRecords.push(created);
+  writeDemoAuditLog({
+    tenantId: session.tenantId ?? "demo-tenant",
+    companyId: session.companyId ?? "demo-company",
+    actorUserId: session.user?.id,
+    actorEmployeeId: session.employee?.id,
+    actorName: session.user?.displayName ?? session.employee?.displayName,
+    action: "create",
+    entityType: "employee_master_profile",
+    entityId: created.id,
+    before: null,
+    after: safeAuditPayload(created),
+    metadata: createAuditMetadata(input),
+  });
+  return created;
+}
+
 function summarizeRows(
   rows: EmployeeMasterRow[],
   departmentCount: number,
@@ -699,7 +861,7 @@ function getDemoMasterRecords() {
   const departmentById = new Map(baseDepartments.map((department) => [department.id, department]));
   const jobPositionById = new Map(jobPositions.map((position) => [position.id, position]));
 
-  const records = overview.company.employees.map((employee, index) => {
+  const baseRecords: DemoMasterRecord[] = overview.company.employees.map((employee, index) => {
     const override = state.overrides[employee.id] ?? {};
     const defaultJobPositionId = index > 18 ? null : demoJobPositionId(employee.jobTitle);
     const jobPositionId = override.jobPositionId !== undefined ? override.jobPositionId : defaultJobPositionId;
@@ -723,6 +885,7 @@ function getDemoMasterRecords() {
       directReportCount: 0,
     } satisfies DemoMasterRecord;
   });
+  const records: DemoMasterRecord[] = [...baseRecords, ...state.createdRecords];
 
   const recordById = new Map(records.map((record) => [record.id, record]));
   const directReportCountByManager = new Map<string, number>();
@@ -754,6 +917,7 @@ function getEmployeeMasterDemoState() {
   if (!globalForEmployeeMaster.hrOneEmployeeMasterDemoState) {
     resetEmployeeMasterDemoState();
   }
+  globalForEmployeeMaster.hrOneEmployeeMasterDemoState!.createdRecords ??= [];
   return globalForEmployeeMaster.hrOneEmployeeMasterDemoState!;
 }
 
@@ -777,6 +941,28 @@ function normalizeUpdateInput(input: EmployeeMasterUpdateInput) {
     jobPositionId: cleanOptionalId(input.jobPositionId),
     jobTitle,
     changeReason: cleanOptionalText(input.changeReason, 500),
+  };
+}
+
+function normalizeCreateInput(input: EmployeeMasterCreateInput) {
+  const employeeNo = cleanRequired(input.employeeNo, "Employee number is required.");
+  if (employeeNo.length > 40) throw new Error("Employee number is too long.");
+  const displayName = cleanRequired(input.displayName, "Display name is required.");
+  if (displayName.length > 80) throw new Error("Display name is too long.");
+  const jobTitle = cleanRequired(input.jobTitle, "Job title is required.");
+  if (jobTitle.length > 80) throw new Error("Job title is too long.");
+  if (!(input.hireDate instanceof Date) || Number.isNaN(input.hireDate.getTime())) {
+    throw new Error("Invalid hire date.");
+  }
+  return {
+    employeeNo,
+    displayName,
+    hireDate: startOfUtcDate(input.hireDate),
+    departmentId: cleanOptionalId(input.departmentId),
+    managerId: cleanOptionalId(input.managerId),
+    jobPositionId: cleanOptionalId(input.jobPositionId),
+    jobTitle,
+    onboardingNote: cleanOptionalText(input.onboardingNote, 500),
   };
 }
 
@@ -854,6 +1040,24 @@ function safeAuditPayload(input: SafeAuditEmployee): SafeAuditEmployee {
   };
 }
 
+function createAuditMetadata(input: ReturnType<typeof normalizeCreateInput>) {
+  return {
+    source: "employee_master_workspace",
+    employeeNoHash: stableHash({ employeeNo: input.employeeNo }),
+    displayNameHash: stableHash({ displayName: input.displayName }),
+    hireDate: input.hireDate.toISOString().slice(0, 10),
+    onboardingNoteProvided: Boolean(input.onboardingNote),
+    onboardingNoteHash: input.onboardingNote ? stableHash(input.onboardingNote) : null,
+    nextSteps: [
+      "link_login_sso",
+      "complete_labor_roster",
+      "publish_employment_terms",
+      "configure_payroll_and_insurance",
+    ],
+    rawSensitiveValuesStored: false,
+  };
+}
+
 function updateAuditMetadata(changedFields: Array<keyof SafeAuditEmployee>, changeReason: string | null) {
   return {
     source: "employee_master_workspace",
@@ -862,6 +1066,10 @@ function updateAuditMetadata(changedFields: Array<keyof SafeAuditEmployee>, chan
     changeReasonHash: changeReason ? stableHash(changeReason) : null,
     rawSensitiveValuesStored: false,
   };
+}
+
+function startOfUtcDate(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
 function hasActiveEffectiveRecord(records: Array<{ effectiveTo: Date | null }>) {

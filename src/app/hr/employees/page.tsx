@@ -35,6 +35,10 @@ export default async function EmployeeMasterPage({ searchParams }: { searchParam
   const focus = buildMasterFocus(workspace);
   const urgentRows = workspace.employees.filter((employee) => employee.profileGapLabels.length > 0).slice(0, 6);
   const defaultEmployee = workspace.employees.find((employee) => employee.profileGapLabels.length > 0) ?? workspace.employees[0];
+  const defaultDepartment = workspace.departments[0];
+  const defaultJobPosition = workspace.jobPositions[0];
+  const suggestedEmployeeNo = suggestNextEmployeeNo(workspace.employees);
+  const today = formatDate(new Date());
 
   return (
     <main className="page employee-master-page">
@@ -52,7 +56,10 @@ export default async function EmployeeMasterPage({ searchParams }: { searchParam
             用一個頁面掌握員工、部門、主管線、登入、標準職務、勞工名卡、工作條件與薪資前置缺口，讓後台不再像功能選單。
           </p>
           <div className="hr-monthly-hero-actions">
-            <Link className="button primary" href="/hr/employee-import">
+            <Link className="button primary" href="#employee-master-create">
+              新增員工
+            </Link>
+            <Link className="button" href="/hr/employee-import">
               匯入員工
             </Link>
             <Link className="button" href="/settings/organization">
@@ -107,7 +114,11 @@ export default async function EmployeeMasterPage({ searchParams }: { searchParam
       {params.success ? (
         <section className="panel risk-box success-box" aria-live="polite">
           <strong>人事主檔已更新</strong>
-          <p>部門、主管線、標準職務或職稱修正已保存，並寫入 audit log。</p>
+          <p>
+            {params.success === "employee-created"
+              ? "新員工主檔已建立，請接著完成登入/SSO、勞工名卡、工作條件、薪資與投保設定。"
+              : "部門、主管線、標準職務或職稱修正已保存，並寫入 audit log。"}
+          </p>
         </section>
       ) : null}
 
@@ -117,9 +128,9 @@ export default async function EmployeeMasterPage({ searchParams }: { searchParam
             {workspace.summary.visibleEmployeeCount ? "可管理" : "缺資料"}
           </span>
           <h2>員工名冊</h2>
-          <p>先確認員工編號、姓名、到職日、狀態、部門與主管線，這是簽核、假勤與薪資的源頭。</p>
-          <Link className="button" href="/hr/employee-import">
-            批次匯入
+          <p>單筆新增日常員工，或批次匯入 20-50 人試用名冊；簽核、假勤與薪資都從這裡串起來。</p>
+          <Link className="button primary" href="#employee-master-create">
+            單筆新增
           </Link>
         </article>
         <article className={`settings-command-card ${workspace.summary.missingJobArchitectureCount ? "warning" : "ready"}`}>
@@ -155,6 +166,103 @@ export default async function EmployeeMasterPage({ searchParams }: { searchParam
       </section>
 
       <section className="grid employee-master-grid">
+        <section className="panel span-12 employee-master-update-panel" id="employee-master-create">
+          <div className="section-heading">
+            <div>
+              <h2>單筆新增員工</h2>
+              <p className="muted">三步建立最小可營運主檔。薪資、銀行、身分證與健康資料仍回到受控模組補齊。</p>
+            </div>
+            <span className={`badge ${writable ? "warning" : "danger"}`}>
+              {writable ? "會寫入稽核" : "只讀模式"}
+            </span>
+          </div>
+          {writable ? (
+            <form action="/api/employees/master" method="post" className="wizard-form employee-master-update-form employee-master-create-form" aria-label="單筆新增員工">
+              <input type="hidden" name="intent" value="create" />
+              <fieldset className="form-card">
+                <legend>1. 基本主檔</legend>
+                <p className="muted">只建立日常作業必要欄位；個資名卡、薪資與付款資料下一步再補。</p>
+                <div className="employee-master-update-grid">
+                  <label>
+                    員工編號
+                    <input name="employeeNo" defaultValue={suggestedEmployeeNo} maxLength={40} required />
+                  </label>
+                  <label>
+                    顯示姓名
+                    <input name="displayName" placeholder="例：林小華" maxLength={80} required />
+                  </label>
+                  <label>
+                    到職日
+                    <input name="hireDate" type="date" defaultValue={today} required />
+                  </label>
+                  <label>
+                    職稱顯示名稱
+                    <input name="jobTitle" defaultValue={defaultJobPosition?.title ?? "新進員工"} maxLength={80} required />
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset className="form-card">
+                <legend>2. 組織歸屬</legend>
+                <p className="muted">先給部門、主管與標準職務；缺項可建立，但會留在今日缺口直到補齊。</p>
+                <div className="employee-master-update-grid">
+                  <label>
+                    部門
+                    <select name="departmentId" defaultValue={defaultDepartment?.id ?? ""}>
+                      <option value="">稍後指定</option>
+                      {workspace.departments.map((department) => (
+                        <option value={department.id} key={department.id}>
+                          {department.code} · {department.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    直屬主管
+                    <select name="managerId" defaultValue="">
+                      <option value="">稍後指定</option>
+                      {workspace.employees.map((employee) => (
+                        <option value={employee.id} key={employee.id}>
+                          {employee.employeeNo} · {employee.displayName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    標準職務
+                    <select name="jobPositionId" defaultValue={defaultJobPosition?.id ?? ""}>
+                      <option value="">稍後指定</option>
+                      {workspace.jobPositions.map((position) => (
+                        <option value={position.id} key={position.id}>
+                          {position.code} · {position.title}
+                          {position.levelCode ? ` · ${position.levelCode}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset className="form-card">
+                <legend>3. 下一步提示</legend>
+                <p className="muted">備註只保存 hash，不把面談、薪資、身分證或健康資訊寫進 audit log。</p>
+                <label>
+                  建檔備註
+                  <textarea name="onboardingNote" rows={3} placeholder="例：新人已報到，待補登入/SSO 與法定名卡。" />
+                </label>
+                <button className="button primary" type="submit">
+                  建立員工主檔
+                </button>
+              </fieldset>
+            </form>
+          ) : (
+            <div className="employee-master-readonly-note">
+              <strong>目前角色只能檢視</strong>
+              <p>主管可查看團隊主檔狀態，但新增員工需由 HR 或 Owner 處理。</p>
+            </div>
+          )}
+        </section>
+
         <section className="panel span-12 employee-master-update-panel" id="employee-master-update">
           <div className="section-heading">
             <div>
@@ -167,6 +275,7 @@ export default async function EmployeeMasterPage({ searchParams }: { searchParam
           </div>
           {writable && defaultEmployee ? (
             <form action="/api/employees/master" method="post" className="wizard-form employee-master-update-form" aria-label="人事主檔修正">
+              <input type="hidden" name="intent" value="update" />
               <fieldset className="form-card">
                 <legend>1. 選擇員工</legend>
                 <p className="muted">先選要修正的員工；若是新員工，請先走員工匯入。</p>
@@ -511,11 +620,25 @@ function setupBadgeClass(status: EmployeeMasterRow["payrollSetupStatus"] | Emplo
   return "warning";
 }
 
+function suggestNextEmployeeNo(employees: EmployeeMasterRow[]) {
+  const max = employees.reduce((current, employee) => {
+    const match = employee.employeeNo.match(/^E(\d+)$/i);
+    return match ? Math.max(current, Number(match[1])) : current;
+  }, 0);
+  return `E${String(max + 1).padStart(3, "0")}`;
+}
+
 function formatDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
 function localizeMasterError(error: string) {
+  if (error.includes("Employee number is required")) return "請輸入員工編號。";
+  if (error.includes("Employee number is too long")) return "員工編號不可超過 40 字。";
+  if (error.includes("Employee number already exists")) return "員工編號已存在，請換成未使用的編號。";
+  if (error.includes("Display name is required")) return "請輸入員工顯示姓名。";
+  if (error.includes("Display name is too long")) return "員工顯示姓名不可超過 80 字。";
+  if (error.includes("Invalid hire date")) return "到職日格式不正確，請重新選擇日期。";
   if (error.includes("employee:write")) return "目前角色沒有修正員工主檔的權限，請切換 HR 或 Owner。";
   if (error.includes("Employee is required")) return "請選擇要修正的員工。";
   if (error.includes("Employee not found")) return "找不到指定員工，請重新整理後再試。";

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { getAuditDemoState, resetAuditDemoState } from "@/server/audit/demo-store";
 import {
+  createEmployeeMasterProfile,
   getEmployeeMasterWorkspace,
   resetEmployeeMasterDemoState,
   updateEmployeeMasterProfile,
@@ -106,6 +107,56 @@ describe("employee master workspace", () => {
     expect(JSON.stringify(auditLog.metadataJson)).not.toContain("私人匯入備註");
   });
 
+  it("lets HR create one employee master record with redacted audit metadata", async () => {
+    const created = await createEmployeeMasterProfile(hrSession, {
+      employeeNo: "E900",
+      displayName: "測試新人",
+      hireDate: new Date("2026-06-21T00:00:00.000Z"),
+      departmentId: "demo-dept-product",
+      managerId: "demo-manager-employee",
+      jobPositionId: "demo-position-frontend-engineer",
+      jobTitle: "Frontend Engineer",
+      onboardingNote: "私人建檔備註：尚未補薪資與身分證資料",
+    });
+
+    const workspace = await getEmployeeMasterWorkspace(hrSession);
+    const employee = workspace.employees.find((row) => row.employeeNo === "E900");
+    const auditLog = getAuditDemoState().logs[0];
+
+    expect(created.employeeNo).toBe("E900");
+    expect(employee).toMatchObject({
+      displayName: "測試新人",
+      departmentId: "demo-dept-product",
+      managerId: "demo-manager-employee",
+      jobPositionId: "demo-position-frontend-engineer",
+      userLinked: false,
+      laborRosterStatus: "missing",
+      payrollSetupStatus: "missing",
+    });
+    expect(employee?.hireDate.toISOString().slice(0, 10)).toBe("2026-06-21");
+    expect(employee?.profileGapLabels).toEqual(expect.arrayContaining([
+      "缺登入/SSO",
+      "名卡待補",
+      "薪資前置待補",
+    ]));
+    expect(auditLog).toMatchObject({
+      action: "create",
+      entityType: "employee_master_profile",
+      metadataJson: expect.objectContaining({
+        source: "employee_master_workspace",
+        onboardingNoteProvided: true,
+        rawSensitiveValuesStored: false,
+      }),
+    });
+    expect(auditLog.metadataJson.nextSteps).toEqual(expect.arrayContaining([
+      "link_login_sso",
+      "complete_labor_roster",
+      "configure_payroll_and_insurance",
+    ]));
+    expect(JSON.stringify(auditLog)).not.toContain("私人建檔備註");
+    expect(JSON.stringify(auditLog)).not.toContain("身分證");
+  });
+
   it("blocks managers from master profile mutations", async () => {
     await expect(
       updateEmployeeMasterProfile(managerSession, {
@@ -114,6 +165,17 @@ describe("employee master workspace", () => {
         managerId: "demo-manager-employee",
         jobPositionId: "demo-position-frontend-engineer",
         jobTitle: "Frontend Engineer",
+      }),
+    ).rejects.toThrow(/employee:write/);
+  });
+
+  it("blocks managers from creating employee master records", async () => {
+    await expect(
+      createEmployeeMasterProfile(managerSession, {
+        employeeNo: "E901",
+        displayName: "主管新增測試",
+        hireDate: new Date("2026-06-21T00:00:00.000Z"),
+        jobTitle: "Care Specialist",
       }),
     ).rejects.toThrow(/employee:write/);
   });
