@@ -100,6 +100,68 @@ export default async function OrganizationSettingsPage({ searchParams }: { searc
         </ul>
       </section>
 
+      <section className="panel organization-manager-governance" id="manager-line-governance">
+        <div className="section-heading">
+          <div>
+            <span className="muted">簽核、排班與權限共同基礎</span>
+            <h2>主管線治理</h2>
+            <p className="muted">先看缺主管、主管負載、部門主管覆蓋與循環風險，再用三步精靈修正直屬主管。</p>
+          </div>
+          <span className="badge">Audit on save</span>
+        </div>
+        <div className="organization-manager-risk-grid" aria-label="主管線風險摘要">
+          {settings.managerLineRisks.map((risk) => (
+            <article className={`organization-manager-risk-card ${risk.severity}`} key={risk.id}>
+              <span>{riskTitleLabel(risk.severity)}</span>
+              <strong>{risk.title}</strong>
+              <p>{risk.detail}</p>
+              <small>{risk.action}</small>
+            </article>
+          ))}
+        </div>
+        <form action="/api/settings/organization" method="post" className="wizard-form organization-manager-line-form" aria-label="主管線修正">
+          <input name="intent" type="hidden" value="manager_line" />
+          <fieldset className="form-card">
+            <legend>1. 選員工</legend>
+            <label>
+              要修正的員工
+              <select name="employeeId" defaultValue={settings.employees.find((employee) => !employee.managerId && employee.directReportCount === 0)?.id ?? settings.employees[0]?.id ?? ""} disabled={!writable} required>
+                {settings.employees.map((employee) => (
+                  <option value={employee.id} key={employee.id}>
+                    {employee.employeeNo} · {employee.displayName} · {employee.departmentName ?? "未歸屬部門"}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </fieldset>
+          <fieldset className="form-card">
+            <legend>2. 指派主管</legend>
+            <label>
+              直屬主管
+              <select name="managerId" defaultValue="" disabled={!writable}>
+                <option value="">不設定主管 / 解除主管線</option>
+                {settings.employees.map((employee) => (
+                  <option value={employee.id} key={employee.id}>
+                    {employee.employeeNo} · {employee.displayName} · {employee.jobTitle}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="muted">系統會阻擋員工當自己的主管，也會阻擋主管線循環。</p>
+          </fieldset>
+          <fieldset className="form-card">
+            <legend>3. 留下原因</legend>
+            <label>
+              修正原因
+              <textarea name="changeReason" rows={3} placeholder="例：試用前整理主管線，改由部門主管簽核。" disabled={!writable} />
+            </label>
+            <button className="button primary" type="submit" disabled={!writable}>
+              儲存主管線
+            </button>
+          </fieldset>
+        </form>
+      </section>
+
       <section className="grid organization-grid">
         <section className="panel span-7">
           <div className="section-heading">
@@ -477,10 +539,17 @@ function readinessBadgeClass(readiness: OrganizationReadiness) {
   return "";
 }
 
+function riskTitleLabel(severity: "ready" | "warning" | "danger") {
+  if (severity === "danger") return "立即修正";
+  if (severity === "warning") return "需整理";
+  return "正常";
+}
+
 function organizationSuccessMessage(success: string) {
   if (success === "company") return "公司資料已保存，audit log 已建立。";
   if (success === "department") return "部門設定已保存，audit log 已建立。";
   if (success === "job-level") return "職等設定已保存，audit log 已建立。";
   if (success === "job-position") return "職務設定已保存，audit log 已建立。";
+  if (success === "manager-line") return "主管線已保存，簽核、排班與權限會使用新的主管線。";
   return "設定已保存，audit log 已建立。";
 }

@@ -3147,13 +3147,110 @@ legend {
   line-height: 1.45;
 }
 
+.organization-manager-governance {
+  scroll-margin-top: 24px;
+}
+
+.organization-manager-risk-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.organization-manager-risk-card {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-height: 154px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.organization-manager-risk-card.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.organization-manager-risk-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.organization-manager-risk-card.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.organization-manager-risk-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.organization-manager-risk-card strong {
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 1000;
+  line-height: 1.18;
+}
+
+.organization-manager-risk-card p,
+.organization-manager-risk-card small {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.42;
+}
+
+.organization-manager-line-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-color: var(--accent-mid);
+  background: var(--accent-soft);
+}
+
+.organization-manager-line-form .form-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 196px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.organization-manager-line-form legend {
+  padding: 0;
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 1000;
+}
+
+.organization-manager-line-form textarea {
+  min-height: 94px;
+  resize: vertical;
+}
+
 .organization-grid {
   align-items: start;
+}
+
+.organization-grid > .panel,
+.organization-job-board,
+.organization-job-column {
+  min-width: 0;
 }
 
 .organization-department-list {
   display: grid;
   gap: 10px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
 
 .organization-department-row,
@@ -3227,6 +3324,7 @@ legend {
   align-content: start;
   gap: 12px;
   min-width: 0;
+  overflow: hidden;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: var(--cream);
@@ -3244,12 +3342,14 @@ legend {
   display: grid;
   gap: 10px;
   min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
 
 .organization-job-level-row,
 .organization-new-job-level {
   display: grid;
-  grid-template-columns: minmax(130px, 0.8fr) minmax(70px, 0.55fr) minmax(0, 1fr) minmax(78px, 0.6fr) minmax(90px, 0.65fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
   gap: 9px;
   align-items: end;
   border: 1px solid var(--panel-border);
@@ -3261,7 +3361,7 @@ legend {
 .organization-job-position-row,
 .organization-new-job-position {
   display: grid;
-  grid-template-columns: minmax(150px, 0.8fr) minmax(84px, 0.55fr) minmax(130px, 1fr) minmax(110px, 0.8fr) minmax(130px, 0.9fr) minmax(130px, 0.9fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
   gap: 9px;
   align-items: end;
   border: 1px solid var(--panel-border);
@@ -8025,6 +8125,8 @@ legend {
   .organization-hero,
   .organization-metric-strip,
   .organization-readiness,
+  .organization-manager-risk-grid,
+  .organization-manager-line-form,
   .organization-job-board,
   .pilot-operating-strip,
   .hr-close-command-band,
@@ -8070,6 +8172,11 @@ legend {
   .access-invite-form .form-card,
   .access-user-card,
   .access-fact-grid div {
+    min-height: auto;
+  }
+
+  .organization-manager-risk-card,
+  .organization-manager-line-form .form-card {
     min-height: auto;
   }
 

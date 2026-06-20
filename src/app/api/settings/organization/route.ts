@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireTenantSession } from "@/server/auth/guards";
 import {
   updateOrganizationCompanySettings,
+  updateOrganizationManagerLine,
   upsertOrganizationDepartment,
   upsertOrganizationJobLevel,
   upsertOrganizationJobPosition,
@@ -68,6 +69,18 @@ export async function POST(request: Request) {
       });
       return NextResponse.redirect(
         new URL("/settings/organization?success=job-position#job-architecture", request.url),
+        303,
+      );
+    }
+
+    if (intent === "manager_line") {
+      await updateOrganizationManagerLine(session, {
+        employeeId: readString(formData.get("employeeId")),
+        managerId: readString(formData.get("managerId")),
+        changeReason: readString(formData.get("changeReason")),
+      });
+      return NextResponse.redirect(
+        new URL("/settings/organization?success=manager-line#manager-line-governance", request.url),
         303,
       );
     }

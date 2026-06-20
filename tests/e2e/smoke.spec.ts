@@ -129,6 +129,20 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await page.getByRole("link", { name: "開啟組織設定" }).click();
   await expect(page).toHaveURL(/\/settings\/organization$/);
   await expect(page.getByRole("heading", { name: "公司組織設定" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "主管線治理" })).toBeVisible();
+  await expect(page.getByLabel("主管線風險摘要").getByText("缺直屬主管")).toBeVisible();
+  const managerLineForm = page.getByRole("form", { name: "主管線修正" });
+  await managerLineForm.getByLabel("要修正的員工").selectOption("demo-employee-2");
+  await managerLineForm.getByLabel("直屬主管").selectOption("demo-hr-employee");
+  await managerLineForm.getByLabel("修正原因").fill("E2E 試用前整理主管線，不應影響薪資或敏感資料。");
+  await managerLineForm.getByRole("button", { name: "儲存主管線" }).click();
+  await expect(page).toHaveURL(/\/settings\/organization\?success=manager-line#manager-line-governance$/);
+  await expect(page.getByText("主管線已保存")).toBeVisible();
+  await expect(page.locator(".organization-manager-list").getByText("林人資")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("baseSalary");
+  await expect(page.locator("body")).not.toContainText("accountNumber");
+  await expect(page.locator("body")).not.toContainText("nationalId");
+
   await expect(page.getByRole("heading", { name: "部門管理" })).toBeVisible();
   const newDepartment = page.locator(".organization-new-department");
   await newDepartment.getByLabel("代碼").fill("ADM");

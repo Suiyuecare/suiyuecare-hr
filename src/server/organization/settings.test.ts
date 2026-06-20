@@ -4,6 +4,7 @@ import {
   getOrganizationSettings,
   resetOrganizationSettingsDemoState,
   updateOrganizationCompanySettings,
+  updateOrganizationManagerLine,
   upsertOrganizationDepartment,
   upsertOrganizationJobLevel,
   upsertOrganizationJobPosition,
@@ -216,6 +217,49 @@ describe("organization settings", () => {
     });
   });
 
+  it("updates manager lines with audit logs and recalculates manager counts", async () => {
+    await updateOrganizationManagerLine(ownerSession, {
+      employeeId: "demo-employee-2",
+      managerId: "demo-hr-employee",
+      changeReason: "私人備註：試用前整理主管線，不應保存原文。",
+    });
+    const settings = await getOrganizationSettings(ownerSession);
+    const employee = settings.employees.find((item) => item.id === "demo-employee-2");
+    const hrManager = settings.managerLines.find((manager) => manager.employeeId === "demo-hr-employee");
+
+    expect(employee?.managerId).toBe("demo-hr-employee");
+    expect(hrManager).toMatchObject({
+      displayName: "林人資",
+      directReportCount: 1,
+    });
+    expect(getAuditDemoState().logs[0]).toMatchObject({
+      action: "update",
+      entityType: "manager_line",
+      metadataJson: {
+        operation: "update_manager_line",
+        changeReasonProvided: true,
+        rawEmployeePersonalDataStored: false,
+      },
+    });
+    expect(JSON.stringify(getAuditDemoState().logs[0].metadataJson)).not.toContain("私人備註");
+  });
+
+  it("prevents self-manager and manager-line cycles", async () => {
+    await expect(
+      updateOrganizationManagerLine(ownerSession, {
+        employeeId: "demo-employee-1",
+        managerId: "demo-employee-1",
+      }),
+    ).rejects.toThrow(/本人/);
+
+    await expect(
+      updateOrganizationManagerLine(ownerSession, {
+        employeeId: "demo-manager-employee",
+        managerId: "demo-employee-1",
+      }),
+    ).rejects.toThrow(/循環/);
+  });
+
   it("rejects duplicate job level and job position codes", async () => {
     const settings = await getOrganizationSettings(ownerSession);
     const existingPosition = settings.jobPositions[0];
@@ -256,6 +300,12 @@ describe("organization settings", () => {
         code: "OPS-MGR",
         title: "營運主管",
         family: "Operations",
+      }),
+    ).rejects.toThrow(/settings:write/);
+    await expect(
+      updateOrganizationManagerLine(managerSession, {
+        employeeId: "demo-employee-1",
+        managerId: "demo-hr-employee",
       }),
     ).rejects.toThrow(/settings:write/);
   });

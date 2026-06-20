@@ -1,5 +1,7 @@
+import type { Prisma } from "@prisma/client";
 import { writeAuditLog } from "@/server/audit/audit";
 import { writeDemoAuditLog } from "@/server/audit/demo-store";
+import { stableHash } from "@/server/audit/redaction";
 import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
 import { getFallbackCompanyOverview } from "@/server/demo/fallback";
@@ -71,6 +73,24 @@ export type OrganizationManagerLine = {
   directReportCount: number;
 };
 
+export type OrganizationEmployeeOption = {
+  id: string;
+  employeeNo: string;
+  displayName: string;
+  jobTitle: string;
+  departmentName: string | null;
+  managerId: string | null;
+  directReportCount: number;
+};
+
+export type OrganizationManagerLineRisk = {
+  id: string;
+  severity: "ready" | "warning" | "danger";
+  title: string;
+  detail: string;
+  action: string;
+};
+
 export type OrganizationReadiness = {
   status: "ready" | "warning" | "blocked";
   blockers: string[];
@@ -84,7 +104,9 @@ export type OrganizationSettingsView = {
   jobLevels: OrganizationJobLevelSettings[];
   jobPositions: OrganizationJobPositionSettings[];
   jobTitles: OrganizationJobTitleSummary[];
+  employees: OrganizationEmployeeOption[];
   managerLines: OrganizationManagerLine[];
+  managerLineRisks: OrganizationManagerLineRisk[];
   readiness: OrganizationReadiness;
   auditScope: string[];
 };
@@ -122,6 +144,12 @@ export type OrganizationJobPositionInput = Partial<{
   departmentId: string | null;
   levelId: string | null;
   description: string | null;
+}>;
+
+export type OrganizationManagerLineInput = Partial<{
+  employeeId: string;
+  managerId: string | null;
+  changeReason: string | null;
 }>;
 
 type OrganizationDemoState = {
@@ -210,6 +238,20 @@ export async function upsertOrganizationJobPosition(
     return upsertDbJobPosition(session, normalized);
   }
   return upsertDemoJobPosition(session, normalized);
+}
+
+export async function updateOrganizationManagerLine(
+  session: SessionLike,
+  input: OrganizationManagerLineInput,
+) {
+  assertPermission(session.role, "settings:write");
+  const current = await getOrganizationSettings({ ...session, role: "owner" });
+  const normalized = normalizeManagerLineInput(input, current.employees);
+
+  if (canUseDatabase(session)) {
+    return updateDbManagerLine(session, normalized);
+  }
+  return updateDemoManagerLine(session, normalized);
 }
 
 export function resetOrganizationSettingsDemoState() {
@@ -854,10 +896,127 @@ function upsertDemoJobPosition(
   return next;
 }
 
+async function updateDbManagerLine(
+  session: SessionLike,
+  normalized: Required<Pick<OrganizationManagerLineInput, "employeeId">> & {
+    managerId: string | null;
+    changeReason: string | null;
+  },
+) {
+  const db = getDb();
+  return db.$transaction(async (tx) => {
+    const employee = await tx.employee.findFirst({
+      where: {
+        id: normalized.employeeId,
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+      },
+      select: {
+        id: true,
+        employeeNo: true,
+        displayName: true,
+        managerId: true,
+      },
+    });
+    if (!employee) throw new Error("員工不存在或不屬於此公司。");
+
+    if (normalized.managerId) {
+      const manager = await tx.employee.findFirst({
+        where: {
+          id: normalized.managerId,
+          tenantId: session.tenantId!,
+          companyId: session.companyId!,
+        },
+        select: {
+          id: true,
+          managerId: true,
+        },
+      });
+      if (!manager) throw new Error("主管不存在或不屬於此公司。");
+      await assertNoDbManagerCycle(tx, session, normalized.employeeId, normalized.managerId);
+    }
+
+    const updated = await tx.employee.update({
+      where: { id: employee.id },
+      data: { managerId: normalized.managerId },
+      select: {
+        id: true,
+        employeeNo: true,
+        displayName: true,
+        managerId: true,
+      },
+    });
+    await writeAuditLog(tx, {
+      tenantId: session.tenantId!,
+      companyId: session.companyId!,
+      actorUserId: session.user?.id,
+      actorEmployeeId: session.employee?.id,
+      action: "update",
+      entityType: "manager_line",
+      entityId: employee.id,
+      before: managerLineAuditSnapshot(employee),
+      after: managerLineAuditSnapshot(updated),
+      metadata: {
+        operation: "update_manager_line",
+        previousManagerHash: employee.managerId ? managerRefHash(employee.managerId) : null,
+        nextManagerHash: normalized.managerId ? managerRefHash(normalized.managerId) : null,
+        changeReasonProvided: Boolean(normalized.changeReason),
+        changeReasonHash: normalized.changeReason ? managerRefHash(normalized.changeReason) : null,
+        rawEmployeePersonalDataStored: false,
+      },
+    });
+    return updated;
+  });
+}
+
+function updateDemoManagerLine(
+  session: SessionLike,
+  normalized: Required<Pick<OrganizationManagerLineInput, "employeeId">> & {
+    managerId: string | null;
+    changeReason: string | null;
+  },
+) {
+  const state = getOrganizationDemoState();
+  const employee = state.employees.find((item) => item.id === normalized.employeeId);
+  if (!employee) throw new Error("員工不存在或不屬於此公司。");
+  if (normalized.managerId && !state.employees.some((item) => item.id === normalized.managerId)) {
+    throw new Error("主管不存在或不屬於此公司。");
+  }
+  assertNoDemoManagerCycle(state.employees, normalized.employeeId, normalized.managerId);
+
+  const previousManagerId = employee.managerId;
+  const before = managerLineAuditSnapshot(employee);
+  employee.managerId = normalized.managerId;
+  refreshDemoManagerCounts(state);
+  const after = managerLineAuditSnapshot(employee);
+  writeDemoAuditLog({
+    tenantId: session.tenantId ?? "demo-tenant",
+    companyId: session.companyId ?? "demo-company",
+    actorUserId: session.user?.id,
+    actorEmployeeId: session.employee?.id,
+    actorName: session.user?.displayName ?? session.employee?.displayName,
+    action: "update",
+    entityType: "manager_line",
+    entityId: employee.id,
+    before,
+    after,
+    metadata: {
+      operation: "update_manager_line",
+      previousManagerHash: previousManagerId ? managerRefHash(previousManagerId) : null,
+      nextManagerHash: normalized.managerId ? managerRefHash(normalized.managerId) : null,
+      changeReasonProvided: Boolean(normalized.changeReason),
+      changeReasonHash: normalized.changeReason ? managerRefHash(normalized.changeReason) : null,
+      rawEmployeePersonalDataStored: false,
+    },
+  });
+  return employee;
+}
+
 function buildOrganizationSettingsView(state: OrganizationDemoState): OrganizationSettingsView {
   const jobLevels = buildJobLevelsWithCounts(state);
   const jobPositions = buildJobPositionsWithCounts(state);
   const jobTitles = summarizeJobTitles(state.employees);
+  const managerLineRisks = buildManagerLineRisks(state);
   const readiness = buildReadiness({ ...state, jobLevels, jobPositions }, jobTitles);
   return {
     company: state.company,
@@ -865,6 +1024,17 @@ function buildOrganizationSettingsView(state: OrganizationDemoState): Organizati
     jobLevels,
     jobPositions,
     jobTitles,
+    employees: [...state.employees]
+      .map((employee) => ({
+        id: employee.id,
+        employeeNo: employee.employeeNo,
+        displayName: employee.displayName,
+        jobTitle: employee.jobTitle,
+        departmentName: employee.departmentName,
+        managerId: employee.managerId,
+        directReportCount: employee.directReportCount,
+      }))
+      .sort((a, b) => a.employeeNo.localeCompare(b.employeeNo)),
     managerLines: state.employees
       .filter((employee) => employee.directReportCount > 0)
       .map((employee) => ({
@@ -875,13 +1045,14 @@ function buildOrganizationSettingsView(state: OrganizationDemoState): Organizati
         departmentName: employee.departmentName,
         directReportCount: employee.directReportCount,
       })),
+    managerLineRisks,
     readiness,
     auditScope: [
       "公司資料變更",
       "部門建立與更新",
       "上層部門調整",
       "職務/職等建立與更新",
-      "未來主管線調整",
+      "主管線調整",
     ],
   };
 }
@@ -946,6 +1117,73 @@ function buildReadiness(
     warnings,
     nextActions,
   };
+}
+
+function buildManagerLineRisks(state: Pick<OrganizationDemoState, "departments" | "employees">): OrganizationManagerLineRisk[] {
+  const risks: OrganizationManagerLineRisk[] = [];
+  const nonManagerMissingManager = state.employees.filter(
+    (employee) => !employee.managerId && employee.directReportCount === 0,
+  );
+  const overloadedManagers = state.employees.filter((employee) => employee.directReportCount >= 12);
+  const departmentsWithoutManagers = state.departments.filter((department) => department.managerCount === 0);
+  const cycleDetected = detectDemoManagerCycle(state.employees);
+
+  risks.push({
+    id: "missing-manager",
+    severity: nonManagerMissingManager.length > 0 ? "warning" : "ready",
+    title: "缺直屬主管",
+    detail: nonManagerMissingManager.length > 0
+      ? `${nonManagerMissingManager.length} 位非主管員工尚未設定直屬主管。`
+      : "非主管員工都有主管線。",
+    action: "用主管線修正精靈補齊直屬主管。",
+  });
+  risks.push({
+    id: "manager-overload",
+    severity: overloadedManagers.length > 0 ? "warning" : "ready",
+    title: "主管負載",
+    detail: overloadedManagers.length > 0
+      ? `${overloadedManagers.length} 位主管直屬人數達 12 人以上，簽核與排班風險較高。`
+      : "主管直屬人數未超過風險門檻。",
+    action: "必要時拆分團隊或新增部門主管。",
+  });
+  risks.push({
+    id: "department-manager",
+    severity: departmentsWithoutManagers.length > 0 ? "warning" : "ready",
+    title: "部門主管覆蓋",
+    detail: departmentsWithoutManagers.length > 0
+      ? `${departmentsWithoutManagers.length} 個部門還沒有能從主管線推得管理者。`
+      : "每個部門都可由主管線推得管理者。",
+    action: "先補主管線，再跑邀請 readiness。",
+  });
+  risks.push({
+    id: "manager-cycle",
+    severity: cycleDetected ? "danger" : "ready",
+    title: "循環風險",
+    detail: cycleDetected ? "偵測到主管線循環，簽核 Inbox 會無法正確收斂。" : "未偵測到主管線循環。",
+    action: "循環必須立即修正，避免簽核卡住。",
+  });
+
+  return risks;
+}
+
+function normalizeManagerLineInput(
+  input: OrganizationManagerLineInput,
+  employees: OrganizationEmployeeOption[],
+) {
+  const employeeId = cleanRequiredText(input.employeeId, "員工必填。");
+  const managerId = cleanText(input.managerId) || null;
+  const changeReason = cleanOptionalText(input.changeReason);
+  if (!employees.some((employee) => employee.id === employeeId)) {
+    throw new Error("員工不存在。");
+  }
+  if (managerId && !employees.some((employee) => employee.id === managerId)) {
+    throw new Error("主管不存在。");
+  }
+  if (managerId === employeeId) {
+    throw new Error("主管不可設定為員工本人。");
+  }
+  assertNoDemoManagerCycle(employees, employeeId, managerId);
+  return { employeeId, managerId, changeReason };
 }
 
 function normalizeCompanyInput(
@@ -1122,6 +1360,99 @@ function countChildDepartments(departments: Array<{ id: string; parentDepartment
     counts.set(department.parentDepartmentId, (counts.get(department.parentDepartmentId) ?? 0) + 1);
   }
   return counts;
+}
+
+async function assertNoDbManagerCycle(
+  tx: Prisma.TransactionClient,
+  session: SessionLike,
+  employeeId: string,
+  managerId: string | null,
+) {
+  if (!managerId) return;
+  if (employeeId === managerId) throw new Error("主管不可設定為員工本人。");
+  let cursor: string | null = managerId;
+  const visited = new Set<string>();
+  while (cursor) {
+    if (cursor === employeeId) throw new Error("主管線不可形成循環。");
+    if (visited.has(cursor)) throw new Error("主管線不可形成循環。");
+    visited.add(cursor);
+    const manager: { managerId: string | null } | null = await tx.employee.findFirst({
+      where: {
+        id: cursor,
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+      },
+      select: {
+        managerId: true,
+      },
+    });
+    cursor = manager?.managerId ?? null;
+  }
+}
+
+function assertNoDemoManagerCycle(
+  employees: Array<{ id: string; managerId: string | null }>,
+  employeeId: string,
+  managerId: string | null,
+) {
+  if (!managerId) return;
+  if (employeeId === managerId) throw new Error("主管不可設定為員工本人。");
+  let cursor: string | null = managerId;
+  const visited = new Set<string>();
+  while (cursor) {
+    if (cursor === employeeId) throw new Error("主管線不可形成循環。");
+    if (visited.has(cursor)) throw new Error("主管線不可形成循環。");
+    visited.add(cursor);
+    cursor = employees.find((employee) => employee.id === cursor)?.managerId ?? null;
+  }
+}
+
+function detectDemoManagerCycle(employees: Array<{ id: string; managerId: string | null }>) {
+  for (const employee of employees) {
+    try {
+      assertNoDemoManagerCycle(employees, employee.id, employee.managerId);
+    } catch {
+      return true;
+    }
+  }
+  return false;
+}
+
+function refreshDemoManagerCounts(state: OrganizationDemoState) {
+  const directReportCounts = new Map<string, number>();
+  for (const employee of state.employees) {
+    if (!employee.managerId) continue;
+    directReportCounts.set(employee.managerId, (directReportCounts.get(employee.managerId) ?? 0) + 1);
+  }
+  state.employees = state.employees.map((employee) => ({
+    ...employee,
+    directReportCount: directReportCounts.get(employee.id) ?? 0,
+  }));
+  const managerCountByDepartment = countManagersByDepartment(state.employees);
+  const employeeCountByDepartment = countEmployeesByDepartment(state.employees);
+  state.departments = state.departments.map((department) => ({
+    ...department,
+    employeeCount: employeeCountByDepartment.get(department.id) ?? 0,
+    managerCount: managerCountByDepartment.get(department.id) ?? 0,
+  }));
+}
+
+function managerLineAuditSnapshot(employee: {
+  id: string;
+  employeeNo?: string;
+  displayName?: string;
+  managerId: string | null;
+}) {
+  return {
+    employeeId: employee.id,
+    employeeNoHash: employee.employeeNo ? stableHash({ employeeNo: employee.employeeNo }) : null,
+    displayNameHash: employee.displayName ? stableHash({ displayName: employee.displayName }) : null,
+    managerHash: employee.managerId ? managerRefHash(employee.managerId) : null,
+  };
+}
+
+function managerRefHash(value: string) {
+  return String(stableHash({ value })).slice(0, 16);
 }
 
 function changedFields(
