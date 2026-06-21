@@ -5,6 +5,7 @@ import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { stableHash } from "@/server/audit/redaction";
 import { assertPermission, hasPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
+import { getFileStorageSettings, type FileStorageProvider } from "@/server/files/storage";
 
 type SessionLike = {
   role: RoleKey;
@@ -28,6 +29,7 @@ export type ReportAccessLevel = "none" | "summary" | "detail" | "aggregate";
 export type ReportReviewStatus = "not_required" | "pending" | "approved";
 export type ReportExportDeliveryMode = "immediate" | "background";
 export type ReportExportQueueStatus = "ready" | "waiting_for_review" | "queued" | "processing" | "failed";
+export type ReportArchiveStorageTarget = "inline_manifest" | "object_storage_pending" | "object_storage_signed_url";
 
 export type ReportDatasetDefinition = {
   code: string;
@@ -106,6 +108,7 @@ export type ReportArchiveView = {
   contentHash: string;
   downloadExpiresAt: Date;
   createdAt: Date;
+  storage: ReportArchiveStorageView;
 };
 
 export type ReportArchiveDownload = {
@@ -120,6 +123,15 @@ export type ReportArchiveDownloadToken = {
   expiresAt: Date;
 };
 
+export type ReportArchiveSignedUrl = {
+  archiveId: string;
+  url: string;
+  expiresAt: Date;
+  storageProvider: FileStorageProvider | "inline_manifest";
+  objectKey: string;
+  objectHash: string;
+};
+
 export type ReportExportQueueView = {
   deliveryMode: ReportExportDeliveryMode;
   status: ReportExportQueueStatus;
@@ -130,7 +142,21 @@ export type ReportExportQueueView = {
   finishedAt: Date | null;
   nextRunAt: Date | null;
   lastErrorHash: string | null;
-  storageTarget: "inline_manifest" | "object_storage_pending";
+  storageTarget: ReportArchiveStorageTarget;
+};
+
+export type ReportArchiveStorageView = {
+  storageTarget: ReportArchiveStorageTarget;
+  storageProvider: FileStorageProvider | "inline_manifest";
+  bucketName: string | null;
+  objectKey: string | null;
+  objectKeyHash: string | null;
+  objectHash: string | null;
+  signedUrlAvailable: boolean;
+  signedUrlTtlMinutes: number | null;
+  storedAt: Date | null;
+  objectBytesStoredInHrOne: false;
+  rawRowsIncluded: false;
 };
 
 export type ProcessReportExportQueueInput = {
@@ -165,6 +191,7 @@ export type ReportAdminWorkspace = {
     queuedExportCount: number;
     waitingReviewExportCount: number;
     failedExportCount: number;
+    signedUrlArchiveCount: number;
   };
 };
 
@@ -313,6 +340,7 @@ export async function getReportAdminWorkspace(session: SessionLike): Promise<Rep
   const queuedExportCount = jobs.filter((job) => job.queue.status === "queued" || job.queue.status === "processing").length;
   const waitingReviewExportCount = jobs.filter((job) => job.queue.status === "waiting_for_review").length;
   const failedExportCount = jobs.filter((job) => job.queue.status === "failed").length;
+  const signedUrlArchiveCount = archives.filter((archive) => archive.storage.signedUrlAvailable).length;
   return {
     datasets,
     permissions,
@@ -336,6 +364,7 @@ export async function getReportAdminWorkspace(session: SessionLike): Promise<Rep
       queuedExportCount,
       waitingReviewExportCount,
       failedExportCount,
+      signedUrlArchiveCount,
     },
   };
 }
@@ -397,6 +426,7 @@ export async function createCustomReportJob(
     contentHash,
     downloadExpiresAt: expiresAt,
     createdAt: now,
+    storage: buildInitialArchiveStorage(deliveryMode),
   };
   const draft: ReportJobView = {
     id: crypto.randomUUID(),
@@ -492,6 +522,22 @@ export async function issueReportArchiveDownloadToken(
     return issueDbReportArchiveDownloadToken(session, normalizedArchiveId);
   }
   return issueDemoReportArchiveDownloadToken(session, normalizedArchiveId);
+}
+
+export async function issueReportArchiveSignedUrl(
+  session: SessionLike,
+  archiveId: string,
+): Promise<ReportArchiveSignedUrl> {
+  assertPermission(session.role, "report:manage");
+  const normalizedArchiveId = archiveId.trim();
+  if (!normalizedArchiveId) {
+    throw new Error("請選擇有效的報表封存。");
+  }
+
+  if (canUseDatabase(session)) {
+    return issueDbReportArchiveSignedUrl(session, normalizedArchiveId);
+  }
+  return issueDemoReportArchiveSignedUrl(session, normalizedArchiveId);
 }
 
 export async function downloadReportArchive(
@@ -876,6 +922,74 @@ async function issueDbReportArchiveDownloadToken(
   return issued;
 }
 
+async function issueDbReportArchiveSignedUrl(
+  session: SessionLike & { tenantId: string; companyId: string },
+  archiveId: string,
+) {
+  const db = getDb();
+  const datasets = await getDbReportCatalog(session);
+  const permissions = await listDbReportPermissions(session, datasets);
+  const existing = await db.reportExportArchive.findFirst({
+    where: {
+      id: archiveId,
+      tenantId: session.tenantId,
+      companyId: session.companyId,
+    },
+    include: {
+      reportJob: {
+        include: {
+          dataset: true,
+          archives: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+  if (!existing) throw new Error("找不到報表封存。");
+  const jobView = mapDbJob(existing.reportJob, datasets);
+  assertReportJobReadyForDownload(jobView);
+
+  const dataset = findDataset(datasets, existing.reportJob.dataset.code);
+  const permission = findDatasetPermission(permissions, dataset, session.role);
+  assertDatasetPermission(permission, dataset, session.role);
+  const selectedFields = applyPermissionsToFields(
+    permission,
+    findFieldPermissions(permissions, dataset, session.role),
+    normalizeSelectedFields(dataset, readStringArray(existing.reportJob.selectedFieldKeysJson)),
+  );
+  assertFieldsAllowed(session.role, selectedFields);
+  assertArchiveNotExpired(existing.downloadExpiresAt);
+  const archive = mapDbArchive(existing);
+  assertArchiveStorageReadyForSignedUrl(archive.storage);
+
+  const issued = sealReportArchiveDownloadToken(session, {
+    archiveId: existing.id,
+    contentHash: existing.contentHash,
+    downloadExpiresAt: existing.downloadExpiresAt,
+  }, readArchiveSignedUrlTtlMs(archive.storage));
+  const signedUrl = buildReportArchiveSignedUrl(existing.id, issued, archive.storage);
+  await writeAuditLog(db, {
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    actorUserId: session.user?.id,
+    actorEmployeeId: session.employee?.id,
+    action: "create",
+    entityType: "report_archive_signed_url",
+    entityId: existing.id,
+    before: null,
+    after: {
+      signedUrlExpiresAt: signedUrl.expiresAt.toISOString(),
+      objectKeyHash: archive.storage.objectKeyHash,
+      objectHash: archive.storage.objectHash,
+      urlHash: stableHash({ signedUrl: signedUrl.url }),
+    },
+    metadata: archiveSignedUrlMetadata(dataset, existing.reportJob.id, existing.fileName, existing.contentHash, signedUrl, archive.storage),
+  });
+  return signedUrl;
+}
+
 async function downloadDbReportArchive(
   session: SessionLike & { tenantId: string; companyId: string },
   archiveId: string,
@@ -1199,10 +1313,23 @@ async function processDbReportExportQueue(
   for (const record of records) {
     const existingJob = mapDbJob(record, datasets);
     const startedQueue = markReportQueueProcessing(existingJob.queue);
-    const completedQueue = markReportQueueReady(startedQueue);
     const metadata = readMetadataObject(record.metadataJson);
     const archive = record.archives[0];
+    if (!archive) {
+      throw new Error("報表佇列缺少封存 metadata，請重新建立報表。");
+    }
+    const archiveStorage = await buildReportArchiveObjectStorage(session, existingJob, archive);
+    const completedQueue = markReportQueueReady(startedQueue, archiveStorage.storageTarget);
     const updated = await db.$transaction(async (tx) => {
+      const archiveRecord = await tx.reportExportArchive.update({
+        where: { id: archive.id },
+        data: {
+          metadataJson: {
+            ...readMetadataObject(archive.metadataJson),
+            storage: reportArchiveStorageMetadata(archiveStorage),
+          } as Prisma.InputJsonValue,
+        },
+      });
       const job = await tx.reportJob.update({
         where: { id: record.id },
         data: {
@@ -1238,7 +1365,10 @@ async function processDbReportExportQueue(
         },
         metadata: reportQueueAuditMetadata(existingJob, completedQueue, archive?.id ?? null, input.workerId),
       });
-      return job;
+      return {
+        ...job,
+        archives: [archiveRecord],
+      };
     });
     processed.push(mapDbJob(updated, datasets));
   }
@@ -1427,10 +1557,10 @@ function createDemoReportJob(session: SessionLike, draft: ReportJobView) {
   return draft;
 }
 
-function processDemoReportExportQueue(
+async function processDemoReportExportQueue(
   session: SessionLike,
   input: { jobId: string | null; limit: number; workerId: string },
-): ProcessReportExportQueueResult {
+): Promise<ProcessReportExportQueueResult> {
   const state = getDemoState();
   const candidates = state.jobs
     .filter((job) => job.status === "queued" && (!input.jobId || job.id === input.jobId))
@@ -1444,15 +1574,21 @@ function processDemoReportExportQueue(
     const jobIndex = state.jobs.findIndex((job) => job.id === existingJob.id);
     const archiveIndex = state.archives.findIndex((archive) => archive.id === existingJob.archive.id);
     if (jobIndex < 0) continue;
-    const queue = markReportQueueReady(markReportQueueProcessing(existingJob.queue));
+    const storage = await buildReportArchiveObjectStorage(session, existingJob, existingJob.archive);
+    const queue = markReportQueueReady(markReportQueueProcessing(existingJob.queue), storage.storageTarget);
+    const updatedArchive: ReportArchiveView = {
+      ...existingJob.archive,
+      storage,
+    };
     const updatedJob: ReportJobView = {
       ...existingJob,
       status: "generated",
       queue,
+      archive: updatedArchive,
     };
     state.jobs[jobIndex] = updatedJob;
     if (archiveIndex >= 0) {
-      state.archives[archiveIndex] = updatedJob.archive;
+      state.archives[archiveIndex] = updatedArchive;
     }
     writeDemoAuditLog({
       tenantId: session.tenantId ?? "demo-tenant",
@@ -1528,6 +1664,55 @@ function issueDemoReportArchiveDownloadToken(session: SessionLike, archiveId: st
     metadata: archiveDownloadTokenMetadata(dataset, existingJob.id, existingArchive.fileName, existingArchive.contentHash, issued),
   });
   return issued;
+}
+
+function issueDemoReportArchiveSignedUrl(session: SessionLike, archiveId: string) {
+  const state = getDemoState();
+  const existingArchive = state.archives.find((item) => item.id === archiveId);
+  const existingJob = state.jobs.find((item) => item.archive.id === archiveId);
+  if (!existingArchive || !existingJob) {
+    throw new Error("找不到報表封存。");
+  }
+  assertReportJobReadyForDownload(existingJob);
+
+  const datasets = getDefaultCatalogViews();
+  const dataset = findDataset(datasets, existingJob.datasetCode);
+  const permissions = getDemoReportPermissions(datasets);
+  const permission = findDatasetPermission(permissions, dataset, session.role);
+  assertDatasetPermission(permission, dataset, session.role);
+  const selectedFields = applyPermissionsToFields(
+    permission,
+    findFieldPermissions(permissions, dataset, session.role),
+    normalizeSelectedFields(dataset, existingJob.selectedFields.map((fieldItem) => fieldItem.key)),
+  );
+  assertFieldsAllowed(session.role, selectedFields);
+  assertArchiveNotExpired(existingArchive.downloadExpiresAt);
+  assertArchiveStorageReadyForSignedUrl(existingArchive.storage);
+
+  const issued = sealReportArchiveDownloadToken(session, {
+    archiveId: existingArchive.id,
+    contentHash: existingArchive.contentHash,
+    downloadExpiresAt: existingArchive.downloadExpiresAt,
+  }, readArchiveSignedUrlTtlMs(existingArchive.storage));
+  const signedUrl = buildReportArchiveSignedUrl(existingArchive.id, issued, existingArchive.storage);
+  writeDemoAuditLog({
+    tenantId: session.tenantId ?? "demo-tenant",
+    companyId: session.companyId ?? "demo-company",
+    actorUserId: session.user?.id,
+    actorEmployeeId: session.employee?.id,
+    actorName: session.user?.displayName ?? session.employee?.displayName,
+    action: "create",
+    entityType: "report_archive_signed_url",
+    entityId: existingArchive.id,
+    after: {
+      signedUrlExpiresAt: signedUrl.expiresAt.toISOString(),
+      objectKeyHash: existingArchive.storage.objectKeyHash,
+      objectHash: existingArchive.storage.objectHash,
+      urlHash: stableHash({ signedUrl: signedUrl.url }),
+    },
+    metadata: archiveSignedUrlMetadata(dataset, existingJob.id, existingArchive.fileName, existingArchive.contentHash, signedUrl, existingArchive.storage),
+  });
+  return signedUrl;
 }
 
 function downloadDemoReportArchive(session: SessionLike, archiveId: string, token?: string | null) {
@@ -1685,6 +1870,7 @@ function mapDbJob(
       contentHash: string;
       downloadExpiresAt: Date;
       createdAt: Date;
+      metadataJson?: Prisma.JsonValue;
     }>;
   },
   datasets: ReportDatasetView[],
@@ -1711,6 +1897,7 @@ function mapDbJob(
         contentHash: record.contentHash,
         downloadExpiresAt: record.expiresAt,
         createdAt: record.createdAt,
+        storage: buildInitialArchiveStorage("immediate"),
       };
   return {
     id: record.id,
@@ -1742,6 +1929,7 @@ function mapDbArchive(record: {
   contentHash: string;
   downloadExpiresAt: Date;
   createdAt: Date;
+  metadataJson?: Prisma.JsonValue;
 }): ReportArchiveView {
   return {
     id: record.id,
@@ -1755,6 +1943,7 @@ function mapDbArchive(record: {
     contentHash: record.contentHash,
     downloadExpiresAt: record.downloadExpiresAt,
     createdAt: record.createdAt,
+    storage: readReportArchiveStorageFromMetadata(record.metadataJson),
   };
 }
 
@@ -2015,6 +2204,75 @@ function buildReportExportQueueState(input: {
   };
 }
 
+function buildInitialArchiveStorage(deliveryMode: ReportExportDeliveryMode): ReportArchiveStorageView {
+  return {
+    storageTarget: deliveryMode === "background" ? "object_storage_pending" : "inline_manifest",
+    storageProvider: "inline_manifest",
+    bucketName: null,
+    objectKey: null,
+    objectKeyHash: null,
+    objectHash: null,
+    signedUrlAvailable: false,
+    signedUrlTtlMinutes: null,
+    storedAt: null,
+    objectBytesStoredInHrOne: false,
+    rawRowsIncluded: false,
+  };
+}
+
+async function buildReportArchiveObjectStorage(
+  session: SessionLike,
+  job: Pick<ReportJobView, "id" | "datasetCode" | "contentHash" | "archive">,
+  archive: Pick<ReportArchiveView, "id" | "fileName" | "contentHash" | "downloadExpiresAt">,
+): Promise<ReportArchiveStorageView> {
+  const settings = await getFileStorageSettings(session);
+  const objectKey = [
+    cleanObjectPathSegment(settings.basePrefix || "hr-one"),
+    cleanObjectPathSegment(session.tenantId ?? "demo-tenant"),
+    cleanObjectPathSegment(session.companyId ?? "demo-company"),
+    "reports",
+    cleanObjectPathSegment(job.datasetCode),
+    cleanObjectPathSegment(job.id),
+    cleanObjectPathSegment(manifestFileName(archive.fileName)),
+  ].filter(Boolean).join("/");
+  const objectHash = stableHash({
+    archiveId: archive.id,
+    contentHash: archive.contentHash,
+    objectKey,
+    manifestOnly: true,
+    rawRowsIncluded: false,
+  });
+  return {
+    storageTarget: "object_storage_signed_url",
+    storageProvider: settings.provider,
+    bucketName: settings.bucketName,
+    objectKey,
+    objectKeyHash: stableHash({ objectKey }),
+    objectHash,
+    signedUrlAvailable: true,
+    signedUrlTtlMinutes: settings.signedUrlTtlMinutes,
+    storedAt: new Date(),
+    objectBytesStoredInHrOne: false,
+    rawRowsIncluded: false,
+  };
+}
+
+function reportArchiveStorageMetadata(storage: ReportArchiveStorageView) {
+  return {
+    storageTarget: storage.storageTarget,
+    storageProvider: storage.storageProvider,
+    bucketName: storage.bucketName,
+    objectKey: storage.objectKey,
+    objectKeyHash: storage.objectKeyHash,
+    objectHash: storage.objectHash,
+    signedUrlAvailable: storage.signedUrlAvailable,
+    signedUrlTtlMinutes: storage.signedUrlTtlMinutes,
+    storedAt: storage.storedAt?.toISOString() ?? null,
+    objectBytesStoredInHrOne: false,
+    rawRowsIncluded: false,
+  };
+}
+
 function reportQueueMetadata(queue: ReportExportQueueView) {
   return {
     deliveryMode: queue.deliveryMode,
@@ -2065,14 +2323,17 @@ function markReportQueueProcessing(queue: ReportExportQueueView): ReportExportQu
   };
 }
 
-function markReportQueueReady(queue: ReportExportQueueView): ReportExportQueueView {
+function markReportQueueReady(
+  queue: ReportExportQueueView,
+  storageTarget: ReportArchiveStorageTarget = "inline_manifest",
+): ReportExportQueueView {
   return {
     ...queue,
     status: "ready",
     finishedAt: new Date(),
     nextRunAt: null,
     lastErrorHash: null,
-    storageTarget: "inline_manifest",
+    storageTarget,
   };
 }
 
@@ -2089,6 +2350,7 @@ function reportQueueAuditMetadata(
     contentHash: job.contentHash,
     deliveryMode: queue.deliveryMode,
     queueStatus: queue.status,
+    storageTarget: queue.storageTarget,
     attempts: queue.attempts,
     maxAttempts: queue.maxAttempts,
     nextRunAt: queue.nextRunAt?.toISOString() ?? null,
@@ -2334,6 +2596,7 @@ function archiveMetadata(dataset: ReportDatasetView, fields: ReportFieldView[], 
     downloadExpiresAt: draft.archive.downloadExpiresAt.toISOString(),
     selectedFieldKeys: fields.map((fieldItem) => fieldItem.key),
     queue: reportQueueMetadata(draft.queue),
+    storage: reportArchiveStorageMetadata(draft.archive.storage),
     manifestOnly: true,
     rawRowsIncluded: false,
     sensitiveValuesRedacted: true,
@@ -2379,6 +2642,65 @@ function archiveDownloadTokenMetadata(
   };
 }
 
+function archiveSignedUrlMetadata(
+  dataset: Pick<ReportDatasetView, "code" | "category">,
+  reportJobId: string,
+  fileName: string,
+  contentHash: string,
+  signedUrl: ReportArchiveSignedUrl,
+  storage: ReportArchiveStorageView,
+) {
+  return {
+    ...archiveDownloadMetadata(dataset, reportJobId, fileName, contentHash),
+    signedUrlIssued: true,
+    signedUrlExpiresAt: signedUrl.expiresAt.toISOString(),
+    signedUrlHash: stableHash({ signedUrl: signedUrl.url }),
+    rawSignedUrlStored: false,
+    rawTokenStored: false,
+    storageTarget: storage.storageTarget,
+    storageProvider: storage.storageProvider,
+    objectKeyHash: storage.objectKeyHash,
+    objectHash: storage.objectHash,
+    objectBytesStoredInHrOne: false,
+  };
+}
+
+function buildReportArchiveSignedUrl(
+  archiveId: string,
+  issued: ReportArchiveDownloadToken,
+  storage: ReportArchiveStorageView,
+): ReportArchiveSignedUrl {
+  const objectKey = storage.objectKey;
+  const objectHash = storage.objectHash;
+  if (!objectKey || !objectHash) {
+    throw new Error("報表封存尚未建立物件儲存 metadata。");
+  }
+  return {
+    archiveId,
+    url: `/api/reports/archives/${encodeURIComponent(archiveId)}/download?token=${encodeURIComponent(issued.token)}&delivery=signed-object`,
+    expiresAt: issued.expiresAt,
+    storageProvider: storage.storageProvider,
+    objectKey,
+    objectHash,
+  };
+}
+
+function assertArchiveStorageReadyForSignedUrl(storage: ReportArchiveStorageView) {
+  if (
+    storage.storageTarget !== "object_storage_signed_url" ||
+    !storage.signedUrlAvailable ||
+    !storage.objectKey ||
+    !storage.objectHash
+  ) {
+    throw new Error("報表封存尚未完成物件儲存 signed URL 準備。");
+  }
+}
+
+function readArchiveSignedUrlTtlMs(storage: ReportArchiveStorageView) {
+  const minutes = storage.signedUrlTtlMinutes ?? 10;
+  return Math.max(1, Math.min(minutes, 120)) * 60_000;
+}
+
 function sealReportArchiveDownloadToken(
   session: SessionLike,
   input: {
@@ -2386,10 +2708,11 @@ function sealReportArchiveDownloadToken(
     contentHash: string;
     downloadExpiresAt: Date;
   },
+  ttlMs = readReportDownloadTokenTtlMs(),
 ): ReportArchiveDownloadToken {
   const now = new Date();
   const tokenExpiresAt = new Date(Math.min(
-    now.getTime() + readReportDownloadTokenTtlMs(),
+    now.getTime() + ttlMs,
     input.downloadExpiresAt.getTime(),
   ));
   const payload: ReportArchiveDownloadTokenPayload = {
@@ -2580,6 +2903,27 @@ function normalizeDeliveryMode(value: string | null | undefined): ReportExportDe
   return value === "background" ? "background" : "immediate";
 }
 
+function normalizeStorageTarget(value: string | null | undefined): ReportArchiveStorageTarget {
+  if (
+    value === "inline_manifest" ||
+    value === "object_storage_pending" ||
+    value === "object_storage_signed_url"
+  ) return value;
+  return "inline_manifest";
+}
+
+function normalizeStorageProvider(value: string | null | undefined): FileStorageProvider | "inline_manifest" {
+  if (
+    value === "demo_object_storage" ||
+    value === "s3" ||
+    value === "r2" ||
+    value === "gcs" ||
+    value === "azure_blob" ||
+    value === "custom"
+  ) return value;
+  return "inline_manifest";
+}
+
 function normalizeQueueStatus(value: string | null | undefined, jobStatus: string): ReportExportQueueStatus {
   if (
     value === "ready" ||
@@ -2602,6 +2946,10 @@ function normalizeQueueProcessLimit(value: number | string | null | undefined) {
 
 function normalizeQueueWorkerId(value: string | null | undefined) {
   return value?.trim().slice(0, 80) || "manual-report-worker";
+}
+
+function cleanObjectPathSegment(value: string) {
+  return value.trim().replace(/[^a-zA-Z0-9_.-]/g, "-").replace(/-+/g, "-").slice(0, 96);
 }
 
 function normalizePeriod(
@@ -2691,7 +3039,34 @@ function readReportQueueFromMetadata(
     finishedAt: readMetadataDate(queue.finishedAt),
     nextRunAt: readMetadataDate(queue.nextRunAt),
     lastErrorHash: readMetadataString(queue.lastErrorHash, null) || null,
-    storageTarget: queue.storageTarget === "object_storage_pending" ? "object_storage_pending" : "inline_manifest",
+    storageTarget: normalizeStorageTarget(readMetadataString(queue.storageTarget, null)),
+  };
+}
+
+function readReportArchiveStorageFromMetadata(
+  metadataJson: Prisma.JsonValue | undefined,
+): ReportArchiveStorageView {
+  const metadata = readMetadataObject(metadataJson);
+  const storage = readMetadataObject(metadata.storage);
+  const storageTarget = normalizeStorageTarget(readMetadataString(storage.storageTarget, null));
+  const objectKey = readMetadataString(storage.objectKey, null) || null;
+  const objectHash = readMetadataString(storage.objectHash, null) || null;
+  const signedUrlAvailable = readMetadataBoolean(storage.signedUrlAvailable, false) &&
+    storageTarget === "object_storage_signed_url" &&
+    Boolean(objectKey) &&
+    Boolean(objectHash);
+  return {
+    storageTarget,
+    storageProvider: normalizeStorageProvider(readMetadataString(storage.storageProvider, null)),
+    bucketName: readMetadataString(storage.bucketName, null) || null,
+    objectKey,
+    objectKeyHash: readMetadataString(storage.objectKeyHash, null) || (objectKey ? stableHash({ objectKey }) : null),
+    objectHash,
+    signedUrlAvailable,
+    signedUrlTtlMinutes: readMetadataNumberOrNull(storage.signedUrlTtlMinutes),
+    storedAt: readMetadataDate(storage.storedAt),
+    objectBytesStoredInHrOne: false,
+    rawRowsIncluded: false,
   };
 }
 
@@ -2711,6 +3086,10 @@ function readMetadataBoolean(value: unknown, fallback: boolean): boolean {
 
 function readMetadataNumber(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function readMetadataNumberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function readMetadataDate(value: unknown): Date | null {

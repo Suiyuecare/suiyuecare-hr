@@ -6,6 +6,7 @@ import {
   downloadReportArchive,
   getReportAdminWorkspace,
   issueReportArchiveDownloadToken,
+  issueReportArchiveSignedUrl,
   processReportExportQueue,
   resetReportDemoState,
   updateReportPermission,
@@ -409,13 +410,16 @@ describe("report builder foundation", () => {
     });
     expect(queuedWorkspace.summary.queuedExportCount).toBe(1);
     await expect(issueReportArchiveDownloadToken(hrSession, job.archive.id)).rejects.toThrow(/尚未產生完成/);
+    await expect(issueReportArchiveSignedUrl(hrSession, job.archive.id)).rejects.toThrow(/尚未產生完成/);
 
     const processed = await processReportExportQueue(hrSession, {
       jobId: job.id,
       workerId: "unit-test-worker",
     });
-    const issued = await issueReportArchiveDownloadToken(hrSession, job.archive.id);
-    const download = await downloadReportArchive(hrSession, job.archive.id, issued.token);
+    const signedUrl = await issueReportArchiveSignedUrl(hrSession, job.archive.id);
+    const signedToken = new URL(signedUrl.url, "https://hr-one.local").searchParams.get("token");
+    expect(signedToken).toBeTruthy();
+    const download = await downloadReportArchive(hrSession, job.archive.id, signedToken!);
     const auditPayload = JSON.stringify(getAuditDemoState().logs);
 
     expect(processed).toMatchObject({
@@ -429,9 +433,25 @@ describe("report builder foundation", () => {
         deliveryMode: "background",
         status: "ready",
         attempts: 1,
-        storageTarget: "inline_manifest",
+        storageTarget: "object_storage_signed_url",
+      },
+      archive: {
+        storage: {
+          storageTarget: "object_storage_signed_url",
+          signedUrlAvailable: true,
+          objectBytesStoredInHrOne: false,
+          rawRowsIncluded: false,
+        },
       },
     });
+    expect(signedUrl).toMatchObject({
+      archiveId: job.archive.id,
+      storageProvider: "demo_object_storage",
+      objectHash: expect.any(String),
+      objectKey: expect.stringContaining("/reports/attendance_monthly/"),
+    });
+    expect(signedUrl.url).toContain("/api/reports/archives/");
+    expect(signedUrl.url).toContain("delivery=signed-object");
     expect(download.body).toContain("exception_type");
     expect(getAuditDemoState().logs).toEqual(
       expect.arrayContaining([
@@ -440,13 +460,26 @@ describe("report builder foundation", () => {
           action: "update",
           metadataJson: expect.objectContaining({
             queueStatus: "ready",
+            storageTarget: "object_storage_signed_url",
             rawRowsIncluded: false,
             rawErrorStored: false,
+          }),
+        }),
+        expect.objectContaining({
+          entityType: "report_archive_signed_url",
+          action: "create",
+          metadataJson: expect.objectContaining({
+            signedUrlIssued: true,
+            rawSignedUrlStored: false,
+            rawTokenStored: false,
+            objectBytesStoredInHrOne: false,
           }),
         }),
       ]),
     );
     expect(auditPayload).not.toContain("unit-test-worker");
+    expect(auditPayload).not.toContain(signedUrl.url);
+    expect(auditPayload).not.toContain(signedToken!);
     expect(auditPayload).not.toContain("baseSalary");
     expect(auditPayload).not.toContain("accountNumber");
   });
@@ -472,7 +505,7 @@ describe("report builder foundation", () => {
       jobId: job.id,
       reviewerNote: "REV-BG-2026-06",
     });
-    await expect(issueReportArchiveDownloadToken(hrSession, job.archive.id)).rejects.toThrow(/尚未產生完成/);
+    await expect(issueReportArchiveSignedUrl(hrSession, job.archive.id)).rejects.toThrow(/尚未產生完成/);
     const processed = await processReportExportQueue(hrSession, { jobId: job.id });
 
     expect(approved).toMatchObject({
@@ -488,6 +521,7 @@ describe("report builder foundation", () => {
       status: "generated",
       queue: {
         status: "ready",
+        storageTarget: "object_storage_signed_url",
       },
     });
   });

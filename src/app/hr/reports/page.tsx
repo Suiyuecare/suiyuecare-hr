@@ -337,7 +337,7 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
         <section className="panel span-5">
           <div className="section-heading">
             <div>
-              <h2>封存清單</h2>
+              <h2 id="report-archives">封存清單</h2>
               <p className="muted">下載只含 manifest metadata、欄位政策、hash 與安全聲明；不包含原始個資、薪資或銀行資料列。</p>
             </div>
             <span className="badge">{reportWorkspace.archives.length} 包</span>
@@ -688,7 +688,7 @@ function ReportJobCard({
           {job.queue.nextRunAt ? ` · 下次處理 ${formatDateTimeLabel(job.queue.nextRunAt)}` : ""}
         </small>
         <small>
-          儲存目標：{job.queue.storageTarget === "object_storage_pending" ? "等待物件儲存 signed URL" : "安全 manifest"}
+          儲存目標：{storageTargetLabel(job.queue.storageTarget)}
         </small>
         {job.queue.status === "queued" ? (
           <form action="/api/reports/queue/process" method="post" className="mini-form compact-form">
@@ -747,21 +747,30 @@ function ReportArchiveItem({
         ? "failed"
         : null;
   const statusLabel = archive.status === "downloaded" ? "已下載" : archive.status === "expired" ? "已到期" : "已產生";
+  const signedUrlReady = archive.storage.signedUrlAvailable && archive.storage.storageTarget === "object_storage_signed_url";
   return (
     <li className="task report-archive-task">
       <span>
         <strong>{archive.fileName}</strong>
         <small>{archive.recordCount} 筆 · hash {archive.contentHash.slice(0, 10)} · 到期 {formatDateLabel(archive.downloadExpiresAt)}</small>
+        {signedUrlReady ? <small>物件 hash {archive.storage.objectHash?.slice(0, 10)} · signed URL TTL {archive.storage.signedUrlTtlMinutes ?? 10} 分鐘。</small> : null}
         {blockedReason === "review" ? <small>待第二人覆核後才可下載 manifest。</small> : null}
         {blockedReason === "queue" ? <small>背景匯出尚未完成，處理完成後才可簽發短效下載。</small> : null}
         {blockedReason === "failed" ? <small>背景匯出失敗，需重新處理或建立新報表。</small> : null}
-        {!blockedReason ? <small>下載前會簽發短效 token，不提供長效公開連結。</small> : null}
+        {!blockedReason && signedUrlReady ? <small>下載前會簽發物件儲存 signed URL，不提供長效公開連結。</small> : null}
+        {!blockedReason && !signedUrlReady ? <small>下載前會簽發短效 token，不提供長效公開連結。</small> : null}
       </span>
       <span className="report-archive-actions">
         <span className={`badge ${blockedReason ? blockedReason === "failed" ? "danger" : "warning" : archive.status === "expired" ? "danger" : archive.status === "downloaded" ? "done" : ""}`}>
-          {blockedReason === "review" ? "待覆核" : blockedReason === "queue" ? "佇列中" : blockedReason === "failed" ? "失敗" : statusLabel}
+          {blockedReason === "review" ? "待覆核" : blockedReason === "queue" ? "佇列中" : blockedReason === "failed" ? "失敗" : signedUrlReady ? "Signed URL" : statusLabel}
         </span>
-        {archive.status === "expired" || blockedReason ? null : (
+        {archive.status === "expired" || blockedReason ? null : signedUrlReady ? (
+          <form action={`/api/reports/archives/${archive.id}/signed-url`} method="post">
+            <button className="button" type="submit">
+              簽發 signed URL
+            </button>
+          </form>
+        ) : (
           <form action={`/api/reports/archives/${archive.id}/download-token`} method="post">
             <button className="button" type="submit">
               簽發短效下載
@@ -867,8 +876,8 @@ function buildReportCards(input: {
     },
     {
       label: "匯出佇列",
-      value: queueOpenCount ? `${queueOpenCount} 筆待處理` : "已清空",
-      detail: `${input.reportSummary.queuedExportCount} 佇列、${input.reportSummary.waitingReviewExportCount} 待覆核、${input.reportSummary.failedExportCount} 失敗。`,
+      value: queueOpenCount ? `${queueOpenCount} 筆待處理` : `${input.reportSummary.signedUrlArchiveCount} 包可簽發`,
+      detail: `${input.reportSummary.queuedExportCount} 佇列、${input.reportSummary.waitingReviewExportCount} 待覆核、${input.reportSummary.failedExportCount} 失敗、${input.reportSummary.signedUrlArchiveCount} signed URL ready。`,
       href: "/hr/reports#report-jobs",
       tone: input.reportSummary.failedExportCount ? "danger" : queueOpenCount ? "warning" : "done",
     },
@@ -903,8 +912,14 @@ function buildNextStageItems() {
     },
     {
       title: "物件儲存 URL 與背景佇列",
-      detail: "短效下載 token 與背景佇列已上線；下一步接物件儲存 signed URL、失敗重試策略與到期清理排程。",
-      status: "佇列",
+      detail: "背景匯出完成後已建立 object metadata，下載改走短效 signed URL，audit log 只保留 URL hash 與 object hash。",
+      status: "已上線",
+      tone: "done",
+    },
+    {
+      title: "失敗重試與到期清理排程",
+      detail: "下一步把 queued/failed 報表接上自動重試、指數退避、封存到期清理與物件儲存 lifecycle policy。",
+      status: "排程",
       tone: "warning",
     },
     {
@@ -961,6 +976,15 @@ function queueStatusTone(status: ReportJobView["queue"]["status"]) {
 
 function deliveryModeLabel(mode: ReportJobView["queue"]["deliveryMode"]) {
   return mode === "background" ? "背景匯出" : "即時 manifest";
+}
+
+function storageTargetLabel(target: ReportJobView["queue"]["storageTarget"]) {
+  const labels: Record<ReportJobView["queue"]["storageTarget"], string> = {
+    inline_manifest: "安全 manifest",
+    object_storage_pending: "等待物件儲存 signed URL",
+    object_storage_signed_url: "物件儲存 signed URL",
+  };
+  return labels[target];
 }
 
 function roleLabel(roleKey: string) {
