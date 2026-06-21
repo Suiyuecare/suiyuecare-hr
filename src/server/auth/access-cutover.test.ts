@@ -4,11 +4,18 @@ import { buildAccessCutoverReport } from "./access-cutover";
 import type { RoleKey } from "./rbac";
 
 const now = new Date("2026-06-22T01:00:00.000Z");
+const readyEnv = {
+  HR_ONE_AUTH_SESSION_SOURCE: "oidc",
+  HR_ONE_ENCRYPTION_KEY: "production-encryption-key-with-at-least-32-chars",
+  HR_ONE_WEB_SESSION_MAX_AGE_SECONDS: "28800",
+  HR_ONE_AUTH_LOGIN_URL: "https://login.customer.co/oauth2/v2.0/authorize",
+};
 
 describe("access production cutover report", () => {
   it("blocks production cutover when demo auth is still available", () => {
     const report = buildAccessCutoverReport(readyWorkspace(), {
       supportAccessGovernance: readySupportAccessGovernance(),
+      env: readyEnv,
       demoAuthRuntime: {
         allowed: true,
         reason: "Demo auth is available for local development and smoke tests.",
@@ -46,6 +53,7 @@ describe("access production cutover report", () => {
         activeUnapprovedCount: 1,
         expiredStillApprovedCount: 1,
       },
+      env: readyEnv,
       demoAuthRuntime: {
         allowed: false,
         reason: "Demo auth is disabled when HR_ONE_ENV=production.",
@@ -59,9 +67,36 @@ describe("access production cutover report", () => {
     expect(report.tasks.find((task) => task.id === "support_access_governance")?.status).toBe("blocked");
   });
 
+  it("blocks production cutover when the browser session cookie posture is unsafe", () => {
+    const report = buildAccessCutoverReport(readyWorkspace(), {
+      supportAccessGovernance: readySupportAccessGovernance(),
+      env: {
+        HR_ONE_AUTH_SESSION_SOURCE: "demo",
+        HR_ONE_ENCRYPTION_KEY: "replace-with-at-least-32-random-characters",
+        HR_ONE_WEB_SESSION_MAX_AGE_SECONDS: "172800",
+        HR_ONE_AUTH_LOGIN_URL: "http://localhost:3000/login",
+      },
+      demoAuthRuntime: {
+        allowed: false,
+        reason: "Demo auth is disabled when HR_ONE_ENV=production.",
+      },
+    });
+
+    expect(report.readyForProduction).toBe(false);
+    expect(report.tasks.find((task) => task.id === "browser_session_cookie")).toMatchObject({
+      status: "blocked",
+      signal: "0/4 session 條件完成",
+    });
+    expect(report.metrics.find((metric) => metric.label === "Session Cookie")).toMatchObject({
+      value: "阻擋",
+      status: "blocked",
+    });
+  });
+
   it("marks the cutover ready only when all production access gates pass", () => {
     const report = buildAccessCutoverReport(readyWorkspace(), {
       supportAccessGovernance: readySupportAccessGovernance(),
+      env: readyEnv,
       demoAuthRuntime: {
         allowed: false,
         reason: "Demo auth is disabled when HR_ONE_AUTH_SESSION_SOURCE=oidc.",
@@ -75,6 +110,10 @@ describe("access production cutover report", () => {
     expect(report.metrics.find((metric) => metric.label === "薪資防漏")).toMatchObject({
       value: "0 漏洞",
       status: "ready",
+    });
+    expect(report.tasks.find((task) => task.id === "browser_session_cookie")).toMatchObject({
+      status: "ready",
+      signal: "加密 HttpOnly session ready",
     });
   });
 });

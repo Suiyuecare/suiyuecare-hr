@@ -34,6 +34,8 @@ const minimumBackupRetentionDays = 30;
 const maximumRestoreDrillAgeDays = 90;
 const minimumAuthTokenAgeSeconds = 300;
 const maximumAuthTokenAgeSeconds = 86_400;
+const minimumWebSessionMaxAgeSeconds = 300;
+const maximumWebSessionMaxAgeSeconds = 86_400;
 const minimumRateLimitWindowSeconds = 10;
 const maximumRateLimitWindowSeconds = 3_600;
 const minimumRateLimitMaxRequests = 10;
@@ -90,6 +92,7 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
   const authLoginUrl = read(env, "HR_ONE_AUTH_LOGIN_URL");
   const authLoginUrlSafe = isSafeAuthLoginUrl(authLoginUrl);
   const authMaxTokenAgeSeconds = readInteger(env, "HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS");
+  const webSessionMaxAgeSeconds = readInteger(env, "HR_ONE_WEB_SESSION_MAX_AGE_SECONDS");
   const rawPromptStorage = read(env, "HR_ONE_AI_PROMPT_STORAGE") === "raw";
   const backupRetentionDays = readInteger(env, "HR_ONE_BACKUP_RETENTION_DAYS");
   const restoreDrillAgeDays = daysSince(read(env, "HR_ONE_BACKUP_RESTORE_TESTED_AT"), now);
@@ -284,6 +287,15 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
       authMaxTokenAgeSeconds !== null
         ? `${authMaxTokenAgeSeconds} second(s) configured`
         : "missing HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS",
+    ),
+    check(
+      "web session max age",
+      webSessionMaxAgeSeconds !== null &&
+        webSessionMaxAgeSeconds >= minimumWebSessionMaxAgeSeconds &&
+        webSessionMaxAgeSeconds <= maximumWebSessionMaxAgeSeconds,
+      webSessionMaxAgeSeconds !== null
+        ? `${webSessionMaxAgeSeconds} second(s) configured`
+        : "missing HR_ONE_WEB_SESSION_MAX_AGE_SECONDS",
     ),
     check(
       "AI provider posture",

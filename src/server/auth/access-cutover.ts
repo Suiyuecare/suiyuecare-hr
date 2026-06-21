@@ -1,4 +1,5 @@
 import { canViewPayrollRun, canViewPayslip } from "@/server/payroll/service";
+import { isSafeAuthLoginUrl } from "./login-url";
 import { getDemoAuthRuntimeStatus, type DemoAuthRuntimeStatus } from "./demo-mode";
 import { roleKeys, type RoleKey } from "./rbac";
 import type { UserAccessWorkspace } from "./access-management";
@@ -8,6 +9,7 @@ export type AccessCutoverStatus = "ready" | "action_required" | "blocked";
 export type AccessCutoverTask = {
   id:
     | "production_sso_policy"
+    | "browser_session_cookie"
     | "privileged_sso_identity"
     | "employee_user_link_coverage"
     | "role_coverage"
@@ -24,6 +26,20 @@ export type AccessCutoverTask = {
   actionLabel: string;
   actionHref: string;
 };
+
+const minimumWebSessionMaxAgeSeconds = 300;
+const maximumWebSessionMaxAgeSeconds = 86_400;
+const requiredSecretLength = 32;
+const weakSecretPatterns = [
+  /changeme/i,
+  /change-me/i,
+  /replace/i,
+  /placeholder/i,
+  /example/i,
+  /demo/i,
+  /localhost/i,
+  /password/i,
+];
 
 export type AccessCutoverMetric = {
   label: string;
@@ -69,6 +85,7 @@ export function buildAccessCutoverReport(
   ).length;
   const payrollBoundary = evaluatePayrollBoundary();
   const demoAuthRuntime = options.demoAuthRuntime ?? getDemoAuthRuntimeStatus(options.env);
+  const sessionCookiePosture = evaluateSessionCookiePosture(options.env);
   const supportGovernance = options.supportAccessGovernance;
 
   const tasks: AccessCutoverTask[] = [
@@ -99,6 +116,20 @@ export function buildAccessCutoverReport(
         : "到資安政策工作台啟用正式 SSO，補 provider / issuer / client / JWKS 與允許網域。",
       actionLabel: "設定資安政策",
       actionHref: "/settings/security",
+    },
+    {
+      id: "browser_session_cookie",
+      title: "正式瀏覽器 Session Cookie",
+      owner: "Engineering",
+      status: sessionCookiePosture.status,
+      signal: sessionCookiePosture.signal,
+      detail:
+        "正式站的瀏覽器 session 必須由 OIDC/Supabase token 換成加密 HttpOnly cookie；cookie 只保存 issuer、subject、tenant/company、MFA 與時間戳，不保存 email、姓名、薪資、身分證或銀行資料。",
+      acceptanceEvidence:
+        "HR_ONE_AUTH_SESSION_SOURCE=oidc、HR_ONE_ENCRYPTION_KEY 為強密鑰、HR_ONE_WEB_SESSION_MAX_AGE_SECONDS 在 5 分鐘到 24 小時內，且 HR_ONE_AUTH_LOGIN_URL 是安全 HTTPS 正式登入入口。",
+      nextStep: sessionCookiePosture.nextStep,
+      actionLabel: "檢查 env Gate",
+      actionHref: "/settings/readiness",
     },
     {
       id: "privileged_sso_identity",
@@ -231,6 +262,12 @@ export function buildAccessCutoverReport(
         status,
       },
       {
+        label: "Session Cookie",
+        value: sessionCookiePosture.status === "ready" ? "已加固" : sessionCookiePosture.status === "blocked" ? "阻擋" : "待補",
+        detail: sessionCookiePosture.signal,
+        status: sessionCookiePosture.status,
+      },
+      {
         label: "高權限 SSO",
         value: `${privilegedLinkedCount}/${privilegedUsers.length}`,
         detail: "Owner、HR、主管 issuer/subject hash 覆蓋",
@@ -251,6 +288,49 @@ export function buildAccessCutoverReport(
     ],
     tasks,
     summary: `${readyCount}/${tasks.length} 個正式登入 Gate 已就緒；${blockedCount} 個阻擋，${actionRequiredCount} 個待處理。`,
+  };
+}
+
+function evaluateSessionCookiePosture(env: Record<string, string | undefined> = process.env) {
+  const sessionSource = readEnv(env, "HR_ONE_AUTH_SESSION_SOURCE");
+  const encryptionKey = readEnv(env, "HR_ONE_ENCRYPTION_KEY");
+  const sessionMaxAgeSeconds = readInteger(env, "HR_ONE_WEB_SESSION_MAX_AGE_SECONDS");
+  const authLoginUrl = readEnv(env, "HR_ONE_AUTH_LOGIN_URL");
+  const sourceReady = sessionSource === "oidc";
+  const encryptionReady = isStrongSecret(encryptionKey);
+  const maxAgeReady = sessionMaxAgeSeconds !== null &&
+    sessionMaxAgeSeconds >= minimumWebSessionMaxAgeSeconds &&
+    sessionMaxAgeSeconds <= maximumWebSessionMaxAgeSeconds;
+  const loginReady = isSafeAuthLoginUrl(authLoginUrl);
+  const readyCount = [sourceReady, encryptionReady, maxAgeReady, loginReady].filter(Boolean).length;
+
+  if (sourceReady && encryptionReady && maxAgeReady && loginReady) {
+    return {
+      status: "ready" as const,
+      signal: "加密 HttpOnly session ready",
+      nextStep: "正式瀏覽器 session posture 已可驗收；接著確認高權限 SSO subject hash 綁定。",
+    };
+  }
+
+  const blockingReasons = [
+    sessionSource && !sourceReady ? "session source 不是 OIDC" : null,
+    encryptionKey && !encryptionReady ? "加密金鑰是弱值或 placeholder" : null,
+    sessionMaxAgeSeconds !== null && !maxAgeReady ? "session 時效超出 5 分鐘到 24 小時範圍" : null,
+    authLoginUrl && !loginReady ? "登入 URL 不是安全正式 HTTPS 入口" : null,
+  ].filter(Boolean);
+  const missingReasons = [
+    !sessionSource ? "HR_ONE_AUTH_SESSION_SOURCE" : null,
+    !encryptionKey ? "HR_ONE_ENCRYPTION_KEY" : null,
+    sessionMaxAgeSeconds === null ? "HR_ONE_WEB_SESSION_MAX_AGE_SECONDS" : null,
+    !authLoginUrl ? "HR_ONE_AUTH_LOGIN_URL" : null,
+  ].filter(Boolean);
+
+  return {
+    status: blockingReasons.length > 0 ? "blocked" as const : "action_required" as const,
+    signal: `${readyCount}/4 session 條件完成`,
+    nextStep: blockingReasons.length > 0
+      ? `修正正式登入 env：${blockingReasons.join("、")}。`
+      : `補齊正式登入 env：${missingReasons.join("、")}。`,
   };
 }
 
@@ -289,4 +369,24 @@ function statusLabel(status: AccessCutoverStatus) {
   if (status === "ready") return "可切換";
   if (status === "blocked") return "阻擋";
   return "待處理";
+}
+
+function readEnv(env: Record<string, string | undefined>, key: string) {
+  const value = env[key]?.trim();
+  return value ? value : null;
+}
+
+function readInteger(env: Record<string, string | undefined>, key: string) {
+  const value = readEnv(env, key);
+  if (!value) return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+function isStrongSecret(value: string | null) {
+  return Boolean(
+    value &&
+      value.length >= requiredSecretLength &&
+      !weakSecretPatterns.some((pattern) => pattern.test(value)),
+  );
 }

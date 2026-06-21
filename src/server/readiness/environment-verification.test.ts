@@ -32,6 +32,7 @@ const productionEnv = {
   HR_ONE_AUTH_AUDIENCE: "hr-one-api",
   HR_ONE_AUTH_JWKS_URL: "https://login.customer.co/customer/keys",
   HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS: "3600",
+  HR_ONE_WEB_SESSION_MAX_AGE_SECONDS: "28800",
   HR_ONE_AI_PROVIDER: "disabled",
   HR_ONE_AI_PROMPT_STORAGE: "hashed",
   HR_ONE_RATE_LIMIT_PROVIDER: "vercel_firewall",
@@ -119,6 +120,23 @@ describe("environment verification", () => {
     expect(report.checks.find((item) => item.name === "auth jwks url")).toMatchObject({
       passed: false,
       detail: "invalid HR_ONE_AUTH_JWKS_URL",
+    });
+  });
+
+  it("requires an explicit bounded web session max age for encrypted browser sessions", () => {
+    const report = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        HR_ONE_WEB_SESSION_MAX_AGE_SECONDS: "172800",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+
+    expect(environmentVerificationPassed(report)).toBe(false);
+    expect(report.checks.find((item) => item.name === "web session max age")).toMatchObject({
+      passed: false,
+      detail: "172800 second(s) configured",
     });
   });
 

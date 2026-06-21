@@ -343,6 +343,7 @@ function validProductionEnv() {
     HR_ONE_AUTH_AUDIENCE: "authenticated",
     HR_ONE_AUTH_JWKS_URL: "https://aruncclorusswpfnpgsn.supabase.co/auth/v1/.well-known/jwks.json",
     HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS: "3600",
+    HR_ONE_WEB_SESSION_MAX_AGE_SECONDS: "28800",
     HR_ONE_AI_PROVIDER: "disabled",
     HR_ONE_AI_PROMPT_STORAGE: "hashed",
     HR_ONE_RATE_LIMIT_ENABLED: "true",
