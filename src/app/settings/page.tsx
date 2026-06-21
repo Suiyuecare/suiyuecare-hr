@@ -16,29 +16,37 @@ type SearchParams = Promise<{
 export default async function AdminSettingsPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const session = await getDemoSession();
-  const [overview, laborConfig, securitySettings, fileStorageSettings] = await Promise.all([
+  const [overview, laborRuleState, securitySettings, fileStorageSettings] = await Promise.all([
     getCompanyOverview(),
-    getTaiwanLaborStandardsConfig(session),
+    getTaiwanLaborStandardsConfig(session)
+      .then((config) => ({ config, error: null }))
+      .catch((error: unknown) => ({
+        config: null,
+        error: error instanceof Error ? error.message : "無法讀取台灣法規規則版本。",
+      })),
     getCompanySecuritySettings(session),
     getFileStorageSettings(session),
   ]);
+  const laborConfig = laborRuleState.config;
   const ssoMetadataReady = hasSsoMetadata(securitySettings);
-  const ruleValidation = validateTaiwanLaborStandardsRuleSet(laborConfig);
-  const sourceFreshness = evaluateLegalSourceFreshness(laborConfig.sources);
-  const staleSourceIds = new Set(sourceFreshness.staleSourceIds);
-  const invalidSourceIds = new Set(sourceFreshness.invalidSourceIds);
+  const ruleValidation = laborConfig ? validateTaiwanLaborStandardsRuleSet(laborConfig) : null;
+  const sourceFreshness = laborConfig ? evaluateLegalSourceFreshness(laborConfig.sources) : null;
+  const staleSourceIds = new Set(sourceFreshness?.staleSourceIds ?? []);
+  const invalidSourceIds = new Set(sourceFreshness?.invalidSourceIds ?? []);
   const securityGapCount = [
     securitySettings.mfaRequiredForAdmins,
     securitySettings.ssoEnabled && ssoMetadataReady,
     fileStorageSettings.provider !== "demo_object_storage",
     securitySettings.allowedEmailDomains.length > 0,
   ].filter((ready) => !ready).length;
-  const lawRuleGapCount = [
-    ruleValidation.passed,
-    sourceFreshness.passed,
-    laborConfig.changeControl.reviewStatus === "approved",
-    !laborConfig.changeControl.requiresPayrollRecalculation,
-  ].filter((ready) => !ready).length;
+  const lawRuleGapCount = laborConfig
+    ? [
+        ruleValidation?.passed,
+        sourceFreshness?.passed,
+        laborConfig.changeControl.reviewStatus === "approved",
+        !laborConfig.changeControl.requiresPayrollRecalculation,
+      ].filter((ready) => !ready).length
+    : 1;
   const setupCommandGroups = buildSetupCommandGroups({
     securityGapCount,
     lawRuleGapCount,
@@ -107,7 +115,11 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
         <a className={`settings-signal-card ${lawRuleGapCount ? "warning" : "done"}`} href="#law-rules-setup">
           <span>台灣法規規則</span>
           <strong>{lawRuleGapCount ? `${lawRuleGapCount} 項待補` : "已審核"}</strong>
-          <small>{ruleValidation.passedCount}/{ruleValidation.fixtureCount} 個規則測試通過，來源需定期更新。</small>
+          <small>
+            {ruleValidation
+              ? `${ruleValidation.passedCount}/${ruleValidation.fixtureCount} 個規則測試通過，來源需定期更新。`
+              : "正式資料庫缺 active rule version；先建立第一筆版本。"}
+          </small>
         </a>
         <a className="settings-signal-card focus" href="/settings/production-database">
           <span>上線閘門</span>
@@ -439,6 +451,13 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
         </section>
 
         <section className="panel span-12" id="law-rules-setup">
+          {!laborConfig || !ruleValidation || !sourceFreshness ? (
+            <LawRulesSetupUnavailable
+              error={laborRuleState.error ?? "正式資料庫缺 active rule version。"}
+              reviewedBy={session.user?.displayName ?? session.employee?.displayName ?? ""}
+            />
+          ) : (
+            <>
           <div className="section-heading">
             <div>
               <h2>台灣勞動法規規則設定</h2>
@@ -1191,9 +1210,43 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
               Save rule settings
             </button>
           </form>
+            </>
+          )}
         </section>
       </section>
     </main>
+  );
+}
+
+function LawRulesSetupUnavailable({ error, reviewedBy }: { error: string; reviewedBy: string }) {
+  return (
+    <div className="risk-box danger-box">
+      <div className="section-heading">
+        <div>
+          <h2>台灣勞動法規規則設定</h2>
+          <p className="muted">
+            正式資料庫模式不會使用 demo 法規 baseline。先建立 active rule version，再開放薪資、假勤、出勤與離職規則設定。
+          </p>
+        </div>
+        <span className="badge danger">正式資料缺口</span>
+      </div>
+      <p>{error}</p>
+      <form action="/api/settings/law-rules" method="post" className="mini-form">
+        <input type="hidden" name="returnTo" value="/settings?success=law-rules#law-rules-setup" />
+        <input type="hidden" name="changeReason" value="Create first active Taiwan labor rule version from official baseline." />
+        <input type="hidden" name="reviewStatus" value="pending_legal_review" />
+        <label>
+          建立人
+          <input name="reviewedBy" defaultValue={reviewedBy} placeholder="Owner 或 HR 負責人" required />
+        </label>
+        <button className="button primary" type="submit">
+          建立第一筆法規版本
+        </button>
+      </form>
+      <p className="muted">
+        建立後仍需回到法規規則頁完成官方來源複核、HR/法務審核與薪資重算 Gate；這不是自動法遵核准。
+      </p>
+    </div>
   );
 }
 

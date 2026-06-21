@@ -267,24 +267,21 @@ export function getActiveTaiwanLaborStandardsConfig() {
 
 export async function getTaiwanLaborStandardsConfig(session?: SessionLike) {
   if (session && canUseDatabase(session)) {
-    try {
-      const activeVersion = await getDb().ruleVersion.findFirst({
-        where: {
-          tenantId: session.tenantId!,
-          companyId: session.companyId!,
-          status: "active",
-          lawRule: {
-            ruleKey: taiwanLaborSettingsRuleKey,
-          },
+    const activeVersion = await getDb().ruleVersion.findFirst({
+      where: {
+        tenantId: session.tenantId!,
+        companyId: session.companyId!,
+        status: "active",
+        lawRule: {
+          ruleKey: taiwanLaborSettingsRuleKey,
         },
-        orderBy: { effectiveFrom: "desc" },
-      });
-      if (activeVersion) {
-        return readTaiwanLaborConfig(activeVersion.definitionJson);
-      }
-    } catch {
-      return getActiveTaiwanLaborStandardsConfig();
+      },
+      orderBy: { effectiveFrom: "desc" },
+    });
+    if (!activeVersion) {
+      throw new Error("Active Taiwan labor rule version is missing for this tenant/company.");
     }
+    return readTaiwanLaborConfig(activeVersion.definitionJson);
   }
 
   return getActiveTaiwanLaborStandardsConfig();
@@ -1017,31 +1014,27 @@ export async function reviewTaiwanLaborLegalSources(
 }
 
 async function getDbTaiwanLaborRuleVersionHistory(session: SessionLike) {
-  try {
-    const versions = await getDb().ruleVersion.findMany({
-      where: {
-        tenantId: session.tenantId!,
-        companyId: session.companyId!,
-        lawRule: {
-          ruleKey: taiwanLaborSettingsRuleKey,
-        },
+  const versions = await getDb().ruleVersion.findMany({
+    where: {
+      tenantId: session.tenantId!,
+      companyId: session.companyId!,
+      lawRule: {
+        ruleKey: taiwanLaborSettingsRuleKey,
       },
-      orderBy: { createdAt: "desc" },
-      take: 12,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 12,
+  });
+  return versions.map((version) => {
+    const config = readTaiwanLaborConfig(version.definitionJson);
+    return buildRuleVersionSummary(version.id, config, {
+      status: version.status,
+      effectiveFrom: version.effectiveFrom.toISOString(),
+      effectiveTo: version.effectiveTo?.toISOString() ?? null,
+      createdAt: version.createdAt.toISOString(),
+      validationPassed: readRuleValidationSummary(version.definitionJson)?.passed ?? null,
     });
-    return versions.map((version) => {
-      const config = readTaiwanLaborConfig(version.definitionJson);
-      return buildRuleVersionSummary(version.id, config, {
-        status: version.status,
-        effectiveFrom: version.effectiveFrom.toISOString(),
-        effectiveTo: version.effectiveTo?.toISOString() ?? null,
-        createdAt: version.createdAt.toISOString(),
-        validationPassed: readRuleValidationSummary(version.definitionJson)?.passed ?? null,
-      });
-    });
-  } catch {
-    return getRuleSettingsDemoState().versionHistory;
-  }
+  });
 }
 
 function coverageItem(

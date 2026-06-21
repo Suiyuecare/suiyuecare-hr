@@ -10,7 +10,16 @@ type SearchParams = Promise<{
 export default async function LawRulesSettingsPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const session = await getDemoSession();
-  const center = await getTaiwanLaborRuleCenter(session);
+  const centerResult = await getTaiwanLaborRuleCenter(session)
+    .then((center) => ({ center, error: null }))
+    .catch((error: unknown) => ({
+      center: null,
+      error: error instanceof Error ? error.message : "無法讀取台灣法規規則版本。",
+    }));
+  if (!centerResult.center) {
+    return <LawRulesUnavailablePage error={centerResult.error} reviewedBy={session.user?.displayName ?? session.employee?.displayName ?? ""} />;
+  }
+  const center = centerResult.center;
   const config = center.config;
   const needsAttention = center.readiness.blockers.length + center.readiness.warnings.length;
   const ruleFocus = buildRuleFocus(center);
@@ -505,6 +514,65 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
             </li>
           </ul>
         </section>
+      </section>
+    </main>
+  );
+}
+
+function LawRulesUnavailablePage({ error, reviewedBy }: { error: string; reviewedBy: string }) {
+  return (
+    <main className="page law-rules-page">
+      <section className="law-rules-hero" aria-label="台灣法規規則控制台">
+        <div className="law-rules-hero-main">
+          <div className="law-rules-hero-topline">
+            <span className="muted">台灣法規規則中心</span>
+            <span className="badge danger">正式資料缺口</span>
+          </div>
+          <h1>勞基法與薪資規則尚未就緒</h1>
+          <p>
+            正式資料庫模式不會使用 demo 法規 baseline。請先建立 tenant/company 的 active rule version，或修復資料庫連線後再進行薪資、假勤與出勤月結。
+          </p>
+          <div className="law-rules-hero-actions">
+            <Link className="button primary" href="#law-rule-bootstrap">
+              建立第一版規則
+            </Link>
+            <Link className="button" href="/settings/readiness">
+              檢查上線閘門
+            </Link>
+          </div>
+        </div>
+        <aside className="law-rules-focus danger">
+          <span className="muted">今日先處理</span>
+          <strong>補 active rule version</strong>
+          <p>{error}</p>
+          <Link className="button primary" href="#law-rule-bootstrap">
+            處理阻擋項
+          </Link>
+        </aside>
+      </section>
+
+      <section className="panel span-12 risk-box danger-box" id="law-rule-bootstrap">
+        <div className="section-heading">
+          <div>
+            <h2>正式法規版本 Gate</h2>
+            <p className="muted">
+              建立第一筆版本只會使用系統內建的台灣官方來源 baseline，並標記待 HR/法務複核；不會寫入員工個資、薪資、身分證或銀行資料。
+            </p>
+          </div>
+          <span className="badge danger">Fail closed</span>
+        </div>
+        <form action="/api/settings/law-rules" method="post" className="mini-form">
+          <input type="hidden" name="returnTo" value="/settings/law-rules?success=law-rules#source-review" />
+          <input type="hidden" name="changeReason" value="Create first active Taiwan labor rule version from official baseline." />
+          <input type="hidden" name="reviewStatus" value="pending_legal_review" />
+          <label>
+            建立人
+            <input name="reviewedBy" defaultValue={reviewedBy} placeholder="Owner 或 HR 負責人" required />
+          </label>
+          <button className="button primary" type="submit">
+            建立第一筆法規版本
+          </button>
+        </form>
       </section>
     </main>
   );
