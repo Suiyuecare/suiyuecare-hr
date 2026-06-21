@@ -1,19 +1,23 @@
 import { NextResponse } from "next/server";
+import { cleanupExpiredAiResults } from "@/server/ai/results";
 import { requireTenantSession } from "@/server/auth/guards";
 import { runReportExportMaintenance } from "@/server/reports/builder";
 
 export async function POST(request: Request) {
   try {
     const session = await requireTenantSession({ permission: "report:manage" });
-    const result = await runReportExportMaintenance(session, {
+    const reportMaintenance = await runReportExportMaintenance(session, {
       workerId: "manual-report-maintenance",
     });
-    const success = result.queue.processedCount > 0 || result.cleanup.expiredCount > 0
+    const aiCleanup = await cleanupExpiredAiResults(session);
+    const success = reportMaintenance.queue.processedCount > 0
+      || reportMaintenance.cleanup.expiredCount > 0
+      || aiCleanup.expiredCount > 0
       ? "report-maintenance"
       : "report-maintenance-empty";
     return NextResponse.redirect(new URL(`/hr/reports?success=${success}#report-jobs`, request.url), 303);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to run report maintenance.";
+    const message = error instanceof Error ? error.message : "Unable to run maintenance.";
     return NextResponse.redirect(
       new URL(`/hr/reports?error=${encodeURIComponent(message)}#report-jobs`, request.url),
       303,
@@ -38,22 +42,29 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await runReportExportMaintenance(session, {
+    const reportMaintenance = await runReportExportMaintenance(session, {
       workerId: "vercel-cron-report-maintenance",
       limit: 20,
       cleanupLimit: 20,
+    });
+    const aiCleanup = await cleanupExpiredAiResults(session, {
+      limit: 100,
     });
 
     return NextResponse.json({
       ok: true,
       queue: {
-        processedCount: result.queue.processedCount,
-        skippedCount: result.queue.skippedCount,
-        failedCount: result.queue.failedCount,
+        processedCount: reportMaintenance.queue.processedCount,
+        skippedCount: reportMaintenance.queue.skippedCount,
+        failedCount: reportMaintenance.queue.failedCount,
       },
       cleanup: {
-        expiredCount: result.cleanup.expiredCount,
-        skippedCount: result.cleanup.skippedCount,
+        expiredCount: reportMaintenance.cleanup.expiredCount,
+        skippedCount: reportMaintenance.cleanup.skippedCount,
+      },
+      aiCleanup: {
+        expiredCount: aiCleanup.expiredCount,
+        skippedCount: aiCleanup.skippedCount,
       },
     });
   } catch {
