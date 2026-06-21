@@ -230,30 +230,37 @@ function ApprovalCard({
         <p>{request.riskSummary}</p>
       </div>
 
-      <div className="quick-approval-row" aria-label={`${displayRequestTitle(request)} 快速簽核`}>
-        <div>
-          <span className="muted">15 秒簽核</span>
-          <strong>確認風險摘要後可直接處理</strong>
+      {canUseQuickPath(request) ? (
+        <div className="quick-approval-row" aria-label={`${displayRequestTitle(request)} 快速簽核`}>
+          <div>
+            <span className="muted">15 秒簽核</span>
+            <strong>確認風險摘要後可直接處理</strong>
+          </div>
+          <form action="/api/workflows/approval" method="post">
+            <input type="hidden" name="requestId" value={request.id} />
+            <input type="hidden" name="requestType" value={request.type} />
+            <input type="hidden" name="decision" value="approve" />
+            <input type="hidden" name="comment" value={quickApprovalComment(request.type)} />
+            <button className="button primary" type="submit">
+              快速核准
+            </button>
+          </form>
+          <form action="/api/workflows/approval" method="post">
+            <input type="hidden" name="requestId" value={request.id} />
+            <input type="hidden" name="requestType" value={request.type} />
+            <input type="hidden" name="decision" value="reject" />
+            <input type="hidden" name="comment" value="請補充資料後重新送出。" />
+            <button className="button" type="submit">
+              需補件
+            </button>
+          </form>
         </div>
-        <form action="/api/workflows/approval" method="post">
-          <input type="hidden" name="requestId" value={request.id} />
-          <input type="hidden" name="requestType" value={request.type} />
-          <input type="hidden" name="decision" value="approve" />
-          <input type="hidden" name="comment" value={quickApprovalComment(request.type)} />
-          <button className="button primary" type="submit">
-            快速核准
-          </button>
-        </form>
-        <form action="/api/workflows/approval" method="post">
-          <input type="hidden" name="requestId" value={request.id} />
-          <input type="hidden" name="requestType" value={request.type} />
-          <input type="hidden" name="decision" value="reject" />
-          <input type="hidden" name="comment" value="請補充資料後重新送出。" />
-          <button className="button" type="submit">
-            需補件
-          </button>
-        </form>
-      </div>
+      ) : (
+        <div className="risk-box warning-box">
+          <strong>需完整簽核意見</strong>
+          <p>薪資或高風險申請不提供快速核准；請確認支持證據、權限與稽核影響後再核准或退回。</p>
+        </div>
+      )}
 
       {summary ? (
         <div className="ai-summary-box">

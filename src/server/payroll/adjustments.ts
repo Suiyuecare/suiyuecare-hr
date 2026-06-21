@@ -414,11 +414,12 @@ function requestDemoPayrollAdjustment(
   input: ReturnType<typeof normalizeAdjustmentInput>,
 ) {
   const descriptor = getAdjustmentDescriptor(input.kind);
+  const employee = getFallbackCompanyOverview().company.employees.find((item) => item.id === input.employeeId);
   const adjustment = {
     id: crypto.randomUUID(),
     payrollRunId: input.payrollRunId ?? "demo-payroll-run",
     employeeId: input.employeeId,
-    employeeName: input.employeeId,
+    employeeName: employee?.displayName ?? input.employeeId,
     kind: input.kind,
     code: descriptor.code,
     name: descriptor.name,

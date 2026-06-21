@@ -917,6 +917,47 @@ test("HR 可以用中文薪資法遵工作台調整扣繳與投保設定", async
   await expect(page.locator("body")).not.toContainText("12345678901234567");
 });
 
+test("HR 可以建立薪資調整單且 Owner 從統一 Inbox 核准", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr/payroll-adjustments");
+
+  await expect(page.getByRole("heading", { name: "薪資鎖定後調整工作台" })).toBeVisible();
+  await expect(page.getByLabel("薪資鎖定後調整工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("薪資調整訊號板").getByText("薪資 run 狀態")).toBeVisible();
+  await expect(page.getByLabel("薪資調整作業卡").getByRole("heading", { name: "鎖定後調整 Gate" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "三步薪資調整單" })).toBeVisible();
+
+  const adjustmentForm = page.getByRole("form", { name: "薪資調整單" });
+  await adjustmentForm.getByLabel("員工").selectOption("demo-employee-1");
+  await adjustmentForm.getByLabel("調整類型").selectOption("allowance");
+  await adjustmentForm.getByLabel("金額").fill("1200");
+  await adjustmentForm.getByLabel("調整原因").fill("補發交通津貼，證據單號 HR-ADJ-E2E-001");
+  await adjustmentForm.getByRole("button", { name: "送出 Owner 核准" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/payroll-adjustments$/);
+  await expect(page.getByLabel("薪資調整訊號板").getByText("1")).toBeVisible();
+  await expect(page.locator(".payroll-adjustment-log-task").filter({ hasText: "張小安 · 加給" })).toBeVisible();
+
+  await switchDemoRole(page, "owner");
+  await page.goto("/manager/inbox");
+  const payrollCard = page.locator(".approval-card").filter({ hasText: "薪資調整申請" });
+  await expect(payrollCard).toBeVisible();
+  await expect(payrollCard.getByRole("heading", { name: "張小安 · 薪資調整申請" })).toBeVisible();
+  await expect(payrollCard.getByText("需完整簽核意見")).toBeVisible();
+  await payrollCard.getByLabel("簽核意見").fill("已確認調整證據。");
+  await payrollCard.getByRole("button", { name: "核准", exact: true }).click();
+
+  await expect(page).toHaveURL(/\/manager\/inbox$/);
+  await expect(page.getByText("已核准").first()).toBeVisible();
+
+  await page.goto("/hr/payroll-adjustments");
+  await expect(page.getByText("已入帳 · $1,200")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("baseSalary");
+  await expect(page.locator("body")).not.toContainText("accountNumber");
+  await expect(page.locator("body")).not.toContainText("nationalId");
+});
+
 test("公告發布後員工可回傳回條", async ({ page }) => {
   await page.goto("/app");
   await switchDemoRole(page, "hr_admin");

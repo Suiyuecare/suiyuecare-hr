@@ -1106,14 +1106,14 @@ function mapPayrollAdjustmentToWorkflow(adjustment: PayrollAdjustmentView): Work
     managerId: null,
     status: adjustment.status === "pending" ? "pending" : adjustment.status === "rejected" ? "rejected" : "approved",
     title: "Payroll adjustment",
-    detail: `${adjustment.kind} · ${formatMoney(adjustment.amount)} · ${adjustment.reason}`,
-    riskSummary: "Sensitive payroll change. Verify HR reason, payroll run, and supporting records before approval.",
+    detail: `${payrollAdjustmentKindLabel(adjustment.kind)} · ${formatMoney(adjustment.amount)} · ${adjustment.reason}`,
+    riskSummary: "薪資敏感變更。核准前請確認 HR 原因、薪資 run 狀態與支持證據，不可只依 AI 摘要決定。",
     currentStepLabel: "Owner approval",
     createdAt: adjustment.decidedAt ?? adjustment.appliedAt ?? new Date(),
     timeline: [
       {
         id: `${adjustment.id}-request`,
-        action: "requested",
+        action: "已送出",
         actorName: "HR",
         comment: adjustment.reason,
         createdAt: adjustment.decidedAt ?? adjustment.appliedAt ?? new Date(),
@@ -1123,7 +1123,7 @@ function mapPayrollAdjustmentToWorkflow(adjustment: PayrollAdjustmentView): Work
         : [
             {
               id: `${adjustment.id}-decision`,
-              action: adjustment.status === "applied" ? "approved" : "rejected",
+              action: adjustment.status === "applied" ? "已核准" : "已退回",
               actorName: "Owner",
               comment: adjustment.decisionComment,
               createdAt: adjustment.decidedAt ?? adjustment.appliedAt ?? new Date(),
@@ -1131,6 +1131,10 @@ function mapPayrollAdjustmentToWorkflow(adjustment: PayrollAdjustmentView): Work
           ]),
     ],
   };
+}
+
+function payrollAdjustmentKindLabel(kind: PayrollAdjustmentView["kind"]) {
+  return kind === "deduction" ? "扣款" : "加給";
 }
 
 async function getEmployeeRequests(db: PrismaClient, employeeId: string) {
