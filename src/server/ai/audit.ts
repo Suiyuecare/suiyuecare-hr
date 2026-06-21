@@ -20,7 +20,7 @@ export async function auditAiUsage(input: AiAuditInput) {
     ? stableHash(redactSensitivePayload({ prompt: input.prompt }))
     : undefined;
 
-  if (!canUseDatabase(input.session)) {
+  if (!process.env.DATABASE_URL) {
     logDemoAiUsage({
       category: input.category,
       actorUserId: input.session.user?.id ?? null,
@@ -31,17 +31,11 @@ export async function auditAiUsage(input: AiAuditInput) {
     return outputHash;
   }
 
-  try {
-    await writeAiUsageLog(getDb(), input, outputHash, promptHash);
-  } catch {
-    logDemoAiUsage({
-      category: input.category,
-      actorUserId: input.session.user?.id ?? null,
-      referencedRecordIds: input.referencedRecordIds,
-      outputHash,
-      promptHash,
-    });
+  if (!input.session.tenantId || !input.session.companyId) {
+    throw new Error("AI audit requires tenant and company context in database mode.");
   }
+
+  await writeAiUsageLog(getDb(), input, outputHash, promptHash);
   return outputHash;
 }
 
@@ -63,8 +57,4 @@ async function writeAiUsageLog(
       rawPromptStored: false,
     },
   });
-}
-
-function canUseDatabase(session: AiSessionLike) {
-  return Boolean(process.env.DATABASE_URL && session.tenantId && session.companyId);
 }
