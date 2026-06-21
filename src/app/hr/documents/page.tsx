@@ -7,7 +7,12 @@ import {
   type EmployeeDocumentRow,
   type EmployeeDocumentWorkspace,
 } from "@/server/employees/documents";
-import type { FileStorageSettings } from "@/server/files/storage";
+import {
+  evaluateFileStorageLifecycleReadiness,
+  isProductionStorageVerified,
+  type FileStorageLifecycleReadiness,
+  type FileStorageSettings,
+} from "@/server/files/storage";
 
 type SearchParams = Promise<{ error?: string }>;
 
@@ -58,7 +63,9 @@ export default async function HrDocumentsPage({ searchParams }: { searchParams: 
   const visibleCount = workspace.documents.filter((document) => document.visibleToEmployee).length;
   const scanPendingCount = workspace.documents.filter((document) => document.malwareScanStatus === "pending").length;
   const expiringCount = workspace.documents.filter((document) => isExpiringSoon(document)).length;
-  const focus = buildDocumentFocus(workspace);
+  const storageReadiness = evaluateFileStorageLifecycleReadiness(workspace.storageSettings);
+  const formalStorageReady = isProductionStorageVerified(workspace.storageSettings);
+  const focus = buildDocumentFocus(workspace, storageReadiness);
 
   return (
     <main className="page employee-document-page">
@@ -66,8 +73,8 @@ export default async function HrDocumentsPage({ searchParams }: { searchParams: 
         <div className="hr-monthly-hero-main">
           <div className="hr-monthly-hero-topline">
             <span className="badge">員工文件金庫</span>
-            <span className={`badge ${storageReady(workspace.storageSettings) ? "done" : "warning"}`}>
-              {storageReady(workspace.storageSettings) ? "正式儲存已驗證" : "儲存設定待驗證"}
+            <span className={`badge ${formalStorageReady ? "done" : "warning"}`}>
+              {formalStorageReady ? "正式儲存已驗證" : "儲存 Gate 待補"}
             </span>
           </div>
           <h1>員工文件金庫</h1>
@@ -123,20 +130,20 @@ export default async function HrDocumentsPage({ searchParams }: { searchParams: 
           <strong>{scanPendingCount}</strong>
           <small>{scanPendingCount ? "檔案正式開放下載前需完成惡意程式掃描。" : "沒有待掃描文件。"}</small>
         </article>
-        <article className={`hr-monthly-signal-card ${storageReady(workspace.storageSettings) ? "done" : "warning"}`}>
+        <article className={`hr-monthly-signal-card ${formalStorageReady ? "done" : "warning"}`}>
           <span>儲存 Gate</span>
-          <strong>{storageStatusLabel(workspace.storageSettings)}</strong>
-          <small>{storageSummary(workspace.storageSettings)}</small>
+          <strong>{formalStorageReady ? "已驗證" : `${storageReadiness.gaps.length} 缺口`}</strong>
+          <small>{formalStorageReady ? storageSummary(workspace.storageSettings) : storageReadiness.detail}</small>
         </article>
       </section>
 
       <section className="settings-command-grid employee-document-command-grid" aria-label="文件金庫作業卡">
-        <article className={`settings-command-card ${storageReady(workspace.storageSettings) ? "ready" : "warning"}`}>
-          <span className={`badge ${storageReady(workspace.storageSettings) ? "done" : "warning"}`}>
-            {storageReady(workspace.storageSettings) ? "通過" : "待驗證"}
+        <article className={`settings-command-card ${formalStorageReady ? "ready" : "warning"}`}>
+          <span className={`badge ${formalStorageReady ? "done" : "warning"}`}>
+            {formalStorageReady ? "通過" : "待補"}
           </span>
           <h2>正式儲存 Gate</h2>
-          <p>正式環境需設定物件儲存、bucket、保存天數、允許 MIME、簽名 URL 時效與 KMS/加密證據。</p>
+          <p>{formalStorageReady ? "正式文件儲存已具備 bucket lifecycle、五年保存、短效簽名 URL、KMS、掃描與驗證證據。" : storageReadiness.detail}</p>
           <Link className="button primary" href="/settings/file-storage">
             儲存設定
           </Link>
@@ -348,12 +355,15 @@ export default async function HrDocumentsPage({ searchParams }: { searchParams: 
   );
 }
 
-function buildDocumentFocus(workspace: EmployeeDocumentWorkspace): DocumentFocus {
-  if (!storageReady(workspace.storageSettings)) {
+function buildDocumentFocus(
+  workspace: EmployeeDocumentWorkspace,
+  storageReadiness: FileStorageLifecycleReadiness,
+): DocumentFocus {
+  if (!storageReadiness.ready) {
     return {
       title: "先驗證正式儲存",
-      detail: "文件會包含契約、身分文件與附件 metadata，正式上線前需確認物件儲存、掃描與保留政策。",
-      note: "demo_object_storage 只適合展示，不可用於正式客戶文件。",
+      detail: storageReadiness.detail,
+      note: "正式文件儲存需綁定 provider bucket lifecycle、五年保存、短效 URL、KMS、掃描與驗證證據。",
       tone: "danger",
       href: "/settings/file-storage",
       actionLabel: "設定儲存",
@@ -391,16 +401,6 @@ function buildDocumentFocus(workspace: EmployeeDocumentWorkspace): DocumentFocus
     href: "/app/documents",
     actionLabel: "員工預覽",
   };
-}
-
-function storageReady(settings: FileStorageSettings) {
-  return settings.provider !== "demo_object_storage" && settings.verificationStatus === "verified";
-}
-
-function storageStatusLabel(settings: FileStorageSettings) {
-  if (settings.verificationStatus === "verified") return "已驗證";
-  if (settings.verificationStatus === "failed") return "失敗";
-  return "待驗證";
 }
 
 function storageSummary(settings: FileStorageSettings) {

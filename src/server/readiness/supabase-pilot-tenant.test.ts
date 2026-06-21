@@ -100,12 +100,29 @@ describe("Supabase pilot tenant seed", () => {
     expect(sql).toContain('"Payslip"');
     expect(sql).toContain("information_schema.table_privileges");
     expect(sql).toContain("n.nspname = 'public'");
+    expect(sql).toContain('cfss."retentionDays" >= 1825');
+    expect(sql).toContain('cfss."signedUrlTtlMinutes" BETWEEN 1 AND 15');
+    expect(sql).toContain("lower(cfss.\"lifecyclePolicyRef\") LIKE '%' || lower(cfss.\"bucketName\") || '%'");
+    expect(sql).toContain("cfss.\"lifecyclePolicyRef\" !~* '(secret|token|password|credential|private[_-]?key|access[_-]?key|sk[_-])'");
   });
 
   it("passes when the Supabase pilot tenant has operational trial data and no browser grants", () => {
     const checks = buildSupabasePilotTenantVerificationChecks(readySnapshot);
 
     expect(supabasePilotTenantVerificationPassed(checks)).toBe(true);
+  });
+
+  it("fails pilot security controls when formal document storage is not lifecycle-ready", () => {
+    const checks = buildSupabasePilotTenantVerificationChecks({
+      ...readySnapshot,
+      verifiedFileStorageCount: 0,
+    });
+
+    expect(supabasePilotTenantVerificationPassed(checks)).toBe(false);
+    expect(checks.find((item) => item.name === "pilot security controls")).toMatchObject({
+      passed: false,
+      detail: expect.stringContaining("0 storage setting(s)"),
+    });
   });
 
   it("fails when audit coverage is incomplete or browser roles can access the private schema", () => {
