@@ -211,4 +211,38 @@ describe("payroll access matrix", () => {
     expect(dashboard.checklist.canLock).toBe(false);
     expect(() => lockDemoPayrollRun()).toThrow(/Payroll cannot be locked/);
   });
+
+  it("blocks payslip release when law rule blockers appear after payroll lock", async () => {
+    createDemoPayrollRun();
+    resolveDemoPayrollBlockers();
+    calculateDemoPayrollRun();
+    confirmDemoPayrollRun();
+    lockDemoPayrollRun();
+
+    await updateTaiwanLaborStandardsConfig(ownerSession, {
+      sources: defaultTaiwanLaborStandardsConfig.sources.map((source, index) =>
+        index === 0
+          ? {
+              ...source,
+              url: "https://example.com/private-law-database",
+            }
+          : source,
+      ),
+      changeControl: {
+        reason: "Operator changed the active source before payslip release.",
+        sourceUrl: "https://example.com/private-law-database",
+        reviewedBy: "林人資",
+        reviewStatus: "approved",
+        requiresPayrollRecalculation: false,
+      },
+    });
+
+    const dashboard = await getPayrollDashboard(hrSession);
+
+    expect(dashboard.checklist.ruleReview.blocksLock).toBe(true);
+    expect(dashboard.checklist.steps.find((step) => step.step === 7)).toMatchObject({
+      status: "blocked",
+    });
+    await expect(releasePayrollPayslips(hrSession)).rejects.toThrow(/legal rule blockers/);
+  });
 });

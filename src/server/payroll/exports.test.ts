@@ -30,6 +30,7 @@ import {
   resetRuleSettingsDemoState,
   updateTaiwanLaborStandardsConfig,
 } from "@/server/rules/settings";
+import { defaultTaiwanLaborStandardsConfig } from "@/server/rules/taiwan-labor-standards";
 
 const hrSession = {
   role: "hr_admin" as const,
@@ -230,6 +231,42 @@ describe("payroll exports", () => {
         description: "Customer payroll compliance · 5 payroll item(s) · tw_income_tax_withholding",
       }),
     ]);
+  });
+
+  it("blocks export generation when law rule blockers appear after payroll lock", async () => {
+    await createPayrollRun(hrSession);
+    await resolvePayrollBlockers(hrSession);
+    await recalculatePayrollRun(hrSession);
+    await confirmPayrollRun(hrSession);
+    await lockPayrollRun(hrSession);
+
+    await updateTaiwanLaborStandardsConfig(ownerSession, {
+      sources: defaultTaiwanLaborStandardsConfig.sources.map((source, index) =>
+        index === 0
+          ? {
+              ...source,
+              url: "https://example.com/private-law-database",
+            }
+          : source,
+      ),
+      changeControl: {
+        reason: "Operator changed the active source before export generation.",
+        sourceUrl: "https://example.com/private-law-database",
+        reviewedBy: "林人資",
+        reviewStatus: "approved",
+        requiresPayrollRecalculation: false,
+      },
+    });
+
+    const workspace = await getPayrollExportWorkspace(hrSession);
+
+    expect(workspace.canGenerate).toBe(false);
+    expect(workspace.payrollRuleGate).toMatchObject({
+      ready: false,
+      sourceAuthorityPassed: false,
+      untrustedLegalSourceCount: 1,
+    });
+    await expect(generatePayrollExport(hrSession, "accounting_journal")).rejects.toThrow(/legal rule blockers/);
   });
 
   it("blocks managers from payroll export access", async () => {

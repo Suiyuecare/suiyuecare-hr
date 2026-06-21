@@ -9,6 +9,7 @@ import { getTaiwanLaborStandardsConfig } from "@/server/rules/settings";
 import {
   calculateEmployeePayroll,
   canLockPayroll,
+  canReleasePayroll,
   closeChecklist,
   evaluatePayrollRuleReview,
   type PayrollRuleConfig,
@@ -356,6 +357,13 @@ export async function releaseDbPayslips(session: SessionLike) {
   if (!run) return null;
   if (run.status !== "locked" && run.status !== "released") {
     throw new Error("Payslips can only be released after payroll lock.");
+  }
+  const ruleReview = evaluatePayrollRuleReview({
+    payrollRuleVersionId: run.ruleVersionId,
+    laborConfig: await getTaiwanLaborStandardsConfig(session as Parameters<typeof getTaiwanLaborStandardsConfig>[0]),
+  });
+  if (!canReleasePayroll({ status: run.status, ruleReviewPassed: !ruleReview.blocksLock })) {
+    throw new Error("Payslips cannot be released until payroll legal rule blockers are cleared.");
   }
 
   const itemsByEmployee = groupItemsByEmployee(run.items.map((item) => ({

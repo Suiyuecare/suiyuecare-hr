@@ -3,6 +3,7 @@ import { defaultTaiwanLaborStandardsConfig } from "@/server/rules/taiwan-labor-s
 import {
   calculateEmployeePayroll,
   canLockPayroll,
+  canReleasePayroll,
   closeChecklist,
   evaluatePayrollRuleReview,
 } from "./calculation";
@@ -550,5 +551,13 @@ describe("payroll close checks", () => {
         ruleReviewPassed: !ruleReview.blocksLock,
       }),
     ).toBe(false);
+    expect(canReleasePayroll({ status: "locked", ruleReviewPassed: !ruleReview.blocksLock })).toBe(false);
+    expect(checklist.steps.find((step) => step.step === 7)).toMatchObject({
+      status: "blocked",
+    });
+    expect(checklist.legalGate.steps.find((step) => step.id === "release_access")).toMatchObject({
+      status: "blocked",
+      detail: "發布前仍需完成法規版本、官方來源與重算 Gate。",
+    });
   });
 });

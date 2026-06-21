@@ -1,6 +1,7 @@
 import {
   calculateEmployeePayroll,
   canLockPayroll,
+  canReleasePayroll,
   closeChecklist,
   evaluatePayrollRuleReview,
   type PayrollRuleConfig,
@@ -219,6 +220,15 @@ export function releaseDemoPayslips() {
   const run = ensureRun();
   if (run.status !== "locked" && run.status !== "released") {
     throw new Error("Payslips can only be released after payroll lock.");
+  }
+  if (!canReleasePayroll({
+    status: run.status,
+    ruleReviewPassed: !evaluatePayrollRuleReview({
+      payrollRuleVersionId: run.ruleVersionId,
+      laborConfig: getActiveTaiwanLaborStandardsConfig(),
+    }).blocksLock,
+  })) {
+    throw new Error("Payslips cannot be released until payroll legal rule blockers are cleared.");
   }
   run.status = "released";
   run.payslips = salaryProfiles.map((salaryProfile) =>

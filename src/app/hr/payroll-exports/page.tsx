@@ -35,7 +35,11 @@ export default async function PayrollExportsPage({ searchParams }: { searchParam
           <div className="hr-monthly-hero-topline">
             <span className="badge">薪資封存與下載</span>
             <span className={`badge ${workspace.canGenerate ? "done" : "warning"}`}>
-              {workspace.canGenerate ? "可產生封存包" : "等待薪資鎖定"}
+              {workspace.canGenerate
+                ? "可產生封存包"
+                : workspace.payrollRun && !workspace.payrollRuleGate.ready
+                  ? "法規 Gate 阻擋"
+                  : "等待薪資鎖定"}
             </span>
           </div>
           <h1>發薪匯出與封存中心</h1>
@@ -70,7 +74,7 @@ export default async function PayrollExportsPage({ searchParams }: { searchParam
         <section className="payroll-export-alerts" aria-live="polite">
           <div className="panel danger-panel">
             <strong>無法產生封存包</strong>
-            <p>{error}</p>
+            <p>{localizeExportError(error)}</p>
           </div>
         </section>
       ) : null}
@@ -97,6 +101,15 @@ export default async function PayrollExportsPage({ searchParams }: { searchParam
           <span>下載封存</span>
           <strong>{workspace.exports.length} 包</strong>
           <small>封存清單下載會寫稽核紀錄，並只保留雜湊、筆數、警示與摘要。</small>
+        </article>
+        <article className={`hr-monthly-signal-card ${!workspace.payrollRun ? "warning" : workspace.payrollRuleGate.ready ? "done" : "danger"}`}>
+          <span>法規 Gate</span>
+          <strong>{!workspace.payrollRun ? "待批次" : workspace.payrollRuleGate.ready ? "可匯出" : "已阻擋"}</strong>
+          <small>
+            {!workspace.payrollRun
+              ? "建立並試算薪資批次後，才會檢查規則版本、官方來源與重算 Gate。"
+              : localizeExportRuleGateDetail(workspace.payrollRuleGate.detail)}
+          </small>
         </article>
       </section>
 
@@ -220,6 +233,16 @@ function buildExportFocus(workspace: PayrollExportWorkspace) {
     };
   }
   if (!workspace.canGenerate) {
+    if (!workspace.payrollRuleGate.ready) {
+      return {
+        tone: "danger",
+        title: "先修正法規 Gate",
+        detail: localizeExportRuleGateDetail(workspace.payrollRuleGate.detail),
+        note: `官方來源檢查：${workspace.payrollRuleGate.untrustedLegalSourceCount} 個非官方來源、${workspace.payrollRuleGate.invalidLegalSourceUrlCount} 個無效網址。`,
+        href: "/settings/law-rules",
+        actionLabel: "檢查法規規則",
+      };
+    }
     return {
       tone: "warning",
       title: "先鎖定或發布薪資",
@@ -260,6 +283,11 @@ function buildExportFocus(workspace: PayrollExportWorkspace) {
 }
 
 function buildPackageCards(workspace: PayrollExportWorkspace) {
+  const gateBlocked = Boolean(workspace.payrollRun && !workspace.payrollRuleGate.ready);
+  const waitingActionLabel = gateBlocked ? "法規 Gate 阻擋" : "等待薪資鎖定";
+  const waitingStatus = gateBlocked ? "法規 Gate" : "需鎖定";
+  const waitingTone = gateBlocked ? "danger" as const : "warning" as const;
+  const waitingBadge = gateBlocked ? "danger" as const : "warning" as const;
   const bankReady = Boolean(
     workspace.canGenerate &&
       workspace.paymentSecurity.ready &&
@@ -285,12 +313,12 @@ function buildPackageCards(workspace: PayrollExportWorkspace) {
       exportType: "accounting_journal" as const,
       title: "會計分錄封存",
       detail: "彙總薪資成本、雇主負擔、扣款與應付淨薪，供財務入帳前審核；不輸出員工明細薪資。",
-      actionLabel: workspace.canGenerate ? "產生會計分錄封存" : "等待薪資鎖定",
+      actionLabel: workspace.canGenerate ? "產生會計分錄封存" : waitingActionLabel,
       ready: workspace.canGenerate,
       primary: false,
-      tone: workspace.canGenerate ? "ready" : "warning",
-      badgeClass: workspace.canGenerate ? "done" : "warning",
-      status: workspace.canGenerate ? "可產生" : "需鎖定",
+      tone: workspace.canGenerate ? "ready" : waitingTone,
+      badgeClass: workspace.canGenerate ? "done" : waitingBadge,
+      status: workspace.canGenerate ? "可產生" : waitingStatus,
       links: [
         { label: "薪資科目", href: "/hr/payroll-accounting" },
         { label: "HR 月結", href: "/hr" },
@@ -300,12 +328,12 @@ function buildPackageCards(workspace: PayrollExportWorkspace) {
       exportType: "statutory_filing" as const,
       title: "台灣法定申報草稿",
       detail: "依版本化台灣勞健保、勞退、所得稅與補充保費規則產生申報審核草稿；系統不會自動送件。",
-      actionLabel: workspace.canGenerate ? "產生申報草稿" : "等待薪資鎖定",
+      actionLabel: workspace.canGenerate ? "產生申報草稿" : waitingActionLabel,
       ready: workspace.canGenerate,
       primary: false,
-      tone: workspace.canGenerate ? "ready" : "warning",
-      badgeClass: workspace.canGenerate ? "done" : "warning",
-      status: workspace.canGenerate ? "可產生" : "需鎖定",
+      tone: workspace.canGenerate ? "ready" : waitingTone,
+      badgeClass: workspace.canGenerate ? "done" : waitingBadge,
+      status: workspace.canGenerate ? "可產生" : waitingStatus,
       links: [
         { label: "法規規則", href: "/settings/law-rules" },
         { label: "薪資合規", href: "/hr/payroll-compliance" },
@@ -318,11 +346,38 @@ function buildPackageCards(workspace: PayrollExportWorkspace) {
     actionLabel: string;
     ready: boolean;
     primary: boolean;
-    tone: "ready" | "warning";
-    badgeClass: "done" | "warning";
+    tone: "ready" | "warning" | "danger";
+    badgeClass: "done" | "warning" | "danger";
     status: string;
     links: Array<{ label: string; href: string }>;
   }>;
+}
+
+function localizeExportRuleGateDetail(detail: string) {
+  const labels: Record<string, string> = {
+    "No payroll calculation has selected a rule version yet.": "尚未試算，因此薪資草稿還沒有綁定規則版本。",
+    "Active law rule version is still pending legal review.": "啟用中的法規規則仍待法務或人資複核，暫時不能發布或匯出。",
+    "Active law rule version has non-official or invalid legal source URLs. Replace them with HTTPS official .gov.tw sources before payroll lock.":
+      "啟用中的法規規則含非官方或無效法規來源；請先改成 HTTPS 官方 .gov.tw 來源，才能發布或匯出。",
+    "Active law rule version changed after this payroll draft. Recalculate before lock.":
+      "法規規則在薪資草稿後已異動，發布或匯出前必須重新試算。",
+    "Payroll draft uses the active reviewed rule version.": "薪資草稿已使用啟用且完成複核的規則版本。",
+  };
+  return labels[detail] ?? detail;
+}
+
+function localizeExportError(error: string) {
+  return error
+    .replace(
+      "Payroll exports cannot be generated until payroll legal rule blockers are cleared.",
+      "薪資法規 Gate 尚未清除，暫時不能產生封存包。",
+    )
+    .replace(
+      "Payslips cannot be released until payroll legal rule blockers are cleared.",
+      "薪資法規 Gate 尚未清除，暫時不能發布薪資單。",
+    )
+    .replace("Payroll exports require a locked or released payroll run.", "薪資必須先鎖定或發布，才能產生封存包。")
+    .replace("Payroll must have calculated items before export.", "薪資必須先完成試算並產生薪資項目。");
 }
 
 function paymentCoverageTone(workspace: PayrollExportWorkspace) {

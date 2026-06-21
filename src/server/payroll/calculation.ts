@@ -196,6 +196,13 @@ export function canLockPayroll(input: {
   );
 }
 
+export function canReleasePayroll(input: {
+  status: string;
+  ruleReviewPassed?: boolean;
+}) {
+  return input.status === "released" || (input.status === "locked" && input.ruleReviewPassed !== false);
+}
+
 export function evaluatePayrollRuleReview(input: {
   payrollRuleVersionId?: string | null;
   laborConfig: TaiwanLaborStandardsConfig;
@@ -312,8 +319,8 @@ export function closeChecklist(input: {
       {
         step: 7,
         title: "Payslip generation",
-        status: input.released ? "done" : input.locked ? "ready" : "blocked",
-        detail: input.released ? "Payslips released." : "Release after lock.",
+        status: input.released ? "done" : ruleReview.blocksLock ? "blocked" : input.locked ? "ready" : "blocked",
+        detail: input.released ? "Payslips released." : ruleReview.blocksLock ? ruleReview.detail : "Release after lock.",
       },
     ] as const,
   };
@@ -406,11 +413,13 @@ function buildPayrollLegalGate(input: {
       title: "薪資單權限",
       status: input.released
         ? "done"
-        : input.locked || (input.confirmed && !input.ruleReview.blocksLock)
+        : !input.ruleReview.blocksLock && (input.locked || input.confirmed)
           ? "ready"
           : "blocked",
       metric: input.released ? "已發布" : "未發布",
-      detail: "發布後員工只能看本人薪資單；主管預設不能看部屬薪資。",
+      detail: input.ruleReview.blocksLock
+        ? "發布前仍需完成法規版本、官方來源與重算 Gate。"
+        : "發布後員工只能看本人薪資單；主管預設不能看部屬薪資。",
       evidence: "payslip self-access smoke, unauthorized payroll access test",
       actionLabel: input.locked ? "發布薪資單" : "查看權限",
       actionHref: input.locked ? "/hr" : "/settings/access",

@@ -70,10 +70,21 @@ export async function getPayrollExportWorkspace(session: SessionLike) {
   const paymentSecurity = await getPayrollPaymentSecurityReadiness(session);
   const accountingSettings = await getPayrollAccountingSettings(session);
   const exports = canUseDatabase(session) ? await listDbPayrollExports(session) : listDemoPayrollExports();
+  const payrollRuleGateReady = Boolean(
+    payroll.run &&
+      (payroll.run.status === "released" || !payroll.checklist.ruleReview.blocksLock),
+  );
 
   return {
     payrollRun: payroll.run,
     exports,
+    payrollRuleGate: {
+      ready: payrollRuleGateReady,
+      detail: payroll.checklist.ruleReview.detail,
+      sourceAuthorityPassed: payroll.checklist.ruleReview.sourceAuthorityPassed,
+      untrustedLegalSourceCount: payroll.checklist.ruleReview.untrustedLegalSourceCount,
+      invalidLegalSourceUrlCount: payroll.checklist.ruleReview.invalidLegalSourceUrlCount,
+    },
     paymentProfileCoverage: {
       totalEmployees: employeeIds.length,
       configuredEmployees: paymentCoverage.configuredEmployeeIds.size,
@@ -82,7 +93,10 @@ export async function getPayrollExportWorkspace(session: SessionLike) {
     paymentSecurity,
     accountingSettings,
     canGenerate: Boolean(
-      payroll.run && (payroll.run.status === "locked" || payroll.run.status === "released") && payroll.run.items.length > 0,
+      payroll.run &&
+        (payroll.run.status === "locked" || payroll.run.status === "released") &&
+        payroll.run.items.length > 0 &&
+        payrollRuleGateReady,
     ),
   };
 }
@@ -96,6 +110,9 @@ export async function generatePayrollExport(session: SessionLike, exportType: Pa
   }
   if (run.status !== "locked" && run.status !== "released") {
     throw new Error("Payroll exports require a locked or released payroll run.");
+  }
+  if (run.status !== "released" && payroll.checklist.ruleReview.blocksLock) {
+    throw new Error("Payroll exports cannot be generated until payroll legal rule blockers are cleared.");
   }
   if (run.items.length === 0) {
     throw new Error("Payroll must have calculated items before export.");
