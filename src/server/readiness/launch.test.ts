@@ -233,7 +233,7 @@ describe("launch readiness", () => {
 
     expect(report.items.find((item) => item.id === "law_rules")).toMatchObject({
       status: "blocked",
-      detail: "3 active rule version(s); rule review status approved; 6/7 fixture(s) passed; executable engine 0/0 check(s) passed; sources 0/0 fresh, oldest missing.",
+      detail: "3 active rule version(s); rule review status approved; coverage 11/11; 6/7 fixture(s) passed; executable engine 0/0 check(s) passed; sources 0/0 fresh, oldest missing.",
     });
   });
 
@@ -281,7 +281,7 @@ describe("launch readiness", () => {
 
     expect(report.items.find((item) => item.id === "law_rules")).toMatchObject({
       status: "blocked",
-      detail: "3 active rule version(s); rule review status approved; 9/9 fixture(s) passed; executable engine 3/4 check(s) passed; sources 12/12 fresh, oldest 2026-06-12.",
+      detail: "3 active rule version(s); rule review status approved; coverage 11/11; 9/9 fixture(s) passed; executable engine 3/4 check(s) passed; sources 12/12 fresh, oldest 2026-06-12.",
       nextStep: expect.stringContaining("verify executable rule-engine checks"),
     });
   });
@@ -324,7 +324,59 @@ describe("launch readiness", () => {
 
     expect(report.items.find((item) => item.id === "law_rules")).toMatchObject({
       status: "blocked",
-      detail: "3 active rule version(s); rule review status approved; 7/7 fixture(s) passed; executable engine 0/0 check(s) passed; sources 11/12 fresh, oldest 2025-01-01.",
+      detail: "3 active rule version(s); rule review status approved; coverage 11/11; 7/7 fixture(s) passed; executable engine 0/0 check(s) passed; sources 11/12 fresh, oldest 2025-01-01.",
+    });
+  });
+
+  it("blocks launch when Taiwan compliance coverage matrix has source gaps", () => {
+    const laborConfig = structuredClone(defaultTaiwanLaborStandardsConfig);
+    laborConfig.sources = laborConfig.sources.filter((source) => source.id === "tw-minimum-wage-2026");
+
+    const report = buildLaunchReadinessReport({
+      databaseConfigured: true,
+      employeeCount: 5,
+      auditCount: 8,
+      activeRuleCount: 3,
+      laborConfig,
+      laborRuleValidation: {
+        passed: true,
+        passedCount: 9,
+        fixtureCount: 9,
+      },
+      legalSourceFreshness: {
+        passed: true,
+        freshSourceCount: 1,
+        totalSourceCount: 1,
+        oldestCheckedAt: "2026-06-19",
+        maxAgeDays: 180,
+      },
+      ruleEngineReadiness: {
+        passed: true,
+        passedCount: 4,
+        checkCount: 4,
+        detail: "4 executable rule-engine check(s) passed.",
+      },
+      securitySettings: secureSettings,
+      fileStorageSettings: secureStorage,
+      notificationSettings,
+      privilegedSsoIdentityCoverage: {
+        total: 3,
+        linked: 3,
+      },
+      supportAccessGovernance: {
+        activeApprovedCount: 0,
+        activeUnapprovedCount: 0,
+        expiredStillApprovedCount: 0,
+      },
+      payrollPaymentSecurity: readyPaymentSecurity,
+      calendarReadiness: readyCalendar,
+      kpis: passingKpis,
+    });
+
+    expect(report.items.find((item) => item.id === "law_rules")).toMatchObject({
+      status: "blocked",
+      detail: "3 active rule version(s); rule review status approved; coverage 1/11; 9/9 fixture(s) passed; executable engine 4/4 check(s) passed; sources 1/1 fresh, oldest 2026-06-19.",
+      nextStep: expect.stringContaining("Complete Taiwan compliance coverage before launch"),
     });
   });
 

@@ -144,6 +144,25 @@ describe("rule settings", () => {
     const initial = await getTaiwanLaborRuleCenter(ownerSession);
 
     expect(initial.readiness.status).toBe("ready");
+    expect(initial.complianceCoverageSummary).toMatchObject({
+      status: "ready",
+      coveredCount: 11,
+      blockedCount: 0,
+      totalCount: 11,
+    });
+    expect(initial.complianceCoverage.map((item) => item.id)).toEqual([
+      "minimum_wage",
+      "working_time",
+      "overtime_pay",
+      "rest_holiday_pay",
+      "annual_leave",
+      "statutory_leave",
+      "termination",
+      "insurance_onboarding",
+      "statutory_payroll",
+      "income_tax",
+      "filing_package",
+    ]);
     expect(initial.versionHistory).toEqual([
       expect.objectContaining({
         version: expect.stringContaining("2026.01"),
@@ -168,6 +187,7 @@ describe("rule settings", () => {
     expect(draft.readiness.status).toBe("needs_review");
     expect(draft.readiness.warnings).toEqual(expect.arrayContaining([
       "目前版本尚待法務或人資負責人審核",
+      "台灣法遵覆蓋矩陣有 11 項需複核",
       "薪資草稿需重新試算檢查",
     ]));
     expect(draft.versionHistory).toHaveLength(2);
@@ -178,6 +198,44 @@ describe("rule settings", () => {
       validationPassed: true,
     });
     expect(draft.versionHistory[1].status).toBe("superseded");
+  });
+
+  it("blocks rule center readiness when legal source coverage is incomplete", async () => {
+    await updateTaiwanLaborStandardsConfig(ownerSession, {
+      changeControl: {
+        reason: "HR accidentally uploaded an incomplete source list",
+        sourceUrl: "https://laws.mol.gov.tw/",
+        reviewedBy: "Payroll owner",
+        reviewStatus: "approved",
+        requiresPayrollRecalculation: false,
+      },
+      sources: [
+        {
+          id: "tw-minimum-wage-2026",
+          title: "Ministry of Labor 2026 minimum wage announcement",
+          url: "https://english.mol.gov.tw/21139/40790/87087/",
+          checkedAt: "2026-06-13",
+        },
+      ],
+    });
+
+    const center = await getTaiwanLaborRuleCenter(ownerSession);
+    const workingTime = center.complianceCoverage.find((item) => item.id === "working_time");
+
+    expect(center.complianceCoverageSummary).toMatchObject({
+      status: "blocked",
+      coveredCount: 1,
+      blockedCount: 10,
+      totalCount: 11,
+    });
+    expect(workingTime).toMatchObject({
+      status: "blocked",
+      missingSourceIds: ["tw-lsa-article-30", "tw-lsa-article-32"],
+    });
+    expect(center.readiness).toMatchObject({
+      status: "blocked",
+      blockers: expect.arrayContaining(["台灣法遵覆蓋矩陣有 10 個阻擋項"]),
+    });
   });
 
   it("versions statutory filing package mappings without code changes", async () => {

@@ -62,10 +62,43 @@ export type TaiwanLaborRuleCenterReadiness = {
   nextActions: string[];
 };
 
+export type TaiwanLaborComplianceCoverageStatus = "covered" | "needs_review" | "blocked";
+
+export type TaiwanLaborComplianceCoverageItem = {
+  id: string;
+  title: string;
+  legalBasis: string;
+  owner: "HR" | "Payroll" | "Owner";
+  status: TaiwanLaborComplianceCoverageStatus;
+  sourceIds: string[];
+  missingSourceIds: string[];
+  staleSourceIds: string[];
+  controlCount: number;
+  configuredControlCount: number;
+  controls: Array<{
+    label: string;
+    configured: boolean;
+  }>;
+  evidence: string;
+  nextAction: string;
+};
+
+export type TaiwanLaborComplianceCoverageSummary = {
+  status: TaiwanLaborRuleCenterReadiness["status"];
+  coveredCount: number;
+  needsReviewCount: number;
+  blockedCount: number;
+  totalCount: number;
+  blockedItems: string[];
+  needsReviewItems: string[];
+};
+
 export type TaiwanLaborRuleCenter = {
   config: TaiwanLaborStandardsConfig;
   validation: ReturnType<typeof validateTaiwanLaborStandardsRuleSet>;
   sourceFreshness: ReturnType<typeof evaluateLegalSourceFreshness>;
+  complianceCoverage: TaiwanLaborComplianceCoverageItem[];
+  complianceCoverageSummary: TaiwanLaborComplianceCoverageSummary;
   versionHistory: TaiwanLaborRuleVersionSummary[];
   readiness: TaiwanLaborRuleCenterReadiness;
 };
@@ -157,6 +190,8 @@ export async function getTaiwanLaborRuleCenter(session?: SessionLike): Promise<T
   const config = await getTaiwanLaborStandardsConfig(session);
   const validation = validateTaiwanLaborStandardsRuleSet(config);
   const sourceFreshness = evaluateLegalSourceFreshness(config.sources);
+  const complianceCoverage = buildTaiwanLaborComplianceCoverage(config, sourceFreshness);
+  const complianceCoverageSummary = summarizeTaiwanLaborComplianceCoverage(complianceCoverage);
   const versionHistory = session && canUseDatabase(session)
     ? await getDbTaiwanLaborRuleVersionHistory(session)
     : getRuleSettingsDemoState().versionHistory;
@@ -165,8 +200,205 @@ export async function getTaiwanLaborRuleCenter(session?: SessionLike): Promise<T
     config,
     validation,
     sourceFreshness,
+    complianceCoverage,
+    complianceCoverageSummary,
     versionHistory,
-    readiness: buildRuleCenterReadiness(config, validation, sourceFreshness, versionHistory),
+    readiness: buildRuleCenterReadiness(
+      config,
+      validation,
+      sourceFreshness,
+      versionHistory,
+      complianceCoverageSummary,
+    ),
+  };
+}
+
+export function buildTaiwanLaborComplianceCoverage(
+  config: TaiwanLaborStandardsConfig,
+  sourceFreshness = evaluateLegalSourceFreshness(config.sources),
+): TaiwanLaborComplianceCoverageItem[] {
+  return [
+    coverageItem(config, sourceFreshness, {
+      id: "minimum_wage",
+      title: "最低工資",
+      legalBasis: "最低工資法與年度公告",
+      owner: "HR",
+      sourceIds: ["tw-minimum-wage-2026"],
+      controls: [
+        ["最低月薪", config.minimumMonthlyWage > 0],
+        ["最低時薪", config.minimumHourlyWage > 0],
+        ["薪資 profile 儲存前檢查", true],
+      ],
+      evidence: `${formatMoneyForEvidence(config.minimumMonthlyWage)} / ${formatMoneyForEvidence(config.minimumHourlyWage)}`,
+      nextAction: "確認年度最低工資公告與薪資 profile 檢查仍為最新版本。",
+    }),
+    coverageItem(config, sourceFreshness, {
+      id: "working_time",
+      title: "正常工時與延長工時上限",
+      legalBasis: "勞基法第 30、32 條",
+      owner: "HR",
+      sourceIds: ["tw-lsa-article-30", "tw-lsa-article-32"],
+      controls: [
+        ["每日正常工時", config.normalDailyMinutes > 0],
+        ["每週正常工時", config.normalWeeklyMinutes > 0],
+        ["每日含加班上限", config.maxDailyWorkMinutesIncludingOvertime >= config.normalDailyMinutes],
+        ["月加班上限", config.maxMonthlyOvertimeMinutes > 0],
+      ],
+      evidence: `${config.normalDailyMinutes / 60}h/day, ${config.normalWeeklyMinutes / 60}h/week`,
+      nextAction: "複核工時上限與勞資會議加班上限，並同步排班與出勤異常 Gate。",
+    }),
+    coverageItem(config, sourceFreshness, {
+      id: "overtime_pay",
+      title: "加班費與休息日出勤",
+      legalBasis: "勞基法第 24、32、36 條",
+      owner: "Payroll",
+      sourceIds: ["tw-lsa-article-24", "tw-lsa-article-32", "tw-lsa-article-36"],
+      controls: [
+        ["平日加班級距", config.regularDayOvertimeTiers.length >= 2],
+        ["休息日加班級距", config.restDayOvertimeTiers.length >= 2],
+        ["加班單與薪資計算共用 rule version", true],
+      ],
+      evidence: `${config.regularDayOvertimeTiers.length} regular tier(s), ${config.restDayOvertimeTiers.length} rest-day tier(s)`,
+      nextAction: "用本版本規則重新試算未鎖定薪資草稿，避免加班費沿用舊倍率。",
+    }),
+    coverageItem(config, sourceFreshness, {
+      id: "rest_holiday_pay",
+      title: "例假、休息日與國定假日",
+      legalBasis: "勞基法第 36、37、39 條",
+      owner: "HR",
+      sourceIds: ["tw-lsa-article-36", "tw-lsa-article-37", "tw-lsa-article-39"],
+      controls: [
+        ["七日週期", config.restDayCycleDays >= 7],
+        ["例假日數", config.requiredRegularLeaveDaysPerCycle >= 1],
+        ["休息日數", config.requiredRestDaysPerCycle >= 1],
+        ["假日出勤倍率", config.holidayWorkMultiplier > 0 && config.regularLeaveWorkMultiplier > 0],
+      ],
+      evidence: `${config.requiredRegularLeaveDaysPerCycle} regular leave + ${config.requiredRestDaysPerCycle} rest day / ${config.restDayCycleDays} days`,
+      nextAction: "確認公司行事曆、排班與假日出勤薪資倍率使用同一個版本來源。",
+    }),
+    coverageItem(config, sourceFreshness, {
+      id: "annual_leave",
+      title: "特休與未休工資",
+      legalBasis: "勞基法第 38 條、施行細則第 24-1 條",
+      owner: "HR",
+      sourceIds: ["tw-lsa-article-38", "tw-lsa-enforcement-article-24-1"],
+      controls: [
+        ["特休級距", config.annualLeaveTiers.length >= 6],
+        ["滿半年給假", config.annualLeaveTiers.some((tier) => tier.serviceMonthsFrom === 6 && tier.days > 0)],
+        ["未休工資結算", true],
+      ],
+      evidence: `${config.annualLeaveTiers.length} tier(s), cap ${config.annualLeaveTiers.at(-1)?.maxDays ?? "review"} day(s)`,
+      nextAction: "用特休結算工作台複核到期提醒、結清與薪資項目，不讓 payroll 靜默加項。",
+    }),
+    coverageItem(config, sourceFreshness, {
+      id: "statutory_leave",
+      title: "法定假別",
+      legalBasis: "勞工請假規則、性別平等工作法",
+      owner: "HR",
+      sourceIds: ["tw-worker-leave-rules", "tw-gender-equality-employment-act"],
+      controls: [
+        ["假別政策工作台", true],
+        ["HR/法務複核旗標", true],
+        ["員工三步內請假", true],
+      ],
+      evidence: "Leave policy workspace controls statutory categories and review flags.",
+      nextAction: "在假別政策工作台維持法定假別覆蓋，避免員工端流程變複雜。",
+    }),
+    coverageItem(config, sourceFreshness, {
+      id: "termination",
+      title: "離職、預告與資遣",
+      legalBasis: "勞基法第 16、17 條、勞退條例第 12 條",
+      owner: "HR",
+      sourceIds: ["tw-lsa-article-16-17", "tw-labor-pension-act-article-12"],
+      controls: [
+        ["預告期級距", config.terminationCompliance.advanceNoticeTiers.length >= 3],
+        ["新制資遣費倍率", config.terminationCompliance.laborPensionSeveranceMultiplierPerServiceYear > 0],
+        ["舊制資遣費倍率", config.terminationCompliance.laborStandardsSeveranceMultiplierPerServiceYear > 0],
+        ["離職人工審核", true],
+      ],
+      evidence: `${config.terminationCompliance.advanceNoticeTiers.length} notice tier(s); severance human review required`,
+      nextAction: "離職流程需保留人工審核、服務證明、最終工資與特休結清證據。",
+    }),
+    coverageItem(config, sourceFreshness, {
+      id: "insurance_onboarding",
+      title: "勞保、就保、職災加退保",
+      legalBasis: "勞保局加退保時點、職災保險規則",
+      owner: "HR",
+      sourceIds: ["tw-labor-insurance-enrollment", "tw-occupational-accident-insurance-2026"],
+      controls: [
+        ["到職勞保期限", config.statutoryOnboarding.laborInsuranceEnrollmentDueDaysFromHire >= 0],
+        ["到職就保期限", config.statutoryOnboarding.employmentInsuranceEnrollmentDueDaysFromHire >= 0],
+        ["到職職災保險期限", config.statutoryOnboarding.occupationalAccidentInsuranceEnrollmentDueDaysFromHire >= 0],
+        ["離職退保期限", config.statutoryOnboarding.insuranceWithdrawalDueDaysFromTermination >= 0],
+      ],
+      evidence: `hire due ${config.statutoryOnboarding.laborInsuranceEnrollmentDueDaysFromHire} day(s), withdrawal ${config.statutoryOnboarding.insuranceWithdrawalDueDaysFromTermination} day(s)`,
+      nextAction: "投保工作台需對每位在職員工保存 hash 證據並在上線 Gate 檢查覆蓋率。",
+    }),
+    coverageItem(config, sourceFreshness, {
+      id: "statutory_payroll",
+      title: "勞健保、勞退與補充保費",
+      legalBasis: "勞保、健保、職災保險與勞退級距",
+      owner: "Payroll",
+      sourceIds: [
+        "tw-labor-insurance-grades-2026",
+        "tw-nhi-premium-2026",
+        "tw-nhi-supplementary-premium-2026",
+        "tw-occupational-accident-insurance-2026",
+      ],
+      controls: [
+        ["勞保級距", config.statutoryPayroll.laborInsuranceSalaryGrades.length > 0],
+        ["健保級距", config.statutoryPayroll.healthInsuranceSalaryGrades.length > 0],
+        ["勞退級距", config.statutoryPayroll.laborPensionContributionGrades.length > 0],
+        ["補充保費設定", config.statutoryPayroll.nationalHealthInsuranceSupplementaryPremiumRate >= 0],
+      ],
+      evidence: `${config.statutoryPayroll.laborInsuranceSalaryGrades.length}/${config.statutoryPayroll.healthInsuranceSalaryGrades.length}/${config.statutoryPayroll.laborPensionContributionGrades.length} grade rows`,
+      nextAction: "薪資月結前檢查投保級距 override，低報風險只能由 HR/Payroll 人工處理。",
+    }),
+    coverageItem(config, sourceFreshness, {
+      id: "income_tax",
+      title: "所得稅扣繳",
+      legalBasis: "財政部扣繳與累進稅率來源",
+      owner: "Payroll",
+      sourceIds: ["tw-income-tax-brackets-2026"],
+      controls: [
+        ["累進稅率級距", config.statutoryPayroll.incomeTaxWithholding.brackets.length > 0],
+        ["非居住者扣繳率", config.statutoryPayroll.nonResidentIncomeTaxWithholdingRate > 0],
+        ["扣繳結果需 HR 複核", true],
+      ],
+      evidence: `${config.statutoryPayroll.incomeTaxWithholding.brackets.length} bracket(s), non-resident ${Math.round(config.statutoryPayroll.nonResidentIncomeTaxWithholdingRate * 100)}%`,
+      nextAction: "薪資鎖定前保留扣繳試算與人工複核，不讓系統自動完成稅務判斷。",
+    }),
+    coverageItem(config, sourceFreshness, {
+      id: "filing_package",
+      title: "法定申報與勞檢封存",
+      legalBasis: "勞保、健保、勞退、所得稅申報包",
+      owner: "Owner",
+      sourceIds: ["tw-labor-insurance-grades-2026", "tw-nhi-premium-2026", "tw-income-tax-brackets-2026"],
+      controls: [
+        ["申報包對應表", config.statutoryPayroll.statutoryFilingReports.length >= 5],
+        ["薪資封存 manifest", true],
+        ["勞檢匯出不含原始敏感資料", true],
+      ],
+      evidence: `${config.statutoryPayroll.statutoryFilingReports.length} statutory filing package(s)`,
+      nextAction: "確認申報包欄位、下載期限、內容 hash 與 audit log 覆蓋率。",
+    }),
+  ];
+}
+
+export function summarizeTaiwanLaborComplianceCoverage(
+  items: TaiwanLaborComplianceCoverageItem[],
+): TaiwanLaborComplianceCoverageSummary {
+  const coveredCount = items.filter((item) => item.status === "covered").length;
+  const needsReviewItems = items.filter((item) => item.status === "needs_review").map((item) => item.title);
+  const blockedItems = items.filter((item) => item.status === "blocked").map((item) => item.title);
+  return {
+    status: blockedItems.length ? "blocked" : needsReviewItems.length ? "needs_review" : "ready",
+    coveredCount,
+    needsReviewCount: needsReviewItems.length,
+    blockedCount: blockedItems.length,
+    totalCount: items.length,
+    blockedItems,
+    needsReviewItems,
   };
 }
 
@@ -258,6 +490,74 @@ async function getDbTaiwanLaborRuleVersionHistory(session: SessionLike) {
   }
 }
 
+function coverageItem(
+  config: TaiwanLaborStandardsConfig,
+  sourceFreshness: ReturnType<typeof evaluateLegalSourceFreshness>,
+  definition: {
+    id: string;
+    title: string;
+    legalBasis: string;
+    owner: TaiwanLaborComplianceCoverageItem["owner"];
+    sourceIds: string[];
+    controls: Array<[string, boolean]>;
+    evidence: string;
+    nextAction: string;
+  },
+): TaiwanLaborComplianceCoverageItem {
+  const configuredSourceIds = new Set(config.sources.map((source) => source.id));
+  const missingSourceIds = definition.sourceIds.filter((sourceId) => !configuredSourceIds.has(sourceId));
+  const staleSourceIds = definition.sourceIds.filter((sourceId) =>
+    sourceFreshness.staleSourceIds.includes(sourceId) ||
+    sourceFreshness.invalidSourceIds.includes(sourceId)
+  );
+  const controls = definition.controls.map(([label, configured]) => ({ label, configured }));
+  const configuredControlCount = controls.filter((control) => control.configured).length;
+  const hasControlGaps = configuredControlCount < controls.length;
+  const status: TaiwanLaborComplianceCoverageStatus =
+    missingSourceIds.length > 0 || hasControlGaps
+      ? "blocked"
+      : staleSourceIds.length > 0 ||
+          config.changeControl.reviewStatus !== "approved" ||
+          config.changeControl.requiresPayrollRecalculation
+      ? "needs_review"
+      : "covered";
+
+  return {
+    id: definition.id,
+    title: definition.title,
+    legalBasis: definition.legalBasis,
+    owner: definition.owner,
+    status,
+    sourceIds: definition.sourceIds,
+    missingSourceIds,
+    staleSourceIds,
+    controlCount: controls.length,
+    configuredControlCount,
+    controls,
+    evidence: definition.evidence,
+    nextAction: status === "blocked"
+      ? buildCoverageBlockedAction(definition, missingSourceIds, controls)
+      : definition.nextAction,
+  };
+}
+
+function buildCoverageBlockedAction(
+  definition: { nextAction: string },
+  missingSourceIds: string[],
+  controls: Array<{ label: string; configured: boolean }>,
+) {
+  const missingControls = controls.filter((control) => !control.configured).map((control) => control.label);
+  const actionParts = [
+    missingSourceIds.length ? `補來源 ${missingSourceIds.join(", ")}` : null,
+    missingControls.length ? `補設定 ${missingControls.join("、")}` : null,
+  ].filter((part): part is string => Boolean(part));
+  return actionParts.length ? `${actionParts.join("；")}。${definition.nextAction}` : definition.nextAction;
+}
+
+function formatMoneyForEvidence(value: number) {
+  return `NT$${new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 }).format(value)}`;
+}
+
 function buildRuleVersionSummary(
   id: string,
   config: TaiwanLaborStandardsConfig,
@@ -289,14 +589,23 @@ function buildRuleCenterReadiness(
   validation: ReturnType<typeof validateTaiwanLaborStandardsRuleSet>,
   sourceFreshness: ReturnType<typeof evaluateLegalSourceFreshness>,
   versionHistory: TaiwanLaborRuleVersionSummary[],
+  complianceCoverageSummary: TaiwanLaborComplianceCoverageSummary = summarizeTaiwanLaborComplianceCoverage(
+    buildTaiwanLaborComplianceCoverage(config, sourceFreshness),
+  ),
 ): TaiwanLaborRuleCenterReadiness {
   const blockers = [
     !validation.passed ? "法規規則測試案例未全部通過" : null,
+    complianceCoverageSummary.blockedCount > 0
+      ? `台灣法遵覆蓋矩陣有 ${complianceCoverageSummary.blockedCount} 個阻擋項`
+      : null,
     versionHistory.length === 0 ? "缺少 rule_versions 版本紀錄" : null,
   ].filter((item): item is string => Boolean(item));
   const warnings = [
     config.changeControl.reviewStatus !== "approved" ? "目前版本尚待法務或人資負責人審核" : null,
     !sourceFreshness.passed ? "官方來源超過檢查期限或有日期格式問題" : null,
+    complianceCoverageSummary.needsReviewCount > 0
+      ? `台灣法遵覆蓋矩陣有 ${complianceCoverageSummary.needsReviewCount} 項需複核`
+      : null,
     config.changeControl.requiresPayrollRecalculation ? "薪資草稿需重新試算檢查" : null,
   ].filter((item): item is string => Boolean(item));
   const status = blockers.length > 0 ? "blocked" : warnings.length > 0 ? "needs_review" : "ready";
@@ -308,6 +617,12 @@ function buildRuleCenterReadiness(
     warnings,
     nextActions: [
       !validation.passed ? "修正法規設定後重新儲存，直到所有測試案例通過。" : null,
+      complianceCoverageSummary.blockedCount > 0
+        ? `補齊法遵覆蓋矩陣阻擋項：${complianceCoverageSummary.blockedItems.join("、")}。`
+        : null,
+      complianceCoverageSummary.needsReviewCount > 0
+        ? `複核法遵覆蓋矩陣警示項：${complianceCoverageSummary.needsReviewItems.join("、")}。`
+        : null,
       !sourceFreshness.passed ? "更新官方來源檢查日與 URL，並由 HR/法務確認。" : null,
       config.changeControl.reviewStatus !== "approved" ? "補上審核人並將狀態改為已核准。" : null,
       config.changeControl.requiresPayrollRecalculation ? "重新試算尚未鎖定的薪資草稿。" : null,

@@ -4216,7 +4216,7 @@ legend {
 
 .law-rule-signal-board {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(188px, 1fr));
   gap: 10px;
   margin: 0 0 14px;
 }
@@ -4325,6 +4325,73 @@ legend {
 
 .law-rule-governance-card .button {
   width: 100%;
+}
+
+.law-rule-coverage-panel {
+  margin-bottom: 14px;
+}
+
+.law-rule-coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(228px, 1fr));
+  gap: 12px;
+}
+
+.law-rule-coverage-card {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  min-height: 204px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.law-rule-coverage-card.ready {
+  border-color: #bbf7d0;
+  background: #f8fffb;
+}
+
+.law-rule-coverage-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.law-rule-coverage-card.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.law-rule-coverage-card-top,
+.law-rule-coverage-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.law-rule-coverage-card h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 1000;
+  line-height: 1.16;
+}
+
+.law-rule-coverage-card p,
+.law-rule-coverage-card small,
+.law-rule-coverage-card strong,
+.law-rule-coverage-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.42;
+}
+
+.law-rule-coverage-card strong {
+  color: var(--foreground);
 }
 
 .hr-monthly-hero {

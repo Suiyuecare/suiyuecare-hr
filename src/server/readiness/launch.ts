@@ -26,6 +26,11 @@ import { getSubscriptionReadiness, type SubscriptionReadiness } from "@/server/s
 import { getSupportAccessGovernance } from "@/server/support/access";
 import { getTrainingWorkspace, type TrainingReadiness } from "@/server/training/compliance";
 import { getWorkRulesWorkspace, type WorkRuleReadiness } from "@/server/work-rules/service";
+import {
+  buildTaiwanLaborComplianceCoverage,
+  summarizeTaiwanLaborComplianceCoverage,
+  type TaiwanLaborComplianceCoverageSummary,
+} from "@/server/rules/settings";
 
 type SessionLike = {
   role: RoleKey;
@@ -183,6 +188,7 @@ export function buildLaunchReadinessReport(input: {
     oldestCheckedAt: string | null;
     maxAgeDays: number;
   };
+  laborComplianceCoverageSummary?: TaiwanLaborComplianceCoverageSummary;
   ruleEngineReadiness?: RuleEngineReadiness;
   securitySettings: CompanySecuritySettings;
   fileStorageSettings: FileStorageSettings;
@@ -246,6 +252,8 @@ export function buildLaunchReadinessReport(input: {
     checkCount: 0,
     detail: "Rule engine executable readiness not evaluated in this test context.",
   };
+  const laborComplianceCoverageSummary = input.laborComplianceCoverageSummary ??
+    summarizeTaiwanLaborComplianceCoverage(buildTaiwanLaborComplianceCoverage(input.laborConfig));
   const calendarReadiness = input.calendarReadiness ?? {
     ready: true,
     calendarYear: new Date().getFullYear(),
@@ -501,13 +509,19 @@ export function buildLaunchReadinessReport(input: {
       status: input.activeRuleCount > 0 &&
         input.laborConfig.changeControl.reviewStatus === "approved" &&
         !input.laborConfig.changeControl.requiresPayrollRecalculation &&
+        laborComplianceCoverageSummary.status === "ready" &&
         laborRuleValidation.passed &&
         legalSourceFreshness.passed &&
         ruleEngineReadiness.passed
         ? "ready"
         : "blocked",
-      detail: `${input.activeRuleCount} active rule version(s); rule review status ${input.laborConfig.changeControl.reviewStatus}; ${laborRuleValidation.passedCount}/${laborRuleValidation.fixtureCount} fixture(s) passed; executable engine ${ruleEngineReadiness.passedCount}/${ruleEngineReadiness.checkCount} check(s) passed; sources ${legalSourceFreshness.freshSourceCount}/${legalSourceFreshness.totalSourceCount} fresh, oldest ${legalSourceFreshness.oldestCheckedAt ?? "missing"}.`,
-      nextStep: "Approve active Taiwan labor/payroll rule versions, pass validation fixtures, verify executable rule-engine checks, refresh official source review dates, and recalculate any payroll drafts flagged by change control.",
+      detail: `${input.activeRuleCount} active rule version(s); rule review status ${input.laborConfig.changeControl.reviewStatus}; coverage ${laborComplianceCoverageSummary.coveredCount}/${laborComplianceCoverageSummary.totalCount}; ${laborRuleValidation.passedCount}/${laborRuleValidation.fixtureCount} fixture(s) passed; executable engine ${ruleEngineReadiness.passedCount}/${ruleEngineReadiness.checkCount} check(s) passed; sources ${legalSourceFreshness.freshSourceCount}/${legalSourceFreshness.totalSourceCount} fresh, oldest ${legalSourceFreshness.oldestCheckedAt ?? "missing"}.`,
+      nextStep: laborComplianceCoverageSummary.status === "ready"
+        ? "Approve active Taiwan labor/payroll rule versions, pass validation fixtures, verify executable rule-engine checks, refresh official source review dates, and recalculate any payroll drafts flagged by change control."
+        : `Complete Taiwan compliance coverage before launch: ${[
+          ...laborComplianceCoverageSummary.blockedItems,
+          ...laborComplianceCoverageSummary.needsReviewItems,
+        ].join(", ")}.`,
       actionLabel: "Review law rules",
       actionHref: "/settings#law-rules-setup",
     },

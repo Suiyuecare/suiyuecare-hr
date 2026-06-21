@@ -16,6 +16,7 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
   const ruleFocus = buildRuleFocus(center);
   const ruleSignals = buildRuleSignals(center);
   const governanceCards = buildRuleGovernanceCards(center);
+  const coverageSummary = center.complianceCoverageSummary;
 
   return (
     <main className="page law-rules-page">
@@ -78,6 +79,40 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
             </Link>
           </article>
         ))}
+      </section>
+
+      <section className="panel span-12 law-rule-coverage-panel" id="compliance-coverage" aria-label="台灣法遵覆蓋矩陣">
+        <div className="section-heading">
+          <div>
+            <h2>台灣法遵覆蓋矩陣</h2>
+            <p className="muted">
+              用同一份 rule version 檢查法源、可調參數與人工複核狀態；缺來源或缺設定會阻擋上線 Gate。
+            </p>
+          </div>
+          <span className={`badge ${coverageSummary.status === "ready" ? "done" : coverageSummary.status === "blocked" ? "danger" : "warning"}`}>
+            {coverageSummary.coveredCount}/{coverageSummary.totalCount} 覆蓋
+          </span>
+        </div>
+        <div className="law-rule-coverage-grid">
+          {center.complianceCoverage.map((item) => (
+            <article className={`law-rule-coverage-card ${coverageTone(item.status)}`} key={item.id}>
+              <div className="law-rule-coverage-card-top">
+                <span className="muted">{item.owner}</span>
+                <span className={`badge ${item.status === "covered" ? "done" : item.status === "blocked" ? "danger" : "warning"}`}>
+                  {coverageStatusLabel(item.status)}
+                </span>
+              </div>
+              <h3>{item.title}</h3>
+              <p>{item.legalBasis}</p>
+              <div className="law-rule-coverage-meta">
+                <span>{item.configuredControlCount}/{item.controlCount} 控制項</span>
+                <span>{item.sourceIds.length - item.missingSourceIds.length}/{item.sourceIds.length} 來源</span>
+              </div>
+              <small>{item.evidence}</small>
+              {item.status !== "covered" ? <strong>{item.nextAction}</strong> : null}
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="grid">
@@ -383,6 +418,16 @@ function buildRuleSignals(center: LawRuleCenter) {
       tone: toneFromReadiness(center.readiness.status),
     },
     {
+      id: "coverage",
+      label: "法遵覆蓋",
+      value: `${center.complianceCoverageSummary.coveredCount}/${center.complianceCoverageSummary.totalCount}`,
+      detail: center.complianceCoverageSummary.status === "ready"
+        ? "核心台灣法遵領域都有來源與可調控制。"
+        : `${center.complianceCoverageSummary.blockedCount} 阻擋、${center.complianceCoverageSummary.needsReviewCount} 待複核。`,
+      href: "#compliance-coverage",
+      tone: toneFromReadiness(center.complianceCoverageSummary.status),
+    },
+    {
       id: "sources",
       label: "官方來源",
       value: `${center.sourceFreshness.freshSourceCount}/${center.sourceFreshness.totalSourceCount}`,
@@ -413,6 +458,18 @@ function buildRuleSignals(center: LawRuleCenter) {
       tone: center.config.changeControl.requiresPayrollRecalculation ? "warning" as const : "ready" as const,
     },
   ];
+}
+
+function coverageTone(status: LawRuleCenter["complianceCoverage"][number]["status"]) {
+  if (status === "blocked") return "danger";
+  if (status === "needs_review") return "warning";
+  return "ready";
+}
+
+function coverageStatusLabel(status: LawRuleCenter["complianceCoverage"][number]["status"]) {
+  if (status === "blocked") return "缺口";
+  if (status === "needs_review") return "需複核";
+  return "已覆蓋";
 }
 
 function buildRuleGovernanceCards(center: LawRuleCenter) {
