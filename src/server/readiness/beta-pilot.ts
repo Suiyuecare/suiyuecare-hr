@@ -93,7 +93,17 @@ export type BetaPilotReadinessInput = {
     payrollItemCount: number;
     releasedPayslipCount: number;
     auditCount: number;
-    checklist: Pick<PayrollCloseChecklist, "attendanceComplete" | "pendingApprovalCount" | "exceptionCount" | "canLock">;
+    checklist: Pick<PayrollCloseChecklist, "attendanceComplete" | "pendingApprovalCount" | "exceptionCount" | "canLock"> & {
+      ruleReview?: Pick<
+        PayrollCloseChecklist["ruleReview"],
+        | "blocksLock"
+        | "detail"
+        | "needsRecalculation"
+        | "sourceAuthorityPassed"
+        | "untrustedLegalSourceCount"
+        | "invalidLegalSourceUrlCount"
+      >;
+    };
   };
   flowEvidence?: Partial<BetaPilotFlowEvidence>;
   checkpoints?: Array<BetaPilotCheckpointEvidence | null>;
@@ -147,9 +157,12 @@ export function buildBetaPilotReadinessReport(input: BetaPilotReadinessInput): B
     { ...defaultFlowEvidence, ...input.flowEvidence },
     input.checkpoints ?? [],
   );
+  const payrollRuleReview = input.payroll.checklist.ruleReview;
+  const payrollRuleBlocked = payrollRuleReview?.blocksLock ?? false;
   const payrollRunRehearsed =
     Boolean(input.payroll.runStatus) &&
     input.payroll.runStatus !== "blocked" &&
+    !payrollRuleBlocked &&
     input.payroll.payrollItemCount > 0 &&
     input.payroll.checklist.pendingApprovalCount === 0 &&
     input.payroll.checklist.exceptionCount === 0;
@@ -236,17 +249,21 @@ export function buildBetaPilotReadinessReport(input: BetaPilotReadinessInput): B
       id: "payroll_dry_run",
       area: "Payroll",
       title: "HR 月結與薪資預演",
-      status: payrollRunRehearsed && flowEvidence.payrollCloseSmokePassed
+      status: payrollRuleBlocked
+        ? "blocked"
+        : payrollRunRehearsed && flowEvidence.payrollCloseSmokePassed
         ? payrollKpiStatus === "failing" ? "action_required" : "ready"
         : input.payroll.runStatus === "blocked"
           ? "blocked"
           : "action_required",
       detail: input.payroll.runStatus
-        ? `薪資批次 ${input.payroll.runStatus}；${input.payroll.payrollItemCount} 筆 payroll item；待簽核 ${input.payroll.checklist.pendingApprovalCount}；異常 ${input.payroll.checklist.exceptionCount}；月結 KPI ${payrollKpiStatus}。`
+        ? `薪資批次 ${input.payroll.runStatus}；${input.payroll.payrollItemCount} 筆 payroll item；待簽核 ${input.payroll.checklist.pendingApprovalCount}；異常 ${input.payroll.checklist.exceptionCount}；法規 Gate ${payrollRuleBlocked ? "blocked" : "ready"}${payrollRuleBlocked ? ` (${localizePayrollRuleGateDetail(payrollRuleReview?.detail)})` : ""}；月結 KPI ${payrollKpiStatus}。`
         : "尚未建立薪資批次。",
-      nextStep: "建立月結批次、清掉出勤異常與待簽核、試算薪資草稿，HR 確認後再鎖定，不可靜默完成薪資。",
-      actionLabel: "開啟月結",
-      actionHref: "/hr",
+      nextStep: payrollRuleBlocked
+        ? "先修正法規規則、官方來源或重算要求，再重新試算月結；試用 Gate 不接受被法規 Gate 擋住的薪資預演。"
+        : "建立月結批次、清掉出勤異常與待簽核、試算薪資草稿，HR 確認後再鎖定，不可靜默完成薪資。",
+      actionLabel: payrollRuleBlocked ? "檢查法規規則" : "開啟月結",
+      actionHref: payrollRuleBlocked ? "/settings/law-rules" : "/hr",
     },
     {
       id: "payslip_access",
@@ -511,9 +528,10 @@ function buildPilotRunbook(
       checklist: [
         "建立月結批次",
         "待簽核與出勤異常歸零後重新試算",
+        "確認法規版本、官方來源與重算 Gate 沒有阻擋",
         "發布薪資單並確認員工只能看自己的薪資單",
       ],
-      evidence: "payroll item、pending approval、exception、lock/release、payslip self-view 都在 payroll gate 中可追蹤。",
+      evidence: "payroll item、pending approval、exception、rule review、lock/release、payslip self-view 都在 payroll gate 中可追蹤。",
       actionLabel: "開啟月結",
       actionHref: "/hr",
       checkpoint: checkpointById.get("day_7") ?? null,
@@ -631,6 +649,19 @@ function launchDetail(items: Map<string, LaunchReadinessSummary>, ids: string[])
       return item ? `${item.title}: ${item.status}` : `${id}: missing`;
     })
     .join("；");
+}
+
+function localizePayrollRuleGateDetail(detail: string | undefined) {
+  if (!detail) return "法規規則尚未通過";
+  const labels: Record<string, string> = {
+    "Active law rule version is still pending legal review.": "法規規則仍待複核",
+    "Active law rule version has non-official or invalid legal source URLs. Replace them with HTTPS official .gov.tw sources before payroll lock.":
+      "法規來源不是 HTTPS 官方 .gov.tw",
+    "Active law rule version changed after this payroll draft. Recalculate before lock.":
+      "法規異動後尚未重新試算",
+    "No payroll calculation has selected a rule version yet.": "薪資草稿尚未綁定規則版本",
+  };
+  return labels[detail] ?? detail;
 }
 
 function kpiStatus(kpis: Map<string, HrOneKpi>, id: string) {

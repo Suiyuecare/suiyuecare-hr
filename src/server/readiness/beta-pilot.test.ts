@@ -225,6 +225,52 @@ describe("beta pilot readiness", () => {
     });
   });
 
+  it("blocks the pilot payroll dry-run when payroll legal rule review is blocked", () => {
+    const report = buildBetaPilotReadinessReport({
+      employeeCount: 25,
+      managerCount: 1,
+      launchReport: readyLaunchReport(),
+      kpis: passingKpis,
+      payroll: {
+        runStatus: "locked",
+        payrollItemCount: 25,
+        releasedPayslipCount: 0,
+        auditCount: 8,
+        checklist: {
+          attendanceComplete: true,
+          pendingApprovalCount: 0,
+          exceptionCount: 0,
+          canLock: false,
+          ruleReview: {
+            blocksLock: true,
+            detail: "Active law rule version has non-official or invalid legal source URLs. Replace them with HTTPS official .gov.tw sources before payroll lock.",
+            needsRecalculation: false,
+            sourceAuthorityPassed: false,
+            untrustedLegalSourceCount: 1,
+            invalidLegalSourceUrlCount: 0,
+          },
+        },
+      },
+      flowEvidence: allFlowEvidence,
+    });
+
+    expect(report.readyForPilot).toBe(false);
+    expect(report.items.find((item) => item.id === "payroll_dry_run")).toMatchObject({
+      status: "blocked",
+      detail: expect.stringContaining("法規 Gate blocked"),
+      nextStep: expect.stringContaining("先修正法規規則"),
+      actionHref: "/settings/law-rules",
+    });
+    expect(report.phases.find((phase) => phase.step === 3)).toMatchObject({
+      status: "blocked",
+      actionHref: "/settings/law-rules",
+    });
+    expect(report.runbook.find((step) => step.id === "day_7")).toMatchObject({
+      status: "blocked",
+      actionHref: "/settings/law-rules",
+    });
+  });
+
   it("blocks the pilot when payroll access or audit coverage is not safe", () => {
     const unsafeKpis = passingKpis.map((kpi) =>
       kpi.id === "unauthorized_payroll_access"
