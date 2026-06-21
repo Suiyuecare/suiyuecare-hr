@@ -141,7 +141,7 @@ describe("payroll access matrix", () => {
     await expect(explainPayrollException(employeeSession, "base_salary")).rejects.toThrow(/ai:payroll_explain/);
 
     const explanation = await explainPayrollException(hrSession, "base_salary");
-    expect(explanation.summary).toContain("Amounts are intentionally not shown");
+    expect(explanation.summary).toContain("刻意不顯示薪資金額");
     expect(JSON.stringify(explanation)).not.toMatch(/56000|58000|62000|78000/);
   });
 

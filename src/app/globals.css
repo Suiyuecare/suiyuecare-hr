@@ -2291,6 +2291,92 @@ legend {
   min-height: 48px;
 }
 
+.ai-copilot-page,
+.ai-policy-source-page {
+  max-width: 1280px;
+}
+
+.ai-copilot-hero,
+.ai-policy-source-hero {
+  margin-bottom: 14px;
+}
+
+.ai-copilot-error {
+  margin-bottom: 14px;
+}
+
+.ai-copilot-command-card {
+  grid-template-rows: auto auto minmax(72px, auto) 1fr auto;
+}
+
+.ai-copilot-command-card label {
+  align-self: stretch;
+}
+
+.ai-copilot-command-card textarea {
+  min-height: 138px;
+}
+
+.ai-copilot-result-panel,
+.ai-copilot-confirm-panel {
+  margin-top: 14px;
+}
+
+.ai-result-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ai-result-heading strong,
+.ai-result-empty strong {
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 1000;
+  line-height: 1.18;
+}
+
+.ai-result h3,
+.ai-result h4 {
+  margin: 0;
+  color: var(--foreground);
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.ai-result h3 {
+  font-size: 20px;
+}
+
+.ai-result h4 {
+  font-size: 15px;
+}
+
+.ai-result ul.ai-result-list {
+  padding-left: 0;
+}
+
+.ai-source-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ai-result-empty {
+  border-color: var(--panel-border);
+  border-left-color: var(--accent);
+  background: #ffffff;
+}
+
+.ai-policy-source-wizard,
+.ai-policy-source-library {
+  align-self: start;
+}
+
+.ai-policy-source-item {
+  min-height: 96px;
+}
+
 .section-heading {
   display: flex;
   align-items: flex-start;
@@ -4498,6 +4584,11 @@ legend {
 .settings-control-focus .button {
   width: 100%;
   margin-top: auto;
+}
+
+.settings-control-focus.ready {
+  border-color: rgba(187, 247, 208, 0.42);
+  background: rgba(22, 163, 74, 0.16);
 }
 
 .settings-signal-board {
@@ -12541,6 +12632,7 @@ legend {
   .annual-leave-expiry-page .section-heading,
   .payroll-compliance-page .section-heading,
   .work-rule-page .section-heading,
+  .ai-result-heading,
   .access-user-card-head {
     align-items: stretch;
     flex-direction: column;
@@ -12557,6 +12649,8 @@ legend {
   .organization-primary-action,
   .organization-command-card,
   .organization-action-item,
+  .ai-copilot-command-card,
+  .ai-policy-source-item,
   .payroll-adjustment-command-grid .settings-command-card,
   .payroll-adjustment-flow article,
   .payroll-adjustment-guardrail-grid article,

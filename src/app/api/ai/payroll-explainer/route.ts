@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const resultId = storeAiResult("payroll_exception_explainer", result);
     return NextResponse.redirect(new URL(`/hr/copilot?result=${resultId}`, request.url), 303);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "AI request failed.";
+    const message = error instanceof Error ? error.message : "AI 請求失敗。";
     return NextResponse.redirect(
       new URL(`/hr/copilot?error=${encodeURIComponent(message)}`, request.url),
       303,

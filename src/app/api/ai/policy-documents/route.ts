@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
     return NextResponse.redirect(new URL("/hr/policy-sources", request.url), 303);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to save policy source.";
+    const message = error instanceof Error ? error.message : "政策來源儲存失敗。";
     return NextResponse.redirect(
       new URL(`/hr/policy-sources?error=${encodeURIComponent(message)}`, request.url),
       303,

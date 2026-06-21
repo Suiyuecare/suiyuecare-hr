@@ -22,7 +22,7 @@ export type AiSourceReference = {
 };
 
 export type AiPolicyAnswer = {
-  label: "AI suggestion";
+  label: "AI 建議";
   answer: string;
   confidence: "sufficient" | "insufficient";
   sources: AiSourceReference[];
@@ -30,7 +30,7 @@ export type AiPolicyAnswer = {
 };
 
 export type AiFormDraft = {
-  label: "AI draft";
+  label: "AI 草稿";
   title: string;
   description: string;
   category: string;
@@ -41,7 +41,7 @@ export type AiFormDraft = {
 };
 
 export type AiPayrollExplanation = {
-  label: "AI suggestion";
+  label: "AI 建議";
   summary: string;
   contributingRecords: AiSourceReference[];
   nextSteps: string[];

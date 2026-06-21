@@ -20,7 +20,7 @@ function parseText(value: FormDataEntryValue | null, fallback: string) {
 }
 
 function redirectWithError(request: Request, error: unknown) {
-  const message = error instanceof Error ? error.message : "AI request failed.";
+  const message = error instanceof Error ? error.message : "AI 請求失敗。";
   return NextResponse.redirect(
     new URL(`/hr/copilot?error=${encodeURIComponent(message)}`, request.url),
     303,

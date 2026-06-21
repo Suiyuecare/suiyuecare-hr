@@ -26,16 +26,16 @@ export async function answerPolicyQuestion(
   const draft =
     sources.length === 0
       ? {
-          label: "AI suggestion" as const,
+          label: "AI 建議" as const,
           answer:
-            "I cannot answer confidently because no approved policy document or configured rule matched the question.",
+            "目前沒有核准的公司政策或版本化規則可佐證這題，因此我不能有信心回答。請先補上已核准的政策摘錄或規則來源。",
           confidence: "insufficient" as const,
           sources: [],
           outputHash: "",
         }
       : {
-          label: "AI suggestion" as const,
-          answer: `Based on approved HR One sources: ${sources
+          label: "AI 建議" as const,
+          answer: `依據 HR One 已核准來源整理：${sources
             .map((source) => source.excerpt)
             .join(" ")}`,
           confidence: "sufficient" as const,
@@ -63,16 +63,16 @@ export async function draftFormFromPrompt(
   const hrCondition = inferHrReviewCondition(sanitizedPrompt);
   const fields = inferFormFields(sanitizedPrompt);
   const draft: AiFormDraft = {
-    label: "AI draft",
+    label: "AI 草稿",
     title,
-    description: `Drafted from HR request: ${shorten(sanitizedPrompt, 96)}`,
+    description: `依 HR 描述產生草稿：${shorten(sanitizedPrompt, 96)}`,
     category: inferCategory(sanitizedPrompt),
     fields,
     workflowSteps: [
       {
         id: "draft-step-manager",
         order: 1,
-        label: "Manager review",
+        label: "直屬主管審核",
         approverType: "direct_manager",
         conditionPlaceholder: null,
         condition: null,
@@ -80,13 +80,13 @@ export async function draftFormFromPrompt(
       {
         id: "draft-step-hr",
         order: 2,
-        label: hrCondition ? "HR review when condition matches" : "HR review",
+        label: hrCondition ? "符合條件時加簽 HR" : "HR 複核",
         approverType: "hr_admin",
         conditionPlaceholder: null,
         condition: hrCondition,
       },
     ],
-    safetyNote: "AI drafted this form and workflow proposal. HR must review and confirm before saving.",
+    safetyNote: "AI 只產生表單與流程草稿，HR 必須檢查欄位、簽核條件與敏感決策限制後，才可以儲存。",
     outputHash: "",
   };
   const outputHash = await auditAiUsage({
@@ -109,21 +109,21 @@ export async function explainPayrollException(
   const contributingRecords = payrollSources(item);
   const draft: AiPayrollExplanation = item
     ? {
-        label: "AI suggestion",
-        summary: `${item.employeeName}'s ${item.name} is unusual because it depends on the reviewed payroll rule configuration and related attendance or approved request records. Amounts are intentionally not shown in this explanation.`,
+        label: "AI 建議",
+        summary: `${item.employeeName} 的「${item.name}」需要 HR 複核，因為它受到已審核的薪資規則、出勤彙總或已核准申請紀錄影響。此解釋刻意不顯示薪資金額。`,
         contributingRecords,
         nextSteps: [
-          "Verify attendance completeness before payroll lock.",
-          "Check approved overtime, leave, and punch correction timelines.",
-          "Escalate to HR confirmation if records conflict.",
+          "薪資鎖定前先確認出勤完整性。",
+          "核對已核准加班、請假與補打卡時間線。",
+          "若紀錄互相衝突，交由 HR 人工確認後再進入月結。",
         ],
         outputHash: "",
       }
     : {
-        label: "AI suggestion",
-        summary: "No calculated payroll item is available yet. Create and calculate a payroll run first.",
+        label: "AI 建議",
+        summary: "目前還沒有可解釋的薪資項目。請先建立薪資批次並完成草稿計算。",
         contributingRecords,
-        nextSteps: ["Create payroll run.", "Resolve blockers.", "Calculate draft before reviewing exceptions."],
+        nextSteps: ["建立薪資批次。", "處理月結阻擋項。", "完成草稿計算後再檢查異常。"],
         outputHash: "",
       };
   const outputHash = await auditAiUsage({
@@ -160,9 +160,9 @@ export async function summarizeApprovalRequest(
 }
 
 function inferFormTitle(prompt: string) {
-  if (/training|course|learning|訓練|課程/.test(prompt.toLowerCase())) return "Training request";
-  if (/equipment|laptop|badge|設備|識別證/.test(prompt.toLowerCase())) return "Equipment request";
-  return "Employee request";
+  if (/training|course|learning|訓練|課程|證照/.test(prompt.toLowerCase())) return "訓練申請單";
+  if (/equipment|laptop|badge|設備|識別證/.test(prompt.toLowerCase())) return "設備申請單";
+  return "員工服務申請單";
 }
 
 function localizeRequestTitle(title: string) {
@@ -175,23 +175,23 @@ function localizeRequestTitle(title: string) {
 }
 
 function inferCategory(prompt: string) {
-  if (/training|course|learning|訓練|課程/.test(prompt.toLowerCase())) return "Learning";
-  if (/equipment|laptop|badge|設備|識別證/.test(prompt.toLowerCase())) return "Employee service";
-  return "HR service";
+  if (/training|course|learning|訓練|課程|證照/.test(prompt.toLowerCase())) return "訓練發展";
+  if (/equipment|laptop|badge|設備|識別證/.test(prompt.toLowerCase())) return "員工服務";
+  return "人資服務";
 }
 
 function inferPrimaryField(prompt: string) {
-  if (/training|course|learning|訓練|課程/.test(prompt.toLowerCase())) return "Training course";
-  if (/equipment|laptop|badge|設備|識別證/.test(prompt.toLowerCase())) return "Requested item";
-  return "Request detail";
+  if (/training|course|learning|訓練|課程|證照/.test(prompt.toLowerCase())) return "訓練課程";
+  if (/equipment|laptop|badge|設備|識別證/.test(prompt.toLowerCase())) return "申請項目";
+  return "需求說明";
 }
 
 function inferFormFields(prompt: string): AiFormDraft["fields"] {
   const lower = prompt.toLowerCase();
   const primaryType = /type|category|種類|類型/.test(lower) ? "select" : "text";
-  const primaryOptions = primaryType === "select" ? ["Standard", "Other"] : undefined;
+  const primaryOptions = primaryType === "select" ? ["一般", "其他"] : undefined;
   const notesVisibility = primaryType === "select"
-    ? { type: "field_equals" as const, fieldId: "primary", expectedValue: "Other" }
+    ? { type: "field_equals" as const, fieldId: "primary", expectedValue: "其他" }
     : null;
 
   return [
@@ -202,10 +202,10 @@ function inferFormFields(prompt: string): AiFormDraft["fields"] {
       required: true,
       options: primaryOptions,
     },
-    { id: "needed_by", label: "Needed by", type: "date", required: false },
+    { id: "needed_by", label: "希望完成日", type: "date", required: false },
     {
       id: "notes",
-      label: "Notes",
+      label: "補充說明",
       type: "textarea",
       required: false,
       visibilityRule: notesVisibility,
@@ -219,7 +219,7 @@ function inferHrReviewCondition(prompt: string) {
     return {
       type: "field_equals" as const,
       fieldId: "primary",
-      expectedValue: "External certification",
+      expectedValue: "外部證照",
     };
   }
   return null;
@@ -234,21 +234,21 @@ function payrollSources(item: PayrollItemView | null | undefined): AiSourceRefer
   const sources: AiSourceReference[] = [
     {
       id: `payroll-item:${item.employeeId}:${item.code}`,
-      title: "Payroll item draft",
-      excerpt: `${item.name} for ${item.employeeName}; monetary amount omitted from AI context.`,
+      title: "薪資項目草稿",
+      excerpt: `${item.employeeName} 的「${item.name}」；AI context 已排除金額。`,
     },
   ];
   if (item.kind === "overtime") {
     sources.push({
       id: "overtime-request:approved-demo-90",
-      title: "Approved overtime record",
-      excerpt: "Approved overtime minutes contributed through the configured payroll rule.",
+      title: "已核准加班紀錄",
+      excerpt: "已核准加班分鐘數依設定的薪資規則納入計算。",
     });
   }
   sources.push({
     id: "attendance-summary:demo-month",
-    title: "Attendance completeness summary",
-    excerpt: "Monthly close uses attendance completeness and pending approval checks before payroll lock.",
+    title: "出勤完整性彙總",
+    excerpt: "薪資鎖定前會檢查出勤完整性與待簽核項目。",
   });
   return sources;
 }

@@ -42,49 +42,49 @@ const globalForPolicyDocs = globalThis as unknown as {
 export const defaultApprovedPolicyDocs: PolicyDoc[] = [
   {
     id: "policy-leave-annual-v1",
-    title: "Annual Leave Policy v1",
-    category: "Leave",
+    title: "特休與請假政策 v1",
+    category: "請假",
     status: "approved",
     version: "v1",
     sourceRef: "demo://policy/annual-leave-v1",
     excerpt:
-      "Employees submit leave requests with dates, units, and reason. Balance is reserved when submitted and finalized only after manager approval.",
+      "員工送出請假時需填寫日期、單位與原因；系統會先保留假別餘額，並在主管核准後才正式扣抵。",
     keywords: ["leave", "annual", "vacation", "balance", "請假", "特休", "休假"],
     approvedAt: new Date("2026-01-01T00:00:00.000Z"),
   },
   {
     id: "rule-overtime-demo-2026-06",
-    title: "Taiwan Overtime Rule 2026.06",
-    category: "Attendance",
+    title: "台灣加班規則 2026.06",
+    category: "出勤",
     status: "approved",
     version: "2026.06",
     sourceRef: "demo://rule/overtime-2026-06",
     excerpt:
-      "Overtime requests include start time, end time, and reason. HR One warns when total daily work time exceeds the configured threshold.",
+      "加班申請需包含開始時間、結束時間與原因；當每日總工時超過設定門檻時，HR One 會提醒主管與 HR 複核。",
     keywords: ["overtime", "threshold", "加班", "工時"],
     approvedAt: new Date("2026-06-01T00:00:00.000Z"),
   },
   {
     id: "policy-payroll-close-v1",
-    title: "Payroll Close Policy v1",
-    category: "Payroll",
+    title: "薪資月結政策 v1",
+    category: "薪資",
     status: "approved",
     version: "v1",
     sourceRef: "demo://policy/payroll-close-v1",
     excerpt:
-      "Payroll must pass attendance completeness, pending approval, calculation draft, exception review, HR confirmation, lock, and payslip release steps.",
+      "薪資月結必須依序通過出勤完整性、待簽核、計算草稿、異常複核、HR 確認、鎖定與薪資單釋出步驟。",
     keywords: ["payroll", "close", "payslip", "salary", "薪資", "月結", "薪資單"],
     approvedAt: new Date("2026-01-01T00:00:00.000Z"),
   },
   {
     id: "policy-ai-safety-v1",
-    title: "AI Safety Policy v1",
-    category: "AI safety",
+    title: "AI 使用安全政策 v1",
+    category: "AI 安全",
     status: "approved",
     version: "v1",
     sourceRef: "demo://policy/ai-safety-v1",
     excerpt:
-      "AI may summarize, explain, draft, and recommend verification steps. AI must not make final hiring, firing, compensation, performance, or disciplinary decisions.",
+      "AI 可以摘要、解釋、草擬與建議核對步驟，但不得做出招募拒絕、解僱、薪資、績效或懲戒的最終決策。",
     keywords: ["ai", "copilot", "decision", "safety", "人工智慧", "決策"],
     approvedAt: new Date("2026-01-01T00:00:00.000Z"),
   },
@@ -218,11 +218,11 @@ function normalizeInput(input: PolicyDocumentInput) {
   const title = input.title.trim();
   const category = input.category.trim();
   const excerpt = input.excerpt.trim();
-  if (title.length < 3) throw new Error("Policy title is required.");
-  if (category.length < 2) throw new Error("Policy category is required.");
-  if (excerpt.length < 20) throw new Error("Policy excerpt must be specific enough for sourced answers.");
+  if (title.length < 3) throw new Error("請填寫政策來源標題。");
+  if (category.length < 2) throw new Error("請填寫政策來源類別。");
+  if (excerpt.length < 20) throw new Error("政策摘錄需要足夠具體，AI 才能引用。");
   const keywords = normalizeKeywords(input.keywords);
-  if (keywords.length === 0) throw new Error("At least one keyword is required.");
+  if (keywords.length === 0) throw new Error("請至少填寫一個關鍵字。");
   return {
     title,
     category,

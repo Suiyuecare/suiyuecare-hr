@@ -117,6 +117,44 @@ test("主管可以從 Inbox 快速核准請假", async ({ page }) => {
   await expect(page.getByText("已核准").first()).toBeVisible();
 });
 
+test("HR 可以用中文 AI Copilot 取得來源回答並管理政策來源", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr/copilot");
+
+  await expect(page.getByRole("heading", { name: "AI Copilot 安全工作台" })).toBeVisible();
+  await expect(page.getByLabel("AI 安全訊號板").getByText("100% 要有來源")).toBeVisible();
+  await expect(page.getByLabel("AI 任務入口").getByRole("heading", { name: "只用核准來源回答" })).toBeVisible();
+  await expect(page.getByLabel("AI 任務入口").getByRole("heading", { name: "解釋異常，不顯示金額" })).toBeVisible();
+
+  await page.getByLabel("HR 問題").fill("特休餘額與請假核准會怎麼影響？");
+  await page.getByRole("button", { name: "用來源回答" }).click();
+  await expect(page).toHaveURL(/\/hr\/copilot\?result=/);
+  await expect(page.getByLabel("AI 輸出檢查").getByText("已找到核准來源")).toBeVisible();
+  await expect(page.getByLabel("來源引用").getByText("特休與請假政策 v1")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("accountNumber");
+  await expect(page.locator("body")).not.toContainText("nationalId");
+
+  await page.goto("/hr/policy-sources");
+  await expect(page.getByRole("heading", { name: "政策來源庫" })).toBeVisible();
+  await expect(page.getByLabel("政策來源訊號板").getByText("已核准")).toBeVisible();
+  await expect(page.getByRole("form", { name: "政策來源精靈" })).toBeVisible();
+
+  const sourceWizard = page.getByRole("form", { name: "政策來源精靈" });
+  await sourceWizard.getByLabel("標題").fill("遠端工作政策 v2");
+  await sourceWizard.getByLabel("類別").fill("工作地點");
+  await sourceWizard.getByLabel("版本").fill("v2");
+  await sourceWizard.getByLabel("狀態").selectOption("approved");
+  await sourceWizard.getByLabel("來源編號").fill("handbook://remote/v2");
+  await sourceWizard.getByLabel("關鍵字").fill("遠端, remote, hybrid");
+  await sourceWizard.getByLabel("核准摘錄").fill("遠端工作申請需填寫工作日期、主管確認與緊急聯絡方式。");
+  await sourceWizard.getByRole("button", { name: "儲存政策來源" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/policy-sources$/);
+  await expect(page.getByText("遠端工作政策 v2")).toBeVisible();
+  await expect(page.getByText("已核准").first()).toBeVisible();
+});
+
 test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) => {
   test.setTimeout(180_000);
   await page.goto("/app");

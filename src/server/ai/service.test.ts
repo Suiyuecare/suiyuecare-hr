@@ -91,10 +91,12 @@ describe("AI Copilot safety", () => {
       condition: {
         type: "field_equals",
         fieldId: "primary",
-        expectedValue: "External certification",
+        expectedValue: "外部證照",
       },
     });
     expect(draft.workflowSteps[0].condition).toBeNull();
+    expect(draft.title).toBe("訓練申請單");
+    expect(draft.safetyNote).toContain("HR 必須檢查");
   });
 
   it("summarizes approvals using attachment evidence metadata language", async () => {
@@ -129,7 +131,7 @@ describe("AI Copilot safety", () => {
     resolveDemoPayrollBlockers();
     calculateDemoPayrollRun();
     const explanation = await explainPayrollException(hrSession, "overtime");
-    expect(explanation.summary).toContain("Amounts are intentionally not shown");
+    expect(explanation.summary).toContain("刻意不顯示薪資金額");
     expect(explanation.summary).not.toMatch(/\$\d|NT|TWD|\d{4,}/);
   });
 });
