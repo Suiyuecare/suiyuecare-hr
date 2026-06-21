@@ -1245,6 +1245,9 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   await expect(page.getByLabel("HR 月結指揮台").getByText("今日先處理")).toBeVisible();
   await expect(page.getByLabel("HR 月結訊號板").getByText("月結閘門")).toBeVisible();
   await expect(page.getByLabel("HR 月結訊號板").getByText("販售 KPI")).toBeVisible();
+  await expect(page.getByLabel("出勤日清路線").getByText("出勤日清路線")).toBeVisible();
+  await expect(page.getByLabel("出勤日清路線").getByText("01 解決率")).toBeVisible();
+  await expect(page.getByLabel("出勤日清路線").getByText("03 安全建議")).toBeVisible();
   await expect(page.getByText("Day 7 月結預演")).toBeVisible();
   await expect(page.getByText("薪資資料不在摘要外洩")).toBeVisible();
 

@@ -5575,6 +5575,89 @@ legend {
   background: #f0fdf4;
 }
 
+.hr-attendance-dayline {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.15fr) repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+.hr-attendance-dayline-copy,
+.hr-attendance-dayline-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 116px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.hr-attendance-dayline-copy {
+  border-color: #111827;
+  background: #111827;
+  color: #ffffff;
+}
+
+.hr-attendance-dayline-copy .muted,
+.hr-attendance-dayline-copy small {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.hr-attendance-dayline-copy strong {
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 1000;
+  line-height: 1.1;
+}
+
+.hr-attendance-dayline-copy small,
+.hr-attendance-dayline-card small {
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.4;
+}
+
+.hr-attendance-dayline-card span {
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.hr-attendance-dayline-card strong {
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.hr-attendance-dayline-card small {
+  color: var(--muted);
+}
+
+.hr-attendance-dayline-card.focus,
+.hr-attendance-dayline-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.hr-attendance-dayline-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.hr-attendance-dayline-card.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.hr-attendance-dayline-card.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
 .hr-kpi-page {
   max-width: 1280px;
 }
@@ -11569,6 +11652,7 @@ legend {
   .law-rule-impact-grid,
   .hr-monthly-hero,
   .hr-monthly-signal-board,
+  .hr-attendance-dayline,
   .employee-command-grid,
   .leave-balance-strip,
   .quick-leave-grid,
@@ -12002,6 +12086,8 @@ legend {
   .law-rule-impact-card,
   .hr-monthly-hero-focus,
   .hr-monthly-signal-card,
+  .hr-attendance-dayline-copy,
+  .hr-attendance-dayline-card,
   .offboarding-command-grid .settings-command-card,
   .offboarding-mini-task,
   .offboarding-guardrail-grid article,

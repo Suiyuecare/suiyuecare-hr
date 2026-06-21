@@ -1,6 +1,7 @@
 import { EmptyState } from "@/components/EmptyState";
 import { getDemoSession } from "@/server/auth/session";
 import { hasPermission } from "@/server/auth/rbac";
+import { summarizeAttendanceExceptionResolution } from "@/server/attendance/exceptions";
 import { getCompanyOverview } from "@/server/dashboard/queries";
 import { getHrOneKpis, summarizeHrOneKpis } from "@/server/kpis/hr-one";
 import { getOnboardingReadinessReport } from "@/server/onboarding/readiness";
@@ -32,7 +33,9 @@ export default async function HrDashboardPage() {
   ]);
   const kpiSummary = summarizeHrOneKpis(kpis);
   const focusKpis = kpis.filter((kpi) => kpi.status !== "passing").slice(0, 3);
+  const attendanceSummary = summarizeAttendanceExceptionResolution(exceptions);
   const pendingExceptionCount = exceptions.filter((item) => item.status === "pending").length;
+  const attendanceDayline = buildAttendanceDayline(attendanceSummary);
   const nextActions = buildNextActions({
     attendanceExceptionCount: pendingExceptionCount,
     onboardingReadiness,
@@ -137,6 +140,21 @@ export default async function HrDashboardPage() {
           <strong>{kpiSummary.watch + kpiSummary.failing} 項待改善</strong>
           <small>持續追蹤 60 秒請假、15 秒簽核與薪資月結時間。</small>
         </a>
+      </section>
+
+      <section className="hr-attendance-dayline" aria-label="出勤日清路線">
+        <div className="hr-attendance-dayline-copy">
+          <span className="muted">出勤日清路線</span>
+          <strong>{attendanceSummary.kpiReady ? "出勤異常接近可月結" : "先把出勤異常清到 90% 以上"}</strong>
+          <small>HR 首頁直接看到解決率、安全建議與高風險工時；真正處理仍回到異常工作台並寫入 audit。</small>
+        </div>
+        {attendanceDayline.map((item) => (
+          <a className={`hr-attendance-dayline-card ${item.tone}`} href={item.href} key={item.step}>
+            <span>{item.step}</span>
+            <strong>{item.title}</strong>
+            <small>{item.detail}</small>
+          </a>
+        ))}
       </section>
 
       <section className="hr-close-command-band" aria-label="HR 月結任務帶">
@@ -639,6 +657,14 @@ type AdminModuleGroup = {
 };
 
 type PayrollDashboard = Awaited<ReturnType<typeof getPayrollDashboard>>;
+type AttendanceResolutionSummary = ReturnType<typeof summarizeAttendanceExceptionResolution>;
+type AttendanceDaylineItem = {
+  step: string;
+  title: string;
+  detail: string;
+  href: string;
+  tone: "ready" | "warning" | "danger" | "focus";
+};
 type PayrollRunway = {
   title: string;
   detail: string;
@@ -658,6 +684,39 @@ type PayrollRunway = {
 };
 
 type CloseStep = Awaited<ReturnType<typeof getPayrollDashboard>>["checklist"]["steps"][number];
+
+function buildAttendanceDayline(summary: AttendanceResolutionSummary): AttendanceDaylineItem[] {
+  return [
+    {
+      step: "01 解決率",
+      title: `${summary.resolutionRate}%`,
+      detail: summary.kpiReady ? "已達 90% 以上，仍需保留月結證據。" : "未達 90%，月結前先清安全建議與高風險。",
+      href: "/hr/attendance-exceptions",
+      tone: summary.kpiReady ? "ready" : summary.highRiskCount ? "danger" : "warning",
+    },
+    {
+      step: "02 待處理",
+      title: `${summary.pendingCount} 筆`,
+      detail: summary.pendingCount ? "漏打卡、重複打卡與工時風險會阻擋薪資鎖定。" : "目前沒有待處理出勤異常。",
+      href: "/hr/attendance-exceptions#attendance-exception-queue",
+      tone: summary.pendingCount ? "danger" : "ready",
+    },
+    {
+      step: "03 安全建議",
+      title: `${summary.autoResolvableCount} 筆`,
+      detail: summary.autoResolvableCount ? "可由 HR 到異常工作台確認後套用，不會自動關閉。" : "沒有低風險批次建議。",
+      href: "/hr/attendance-exceptions",
+      tone: summary.autoResolvableCount ? "focus" : "ready",
+    },
+    {
+      step: "04 高風險",
+      title: `${summary.highRiskCount} 筆`,
+      detail: summary.highRiskCount ? "涉及工時或法遵風險，需人工追溯班表、假勤與加班。" : "沒有高風險工時阻擋。",
+      href: summary.highRiskCount ? "/hr/worktime-compliance" : "/hr/attendance-exceptions",
+      tone: summary.highRiskCount ? "danger" : "ready",
+    },
+  ];
+}
 
 function buildPayrollRunway(payroll: PayrollDashboard): PayrollRunway {
   const runStatus = payroll.run?.status ?? "not started";
