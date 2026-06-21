@@ -658,13 +658,19 @@ test("HR 可以設定打卡方式並讓員工端看到提示", async ({ page }) 
   await page.getByRole("button", { name: "切換" }).click();
   await page.goto("/hr/attendance-policies");
 
-  await expect(page.getByRole("heading", { name: "出勤政策" })).toBeVisible();
-  await page.getByLabel("必須連公司網路").check();
-  await page.getByLabel("必須 GPS 靠近公司").check();
-  await page.getByLabel("員工端打卡提示").fill("請連公司網路，並在公司 300 公尺內完成打卡。");
-  await page.getByRole("button", { name: "儲存出勤政策" }).click();
-  await expect(page.getByText("需公司網路")).toBeVisible();
-  await expect(page.getByText("需 GPS 300 公尺內")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "打卡與出勤政策工作台" })).toBeVisible();
+  await expect(page.getByLabel("打卡與出勤政策工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("出勤政策訊號板").getByText("保存 Gate")).toBeVisible();
+  await expect(page.getByLabel("出勤政策作業卡").getByRole("heading", { name: "打卡設定" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "打卡與出勤政策精靈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "出勤設定治理原則" })).toBeVisible();
+
+  const policyWizard = page.getByRole("form", { name: "出勤政策設定精靈" });
+  await policyWizard.getByLabel("必須連公司網路").check();
+  await policyWizard.getByLabel("必須 GPS 靠近公司").check();
+  await policyWizard.getByLabel("員工端打卡提示").fill("請連公司網路，並在公司 300 公尺內完成打卡。");
+  await policyWizard.getByRole("button", { name: "儲存出勤政策" }).click();
+  await expect(page.getByLabel("出勤政策訊號板").getByText("遠端可打卡、需公司網路、需 GPS 300 公尺內")).toBeVisible();
 
   await page.getByLabel("示範角色").selectOption("employee");
   await page.getByRole("button", { name: "切換" }).click();

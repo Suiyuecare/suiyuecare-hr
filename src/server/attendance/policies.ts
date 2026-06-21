@@ -350,9 +350,9 @@ function defaultAttendancePolicy(): AttendancePolicyView {
   const now = new Date();
   return {
     id: "default-attendance-policy",
-    name: "Default attendance policy",
+    name: "標準出勤政策",
     status: "active",
-    regularDailyMinutes: 540,
+    regularDailyMinutes: 480,
     overtimeWarningDailyMinutes: 720,
     clockInGraceMinutes: 5,
     clockOutGraceMinutes: 5,
