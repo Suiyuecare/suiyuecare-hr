@@ -149,6 +149,10 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await page.goto("/settings/organization");
   await expect(page).toHaveURL(/\/settings\/organization$/);
   await expect(page.getByRole("heading", { name: "公司組織設定" })).toBeVisible();
+  await expect(page.getByLabel("公司管理指揮板").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("公司設定訊號板").getByText("主管線", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("公司管理下一步").getByRole("heading", { name: "下一步" })).toBeVisible();
+  await expect(page.getByLabel("公司管理下一步").getByText("檢查上線 Gate")).toBeVisible();
   await expect(page.getByRole("heading", { name: "主管線治理" })).toBeVisible();
   await expect(page.getByLabel("主管線風險摘要").getByText("缺直屬主管")).toBeVisible();
   const managerLineForm = page.getByRole("form", { name: "主管線修正" });

@@ -98,6 +98,29 @@ export type OrganizationReadiness = {
   nextActions: string[];
 };
 
+export type OrganizationCommandTone = "ready" | "warning" | "danger";
+
+export type OrganizationCommandCard = {
+  id: string;
+  label: string;
+  title: string;
+  value: string;
+  detail: string;
+  tone: OrganizationCommandTone;
+  href: string;
+  actionLabel: string;
+};
+
+export type OrganizationActionQueueItem = {
+  id: string;
+  stepLabel: string;
+  title: string;
+  detail: string;
+  tone: OrganizationCommandTone;
+  href: string;
+  actionLabel: string;
+};
+
 export type OrganizationSettingsView = {
   company: OrganizationCompanySettings;
   departments: OrganizationDepartmentSettings[];
@@ -108,6 +131,8 @@ export type OrganizationSettingsView = {
   managerLines: OrganizationManagerLine[];
   managerLineRisks: OrganizationManagerLineRisk[];
   readiness: OrganizationReadiness;
+  commandCards: OrganizationCommandCard[];
+  actionQueue: OrganizationActionQueueItem[];
   auditScope: string[];
 };
 
@@ -1018,6 +1043,7 @@ function buildOrganizationSettingsView(state: OrganizationDemoState): Organizati
   const jobTitles = summarizeJobTitles(state.employees);
   const managerLineRisks = buildManagerLineRisks(state);
   const readiness = buildReadiness({ ...state, jobLevels, jobPositions }, jobTitles);
+  const commandCenter = buildOrganizationCommandCenter({ ...state, jobLevels, jobPositions }, jobTitles, readiness, managerLineRisks);
   return {
     company: state.company,
     departments: [...state.departments].sort((a, b) => a.code.localeCompare(b.code)),
@@ -1047,6 +1073,8 @@ function buildOrganizationSettingsView(state: OrganizationDemoState): Organizati
       })),
     managerLineRisks,
     readiness,
+    commandCards: commandCenter.commandCards,
+    actionQueue: commandCenter.actionQueue,
     auditScope: [
       "公司資料變更",
       "部門建立與更新",
@@ -1055,6 +1083,159 @@ function buildOrganizationSettingsView(state: OrganizationDemoState): Organizati
       "主管線調整",
     ],
   };
+}
+
+function buildOrganizationCommandCenter(
+  state: Pick<OrganizationDemoState, "company" | "departments" | "employees"> & {
+    jobLevels: OrganizationJobLevelSettings[];
+    jobPositions: OrganizationJobPositionSettings[];
+  },
+  jobTitles: OrganizationJobTitleSummary[],
+  readiness: OrganizationReadiness,
+  managerLineRisks: OrganizationManagerLineRisk[],
+) {
+  const gaps = buildOrganizationGapSummary(state, jobTitles, managerLineRisks);
+  const commandCards: OrganizationCommandCard[] = [
+    {
+      id: "company_profile",
+      label: "公司資料",
+      title: readiness.status === "blocked" ? "公司基礎需補齊" : "公司資料可用",
+      value: readiness.status === "blocked" ? `${readiness.blockers.length} 阻擋` : state.company.taxId ? "已設定" : "待補",
+      detail: readiness.blockers[0] ?? "公司名稱、登記名稱、統編、時區與幣別已可支撐後續 payroll/audit 文件。",
+      tone: readiness.status === "blocked" ? "danger" : "ready",
+      href: "#company-profile",
+      actionLabel: readiness.status === "blocked" ? "補公司資料" : "檢查公司資料",
+    },
+    {
+      id: "manager_lines",
+      label: "主管線",
+      title: gaps.managerCycleDetected ? "主管線循環需立即修正" : gaps.managerLineGapCount ? "主管線需整理" : "主管線可用",
+      value: gaps.managerLineGapCount ? `${gaps.managerLineGapCount} 缺口` : `${state.employees.filter((employee) => employee.directReportCount > 0).length} 主管`,
+      detail: gaps.managerCycleDetected
+        ? "偵測到主管線循環，統一 Inbox 與簽核流程可能卡住。"
+        : gaps.managerLineGapCount
+          ? `${gaps.missingManagerEmployees} 位員工缺直屬主管，${gaps.departmentsWithoutManagers} 個部門缺可推得主管。`
+          : "簽核、排班、權限與主管 Inbox 可共用同一條主管線。",
+      tone: gaps.managerCycleDetected ? "danger" : gaps.managerLineGapCount ? "warning" : "ready",
+      href: "#manager-line-governance",
+      actionLabel: "整理主管線",
+    },
+    {
+      id: "job_architecture",
+      label: "職務職等",
+      title: gaps.jobArchitectureGapCount ? "標準職務需收斂" : "標準職務可用",
+      value: gaps.jobArchitectureGapCount ? `${gaps.jobArchitectureGapCount} 缺口` : `${state.jobPositions.length} 職務`,
+      detail: gaps.jobArchitectureGapCount
+        ? `${gaps.employeesWithoutJobPosition} 位員工未連到標準職務；薪資、權限與報表仍需對齊。`
+        : "職務、職等與員工主檔已能作為人事異動、薪資與報表共用語言。",
+      tone: gaps.jobArchitectureGapCount ? "warning" : "ready",
+      href: "#job-architecture",
+      actionLabel: "整理職務職等",
+    },
+    {
+      id: "launch_foundation",
+      label: "上線基礎",
+      title: readiness.status === "ready" ? "可進入上線 Gate" : "先清組織缺口",
+      value: readiness.status === "ready" ? "Ready" : readiness.status === "blocked" ? "Blocked" : "待整理",
+      detail: readiness.status === "ready"
+        ? "公司管理基礎可交給上線 readiness 與 pilot go/no-go 接續檢查。"
+        : "正式試用前先清公司資料、部門、主管線與職務架構，避免真實員工邀請後返工。",
+      tone: readiness.status === "ready" ? "ready" : readiness.status === "blocked" ? "danger" : "warning",
+      href: "/settings/readiness",
+      actionLabel: "檢查上線 Gate",
+    },
+  ];
+
+  return {
+    commandCards,
+    actionQueue: buildOrganizationActionQueue(gaps, readiness),
+  };
+}
+
+function buildOrganizationGapSummary(
+  state: Pick<OrganizationDemoState, "company" | "departments" | "employees"> & {
+    jobLevels: OrganizationJobLevelSettings[];
+    jobPositions: OrganizationJobPositionSettings[];
+  },
+  jobTitles: OrganizationJobTitleSummary[],
+  managerLineRisks: OrganizationManagerLineRisk[],
+) {
+  const missingManagerEmployees = state.employees.filter((employee) => !employee.managerId && employee.directReportCount === 0).length;
+  const departmentsWithoutManagers = state.departments.filter((department) => department.managerCount === 0).length;
+  const employeesWithoutJobPosition = state.employees.filter((employee) => !employee.jobPositionId).length;
+  const unmanagedJobTitleCount = Math.max(0, jobTitles.length - state.jobPositions.length);
+  const managerCycleDetected = managerLineRisks.some((risk) => risk.id === "manager-cycle" && risk.severity === "danger");
+  const companyProfileBlocked = !state.company.name || !state.company.legalName || !state.company.taxId || state.departments.length === 0;
+  const managerLineGapCount = missingManagerEmployees + departmentsWithoutManagers + (managerCycleDetected ? 1 : 0);
+  const jobArchitectureGapCount =
+    employeesWithoutJobPosition +
+    unmanagedJobTitleCount +
+    (state.jobLevels.length === 0 ? 1 : 0) +
+    (state.jobPositions.length === 0 ? 1 : 0);
+  return {
+    companyProfileBlocked,
+    missingManagerEmployees,
+    departmentsWithoutManagers,
+    managerCycleDetected,
+    managerLineGapCount,
+    employeesWithoutJobPosition,
+    unmanagedJobTitleCount,
+    jobArchitectureGapCount,
+  };
+}
+
+function buildOrganizationActionQueue(
+  gaps: ReturnType<typeof buildOrganizationGapSummary>,
+  readiness: OrganizationReadiness,
+): OrganizationActionQueueItem[] {
+  const tasks: OrganizationActionQueueItem[] = [];
+  if (gaps.companyProfileBlocked) {
+    tasks.push({
+      id: "company_profile",
+      stepLabel: "01 先補",
+      title: "補齊公司資料與第一層部門",
+      detail: readiness.blockers[0] ?? "公司名稱、登記名稱、統編與至少一個部門是 tenant 上線基礎。",
+      tone: "danger",
+      href: "#company-profile",
+      actionLabel: "補公司資料",
+    });
+  }
+  if (gaps.managerLineGapCount > 0) {
+    tasks.push({
+      id: "manager_lines",
+      stepLabel: tasks.length ? "02 接著" : "01 先處理",
+      title: gaps.managerCycleDetected ? "修掉主管線循環" : "清掉主管線缺口",
+      detail: gaps.managerCycleDetected
+        ? "主管線循環會讓簽核 Inbox 與 ABAC 判斷不可靠，必須先修。"
+        : `${gaps.missingManagerEmployees} 位員工缺直屬主管，${gaps.departmentsWithoutManagers} 個部門缺主管覆蓋。`,
+      tone: gaps.managerCycleDetected ? "danger" : "warning",
+      href: "#manager-line-governance",
+      actionLabel: "開啟主管線精靈",
+    });
+  }
+  if (gaps.jobArchitectureGapCount > 0) {
+    tasks.push({
+      id: "job_architecture",
+      stepLabel: tasks.length ? `0${tasks.length + 1} 再來` : "01 先處理",
+      title: "把職稱收斂成標準職務/職等",
+      detail: `${gaps.employeesWithoutJobPosition} 位員工未連到標準職務，後續薪資、權限、報表與人事異動會需要這個基礎。`,
+      tone: "warning",
+      href: "#job-architecture",
+      actionLabel: "整理職務職等",
+    });
+  }
+  tasks.push({
+    id: "launch_readiness",
+    stepLabel: tasks.length ? `0${tasks.length + 1} 最後` : "01 檢查",
+    title: readiness.status === "ready" ? "送進上線 readiness" : "清完缺口後重跑上線 Gate",
+    detail: readiness.status === "ready"
+      ? "組織、主管線與職務基礎已可支撐試用導入，下一步看 production readiness。"
+      : "公司管理頁清完後，再回上線戰情室檢查正式資料庫、SSO、薪資安全與法遵 Gate。",
+    tone: readiness.status === "ready" ? "ready" : "warning",
+    href: "/settings/readiness",
+    actionLabel: "檢查上線 Gate",
+  });
+  return tasks.slice(0, 4);
 }
 
 function buildReadiness(

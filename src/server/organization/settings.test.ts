@@ -63,6 +63,20 @@ describe("organization settings", () => {
         expect.objectContaining({ displayName: "陳主管", directReportCount: expect.any(Number) }),
       ]),
     );
+    expect(settings.commandCards).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "company_profile", actionLabel: "檢查公司資料" }),
+        expect.objectContaining({ id: "manager_lines", href: "#manager-line-governance" }),
+        expect.objectContaining({ id: "job_architecture", actionLabel: "整理職務職等" }),
+        expect.objectContaining({ id: "launch_foundation", href: "/settings/readiness" }),
+      ]),
+    );
+    expect(settings.actionQueue).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "manager_lines", actionLabel: "開啟主管線精靈" }),
+        expect.objectContaining({ id: "launch_readiness", actionLabel: "檢查上線 Gate" }),
+      ]),
+    );
     expect(settings.auditScope).toContain("部門建立與更新");
     expect(settings.readiness.nextActions).toEqual(
       expect.arrayContaining([

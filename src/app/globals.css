@@ -3844,6 +3844,145 @@ legend {
   font-weight: 850;
 }
 
+.organization-command-center {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.62fr) minmax(0, 1.38fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.organization-primary-action {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 244px;
+  border: 1px solid var(--panel-border);
+  border-left: 6px solid var(--accent);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.organization-primary-action.warning {
+  border-left-color: var(--warning);
+  background: #fffbeb;
+}
+
+.organization-primary-action.danger {
+  border-left-color: var(--danger);
+  background: #fef2f2;
+}
+
+.organization-primary-action.ready {
+  border-left-color: var(--success);
+  background: #f0fdf4;
+}
+
+.organization-primary-action strong {
+  color: var(--foreground);
+  font-size: 25px;
+  font-weight: 1000;
+  line-height: 1.14;
+}
+
+.organization-primary-action p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 820;
+  line-height: 1.5;
+}
+
+.organization-primary-action .button {
+  align-self: end;
+  width: 100%;
+  margin-top: auto;
+}
+
+.organization-command-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.organization-command-card {
+  grid-template-rows: auto auto minmax(70px, auto) auto;
+  min-height: 244px;
+}
+
+.organization-command-card small {
+  align-self: end;
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.organization-action-queue {
+  scroll-margin-top: 24px;
+}
+
+.organization-action-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.organization-action-item {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  min-height: 210px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.organization-action-item.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.organization-action-item.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.organization-action-item.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.organization-action-item span {
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.organization-action-item strong {
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 1000;
+  line-height: 1.18;
+}
+
+.organization-action-item small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.45;
+}
+
+.organization-action-item .button {
+  align-self: end;
+  width: 100%;
+  margin-top: auto;
+}
+
 .organization-readiness {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(260px, 1.05fr);
@@ -12240,6 +12379,9 @@ legend {
   .console-module-detail-hero,
   .organization-hero,
   .organization-metric-strip,
+  .organization-command-center,
+  .organization-command-grid,
+  .organization-action-list,
   .organization-readiness,
   .organization-manager-risk-grid,
   .organization-manager-line-form,
@@ -12311,6 +12453,9 @@ legend {
   }
 
   .organization-manager-risk-card,
+  .organization-primary-action,
+  .organization-command-card,
+  .organization-action-item,
   .payroll-adjustment-command-grid .settings-command-card,
   .payroll-adjustment-flow article,
   .payroll-adjustment-guardrail-grid article,

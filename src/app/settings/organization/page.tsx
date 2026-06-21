@@ -29,6 +29,7 @@ export default async function OrganizationSettingsPage({ searchParams }: { searc
   const settings = await getOrganizationSettings(session);
   const writable = hasPermission(session.role, "settings:write");
   const readiness = settings.readiness;
+  const primaryAction = settings.actionQueue[0];
 
   return (
     <main className="page organization-settings-page">
@@ -83,6 +84,54 @@ export default async function OrganizationSettingsPage({ searchParams }: { searc
           <strong>{settings.jobLevels.length}</strong>
           <small>薪資與權限的共用階層</small>
         </div>
+      </section>
+
+      <section className="organization-command-center" aria-label="公司管理指揮板">
+        {primaryAction ? (
+          <aside className={`organization-primary-action ${primaryAction.tone}`}>
+            <span className="muted">今日先處理</span>
+            <strong>{primaryAction.title}</strong>
+            <p>{primaryAction.detail}</p>
+            <a className="button primary" href={primaryAction.href}>
+              {primaryAction.actionLabel}
+            </a>
+          </aside>
+        ) : null}
+        <div className="organization-command-grid" aria-label="公司設定訊號板">
+          {settings.commandCards.map((card) => (
+            <a className={`settings-command-card organization-command-card ${card.tone}`} href={card.href} key={card.id}>
+              <div>
+                <span className="muted">{card.label}</span>
+                <h2>{card.title}</h2>
+              </div>
+              <span className={`badge ${organizationToneBadgeClass(card.tone)}`}>{card.value}</span>
+              <p>{card.detail}</p>
+              <small>{card.actionLabel}</small>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel organization-action-queue" aria-label="公司管理下一步">
+        <div className="section-heading compact-heading">
+          <div>
+            <h2>下一步</h2>
+            <p className="muted">用三步內的工作順序整理公司管理基礎，再交給試用與上線 Gate 驗收。</p>
+          </div>
+          <span className="badge">Finance-style flow</span>
+        </div>
+        <ol className="organization-action-list">
+          {settings.actionQueue.map((item) => (
+            <li className={`organization-action-item ${item.tone}`} key={item.id}>
+              <span>{item.stepLabel}</span>
+              <strong>{item.title}</strong>
+              <small>{item.detail}</small>
+              <a className="button" href={item.href}>
+                {item.actionLabel}
+              </a>
+            </li>
+          ))}
+        </ol>
       </section>
 
       <section className={`organization-readiness ${readiness.status}`} aria-label="組織設定健康度">
@@ -163,7 +212,7 @@ export default async function OrganizationSettingsPage({ searchParams }: { searc
       </section>
 
       <section className="grid organization-grid">
-        <section className="panel span-7">
+        <section className="panel span-7" id="company-profile">
           <div className="section-heading">
             <div>
               <h2>公司資料</h2>
@@ -543,6 +592,12 @@ function riskTitleLabel(severity: "ready" | "warning" | "danger") {
   if (severity === "danger") return "立即修正";
   if (severity === "warning") return "需整理";
   return "正常";
+}
+
+function organizationToneBadgeClass(tone: "ready" | "warning" | "danger") {
+  if (tone === "danger") return "danger";
+  if (tone === "warning") return "warning";
+  return "";
 }
 
 function organizationSuccessMessage(success: string) {
