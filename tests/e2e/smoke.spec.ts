@@ -887,6 +887,36 @@ test("HR 可以用中文薪資資料工作台新增薪資設定檔", async ({ pa
   await expect(page.getByText("固定津貼 交通津貼 $3,000")).toBeVisible();
 });
 
+test("HR 可以用中文薪資法遵工作台調整扣繳與投保設定", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr/payroll-compliance");
+
+  await expect(page.getByRole("heading", { name: "薪資法遵設定工作台" })).toBeVisible();
+  await expect(page.getByLabel("薪資法遵設定工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("薪資法遵訊號板").getByText("投保級距", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("薪資法遵作業卡").getByRole("heading", { name: "投保級距 Gate" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "員工薪資法遵設定" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "薪資法遵治理原則" })).toBeVisible();
+
+  const form = page.getByRole("form", { name: "張小安 薪資法遵設定" });
+  await form.getByLabel("稅務身分").selectOption("non_resident");
+  await form.getByLabel("扶養人數").fill("1");
+  await form.getByLabel("非居住者扣繳率（%）").fill("18");
+  await form.getByLabel("勞保投保薪資").fill("60800");
+  await form.getByLabel("健保投保金額").fill("60800");
+  await form.getByLabel("勞退提繳工資").fill("60800");
+  await form.getByRole("button", { name: "儲存法遵設定" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/payroll-compliance$/);
+  await expect(page.getByText("非居住者").first()).toBeVisible();
+  await expect(page.getByLabel("薪資法遵作業卡").getByText("2 位")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("baseSalary");
+  await expect(page.locator("body")).not.toContainText("accountNumber");
+  await expect(page.locator("body")).not.toContainText("nationalId");
+  await expect(page.locator("body")).not.toContainText("12345678901234567");
+});
+
 test("公告發布後員工可回傳回條", async ({ page }) => {
   await page.goto("/app");
   await switchDemoRole(page, "hr_admin");

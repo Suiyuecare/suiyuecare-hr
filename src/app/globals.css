@@ -4904,6 +4904,151 @@ legend {
   margin-bottom: 14px;
 }
 
+.payroll-compliance-page {
+  max-width: 1280px;
+}
+
+.payroll-compliance-alerts {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.payroll-compliance-command-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.payroll-compliance-command-grid .settings-command-card {
+  min-height: 286px;
+}
+
+.payroll-compliance-gate.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.payroll-compliance-gate.danger {
+  border-color: #fecaca;
+  background: #fff7ed;
+}
+
+.payroll-compliance-list {
+  gap: 14px;
+}
+
+.payroll-compliance-task {
+  display: grid;
+  align-items: stretch;
+  gap: 14px;
+  border-color: var(--panel-border);
+}
+
+.payroll-compliance-task.danger {
+  border-color: #fecaca;
+  background: #fff7ed;
+}
+
+.payroll-compliance-employee-heading {
+  align-items: flex-start;
+}
+
+.payroll-compliance-recommendation-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.payroll-compliance-recommendation {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 118px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.payroll-compliance-recommendation.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.payroll-compliance-recommendation.danger {
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.payroll-compliance-recommendation strong {
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 1000;
+  line-height: 1.25;
+}
+
+.payroll-compliance-recommendation small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.35;
+}
+
+.payroll-compliance-form {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.payroll-compliance-fieldset {
+  display: grid;
+  gap: 12px;
+}
+
+.payroll-compliance-actions {
+  justify-content: space-between;
+}
+
+.payroll-compliance-risk-task {
+  align-items: flex-start;
+}
+
+.payroll-compliance-risk-task > span:first-child {
+  display: grid;
+  gap: 5px;
+  overflow-wrap: anywhere;
+}
+
+.payroll-compliance-guardrail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.payroll-compliance-guardrail-grid article {
+  display: grid;
+  gap: 9px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.payroll-compliance-guardrail-grid strong {
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.payroll-compliance-guardrail-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+  line-height: 1.45;
+}
+
 .payroll-recordkeeping-hero .hr-monthly-hero-focus.ready {
   border-color: rgba(187, 247, 208, 0.46);
   background: rgba(21, 128, 61, 0.16);
@@ -9483,6 +9628,10 @@ legend {
   .payroll-import-preview-task,
   .payroll-accounting-map-grid,
   .payroll-accounting-preview-task,
+  .payroll-compliance-command-grid,
+  .payroll-compliance-recommendation-board,
+  .payroll-compliance-task,
+  .payroll-compliance-guardrail-grid,
   .salary-profile-command-grid,
   .salary-profile-task,
   .salary-profile-violation-task,
@@ -9548,6 +9697,7 @@ legend {
   }
 
   .access-control-page .section-heading,
+  .payroll-compliance-page .section-heading,
   .work-rule-page .section-heading,
   .access-user-card-head {
     align-items: stretch;
@@ -9561,6 +9711,9 @@ legend {
   }
 
   .organization-manager-risk-card,
+  .payroll-compliance-command-grid .settings-command-card,
+  .payroll-compliance-recommendation,
+  .payroll-compliance-guardrail-grid article,
   .work-rule-gap-card,
   .work-rule-article-item,
   .work-rule-card,
