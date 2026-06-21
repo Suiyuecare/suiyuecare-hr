@@ -328,6 +328,11 @@ test("Owner 可以檢查試用營運與上線 Gate", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /Production database/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Runtime env 診斷" })).toBeVisible();
   await expect(page.getByLabel("Runtime env redacted 診斷")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Supabase Transaction Pooler 形狀" })).toBeVisible();
+  const poolerShape = page.getByLabel("Supabase transaction pooler 安全形狀");
+  await expect(poolerShape.getByText("aws-0-ap-northeast-2.pooler.supabase.com")).toBeVisible();
+  await expect(poolerShape.getByText("postgres.aruncclorusswpfnpgsn")).toBeVisible();
+  await expect(poolerShape.getByText("pgbouncer=true")).toBeVisible();
   await expect(page.locator("body")).not.toContainText("postgresql://");
   await expect(page.getByRole("heading", { name: "修復路線" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "路線 A：Supabase Transaction Pooler" })).toBeVisible();

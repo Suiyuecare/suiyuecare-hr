@@ -11,9 +11,11 @@ import {
   type EnvironmentVerificationCheck,
 } from "@/server/readiness/environment-verification";
 import {
+  buildSupabaseTransactionPoolerTemplate,
   classifyDatabaseConnection,
   hasPrismaTransactionPoolerParams,
   type DatabaseConnectionPosture,
+  type SupabaseTransactionPoolerTemplate,
 } from "@/server/readiness/database-url";
 import { getUnresolvedEnvPlaceholderKeys } from "@/server/readiness/vercel-production-env-draft";
 
@@ -51,6 +53,7 @@ export type ProductionDatabaseRemediationReport = {
   summary: string;
   gate: ProductionPilotGateReport;
   envDraft: ProductionDatabaseEnvDraftReport | null;
+  supabasePooler: SupabaseTransactionPoolerTemplate;
   databaseDetail: string;
   environmentDetail: string;
   tracks: ProductionDatabaseRemediationTrack[];
@@ -77,6 +80,8 @@ export type ProductionDatabaseRemediationInput = {
   healthReport?: HealthReport | null;
   fetchedHealthStatusCode?: number | null;
   envDraft?: ProductionDatabaseEnvDraftReport | null;
+  supabaseUrl?: string | null;
+  supabaseRegion?: string | null;
   generatedAt?: Date;
 };
 
@@ -88,6 +93,8 @@ export type ProductionDatabaseWorkspaceOptions = {
   generatedAt?: Date;
   includeRuntimeEnvDiagnostics?: boolean;
   runtimeEnv?: Record<string, string | undefined> | null;
+  supabaseUrl?: string | null;
+  supabaseRegion?: string | null;
   timeoutMs?: number;
 };
 
@@ -118,6 +125,14 @@ export async function getProductionDatabaseRemediationReport(
     healthReport: fetched.healthReport,
     fetchedHealthStatusCode: fetched.statusCode,
     envDraft,
+    supabaseUrl:
+      options.supabaseUrl ??
+      options.runtimeEnv?.NEXT_PUBLIC_SUPABASE_URL ??
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+    supabaseRegion:
+      options.supabaseRegion ??
+      options.runtimeEnv?.HR_ONE_SUPABASE_REGION ??
+      process.env.HR_ONE_SUPABASE_REGION,
     generatedAt,
   });
 }
@@ -204,6 +219,11 @@ export function buildProductionDatabaseRemediationReport(
   const databaseDetail = safeCheckDetail(input.healthReport ?? null, "database");
   const environmentDetail = safeCheckDetail(input.healthReport ?? null, "environment");
   const envDraft = input.envDraft ?? null;
+  const supabasePooler = buildSupabaseTransactionPoolerTemplate({
+    supabaseUrl: input.supabaseUrl ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
+    region: input.supabaseRegion ?? process.env.HR_ONE_SUPABASE_REGION,
+    schema: "hr_one",
+  });
   const rootCause = classifyRootCause({
     healthReport: input.healthReport ?? null,
     statusCode: input.fetchedHealthStatusCode ?? null,
@@ -223,6 +243,7 @@ export function buildProductionDatabaseRemediationReport(
     summary: summaryForRootCause(rootCause),
     gate,
     envDraft,
+    supabasePooler,
     databaseDetail,
     environmentDetail,
     tracks,
@@ -255,6 +276,10 @@ export function formatProductionDatabaseRemediationMarkdown(
     "## Local Env Draft",
     "",
     ...formatEnvDraft(report.envDraft),
+    "",
+    "## Supabase Transaction Pooler Shape",
+    "",
+    ...formatSupabasePooler(report.supabasePooler),
     "",
     "## Gate Checks",
     "",
@@ -325,6 +350,20 @@ function formatEnvDraft(report: ProductionDatabaseEnvDraftReport | null) {
   ];
 }
 
+function formatSupabasePooler(pooler: SupabaseTransactionPoolerTemplate) {
+  return [
+    `- Project ref: ${pooler.projectRef}`,
+    `- Region: ${pooler.region}`,
+    `- Username: ${pooler.username}`,
+    `- Host: ${pooler.host}`,
+    `- Port: ${pooler.port}`,
+    `- Database: ${pooler.database}`,
+    `- Required params: ${pooler.requiredQueryParams.join(", ")}`,
+    `- Password source: ${pooler.passwordSource}`,
+    "- Do not paste the complete DATABASE_URL into this report; pass the real value through stdin to the handoff/apply commands.",
+  ];
+}
+
 function classifyRootCause(input: {
   healthReport: HealthReport | null;
   statusCode: number | null;
@@ -361,7 +400,7 @@ function buildTracks(rootCause: ProductionDatabaseRootCause): ProductionDatabase
       detail: "Vercel/serverless 建議使用 transaction pooler，並確認 runtime DB role 可透過 pooler 登入。",
       steps: [
         step("pooler-user", "驗證 pooler runtime role", "在 Supabase 確認 runtime DB user 可用 transaction pooler 連線，避免只驗 direct host。", rootCause === "pooler_configuration" ? "blocked" : "todo"),
-        step("pooler-url", "設定 server-only DATABASE_URL", "在 Vercel Production 設定 transaction pooler URL，需包含 pgbouncer=true、connection_limit=1、schema=hr_one。不要設成 NEXT_PUBLIC。", rootCause === "supabase_direct_network" || rootCause === "missing_database_url" || rootCause === "pooler_configuration" ? "blocked" : "todo"),
+        step("pooler-url", "設定 server-only DATABASE_URL", "在 Vercel Production 設定 transaction pooler URL：host 使用 aws-0-<region>.pooler.supabase.com、port 6543，並包含 pgbouncer=true、connection_limit=1、schema=hr_one。不要設成 NEXT_PUBLIC。", rootCause === "supabase_direct_network" || rootCause === "missing_database_url" || rootCause === "pooler_configuration" ? "blocked" : "todo"),
         step("pooler-redeploy", "重新部署 Production", "改完 env 後必須 redeploy，讓 serverless runtime 拿到新值。", "todo"),
       ],
     },

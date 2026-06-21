@@ -79,10 +79,21 @@ describe("production database remediation", () => {
     expect(envDraft.databaseUrlShape).toBe("Supabase direct host");
     expect(envDraft.failedCheckNames).toContain("Supabase Vercel database network");
     expect(report.nextActions.join("\n")).toContain("IPv4");
+    expect(report.supabasePooler).toMatchObject({
+      projectRef: "aruncclorusswpfnpgsn",
+      region: "ap-northeast-2",
+      username: "postgres.aruncclorusswpfnpgsn",
+      host: "aws-0-ap-northeast-2.pooler.supabase.com",
+      requiredQueryParams: ["pgbouncer=true", "connection_limit=1", "schema=hr_one"],
+    });
 
     const markdown = formatProductionDatabaseRemediationMarkdown(report);
     expect(markdown).toContain("## Local Env Draft");
     expect(markdown).toContain("Database shape: Supabase direct host");
+    expect(markdown).toContain("## Supabase Transaction Pooler Shape");
+    expect(markdown).toContain("Host: aws-0-ap-northeast-2.pooler.supabase.com");
+    expect(markdown).toContain("Username: postgres.aruncclorusswpfnpgsn");
+    expect(markdown).toContain("Required params: pgbouncer=true, connection_limit=1, schema=hr_one");
 
     const serialized = JSON.stringify(report);
     expect(serialized).not.toContain("postgresql://");
@@ -168,7 +179,6 @@ describe("production database remediation", () => {
     const serialized = JSON.stringify(report);
     expect(serialized).not.toContain("postgresql://");
     expect(serialized).not.toContain("runtime-secret");
-    expect(serialized).not.toContain("postgres.aruncclorusswpfnpgsn");
   });
 
   it("classifies the live Supabase direct-host blocker and keeps remediation output redacted", () => {

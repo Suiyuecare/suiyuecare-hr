@@ -151,6 +151,60 @@ export default async function ProductionDatabasePage() {
         <section className="panel span-12">
           <div className="section-heading">
             <div>
+              <h2>Supabase Transaction Pooler 形狀</h2>
+              <p className="muted">這裡只列安全欄位，協助 Owner 在 Vercel Production 填入正確 server-only DATABASE_URL；密碼仍只從 Supabase Connect 或密碼管理器取得。</p>
+            </div>
+            <span className="badge done">不含密碼</span>
+          </div>
+          <div className="invite-prep-grid" aria-label="Supabase transaction pooler 安全形狀">
+            <article className="invite-prep-card ready">
+              <span className="badge">Project</span>
+              <h3>{report.supabasePooler.projectRef}</h3>
+              <p>Region {report.supabasePooler.region}</p>
+              <ul className="task-list">
+                <li className="task">
+                  <span>
+                    <strong>Username</strong>
+                    <small>{report.supabasePooler.username}</small>
+                  </span>
+                </li>
+                <li className="task">
+                  <span>
+                    <strong>Host</strong>
+                    <small>{report.supabasePooler.host}</small>
+                  </span>
+                </li>
+                <li className="task">
+                  <span>
+                    <strong>Port / Database</strong>
+                    <small>{report.supabasePooler.port} / {report.supabasePooler.database}</small>
+                  </span>
+                </li>
+              </ul>
+            </article>
+            <article className="invite-prep-card">
+              <span className="badge warning">Prisma params</span>
+              <h3>必要 query 參數</h3>
+              <ul className="task-list">
+                {report.supabasePooler.requiredQueryParams.map((param) => (
+                  <li className="task" key={param}>
+                    <span>{param}</span>
+                  </li>
+                ))}
+                <li className="task">
+                  <span>
+                    <strong>Password source</strong>
+                    <small>{report.supabasePooler.passwordSource}</small>
+                  </span>
+                </li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section className="panel span-12">
+          <div className="section-heading">
+            <div>
               <h2>修復路線</h2>
               <p className="muted">選一條路線修正 Vercel Production env，修完後必須 redeploy，再跑 production gate。</p>
             </div>

@@ -152,7 +152,7 @@ describe("Vercel production env bootstrap", () => {
       "HR_ONE_OBJECT_STORAGE_SECRET_REF",
       "HR_ONE_RATE_LIMIT_SECRET_REF",
     ]);
-    expect(summary).toContain("28 bootstrap variable(s): 3 sensitive, 25 encrypted");
+    expect(summary).toContain("29 bootstrap variable(s): 3 sensitive, 26 encrypted");
   });
 
   it("does not include generated secret values in known-env command text", () => {

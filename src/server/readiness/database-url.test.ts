@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildSupabaseTransactionPoolerTemplate,
   classifyDatabaseConnection,
+  extractSupabaseProjectRef,
   hasPrismaTransactionPoolerParams,
   isSupabasePoolerConnection,
   isSupabaseTransactionPoolerConnection,
@@ -30,5 +32,32 @@ describe("database URL posture", () => {
     expect(hasPrismaTransactionPoolerParams(transactionPooler)).toBe(true);
     expect(hasPrismaTransactionPoolerParams(missingParams)).toBe(false);
     expect(hasPrismaTransactionPoolerParams(sessionPooler)).toBe(true);
+  });
+
+  it("builds a redacted Supabase transaction pooler template for the Suiyuecare project", () => {
+    expect(extractSupabaseProjectRef("https://aruncclorusswpfnpgsn.supabase.co")).toBe("aruncclorusswpfnpgsn");
+    expect(
+      extractSupabaseProjectRef(
+        "postgresql://postgres.aruncclorusswpfnpgsn:secret@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres?schema=hr_one",
+      ),
+    ).toBe("aruncclorusswpfnpgsn");
+
+    const template = buildSupabaseTransactionPoolerTemplate({
+      supabaseUrl: "https://aruncclorusswpfnpgsn.supabase.co",
+      schema: "hr_one",
+    });
+
+    expect(template).toMatchObject({
+      projectRef: "aruncclorusswpfnpgsn",
+      region: "ap-northeast-2",
+      username: "postgres.aruncclorusswpfnpgsn",
+      host: "aws-0-ap-northeast-2.pooler.supabase.com",
+      port: 6543,
+      database: "postgres",
+      schema: "hr_one",
+      requiredQueryParams: ["pgbouncer=true", "connection_limit=1", "schema=hr_one"],
+    });
+    expect(JSON.stringify(template)).not.toContain("secret");
+    expect(JSON.stringify(template)).not.toContain("postgresql://");
   });
 });

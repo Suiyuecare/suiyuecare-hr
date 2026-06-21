@@ -27,6 +27,7 @@ describe("Vercel production env draft", () => {
       VERCEL_PROJECT_ID: "prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N",
       HR_ONE_DATABASE_PROVIDER: "supabase_postgres",
       NEXT_PUBLIC_SUPABASE_URL: "https://aruncclorusswpfnpgsn.supabase.co",
+      HR_ONE_SUPABASE_REGION: "ap-northeast-2",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_yScyXz-bOUu7W5geHggd4A_9FcGwU7M",
       DATABASE_URL: "REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE",
       HR_ONE_AUTH_PROVIDER: "supabase_auth",

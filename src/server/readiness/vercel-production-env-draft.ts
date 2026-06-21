@@ -10,6 +10,7 @@ export type VercelProductionEnvDraftOptions = {
   appUrl?: string;
   projectId?: string;
   supabaseUrl?: string;
+  supabaseRegion?: string;
   supabasePublishableKey?: string;
   randomSecret?: () => string;
 };
@@ -35,6 +36,7 @@ export type VercelProductionDatabaseUrlUpdateOptions = {
 const defaultAppUrl = "https://hr.suiyuecare.com";
 const defaultProjectId = "prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N";
 const defaultSupabaseUrl = "https://aruncclorusswpfnpgsn.supabase.co";
+const defaultSupabaseRegion = "ap-northeast-2";
 const defaultSupabasePublishableKey = "sb_publishable_yScyXz-bOUu7W5geHggd4A_9FcGwU7M";
 const defaultSupabaseAuthIssuerUrl = `${defaultSupabaseUrl}/auth/v1`;
 const defaultSupabaseAuthJwksUrl = `${defaultSupabaseAuthIssuerUrl}/.well-known/jwks.json`;
@@ -50,6 +52,7 @@ const refreshableKnownValueKeys = new Set([
   "VERCEL_PROJECT_ID",
   "HR_ONE_DATABASE_PROVIDER",
   "NEXT_PUBLIC_SUPABASE_URL",
+  "HR_ONE_SUPABASE_REGION",
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
   "HR_ONE_AUTH_PROVIDER",
   "HR_ONE_AUTH_SESSION_SOURCE",
@@ -96,6 +99,7 @@ export function buildVercelProductionEnvDraftValues(options: VercelProductionEnv
     ["VERCEL_PROJECT_ID", options.projectId ?? defaultProjectId],
     ["HR_ONE_DATABASE_PROVIDER", "supabase_postgres"],
     ["NEXT_PUBLIC_SUPABASE_URL", options.supabaseUrl ?? defaultSupabaseUrl],
+    ["HR_ONE_SUPABASE_REGION", options.supabaseRegion ?? defaultSupabaseRegion],
     ["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", options.supabasePublishableKey ?? defaultSupabasePublishableKey],
     ["DATABASE_URL", "REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE"],
     ["HR_ONE_SESSION_SECRET", secret()],
