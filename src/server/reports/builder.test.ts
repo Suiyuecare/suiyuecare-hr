@@ -164,6 +164,69 @@ describe("report builder foundation", () => {
     ).rejects.toThrow(/不能匯出/);
   });
 
+  it("supports field-level overrides without relaxing hard-sensitive fields", async () => {
+    const hireMonthOverride = await updateReportPermission(hrSession, {
+      datasetCode: "people_readiness",
+      fieldKey: "hire_month",
+      roleKey: "hr_admin",
+      accessLevel: "detail",
+      maskingMode: "aggregate_only",
+      exportAllowed: "true",
+      requiresReason: "true",
+    });
+    const nationalIdOverride = await updateReportPermission(hrSession, {
+      datasetCode: "people_readiness",
+      fieldKey: "national_id",
+      roleKey: "hr_admin",
+      accessLevel: "detail",
+      maskingMode: "none",
+      exportAllowed: "true",
+      requiresReason: "false",
+    });
+    const workspace = await getReportAdminWorkspace(hrSession);
+    const job = await createCustomReportJob(hrSession, {
+      datasetCode: "people_readiness",
+      selectedFieldKeys: ["employee_no", "hire_month"],
+    });
+
+    expect(hireMonthOverride).toMatchObject({
+      fieldKey: "hire_month",
+      fieldLabel: "到職月份",
+      maskingMode: "aggregate_only",
+      exportAllowed: true,
+    });
+    expect(nationalIdOverride).toMatchObject({
+      fieldKey: "national_id",
+      maskingMode: "blocked",
+      exportAllowed: false,
+    });
+    expect(workspace.summary.fieldOverrideCount).toBe(2);
+    expect(workspace.permissions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ fieldKey: "hire_month", roleKey: "hr_admin" }),
+        expect.objectContaining({ fieldKey: "national_id", roleKey: "hr_admin" }),
+      ]),
+    );
+    expect(job.selectedFields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "hire_month", maskingMode: "aggregate_only" }),
+      ]),
+    );
+    expect(getAuditDemoState().logs.some((log) => log.entityType === "report_job")).toBe(true);
+    expect(getAuditDemoState().logs.some((log) =>
+      log.entityType === "report_permission" &&
+      log.metadataJson.fieldKey === "hire_month" &&
+      log.metadataJson.fieldLevelOverride === true,
+    )).toBe(true);
+    await expect(
+      createCustomReportJob(hrSession, {
+        datasetCode: "people_readiness",
+        selectedFieldKeys: ["national_id"],
+      }),
+    ).rejects.toThrow(/不可匯出/);
+    expect(JSON.stringify(getAuditDemoState().logs)).not.toContain("A123456789");
+  });
+
   it("allows payroll fields only as aggregate metadata for payroll-authorized HR", async () => {
     const job = await createCustomReportJob(hrSession, {
       title: "薪資月結狀態報表",

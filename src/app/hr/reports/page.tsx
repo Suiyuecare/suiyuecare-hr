@@ -211,7 +211,10 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
             </Link>
             <div className="report-settings-card">
               <strong>{reportWorkspace.summary.datasetCount} 個資料集 / {reportWorkspace.summary.fieldCount} 個欄位</strong>
-              <small>{reportWorkspace.summary.blockedSensitiveFieldCount} 個敏感欄位預設不可匯出；每次建立都寫入 audit log。</small>
+              <small>
+                {reportWorkspace.summary.blockedSensitiveFieldCount} 個敏感欄位預設不可匯出；
+                {reportWorkspace.summary.fieldOverrideCount} 個欄位覆寫；每次建立都寫入 audit log。
+              </small>
             </div>
           </div>
         </section>
@@ -228,6 +231,7 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
             {reportWorkspace.permissions.map((permission) => (
               <ReportPermissionCard
                 canManageReports={canManageReports}
+                dataset={reportWorkspace.datasets.find((dataset) => dataset.code === permission.datasetCode) ?? null}
                 permission={permission}
                 key={`${permission.datasetCode}-${permission.roleKey}-${permission.fieldKey ?? "dataset"}`}
               />
@@ -500,31 +504,50 @@ function ReportDatasetBuilder({
 function ReportPermissionCard({
   permission,
   canManageReports,
+  dataset,
 }: {
   permission: ReportPermissionView;
   canManageReports: boolean;
+  dataset: ReportDatasetView | null;
 }) {
   const canExportRole = permission.roleKey === "owner" || permission.roleKey === "hr_admin";
   const payrollGuarded = permission.datasetCategory === "payroll";
+  const fieldScoped = permission.fieldKey != null;
   return (
     <form
       action="/api/reports/permissions"
       method="post"
       className={`report-permission-card ${permission.exportAllowed ? "ready" : "warning"}`}
-      aria-label={`${roleLabel(permission.roleKey)} ${permission.datasetName} 報表權限`}
+      aria-label={`${roleLabel(permission.roleKey)} ${permission.datasetName}${permission.fieldLabel ? ` ${permission.fieldLabel}` : ""} 報表權限`}
     >
       <input type="hidden" name="datasetCode" value={permission.datasetCode} />
       <input type="hidden" name="roleKey" value={permission.roleKey} />
       <div className="report-permission-card-head">
         <span className={`badge ${permission.exportAllowed ? "done" : "warning"}`}>
-          {permission.exportAllowed ? "可匯出" : "不可匯出"}
+          {fieldScoped ? "欄位覆寫" : permission.exportAllowed ? "可匯出" : "不可匯出"}
         </span>
         <div>
           <h3>{roleLabel(permission.roleKey)}</h3>
-          <p>{permission.datasetName} · {categoryLabel(permission.datasetCategory)}</p>
+          <p>
+            {permission.datasetName}
+            {permission.fieldLabel ? ` · ${permission.fieldLabel}` : ""}
+            {" · "}
+            {categoryLabel(permission.datasetCategory)}
+          </p>
         </div>
       </div>
       <div className="report-permission-controls">
+        <label>
+          欄位覆寫
+          <select name="fieldKey" defaultValue={permission.fieldKey ?? "__dataset"} disabled={!canManageReports}>
+            <option value="__dataset">資料集整體</option>
+            {(dataset?.fields ?? []).map((field) => (
+              <option value={field.key} key={field.key}>
+                {field.label} · {sensitivityLabel(field.sensitivity)}
+              </option>
+            ))}
+          </select>
+        </label>
         <label>
           存取層級
           <select name="accessLevel" defaultValue={permission.accessLevel} disabled={!canManageReports}>
@@ -563,8 +586,10 @@ function ReportPermissionCard({
         </label>
       </div>
       <div className="report-permission-guardrails">
+        {fieldScoped ? <span>欄位級覆寫</span> : <span>資料集層級</span>}
         <span>{maskingLabel(permission.maskingMode)}</span>
         <span>{accessLevelLabel(permission.accessLevel)}</span>
+        {permission.fieldSensitivity ? <span>{sensitivityLabel(permission.fieldSensitivity)}</span> : null}
         {payrollGuarded ? <span>薪資資料集強制彙總</span> : null}
         {!canExportRole ? <span>此角色不可建立匯出</span> : null}
       </div>
@@ -785,9 +810,15 @@ function buildNextStageItems() {
       tone: "done",
     },
     {
-      title: "欄位級覆寫與到期自動回收",
-      detail: "下一步把目前資料集層級矩陣推進到單欄位例外、期限到期自動回收與覆寫證據包。",
-      status: "覆寫",
+      title: "欄位級覆寫",
+      detail: "HR/Owner 已可針對單欄位建立遮罩、彙總或禁止匯出的例外設定，敏感欄位仍不能被解除硬性保護。",
+      status: "已上線",
+      tone: "done",
+    },
+    {
+      title: "到期自動回收",
+      detail: "下一步把欄位例外與下載權限加上期限、到期自動回收與覆寫證據包。",
+      status: "回收",
       tone: "warning",
     },
     {

@@ -1319,6 +1319,13 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   await expect(page.getByText("報表權限已更新")).toBeVisible();
   await expect(reportPermissionForm.getByLabel("存取層級")).toHaveValue("summary");
   await expect(reportPermissionForm.getByLabel("遮罩模式")).toHaveValue("masked");
+  const hrPeoplePermissionForm = page.getByRole("form", { name: "人資 人事準備度 報表權限" });
+  await hrPeoplePermissionForm.getByLabel("欄位覆寫").selectOption("hire_month");
+  await hrPeoplePermissionForm.getByLabel("遮罩模式").selectOption("aggregate_only");
+  await hrPeoplePermissionForm.getByRole("button", { name: "儲存權限" }).click();
+  await expect(page).toHaveURL(/\/hr\/reports\?success=report-permission#report-permissions$/);
+  await expect(page.getByRole("form", { name: "人資 人事準備度 到職月份 報表權限" })).toBeVisible();
+  await expect(page.getByRole("form", { name: "人資 人事準備度 到職月份 報表權限" }).getByText("欄位級覆寫")).toBeVisible();
   const customReportForm = page.getByRole("form", { name: "人事準備度自訂報表" });
   await customReportForm.getByLabel("報表名稱").fill("兩週試用人事準備度報表");
   await customReportForm.getByLabel("用途").selectOption("labor_inspection");

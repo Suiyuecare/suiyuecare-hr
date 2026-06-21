@@ -8,6 +8,7 @@ export async function POST(request: Request) {
   try {
     await updateReportPermission(await requireTenantSession({ permission: "report:manage" }), {
       datasetCode: readString(formData.get("datasetCode")),
+      fieldKey: readString(formData.get("fieldKey")),
       roleKey: readString(formData.get("roleKey")),
       accessLevel: readString(formData.get("accessLevel")),
       maskingMode: readString(formData.get("maskingMode")),
