@@ -119,6 +119,41 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
         ))}
       </section>
 
+      <section className="panel span-12 sale-blocker-radar" aria-label="正式販售阻擋雷達">
+        <div className="section-heading">
+          <div>
+            <h2>正式販售阻擋雷達</h2>
+            <p className="muted">
+              這裡只列會直接影響真實員工試用、薪資安全、台灣法遵或商務交付的 Gate；狀態未清掉前，不應承諾正式販售。
+            </p>
+          </div>
+          <span className={`badge ${saleRoadmap.blockerRadar.some((item) => item.severity === "hard_blocker") ? "danger" : saleRoadmap.blockerRadar.some((item) => item.severity === "needs_work") ? "warning" : ""}`}>
+            {saleRoadmap.blockerRadar.filter((item) => item.severity !== "cleared").length} 個販售風險
+          </span>
+        </div>
+        <div className="sale-blocker-radar-grid">
+          {saleRoadmap.blockerRadar.map((item) => (
+            <article className={`sale-blocker-card ${blockerTone(item.severity)}`} key={item.id}>
+              <div className="sale-blocker-card-topline">
+                <span className="eyebrow">
+                  #{item.rank} · {item.owner}
+                </span>
+                <span className={`badge ${blockerBadgeClass(item.severity)}`}>
+                  {blockerSeverityLabel(item.severity)}
+                </span>
+              </div>
+              <h3>{item.title}</h3>
+              <p>{item.saleImpact}</p>
+              <small>需要證據：{item.evidenceNeeded}</small>
+              <small>下一步：{item.nextStep}</small>
+              <a className="button" href={item.actionHref}>
+                {item.actionLabel}
+              </a>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="panel span-12 sale-foundation-board" aria-label="下一階段基礎工程">
         <div className="section-heading">
           <div>
@@ -612,6 +647,24 @@ function roadmapTone(status: string) {
   if (status === "blocked") return "danger";
   if (status === "action_required") return "warning";
   return "done";
+}
+
+function blockerTone(severity: string) {
+  if (severity === "hard_blocker") return "danger";
+  if (severity === "needs_work") return "warning";
+  return "done";
+}
+
+function blockerBadgeClass(severity: string) {
+  if (severity === "hard_blocker") return "danger";
+  if (severity === "needs_work") return "warning";
+  return "done";
+}
+
+function blockerSeverityLabel(severity: string) {
+  if (severity === "hard_blocker") return "阻擋販售";
+  if (severity === "needs_work") return "需收斂";
+  return "已清除";
 }
 
 function readinessStatusLabel(status: string) {

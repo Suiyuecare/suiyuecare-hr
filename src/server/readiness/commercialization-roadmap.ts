@@ -38,12 +38,30 @@ export type SaleReadinessFoundationTask = {
   sourceIds: RoadmapSource[];
 };
 
+export type SaleReadinessBlockerSeverity = "hard_blocker" | "needs_work" | "cleared";
+
+export type SaleReadinessBlocker = {
+  id: string;
+  rank: number;
+  title: string;
+  owner: "Engineering" | "Owner" | "HR" | "HR + Engineering" | "Owner + HR" | "HR + Manager";
+  severity: SaleReadinessBlockerSeverity;
+  status: RoadmapStatus;
+  saleImpact: string;
+  evidenceNeeded: string;
+  nextStep: string;
+  actionLabel: string;
+  actionHref: string;
+  sourceTaskId: SaleReadinessFoundationTask["id"];
+};
+
 export type SaleReadinessRoadmap = {
   readyForSale: boolean;
   currentStage: SaleReadinessRoadmapStage;
   currentFoundationTask: SaleReadinessFoundationTask;
   stages: SaleReadinessRoadmapStage[];
   foundationTasks: SaleReadinessFoundationTask[];
+  blockerRadar: SaleReadinessBlocker[];
   blockedCount: number;
   actionRequiredCount: number;
   readyCount: number;
@@ -175,6 +193,7 @@ export function buildSaleReadinessRoadmap(input: RoadmapInput): SaleReadinessRoa
   const foundationTasks = buildFoundationTasks(input, { launchItems, pilotItems });
   const currentFoundationTask =
     foundationTasks.find((task) => task.status !== "ready") ?? foundationTasks[foundationTasks.length - 1];
+  const blockerRadar = buildBlockerRadar(foundationTasks);
 
   return {
     readyForSale: input.launchReport.readyForSale && input.betaPilot.readyForPilot && input.trialWorkspace.readyForPilot,
@@ -182,11 +201,87 @@ export function buildSaleReadinessRoadmap(input: RoadmapInput): SaleReadinessRoa
     currentFoundationTask,
     stages,
     foundationTasks,
+    blockerRadar,
     readyCount,
     actionRequiredCount,
     blockedCount,
     summary: `${readyCount}/${stages.length} 個販售階段已就緒；${blockedCount} 個階段阻擋，${actionRequiredCount} 個階段需處理。`,
   };
+}
+
+function buildBlockerRadar(tasks: SaleReadinessFoundationTask[]): SaleReadinessBlocker[] {
+  const taskById = new Map(tasks.map((task) => [task.id, task]));
+  const specs: Array<{
+    sourceTaskId: SaleReadinessFoundationTask["id"];
+    title: string;
+    saleImpact: string;
+    evidenceNeeded: string;
+  }> = [
+    {
+      sourceTaskId: "production_database_pooler",
+      title: "正式站資料庫與 live readiness",
+      saleImpact: "未通過時不可邀請真實員工，也不可把 demo fallback 當成客戶試用環境。",
+      evidenceNeeded: "Live /api/health/ready OK、production database gate ready、db:verify:production、redacted env handoff。",
+    },
+    {
+      sourceTaskId: "identity_rbac_sso_boundary",
+      title: "正式登入、RBAC 與薪資防漏",
+      saleImpact: "未通過時無法證明 Owner、HR、主管、員工與支援存取的資料邊界，薪資資料風險過高。",
+      evidenceNeeded: "SSO metadata、privileged subject hash bindings、preflight access review、unauthorized payroll access KPI = 0。",
+    },
+    {
+      sourceTaskId: "real_pilot_import_pipeline",
+      title: "20-50 人真實試用資料與批次",
+      saleImpact: "未通過時只能展示種子資料，無法證明真實部門、主管線、班表、假勤、薪資 profile 可導入。",
+      evidenceNeeded: "CSV preflight hashes、customer import dry-run、trial run batch、Day 0 checkpoint。",
+    },
+    {
+      sourceTaskId: "finance_style_core_workflows",
+      title: "Finance-style 日常任務體驗",
+      saleImpact: "未通過時即使功能完整，員工與主管仍可能覺得難用，KPI 無法支撐販售。",
+      evidenceNeeded: "員工請假 < 60 秒、主管簽核 < 15 秒、手機任務完成率 > 95%、通知送達證據。",
+    },
+    {
+      sourceTaskId: "taiwan_compliance_control_plane",
+      title: "台灣勞基法與規則版本控制",
+      saleImpact: "未通過時 HR 無法自行調整法規來源與規則版本，也無法向客戶或勞檢說明計算依據。",
+      evidenceNeeded: "law rule coverage、official source freshness、rule validation fixtures、work rules approval、labor roster verification。",
+    },
+    {
+      sourceTaskId: "payroll_close_security",
+      title: "薪資月結、付款安全與薪資單權限",
+      saleImpact: "未通過時不可承諾薪資月結，因為付款檔、薪資單、鎖薪調整與未授權查看仍可能出問題。",
+      evidenceNeeded: "payroll dry run、pending approvals = 0、payment security gate、payslip self-only access test、audit package。",
+    },
+    {
+      sourceTaskId: "commercial_evidence_package",
+      title: "商務交付與可販售證據包",
+      saleImpact: "未通過時銷售只能靠口頭承諾，無法交付訂閱、KPI、資安、audit、試用與 Day 14 結案證據。",
+      evidenceNeeded: "subscription readiness、pilot evidence package、invitation release、Day 14 completion review、privacy scan hashes。",
+    },
+  ];
+
+  return specs
+    .map((spec) => {
+      const task = taskById.get(spec.sourceTaskId);
+      if (!task) return null;
+      return {
+        id: spec.sourceTaskId,
+        rank: task.priority,
+        title: spec.title,
+        owner: task.owner,
+        severity: blockerSeverity(task.status),
+        status: task.status,
+        saleImpact: spec.saleImpact,
+        evidenceNeeded: spec.evidenceNeeded,
+        nextStep: task.nextStep,
+        actionLabel: task.actionLabel,
+        actionHref: task.actionHref,
+        sourceTaskId: task.id,
+      };
+    })
+    .filter(isDefined)
+    .sort((left, right) => severityWeight(left.severity) - severityWeight(right.severity) || left.rank - right.rank);
 }
 
 function buildFoundationTasks(
@@ -438,6 +533,18 @@ function worstStatus(statuses: RoadmapStatus[]): RoadmapStatus {
   if (statuses.some((status) => status === "blocked")) return "blocked";
   if (statuses.some((status) => status === "action_required")) return "action_required";
   return "ready";
+}
+
+function blockerSeverity(status: RoadmapStatus): SaleReadinessBlockerSeverity {
+  if (status === "blocked") return "hard_blocker";
+  if (status === "action_required") return "needs_work";
+  return "cleared";
+}
+
+function severityWeight(severity: SaleReadinessBlockerSeverity) {
+  if (severity === "hard_blocker") return 0;
+  if (severity === "needs_work") return 1;
+  return 2;
 }
 
 function isDefined<T>(value: T | undefined | null): value is T {

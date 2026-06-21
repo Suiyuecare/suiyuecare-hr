@@ -4420,6 +4420,79 @@ legend {
   background: #f0fdf4;
 }
 
+.sale-blocker-radar {
+  margin-bottom: 14px;
+}
+
+.sale-blocker-radar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.sale-blocker-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 294px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.sale-blocker-card.danger {
+  border-color: #fca5a5;
+  background: linear-gradient(180deg, #fff7f7 0%, #ffffff 100%);
+}
+
+.sale-blocker-card.warning {
+  border-color: #fbbf24;
+  background: linear-gradient(180deg, #fffbeb 0%, #ffffff 100%);
+}
+
+.sale-blocker-card.done {
+  border-color: #86efac;
+  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+}
+
+.sale-blocker-card-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sale-blocker-card h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 1000;
+  line-height: 1.18;
+}
+
+.sale-blocker-card p {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.sale-blocker-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.sale-blocker-card .button {
+  align-self: end;
+  justify-self: start;
+  margin-top: auto;
+}
+
 .sale-foundation-board {
   margin-bottom: 14px;
 }

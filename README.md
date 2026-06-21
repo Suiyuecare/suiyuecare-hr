@@ -12,7 +12,7 @@ AI features are intentionally implemented as a safe Copilot layer first. The cur
 - 老闆/Owner 管理：公司設定、Finance-style 權限與登入中樞、正式登入切換 Gate、資安與登入政策工作台、通知管道工作台、支援存取工作台、RBAC 角色、使用者邀請、員工主檔綁定、SSO subject hash 綁定、停用/復用帳號原因 hash、最後 active Owner 防呆、訂閱與商務狀態、備份還原證據、上線 readiness、audit log 與勞檢證據包。
 - AI Copilot 安全層：政策 Q&A、表單草稿、簽核摘要、薪資異常解釋；只做輔助與來源引用，不做招募拒絕、裁員、薪資、績效或懲戒決策。
 - 試用與上線工具：Supabase private schema 驗證、Vercel production env 草稿、20-50 人 pilot 匯入模板、匯入預檢、身份/SSO 匯入、邀請 readiness、核心流程 readiness、每日晨會摘要、每日狀態、每日戰情 today gate、證據掃描、go/no-go 開跑總檢查、邀請釋放 Gate、兩週試用結案檢查、證據包交付 Gate。
-- 販售上線戰情室：`/settings/readiness` 會把 production DB、Finance-style 使用體驗、20-50 人真實試用資料、薪資月結、台灣法遵、KPI 與商務證據包整理成 Owner/HR 可執行的下一階段路線圖，並新增「下一階段基礎工程」看板，列出正式資料庫、SSO/RBAC、核心流程 UX、真實試用匯入、台灣法遵控制台、薪資安全與商務證據包的負責人、狀態、下一步與驗收證據。
+- 販售上線戰情室：`/settings/readiness` 會把 production DB、Finance-style 使用體驗、20-50 人真實試用資料、薪資月結、台灣法遵、KPI 與商務證據包整理成 Owner/HR 可執行的下一階段路線圖，並新增「正式販售阻擋雷達」與「下一階段基礎工程」看板，列出正式資料庫、SSO/RBAC、核心流程 UX、真實試用匯入、台灣法遵控制台、薪資安全與商務證據包的負責人、狀態、下一步與驗收證據。
 
 ## 下一階段
 

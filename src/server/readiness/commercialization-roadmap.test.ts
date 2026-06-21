@@ -39,6 +39,13 @@ describe("sale readiness commercialization roadmap", () => {
     expect(roadmap.currentStage.nextStep).toContain("Supabase transaction pooler");
     expect(roadmap.currentFoundationTask.nextStep).toContain("Supabase transaction pooler");
     expect(roadmap.currentFoundationTask.acceptanceEvidence).toContain("/api/health/ready");
+    expect(roadmap.blockerRadar[0]).toMatchObject({
+      id: "production_database_pooler",
+      severity: "hard_blocker",
+      title: "正式站資料庫與 live readiness",
+      owner: "Engineering",
+    });
+    expect(roadmap.blockerRadar[0].evidenceNeeded).toContain("Live /api/health/ready OK");
     expect(roadmap.summary).toContain("阻擋");
   });
 
@@ -67,6 +74,10 @@ describe("sale readiness commercialization roadmap", () => {
       actionHref: "/app",
     });
     expect(roadmap.currentStage.kpiTarget).toBe("員工手機任務完成率 > 95%");
+    expect(roadmap.blockerRadar[0]).toMatchObject({
+      id: "finance_style_core_workflows",
+      severity: "needs_work",
+    });
   });
 
   it("turns the next sale phase into accountable foundation tasks with evidence", () => {
@@ -99,6 +110,7 @@ describe("sale readiness commercialization roadmap", () => {
       ]),
     );
     expect(JSON.stringify(roadmap.foundationTasks)).not.toMatch(/postgresql:\/\/|sb_publishable_|password|銀行帳號|身分證字號/);
+    expect(JSON.stringify(roadmap.blockerRadar)).not.toMatch(/postgresql:\/\/|sb_publishable_|password|銀行帳號|身分證字號/);
   });
 
   it("requires launch, pilot, and trial readiness before marking the system sale-ready", () => {
@@ -111,6 +123,8 @@ describe("sale readiness commercialization roadmap", () => {
     expect(roadmap.readyForSale).toBe(true);
     expect(roadmap.stages.every((stage) => stage.status === "ready")).toBe(true);
     expect(roadmap.foundationTasks.every((task) => task.status === "ready")).toBe(true);
+    expect(roadmap.blockerRadar).toHaveLength(7);
+    expect(roadmap.blockerRadar.every((item) => item.severity === "cleared")).toBe(true);
     expect(JSON.stringify(roadmap)).not.toMatch(/postgresql:\/\/|sb_publishable_|password|銀行帳號|身分證字號/);
   });
 });

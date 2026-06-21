@@ -318,6 +318,12 @@ test("Owner 可以檢查試用營運與上線 Gate", async ({ page }) => {
   await expect(saleRoadmap.getByText("匯入 20-50 人真實試用資料")).toBeVisible();
   await expect(saleRoadmap.getByText("完成薪資月結與台灣法遵閉環")).toBeVisible();
   await expect(saleRoadmap.getByText("整理可販售證據與商務交付")).toBeVisible();
+  const blockerRadar = page.getByLabel("正式販售阻擋雷達");
+  await expect(blockerRadar.getByRole("heading", { name: "正式販售阻擋雷達" })).toBeVisible();
+  await expect(blockerRadar.getByRole("heading", { name: "正式站資料庫與 live readiness" })).toBeVisible();
+  await expect(blockerRadar.getByRole("heading", { name: "正式登入、RBAC 與薪資防漏" })).toBeVisible();
+  await expect(blockerRadar.getByRole("heading", { name: "薪資月結、付款安全與薪資單權限" })).toBeVisible();
+  await expect(blockerRadar.getByText(/需要證據：Live \/api\/health\/ready OK/)).toBeVisible();
   const foundationBoard = page.getByLabel("下一階段基礎工程");
   await expect(foundationBoard.getByRole("heading", { name: "下一階段基礎工程" })).toBeVisible();
   await expect(foundationBoard.getByRole("heading", { name: "正式資料庫與租戶持久化" })).toBeVisible();
