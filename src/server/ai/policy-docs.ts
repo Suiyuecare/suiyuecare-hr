@@ -92,31 +92,25 @@ export const defaultApprovedPolicyDocs: PolicyDoc[] = [
 
 export async function getPolicyDocuments(session: SessionLike) {
   assertPermission(session.role, "ai:policy");
-  if (canUseDatabase(session)) {
-    try {
-      const records = await getDb().companyPolicyDocument.findMany({
-        where: { tenantId: session.tenantId, companyId: session.companyId },
-        orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
-      });
-      return records.map(readRecord);
-    } catch {
-      return getDemoState().docs;
-    }
+  if (!process.env.DATABASE_URL) {
+    return getDemoState().docs;
   }
-  return getDemoState().docs;
+  assertDatabasePolicyContext(session);
+  const records = await getDb().companyPolicyDocument.findMany({
+    where: { tenantId: session.tenantId, companyId: session.companyId },
+    orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+  });
+  return records.map(readRecord);
 }
 
 export async function savePolicyDocument(session: SessionLike, input: PolicyDocumentInput) {
   assertPermission(session.role, "ai:form_builder");
   const normalized = normalizeInput(input);
-  if (canUseDatabase(session)) {
-    try {
-      return saveDbPolicyDocument(session, normalized);
-    } catch {
-      return saveDemoPolicyDocument(session, normalized);
-    }
+  if (!process.env.DATABASE_URL) {
+    return saveDemoPolicyDocument(session, normalized);
   }
-  return saveDemoPolicyDocument(session, normalized);
+  assertDatabasePolicyContext(session);
+  return saveDbPolicyDocument(session, normalized);
 }
 
 export async function findPolicySources(session: SessionLike, question: string) {
@@ -296,8 +290,10 @@ function getDemoState() {
   return globalForPolicyDocs.hrOnePolicyDocDemoState!;
 }
 
-function canUseDatabase(
+function assertDatabasePolicyContext(
   session: SessionLike,
-): session is SessionLike & { tenantId: string; companyId: string } {
-  return Boolean(process.env.DATABASE_URL && session.tenantId && session.companyId);
+): asserts session is SessionLike & { tenantId: string; companyId: string } {
+  if (!session.tenantId || !session.companyId) {
+    throw new Error("AI policy sources require tenant and company context in database mode.");
+  }
 }
