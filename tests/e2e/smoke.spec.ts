@@ -741,6 +741,32 @@ test("HR 可以用中文付款安全工作台完成銀行檔閘門", async ({ pa
   await expect(page.getByText("已於").first()).toBeVisible();
 });
 
+test("HR 可以用中文薪資紀錄工作台完成工資清冊 Gate", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr/payroll-recordkeeping");
+
+  await expect(page.getByRole("heading", { name: "工資清冊與薪資明細工作台" })).toBeVisible();
+  await expect(page.getByLabel("工資清冊與薪資明細工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("薪資紀錄訊號板").getByText("工資清冊保存", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("薪資紀錄作業卡").getByRole("heading", { name: "工資清冊 Gate" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "三步薪資紀錄保存精靈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "薪資紀錄治理原則" })).toBeVisible();
+
+  const wizard = page.getByRole("form", { name: "薪資紀錄保存設定精靈" });
+  await wizard.getByLabel("工資清冊保存天數").fill("1825");
+  await wizard.getByLabel("開放員工薪資明細").check();
+  await wizard.getByLabel("包含工資計算方式明細").check();
+  await wizard.getByLabel("勞檢匯出已準備").check();
+  await wizard.getByRole("button", { name: "儲存薪資紀錄設定" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/payroll-recordkeeping$/);
+  await expect(page.getByLabel("薪資紀錄訊號板").getByText("1825 天")).toBeVisible();
+  await expect(page.getByText("薪資紀錄保存 Gate 已就緒")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("66000");
+  await expect(page.locator("body")).not.toContainText("12345678901234567");
+});
+
 test("HR 可以用中文付款資料工作台新增發薪帳戶", async ({ page }) => {
   await page.goto("/app");
   await switchDemoRole(page, "hr_admin");
