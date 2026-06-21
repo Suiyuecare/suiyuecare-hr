@@ -262,9 +262,10 @@ test("Owner 可以檢查試用邀請 Gate 與權限防漏", async ({ page }) => 
   await expect(page.getByRole("heading", { name: "試用邀請就緒" })).toBeVisible();
   await expect(page.getByText(/不輸出個資、薪資、銀行帳號/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "尚未可以邀請員工" })).toBeVisible();
-  await expect(page.getByText(/正式資料庫 Gate：需 CLI 報告/)).toBeVisible();
+  await expect(page.getByText(/正式資料庫 Gate：阻擋/)).toBeVisible();
   await expect(page.getByText(/Preflight 權限防漏：未完成/)).toBeVisible();
   await expect(page.getByText(/發第一封邀請前，先保存 production database gate 與 Go\/No-Go redacted 報告/)).toBeVisible();
+  await expect(page.getByText(/正式資料庫下一步/)).toBeVisible();
   await expect(page.getByText(/發第一封邀請前，先由 Owner\/HR 跑 preflight 權限防漏/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "20-50 人資料準備看板" })).toBeVisible();
   const prepBoard = page.getByLabel("20-50 人資料準備看板");

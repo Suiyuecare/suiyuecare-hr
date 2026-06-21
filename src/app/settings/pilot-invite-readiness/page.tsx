@@ -12,6 +12,10 @@ import {
   type PilotOperationsPhaseStatus,
   type PilotOperationsStatus,
 } from "@/server/readiness/pilot-operations";
+import {
+  getProductionDatabaseRemediationReport,
+  type ProductionDatabaseRemediationReport,
+} from "@/server/readiness/production-database-remediation";
 import type { BetaPilotEvidenceType } from "@/server/readiness/beta-pilot-checkpoints";
 
 type SearchParams = Promise<{
@@ -41,22 +45,28 @@ export default async function PilotInviteReadinessPage({
   const canManagePilot = hasPermission(session.role, "pilot:manage");
   const tenantSlug = normalizeTenantSlug(params.tenantSlug);
   const companyId = normalizeOptionalParam(params.companyId);
-  const snapshot = await readPilotInviteReadinessSnapshotFromDatabase({
-    tenantSlug,
-    companyId,
-  });
+  const [snapshot, operationsReport, productionDatabaseReport] = await Promise.all([
+    readPilotInviteReadinessSnapshotFromDatabase({
+      tenantSlug,
+      companyId,
+    }),
+    getPilotOperationsReport(session),
+    getProductionDatabaseRemediationReport({
+      appUrl: "https://hr.suiyuecare.com",
+      expectedHost: "hr.suiyuecare.com",
+    }),
+  ]);
   const report = buildPilotInviteReadinessReport({ snapshot });
-  const operationsReport = await getPilotOperationsReport(session);
   const preflightPhase = operationsReport.phases.find((phase) => phase.checkpointId === "preflight");
-  const productionDatabaseGateReady = false;
+  const productionDatabaseGateReady = productionDatabaseReport.status === "ready";
   const inviteGate = buildInviteGate({ report, preflightPhase, productionDatabaseGateReady });
   const inviteNextActions = buildInviteNextActions(
     report.nextActions,
     inviteGate.preflightAccessReviewReady,
-    productionDatabaseGateReady,
+    productionDatabaseReport,
   );
   const preparationAreas = [
-    buildProductionDatabasePreparationArea(productionDatabaseGateReady),
+    buildProductionDatabasePreparationArea(productionDatabaseReport),
     ...report.preparationAreas,
     buildPreflightPreparationArea(inviteGate.preflightAccessReviewReady),
   ];
@@ -97,7 +107,11 @@ export default async function PilotInviteReadinessPage({
                 {companyId ? ` · 公司 ${companyId}` : ""}。報表只保留彙總數字與狀態，不輸出個資、薪資、銀行帳號、SSO subject 或私人備註。
               </p>
               <p className="muted">
-                {inviteGate.detail} 正式資料庫 Gate：{productionDatabaseGateReady ? "已驗證" : "需 CLI 報告"}。
+                {inviteGate.detail} 正式資料庫 Gate：
+                {productionDatabaseGateReady
+                  ? "已驗證"
+                  : `阻擋：${productionDatabaseRootCauseLabel(productionDatabaseReport.rootCause)}`}
+                。
                 Preflight 權限防漏：{inviteGate.preflightAccessReviewReady ? "已驗證" : "未完成"}。
               </p>
             </div>
@@ -417,30 +431,41 @@ function inviteGateDetail(
 function buildInviteNextActions(
   actions: string[],
   preflightAccessReviewReady: boolean,
-  productionDatabaseGateReady: boolean,
+  productionDatabaseReport: ProductionDatabaseRemediationReport,
 ) {
+  const productionDatabaseGateReady = productionDatabaseReport.status === "ready";
+  const productionDatabaseNextAction =
+    productionDatabaseReport.launchChecklist.find((item) => item.status !== "done")?.title ?? null;
   const gateActions = [
-    ...(productionDatabaseGateReady ? [] : [productionDatabaseGateAction]),
+    ...(productionDatabaseGateReady
+      ? []
+      : [productionDatabaseGateAction, ...(productionDatabaseNextAction ? [productionDatabaseNextAction] : [])]),
     ...(preflightAccessReviewReady ? [] : [preflightAccessReviewAction]),
   ];
   const nextActions = [...gateActions, ...actions];
   return [...new Set(nextActions)];
 }
 
-function buildProductionDatabasePreparationArea(productionDatabaseGateReady: boolean) {
+function buildProductionDatabasePreparationArea(productionDatabaseReport: ProductionDatabaseRemediationReport) {
+  const productionDatabaseGateReady = productionDatabaseReport.status === "ready";
+  const nextChecklistItem = productionDatabaseReport.launchChecklist.find((item) => item.status !== "done");
   return {
     id: "production_database_gate",
     title: "正式資料庫 Gate",
     status: productionDatabaseGateReady ? "ready" : "blocked",
     readyCount: productionDatabaseGateReady ? 1 : 0,
-    targetLabel: "hard gate",
+    targetLabel: productionDatabaseGateReady
+      ? "hard gate"
+      : productionDatabaseRootCauseLabel(productionDatabaseReport.rootCause),
     gapCount: productionDatabaseGateReady ? 0 : 1,
     detail: productionDatabaseGateReady
-      ? "正式資料庫與 production env draft 已由 redacted CLI 報告驗證。"
-      : "Browser UI 不核准發邀請；需先保存 redacted production database gate 與 Go/No-Go 報告。",
+      ? "正式資料庫與 production env 已由 live readiness 驗證，仍需保留 redacted Go/No-Go 證據。"
+      : `正式站仍未通過 live readiness：${productionDatabaseReport.summary}`,
     nextStep: productionDatabaseGateReady
       ? "正式資料庫 Gate 已完成，請保留報告到試用 evidence folder。"
-      : "先跑 production database gate 與 Go/No-Go；live DB 與 env draft 都 ready 才能發邀請。",
+      : nextChecklistItem
+        ? `下一步：${nextChecklistItem.title}。${nextChecklistItem.evidence}`
+        : "先跑 production database gate 與 Go/No-Go；live DB 與 env draft 都 ready 才能發邀請。",
     href: "/settings/production-database",
   } as const;
 }
@@ -555,8 +580,33 @@ function nextActionLabel(action: string) {
       "發第一封邀請前，先由 Owner/HR 跑 preflight 權限防漏，確認員工、主管與 HR 的薪資資料邊界。",
     [productionDatabaseGateAction]:
       "發第一封邀請前，先保存 production database gate 與 Go/No-Go redacted 報告，確認正式資料庫、env draft、匯入、流程與證據掃描都通過。",
+    "產生 pooler URL redacted handoff":
+      "正式資料庫下一步：由 Owner 產生 Supabase transaction pooler URL 的 redacted handoff，不保存密碼或完整 URL。",
+    "寫入 Vercel Production env":
+      "正式資料庫下一步：把 server-only DATABASE_URL 與正式 env 寫入 Vercel Production，然後重新部署。",
+    "重新部署 Production":
+      "正式資料庫下一步：Production env 寫入後重新部署，讓 Vercel runtime 使用新連線。",
+    "確認 live /api/health/ready":
+      "正式資料庫下一步：確認 https://hr.suiyuecare.com/api/health/ready 回 ok，且 payload 不含敏感資料。",
+    "驗證正式 tenant 與 hr_one schema":
+      "正式資料庫下一步：通過 live DB 後，驗證正式 tenant、角色、規則、薪資與 audit 覆蓋不是 demo fallback。",
+    "跑完整 pilot Go/No-Go":
+      "正式資料庫下一步：跑完整 Go/No-Go，確認匯入、邀請、workflow 與 evidence scan 全部可開跑。",
   };
   return labels[action] ?? action;
+}
+
+function productionDatabaseRootCauseLabel(rootCause: ProductionDatabaseRemediationReport["rootCause"]) {
+  const labels: Record<ProductionDatabaseRemediationReport["rootCause"], string> = {
+    ready: "可用",
+    supabase_direct_network: "Direct host 網路阻擋",
+    pooler_configuration: "Pooler 設定",
+    missing_database_url: "缺 DATABASE_URL",
+    environment_configuration: "Env 未通過",
+    health_unreachable: "Health 不可讀",
+    unknown: "待定位",
+  };
+  return labels[rootCause];
 }
 
 function ratioText(value: string) {
