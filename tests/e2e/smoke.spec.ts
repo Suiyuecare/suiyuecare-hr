@@ -1446,6 +1446,42 @@ test("HR 可以發布工作條件且員工能在前台確認", async ({ page }) 
   await expect(page.locator(".employee-terms-card", { hasText: "2026.07-e2e" }).getByText("已確認")).toBeVisible();
 });
 
+test("HR 可以用中文訓練上線工作台控制第一週教學時間", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr/training");
+
+  await expect(page.getByRole("heading", { name: "訓練上線工作台" })).toBeVisible();
+  await expect(page.getByLabel("訓練上線工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("訓練 KPI 訊號板").getByText("第一週教學")).toBeVisible();
+  await expect(page.getByLabel("訓練作業卡").getByRole("heading", { name: "10 分鐘內完成" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "三步訓練控制" })).toBeVisible();
+
+  const settingsForm = page.getByRole("form", { name: "訓練控制設定" });
+  await settingsForm.getByLabel("第一週教學分鐘上限").fill("10");
+  await settingsForm.getByLabel("HR 複核狀態").selectOption("verified");
+  await settingsForm.getByRole("button", { name: "儲存訓練控制" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/training$/);
+  await expect(page.getByText("可上線").first()).toBeVisible();
+
+  const courseForm = page.getByRole("form", { name: "訓練課程精靈" });
+  await courseForm.getByLabel("課程名稱").fill("HR One 2 分鐘快速上手");
+  await courseForm.getByLabel("預估分鐘").fill("2");
+  await courseForm.getByLabel("課程說明").fill("手機打卡、請假、薪資單與資料安全。");
+  await courseForm.getByRole("button", { name: "儲存訓練課程" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/training$/);
+  await expect(page.getByText("HR One 2 分鐘快速上手")).toBeVisible();
+
+  await page.getByRole("button", { name: "指派必修訓練" }).click();
+  await expect(page).toHaveURL(/\/hr\/training$/);
+  await expect(page.getByRole("heading", { name: "員工指派紀錄" })).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("nationalId");
+  await expect(page.locator("body")).not.toContainText("baseSalary");
+  await expect(page.locator("body")).not.toContainText("private note");
+});
+
 test("HR 可以用中文工作規則工作台發布規章且員工手機確認", async ({ page }) => {
   const rawRuleContent = "E2E raw work-rule private content 2026，不應在頁面或 audit metadata 回顯。";
 
