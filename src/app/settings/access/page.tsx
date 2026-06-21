@@ -1,13 +1,21 @@
 import { EmptyState } from "@/components/EmptyState";
 import { getDemoSession } from "@/server/auth/session";
 import { getUserAccessWorkspace } from "@/server/auth/access-management";
+import {
+  buildAccessCutoverReport,
+  type AccessCutoverStatus,
+} from "@/server/auth/access-cutover";
 import { roleKeys, type RoleKey } from "@/server/auth/rbac";
+import { getSupportAccessGovernance } from "@/server/support/access";
 
 type SearchParams = Promise<{ error?: string; success?: string }>;
 
 export default async function AccessSettingsPage({ searchParams }: { searchParams: SearchParams }) {
   const [{ error, success }, session] = await Promise.all([searchParams, getDemoSession()]);
-  const workspace = await getUserAccessWorkspace(session);
+  const [workspace, supportAccessGovernance] = await Promise.all([
+    getUserAccessWorkspace(session),
+    getSupportAccessGovernance(session),
+  ]);
   const suspendedCount = workspace.users.filter((user) => user.status === "suspended").length;
   const privilegedUsers = workspace.users.filter((user) =>
     user.roles.some((role) => role === "owner" || role === "hr_admin" || role === "manager"),
@@ -25,6 +33,7 @@ export default async function AccessSettingsPage({ searchParams }: { searchParam
     suspendedCount,
     roleCoverageCount,
   });
+  const accessCutover = buildAccessCutoverReport(workspace, { supportAccessGovernance });
 
   return (
     <main className="page access-control-page">
@@ -95,6 +104,62 @@ export default async function AccessSettingsPage({ searchParams }: { searchParam
           <strong>{suspendedCount}</strong>
           <small>留停、離職與支援帳號都要可停用、可追蹤、可復用。</small>
         </a>
+      </section>
+
+      <section className="panel span-12 access-cutover-board" aria-label="正式登入切換 Gate">
+        <div className="section-heading">
+          <div>
+            <span className="muted">Production cutover</span>
+            <h2>正式登入切換 Gate</h2>
+            <p className="muted">
+              這裡把 SSO、RBAC、員工帳號覆蓋、薪資防漏、支援存取與 demo auth 關閉整理成同一張上線看板；只顯示數量、狀態與 hash-only 證據需求。
+            </p>
+          </div>
+          <span className={`badge ${accessStatusBadgeClass(accessCutover.status)}`}>
+            {accessCutover.readyForProduction ? "可切正式登入" : `${accessCutover.blockedCount} 個阻擋`}
+          </span>
+        </div>
+
+        <div className={`access-cutover-focus ${accessStatusTone(accessCutover.topTask.status)}`}>
+          <div>
+            <span className="eyebrow">今日正式切換優先項</span>
+            <h3>{accessCutover.topTask.title}</h3>
+            <p>{accessCutover.topTask.nextStep}</p>
+          </div>
+          <a className="button primary" href={accessCutover.topTask.actionHref}>
+            {accessCutover.topTask.actionLabel}
+          </a>
+        </div>
+
+        <div className="access-cutover-metrics" aria-label="正式登入 Gate 摘要">
+          {accessCutover.metrics.map((metric) => (
+            <div className={`access-cutover-metric ${accessStatusTone(metric.status)}`} key={metric.label}>
+              <span>{metric.label}</span>
+              <strong>{metric.value}</strong>
+              <small>{metric.detail}</small>
+            </div>
+          ))}
+        </div>
+
+        <div className="access-cutover-grid" aria-label="正式登入切換任務">
+          {accessCutover.tasks.map((task) => (
+            <article className={`access-cutover-task ${accessStatusTone(task.status)}`} id={task.id} key={task.id}>
+              <div className="access-cutover-task-topline">
+                <span className="eyebrow">{task.owner}</span>
+                <span className={`badge ${accessStatusBadgeClass(task.status)}`}>
+                  {accessStatusLabel(task.status)}
+                </span>
+              </div>
+              <h3>{task.title}</h3>
+              <strong>{task.signal}</strong>
+              <p>{task.detail}</p>
+              <small>驗收：{task.acceptanceEvidence}</small>
+              <a className="button" href={task.actionHref}>
+                {task.actionLabel}
+              </a>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="settings-command-grid access-command-grid" aria-label="權限作業區">
@@ -444,6 +509,24 @@ function roleDescription(role: RoleKey) {
     employee: "手機前台與本人資料",
   };
   return descriptions[role];
+}
+
+function accessStatusLabel(status: AccessCutoverStatus) {
+  if (status === "ready") return "Ready";
+  if (status === "blocked") return "阻擋";
+  return "待處理";
+}
+
+function accessStatusTone(status: AccessCutoverStatus) {
+  if (status === "ready") return "done";
+  if (status === "blocked") return "danger";
+  return "warning";
+}
+
+function accessStatusBadgeClass(status: AccessCutoverStatus) {
+  if (status === "ready") return "";
+  if (status === "blocked") return "danger";
+  return "warning";
 }
 
 function successMessage(success: string) {

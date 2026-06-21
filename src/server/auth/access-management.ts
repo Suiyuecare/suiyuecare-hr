@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { writeAuditLog } from "@/server/audit/audit";
 import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { stableHash } from "@/server/audit/redaction";
-import { getCompanySecuritySettingsForAuth } from "@/server/settings/security";
+import { getCompanySecuritySettingsForAuth, hasSsoMetadata } from "@/server/settings/security";
 import { getDb } from "@/server/db/client";
 import { getFallbackCompanyOverview } from "@/server/demo/fallback";
 import { assertPermission, roleKeys, type RoleKey } from "./rbac";
@@ -44,6 +44,10 @@ export type UserAccessWorkspace = {
   employees: UserAccessEmployeeOption[];
   allowedEmailDomains: string[];
   ssoEnabled: boolean;
+  ssoMetadataConfigured: boolean;
+  adminMfaRequired: boolean;
+  employeeMfaRequired: boolean;
+  passwordMinLength: number;
 };
 
 export type UserAccessEmployeeLink = {
@@ -108,6 +112,10 @@ export async function getUserAccessWorkspace(session: SessionLike): Promise<User
     employees,
     allowedEmailDomains: securitySettings.allowedEmailDomains,
     ssoEnabled: securitySettings.ssoEnabled,
+    ssoMetadataConfigured: hasSsoMetadata(securitySettings),
+    adminMfaRequired: securitySettings.mfaRequiredForAdmins,
+    employeeMfaRequired: securitySettings.mfaRequiredForEmployees,
+    passwordMinLength: securitySettings.passwordMinLength,
   };
 }
 

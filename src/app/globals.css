@@ -4336,6 +4336,174 @@ legend {
   min-height: 276px;
 }
 
+.access-cutover-board {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.access-cutover-focus {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.access-cutover-focus.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.access-cutover-focus.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.access-cutover-focus.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.access-cutover-focus h3 {
+  margin: 4px 0;
+  color: var(--foreground);
+  font-size: 22px;
+  font-weight: 1000;
+  line-height: 1.14;
+}
+
+.access-cutover-focus p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.access-cutover-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.access-cutover-metric {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 112px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.access-cutover-metric.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.access-cutover-metric.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.access-cutover-metric.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.access-cutover-metric span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.access-cutover-metric strong {
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 1000;
+  line-height: 1.1;
+}
+
+.access-cutover-metric small,
+.access-cutover-task small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.access-cutover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(236px, 1fr));
+  gap: 10px;
+}
+
+.access-cutover-task {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 300px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.access-cutover-task.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.access-cutover-task.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.access-cutover-task.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.access-cutover-task-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.access-cutover-task h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 1000;
+  line-height: 1.18;
+}
+
+.access-cutover-task strong {
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+.access-cutover-task p {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 820;
+  line-height: 1.45;
+}
+
+.access-cutover-task .button {
+  align-self: end;
+  justify-self: start;
+  margin-top: auto;
+}
+
 .access-invite-panel {
   scroll-margin-top: 24px;
 }
@@ -11028,6 +11196,8 @@ legend {
   .manager-risk-grid,
   .settings-control-hero,
   .settings-signal-board,
+  .access-cutover-metrics,
+  .access-cutover-grid,
   .sale-foundation-grid,
   .settings-command-grid,
   .security-setup-grid,
@@ -11191,6 +11361,7 @@ legend {
   }
 
   .access-control-page .section-heading,
+  .access-cutover-focus,
   .payroll-adjustment-page .section-heading,
   .annual-leave-settlement-page .section-heading,
   .annual-leave-grant-page .section-heading,
@@ -11203,6 +11374,7 @@ legend {
   }
 
   .access-invite-form .form-card,
+  .access-cutover-task,
   .access-user-card,
   .access-fact-grid div {
     min-height: auto;

@@ -418,6 +418,10 @@ test("Owner 可以用中文權限中樞邀請帳號並綁定員工", async ({ pa
 
   await expect(page.getByRole("heading", { name: "權限與登入中樞" })).toBeVisible();
   await expect(page.getByLabel("權限狀態訊號板").getByText("員工登入綁定")).toBeVisible();
+  await expect(page.getByLabel("正式登入切換 Gate").getByRole("heading", { name: "正式登入切換 Gate" })).toBeVisible();
+  await expect(page.getByLabel("正式登入 Gate 摘要").getByText("薪資防漏")).toBeVisible();
+  await expect(page.locator("#payroll_salary_boundary")).toContainText("0 個已知漏洞");
+  await expect(page.locator("#demo_auth_shutdown")).toContainText("Demo auth 仍可用");
   await expect(page.getByLabel("權限作業區").getByRole("heading", { name: "邀請帳號" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "新增使用者" })).toBeVisible();
 
