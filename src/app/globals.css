@@ -1236,6 +1236,101 @@ textarea {
   margin: 0 0 16px;
 }
 
+.employee-daily-command {
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) repeat(3, minmax(0, 0.94fr));
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.employee-daily-command-copy,
+.employee-daily-command-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 138px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.employee-daily-command-copy {
+  border-color: #111827;
+  background: #111827;
+}
+
+.employee-daily-command-copy .muted,
+.employee-daily-command-copy small {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.employee-daily-command-copy strong {
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 1000;
+  line-height: 1.14;
+}
+
+.employee-daily-command-copy small,
+.employee-daily-command-card small {
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.employee-daily-command-card {
+  color: var(--foreground);
+}
+
+.employee-daily-command-card.focus {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.employee-daily-command-card.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.employee-daily-command-card.warning {
+  border-color: #facc15;
+  background: #fff8e8;
+}
+
+.employee-daily-command-card span {
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.employee-daily-command-card strong {
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 1000;
+  line-height: 1.18;
+}
+
+.employee-daily-command-card small {
+  color: var(--muted);
+}
+
+.employee-daily-command-card form {
+  display: grid;
+}
+
+.employee-daily-command-card .button {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 2px;
+}
+
+.employee-daily-command-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .employee-signal-board {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -11252,6 +11347,7 @@ legend {
   .toggle-row,
   .finance-strip,
   .employee-hero,
+  .employee-daily-command,
   .employee-signal-board,
   .employee-pilot-strip,
   .manager-inbox-hero,
@@ -11741,6 +11837,20 @@ legend {
     min-height: auto;
   }
 
+  .employee-daily-command-copy,
+  .employee-daily-command-card {
+    min-height: auto;
+    padding: 12px;
+  }
+
+  .employee-daily-command-copy strong {
+    font-size: 19px;
+  }
+
+  .employee-daily-command-card strong {
+    font-size: 17px;
+  }
+
   .employee-signal-board,
   .employee-pilot-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -11758,6 +11868,8 @@ legend {
   }
 
   .employee-flow-step,
+  .employee-daily-command-copy,
+  .employee-daily-command-card,
   .console-command-copy,
   .console-command-card,
   .console-pilot-gate-main,

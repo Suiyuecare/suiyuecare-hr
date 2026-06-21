@@ -35,6 +35,10 @@ export default async function EmployeeHomePage() {
     pendingRequests: pendingRequests.length,
     unreadNotifications: unreadNotificationCount,
   });
+  const primaryPunchAction = buildPrimaryPunchAction({
+    clockedIn: Boolean(workspace.attendance.clockInAt),
+    clockedOut: Boolean(workspace.attendance.clockOutAt),
+  });
   const todaySignals = [
     {
       label: "出勤",
@@ -115,18 +119,21 @@ export default async function EmployeeHomePage() {
               {formatTime(workspace.attendance.scheduledEnd)}
             </p>
             <div className="employee-hero-actions" aria-label="今日打卡">
-              <form action="/api/workflows/clock-in" method="post">
-                <input type="hidden" name="source" value="mobile" />
-                <button className="button primary" type="submit">
-                  上班打卡
-                </button>
-              </form>
-              <form action="/api/workflows/clock-out" method="post">
-                <input type="hidden" name="source" value="mobile" />
-                <button className="button" type="submit">
-                  下班打卡
-                </button>
-              </form>
+              {primaryPunchAction ? (
+                <form action={primaryPunchAction.action} method="post">
+                  <input type="hidden" name="source" value="mobile" />
+                  <button className="button primary" type="submit">
+                    {primaryPunchAction.label}
+                  </button>
+                </form>
+              ) : (
+                <a className="button primary" href="/app/attendance">
+                  查看今日出勤
+                </a>
+              )}
+              <a className="button" href="#quick-leave">
+                60 秒請假
+              </a>
             </div>
           </div>
           <aside className="employee-hero-status" aria-label="今日下一步">
@@ -143,6 +150,45 @@ export default async function EmployeeHomePage() {
               <span style={{ width: `${completionPercent}%` }} />
             </div>
           </aside>
+        </section>
+
+        <section className="employee-daily-command" aria-label="今日三步快辦">
+          <div className="employee-daily-command-copy">
+            <span className="muted">今日三步快辦</span>
+            <strong>{nextBestAction.title}</strong>
+            <small>{nextBestAction.detail}</small>
+          </div>
+          <article className={`employee-daily-command-card ${primaryPunchAction ? "focus" : "done"}`}>
+            <span>01 現在</span>
+            <strong>{primaryPunchAction?.label ?? "出勤完成"}</strong>
+            <small>
+              {primaryPunchAction
+                ? `${clockInDisplay} / ${clockOutDisplay} · 來源 mobile`
+                : `${clockInDisplay} / ${clockOutDisplay} · 今日出勤可查看`}
+            </small>
+            {primaryPunchAction ? (
+              <form action={primaryPunchAction.action} method="post">
+                <input type="hidden" name="source" value="mobile" />
+                <button className="button primary" type="submit">
+                  立即處理
+                </button>
+              </form>
+            ) : (
+              <a className="button primary" href="/app/attendance">
+                看出勤
+              </a>
+            )}
+          </article>
+          <a className="employee-daily-command-card" href="#quick-leave">
+            <span>02 申請</span>
+            <strong>60 秒請假</strong>
+            <small>{workspace.leaveBalance.remainingUnits} 天可用 · 上午/下午可直接送出</small>
+          </a>
+          <a className={`employee-daily-command-card ${pendingRequests.length ? "warning" : ""}`} href="#requests">
+            <span>03 追蹤</span>
+            <strong>{pendingRequests.length ? `${pendingRequests.length} 筆簽核中` : "沒有等待"}</strong>
+            <small>{pendingRequests.length ? "查看目前關卡與主管回覆" : "送出後會在這裡看到時間線"}</small>
+          </a>
         </section>
 
         <section className="employee-signal-board" aria-label="今日任務板">
@@ -656,6 +702,25 @@ function buildNextBestAction(input: {
     cta: "看任務",
     tone: "done",
   };
+}
+
+function buildPrimaryPunchAction(input: {
+  clockedIn: boolean;
+  clockedOut: boolean;
+}) {
+  if (!input.clockedIn) {
+    return {
+      label: "上班打卡",
+      action: "/api/workflows/clock-in",
+    };
+  }
+  if (!input.clockedOut) {
+    return {
+      label: "下班打卡",
+      action: "/api/workflows/clock-out",
+    };
+  }
+  return null;
 }
 
 function formatAttachmentSummary(attachments: WorkflowRequest["attachments"]) {
