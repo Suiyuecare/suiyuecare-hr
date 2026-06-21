@@ -8315,6 +8315,77 @@ legend {
   overflow-wrap: anywhere;
 }
 
+.report-permission-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.report-permission-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 308px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.report-permission-card.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.report-permission-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.report-permission-card-head {
+  display: grid;
+  gap: 8px;
+}
+
+.report-permission-card-head h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 1000;
+  line-height: 1.15;
+}
+
+.report-permission-card-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 820;
+  line-height: 1.35;
+}
+
+.report-permission-controls {
+  display: grid;
+  gap: 8px;
+}
+
+.report-permission-guardrails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.report-permission-guardrails span {
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 5px 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
 .report-step-list {
   display: grid;
   gap: 10px;
@@ -9029,6 +9100,7 @@ legend {
   .report-builder-grid,
   .report-job-meta,
   .report-selected-fields,
+  .report-permission-board,
   .report-step,
   .report-payroll-task,
   .report-next-task,

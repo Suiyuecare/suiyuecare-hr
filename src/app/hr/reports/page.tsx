@@ -12,6 +12,7 @@ import {
   type ReportArchiveView,
   type ReportDatasetView,
   type ReportJobView,
+  type ReportPermissionView,
 } from "@/server/reports/builder";
 
 type SearchParams = Promise<{
@@ -94,6 +95,15 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
           <div className="panel success-panel">
             <strong>自訂報表已產生</strong>
             <p>已建立報表 job、遮罩封存 metadata 與 audit log；頁面不回顯薪資金額、銀行帳號、身分證或私人備註。</p>
+          </div>
+        </section>
+      ) : null}
+
+      {params.success === "report-permission" ? (
+        <section className="report-alerts" aria-live="polite">
+          <div className="panel success-panel">
+            <strong>報表權限已更新</strong>
+            <p>已寫入角色、資料集、匯出、遮罩與用途理由設定；變更會留下 audit log，敏感欄位仍受硬性保護。</p>
           </div>
         </section>
       ) : null}
@@ -186,7 +196,7 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
               <strong>欄位與個資治理</strong>
               <small>先把敏感欄位、保存期限與員工權利請求納入報表規則。</small>
             </Link>
-            <Link className="report-settings-card" href="/settings/access">
+            <Link className="report-settings-card" href="#report-permissions">
               <strong>報表權限矩陣</strong>
               <small>老闆、人資、行政主任、主管只能看到自己職務需要的欄位。</small>
             </Link>
@@ -194,6 +204,25 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
               <strong>{reportWorkspace.summary.datasetCount} 個資料集 / {reportWorkspace.summary.fieldCount} 個欄位</strong>
               <small>{reportWorkspace.summary.blockedSensitiveFieldCount} 個敏感欄位預設不可匯出；每次建立都寫入 audit log。</small>
             </div>
+          </div>
+        </section>
+
+        <section className="panel span-12" id="report-permissions">
+          <div className="section-heading">
+            <div>
+              <h2>報表權限矩陣</h2>
+              <p className="muted">用角色和資料集調整匯出權限；薪資、銀行帳號、身分證與健康/私密欄位不會因設定而解除硬性遮罩。</p>
+            </div>
+            <span className="badge done">{reportWorkspace.summary.exportAllowedPermissionCount} 個可匯出設定</span>
+          </div>
+          <div className="report-permission-board" aria-label="報表權限矩陣">
+            {reportWorkspace.permissions.map((permission) => (
+              <ReportPermissionCard
+                canManageReports={canManageReports}
+                permission={permission}
+                key={`${permission.datasetCode}-${permission.roleKey}-${permission.fieldKey ?? "dataset"}`}
+              />
+            ))}
           </div>
         </section>
 
@@ -450,6 +479,84 @@ function ReportDatasetBuilder({
   );
 }
 
+function ReportPermissionCard({
+  permission,
+  canManageReports,
+}: {
+  permission: ReportPermissionView;
+  canManageReports: boolean;
+}) {
+  const canExportRole = permission.roleKey === "owner" || permission.roleKey === "hr_admin";
+  const payrollGuarded = permission.datasetCategory === "payroll";
+  return (
+    <form
+      action="/api/reports/permissions"
+      method="post"
+      className={`report-permission-card ${permission.exportAllowed ? "ready" : "warning"}`}
+      aria-label={`${roleLabel(permission.roleKey)} ${permission.datasetName} 報表權限`}
+    >
+      <input type="hidden" name="datasetCode" value={permission.datasetCode} />
+      <input type="hidden" name="roleKey" value={permission.roleKey} />
+      <div className="report-permission-card-head">
+        <span className={`badge ${permission.exportAllowed ? "done" : "warning"}`}>
+          {permission.exportAllowed ? "可匯出" : "不可匯出"}
+        </span>
+        <div>
+          <h3>{roleLabel(permission.roleKey)}</h3>
+          <p>{permission.datasetName} · {categoryLabel(permission.datasetCategory)}</p>
+        </div>
+      </div>
+      <div className="report-permission-controls">
+        <label>
+          存取層級
+          <select name="accessLevel" defaultValue={permission.accessLevel} disabled={!canManageReports}>
+            <option value="none">無權限</option>
+            <option value="summary">只看摘要</option>
+            <option value="detail">可看明細</option>
+            <option value="aggregate">只看彙總</option>
+          </select>
+        </label>
+        <label>
+          遮罩模式
+          <select name="maskingMode" defaultValue={permission.maskingMode} disabled={!canManageReports}>
+            <option value="none">不額外遮罩</option>
+            <option value="masked">遮罩顯示</option>
+            <option value="aggregate_only">只出彙總</option>
+            <option value="blocked">完全阻擋</option>
+          </select>
+        </label>
+        <label>
+          匯出
+          <select
+            name="exportAllowed"
+            defaultValue={String(permission.exportAllowed)}
+            disabled={!canManageReports || !canExportRole}
+          >
+            <option value="true">允許建立匯出</option>
+            <option value="false">禁止匯出</option>
+          </select>
+        </label>
+        <label>
+          用途理由
+          <select name="requiresReason" defaultValue={String(permission.requiresReason)} disabled={!canManageReports}>
+            <option value="true">必填用途</option>
+            <option value="false">不強制</option>
+          </select>
+        </label>
+      </div>
+      <div className="report-permission-guardrails">
+        <span>{maskingLabel(permission.maskingMode)}</span>
+        <span>{accessLevelLabel(permission.accessLevel)}</span>
+        {payrollGuarded ? <span>薪資資料集強制彙總</span> : null}
+        {!canExportRole ? <span>此角色不可建立匯出</span> : null}
+      </div>
+      <button className="button primary" type="submit" disabled={!canManageReports}>
+        儲存權限
+      </button>
+    </form>
+  );
+}
+
 function ReportJobCard({ job }: { job: ReportJobView }) {
   return (
     <article className="report-job-card">
@@ -597,9 +704,9 @@ function buildNextStageItems() {
       tone: "warning",
     },
     {
-      title: "可視化欄位權限矩陣",
-      detail: "讓 Owner/HR 在後台調整角色、欄位遮罩、是否可匯出與必填用途。",
-      status: "權限",
+      title: "欄位級覆寫與雙人覆核",
+      detail: "下一步把目前資料集層級矩陣推進到單欄位例外、雙人覆核與到期自動回收。",
+      status: "覆核",
       tone: "warning",
     },
     {
@@ -625,6 +732,36 @@ function maskingLabel(maskingMode: string) {
     blocked: "不可匯出",
   };
   return labels[maskingMode] ?? "遮罩";
+}
+
+function accessLevelLabel(accessLevel: string) {
+  const labels: Record<string, string> = {
+    none: "無權限",
+    summary: "只看摘要",
+    detail: "可看明細",
+    aggregate: "只看彙總",
+  };
+  return labels[accessLevel] ?? "只看摘要";
+}
+
+function roleLabel(roleKey: string) {
+  const labels: Record<string, string> = {
+    owner: "老闆",
+    hr_admin: "人資",
+    manager: "主管",
+    employee: "員工",
+  };
+  return labels[roleKey] ?? "員工";
+}
+
+function categoryLabel(category: string) {
+  const labels: Record<string, string> = {
+    people: "人事",
+    attendance: "出勤",
+    payroll: "薪酬",
+    forms: "表單",
+  };
+  return labels[category] ?? "報表";
 }
 
 function sensitivityLabel(sensitivity: string) {

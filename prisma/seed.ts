@@ -2,7 +2,7 @@ import { Prisma, PrismaClient, RoleKey } from "@prisma/client";
 import { createHash } from "node:crypto";
 import { defaultApprovedPolicyDocs } from "../src/server/ai/policy-docs";
 import { taiwanStatutoryLeaveRequirements } from "../src/server/leave/statutory";
-import { defaultReportCatalog } from "../src/server/reports/builder";
+import { defaultReportCatalog, defaultReportPermissionFor } from "../src/server/reports/builder";
 import { defaultTaiwanLaborStandardsConfig } from "../src/server/rules/taiwan-labor-standards";
 import {
   buildRuleVersionTestCases,
@@ -349,17 +349,26 @@ async function main() {
         },
       });
     }
-    for (const roleKey of ["owner", "hr_admin"] as const) {
+    for (const roleKey of ["owner", "hr_admin", "manager", "employee"] as const) {
+      const permission = defaultReportPermissionFor(
+        {
+          id: createdDataset.id,
+          code: dataset.code,
+          name: dataset.name,
+          category: dataset.category,
+        },
+        roleKey,
+      );
       await prisma.reportPermission.create({
         data: {
           tenantId: tenant.id,
           companyId: company.id,
           datasetId: createdDataset.id,
           roleKey,
-          accessLevel: dataset.category === "payroll" ? "aggregate" : "summary",
-          maskingMode: dataset.category === "payroll" ? "aggregate_only" : "masked",
-          exportAllowed: true,
-          requiresReason: true,
+          accessLevel: permission.accessLevel,
+          maskingMode: permission.maskingMode,
+          exportAllowed: permission.exportAllowed,
+          requiresReason: permission.requiresReason,
         },
       });
     }

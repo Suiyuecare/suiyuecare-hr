@@ -997,8 +997,17 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   await expect(page.getByLabel("報表作業卡").getByRole("heading", { name: "薪酬分析" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "自訂報表精靈" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "報表設定與封存" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "報表權限矩陣" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "下一階段基礎工程" })).toBeVisible();
   await expect(page.getByRole("link", { name: "下載封存資料" }).first()).toBeVisible();
+  const reportPermissionForm = page.getByRole("form", { name: "主管 出勤月結 報表權限" });
+  await reportPermissionForm.getByLabel("存取層級").selectOption("detail");
+  await reportPermissionForm.getByLabel("遮罩模式").selectOption("none");
+  await reportPermissionForm.getByRole("button", { name: "儲存權限" }).click();
+  await expect(page).toHaveURL(/\/hr\/reports\?success=report-permission#report-permissions$/);
+  await expect(page.getByText("報表權限已更新")).toBeVisible();
+  await expect(reportPermissionForm.getByLabel("存取層級")).toHaveValue("summary");
+  await expect(reportPermissionForm.getByLabel("遮罩模式")).toHaveValue("masked");
   const customReportForm = page.getByRole("form", { name: "人事準備度自訂報表" });
   await customReportForm.getByLabel("報表名稱").fill("兩週試用人事準備度報表");
   await customReportForm.getByLabel("用途").selectOption("labor_inspection");

@@ -4,6 +4,7 @@ import {
   createCustomReportJob,
   getReportAdminWorkspace,
   resetReportDemoState,
+  updateReportPermission,
 } from "./builder";
 
 const hrSession = {
@@ -82,6 +83,65 @@ describe("report builder foundation", () => {
         selectedFieldKeys: ["employee_no", "national_id"],
       }),
     ).rejects.toThrow(/不可匯出/);
+  });
+
+  it("exposes and updates a role-based report permission matrix with audit logs", async () => {
+    const workspace = await getReportAdminWorkspace(hrSession);
+    const managerPayroll = workspace.permissions.find(
+      (permission) => permission.roleKey === "manager" && permission.datasetCode === "payroll_close",
+    );
+
+    expect(workspace.summary.permissionCount).toBe(16);
+    expect(managerPayroll).toMatchObject({
+      accessLevel: "none",
+      maskingMode: "blocked",
+      exportAllowed: false,
+    });
+
+    const updated = await updateReportPermission(hrSession, {
+      datasetCode: "attendance_monthly",
+      roleKey: "manager",
+      accessLevel: "detail",
+      maskingMode: "none",
+      exportAllowed: "true",
+      requiresReason: "false",
+    });
+    const nextWorkspace = await getReportAdminWorkspace(hrSession);
+    const managerAttendance = nextWorkspace.permissions.find(
+      (permission) => permission.roleKey === "manager" && permission.datasetCode === "attendance_monthly",
+    );
+
+    expect(updated).toMatchObject({
+      roleKey: "manager",
+      datasetCode: "attendance_monthly",
+      accessLevel: "summary",
+      maskingMode: "masked",
+      exportAllowed: false,
+      requiresReason: true,
+    });
+    expect(managerAttendance).toMatchObject(updated);
+    expect(getAuditDemoState().logs[0]).toMatchObject({
+      entityType: "report_permission",
+      action: "update",
+    });
+    expect(JSON.stringify(getAuditDemoState().logs)).not.toContain("accountNumber");
+  });
+
+  it("uses the matrix to block report generation when export permission is disabled", async () => {
+    await updateReportPermission(hrSession, {
+      datasetCode: "people_readiness",
+      roleKey: "hr_admin",
+      accessLevel: "summary",
+      maskingMode: "masked",
+      exportAllowed: "false",
+    });
+
+    await expect(
+      createCustomReportJob(hrSession, {
+        datasetCode: "people_readiness",
+        selectedFieldKeys: ["employee_no"],
+      }),
+    ).rejects.toThrow(/不能匯出/);
   });
 
   it("allows payroll fields only as aggregate metadata for payroll-authorized HR", async () => {

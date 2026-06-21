@@ -23,6 +23,7 @@ export type ReportFieldSensitivity =
   | "health";
 
 export type ReportMaskingMode = "none" | "masked" | "aggregate_only" | "blocked";
+export type ReportAccessLevel = "none" | "summary" | "detail" | "aggregate";
 
 export type ReportDatasetDefinition = {
   code: string;
@@ -93,15 +94,34 @@ export type ReportArchiveView = {
 
 export type ReportAdminWorkspace = {
   datasets: ReportDatasetView[];
+  permissions: ReportPermissionView[];
   jobs: ReportJobView[];
   archives: ReportArchiveView[];
   summary: {
     datasetCount: number;
     fieldCount: number;
+    permissionCount: number;
+    exportAllowedPermissionCount: number;
     generatedJobCount: number;
     archiveCount: number;
     blockedSensitiveFieldCount: number;
   };
+};
+
+export type ReportPermissionView = {
+  id: string;
+  datasetCode: string;
+  datasetName: string;
+  datasetCategory: string;
+  roleKey: RoleKey;
+  accessLevel: ReportAccessLevel;
+  maskingMode: ReportMaskingMode;
+  exportAllowed: boolean;
+  requiresReason: boolean;
+  fieldKey: string | null;
+  fieldLabel: string | null;
+  fieldSensitivity: ReportFieldSensitivity | null;
+  updatedAt: Date;
 };
 
 export type CreateCustomReportInput = {
@@ -114,9 +134,19 @@ export type CreateCustomReportInput = {
   selectedFieldKeys?: string[];
 };
 
+export type UpdateReportPermissionInput = {
+  datasetCode?: string | null;
+  roleKey?: string | null;
+  accessLevel?: string | null;
+  maskingMode?: string | null;
+  exportAllowed?: boolean | string | null;
+  requiresReason?: boolean | string | null;
+};
+
 type ReportDemoState = {
   jobs: ReportJobView[];
   archives: ReportArchiveView[];
+  permissions: ReportPermissionView[] | null;
 };
 
 export const defaultReportCatalog: ReportDatasetDefinition[] = [
@@ -189,6 +219,9 @@ export async function getReportAdminWorkspace(session: SessionLike): Promise<Rep
   const datasets = canUseDatabase(session)
     ? await getDbReportCatalog(session)
     : getDefaultCatalogViews();
+  const permissions = canUseDatabase(session)
+    ? await listDbReportPermissions(session, datasets)
+    : getDemoReportPermissions(datasets);
   const jobs = canUseDatabase(session)
     ? await listDbReportJobs(session, datasets)
     : getDemoState().jobs;
@@ -198,11 +231,14 @@ export async function getReportAdminWorkspace(session: SessionLike): Promise<Rep
   const fieldCount = datasets.reduce((sum, dataset) => sum + dataset.fields.length, 0);
   return {
     datasets,
+    permissions,
     jobs,
     archives,
     summary: {
       datasetCount: datasets.length,
       fieldCount,
+      permissionCount: permissions.length,
+      exportAllowedPermissionCount: permissions.filter((permission) => permission.exportAllowed).length,
       generatedJobCount: jobs.length,
       archiveCount: archives.length,
       blockedSensitiveFieldCount: datasets
@@ -220,8 +256,13 @@ export async function createCustomReportJob(
   const datasets = canUseDatabase(session)
     ? await getDbReportCatalog(session)
     : getDefaultCatalogViews();
+  const permissions = canUseDatabase(session)
+    ? await listDbReportPermissions(session, datasets)
+    : getDemoReportPermissions(datasets);
   const dataset = findDataset(datasets, input.datasetCode);
-  const selectedFields = normalizeSelectedFields(dataset, input.selectedFieldKeys);
+  const permission = findDatasetPermission(permissions, dataset, session.role);
+  assertDatasetPermission(permission, dataset, session.role);
+  const selectedFields = applyPermissionToFields(permission, normalizeSelectedFields(dataset, input.selectedFieldKeys));
   assertFieldsAllowed(session.role, selectedFields);
   const rowCount = await estimateRowCount(session, dataset.code);
   const now = new Date();
@@ -281,10 +322,27 @@ export async function createCustomReportJob(
   return createDemoReportJob(session, draft);
 }
 
+export async function updateReportPermission(
+  session: SessionLike,
+  input: UpdateReportPermissionInput,
+): Promise<ReportPermissionView> {
+  assertPermission(session.role, "report:manage");
+  const datasets = canUseDatabase(session)
+    ? await getDbReportCatalog(session)
+    : getDefaultCatalogViews();
+  const dataset = findDataset(datasets, input.datasetCode);
+  const normalized = normalizePermissionInput(dataset, input);
+  if (canUseDatabase(session)) {
+    return updateDbReportPermission(session, dataset, normalized);
+  }
+  return updateDemoReportPermission(session, dataset, normalized);
+}
+
 export function resetReportDemoState() {
   globalForReports.hrOneReportDemoState = {
     jobs: [],
     archives: [],
+    permissions: null,
   };
 }
 
@@ -321,6 +379,74 @@ function getDefaultCatalogViews(): ReportDatasetView[] {
       status: "active",
     })),
   }));
+}
+
+export function defaultReportPermissionFor(
+  dataset: Pick<ReportDatasetView, "id" | "code" | "name" | "category">,
+  roleKey: RoleKey,
+): Omit<ReportPermissionView, "id" | "updatedAt"> {
+  if (roleKey === "owner" || roleKey === "hr_admin") {
+    return {
+      datasetCode: dataset.code,
+      datasetName: dataset.name,
+      datasetCategory: dataset.category,
+      roleKey,
+      accessLevel: dataset.category === "payroll" ? "aggregate" : "detail",
+      maskingMode: dataset.category === "payroll" ? "aggregate_only" : "none",
+      exportAllowed: true,
+      requiresReason: true,
+      fieldKey: null,
+      fieldLabel: null,
+      fieldSensitivity: null,
+    };
+  }
+  if (roleKey === "manager") {
+    return {
+      datasetCode: dataset.code,
+      datasetName: dataset.name,
+      datasetCategory: dataset.category,
+      roleKey,
+      accessLevel: dataset.category === "payroll" ? "none" : "summary",
+      maskingMode: dataset.category === "payroll" ? "blocked" : "masked",
+      exportAllowed: false,
+      requiresReason: true,
+      fieldKey: null,
+      fieldLabel: null,
+      fieldSensitivity: null,
+    };
+  }
+  return {
+    datasetCode: dataset.code,
+    datasetName: dataset.name,
+    datasetCategory: dataset.category,
+    roleKey,
+    accessLevel: "none",
+    maskingMode: "blocked",
+    exportAllowed: false,
+    requiresReason: true,
+    fieldKey: null,
+    fieldLabel: null,
+    fieldSensitivity: null,
+  };
+}
+
+function buildDefaultReportPermissions(datasets: ReportDatasetView[]) {
+  const now = new Date();
+  return datasets.flatMap((dataset) =>
+    (["owner", "hr_admin", "manager", "employee"] as RoleKey[]).map((roleKey) => ({
+      id: `default-${dataset.code}-${roleKey}`,
+      ...defaultReportPermissionFor(dataset, roleKey),
+      updatedAt: now,
+    })),
+  );
+}
+
+function getDemoReportPermissions(datasets: ReportDatasetView[]) {
+  const state = getDemoState();
+  if (!state.permissions) {
+    state.permissions = buildDefaultReportPermissions(datasets);
+  }
+  return state.permissions;
 }
 
 async function getDbReportCatalog(session: SessionLike & { tenantId: string; companyId: string }) {
@@ -362,6 +488,65 @@ async function getDbReportCatalog(session: SessionLike & { tenantId: string; com
       status: fieldRecord.status === "inactive" ? "inactive" : "active",
     })),
   })) satisfies ReportDatasetView[];
+}
+
+async function listDbReportPermissions(
+  session: SessionLike & { tenantId: string; companyId: string },
+  datasets: ReportDatasetView[],
+) {
+  await ensureDbReportPermissions(session, datasets);
+  const records = await getDb().reportPermission.findMany({
+    where: {
+      tenantId: session.tenantId,
+      companyId: session.companyId,
+    },
+    include: {
+      dataset: true,
+      field: true,
+    },
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+  });
+  const byKey = new Map<string, ReportPermissionView>();
+  for (const record of records) {
+    const mapped = mapDbPermission(record);
+    const key = `${mapped.datasetCode}:${mapped.roleKey}:${mapped.fieldKey ?? "dataset"}`;
+    if (!byKey.has(key)) byKey.set(key, mapped);
+  }
+  return [...byKey.values()].sort(sortReportPermissions);
+}
+
+async function ensureDbReportPermissions(
+  session: SessionLike & { tenantId: string; companyId: string },
+  datasets: ReportDatasetView[],
+) {
+  const db = getDb();
+  for (const dataset of datasets) {
+    for (const roleKey of ["owner", "hr_admin", "manager", "employee"] as RoleKey[]) {
+      const existing = await db.reportPermission.findFirst({
+        where: {
+          tenantId: session.tenantId,
+          companyId: session.companyId,
+          datasetId: dataset.id,
+          fieldId: null,
+          roleKey,
+        },
+      });
+      if (existing) continue;
+      const defaults = defaultReportPermissionFor(dataset, roleKey);
+      await db.reportPermission.create({
+        data: {
+          tenantId: session.tenantId,
+          companyId: session.companyId,
+          datasetId: dataset.id,
+          roleKey,
+          accessLevel: defaults.accessLevel,
+          maskingMode: defaults.maskingMode,
+          exportAllowed: defaults.exportAllowed,
+          requiresReason: defaults.requiresReason,
+        },
+      });
+    }
+  }
 }
 
 async function ensureDbReportCatalog(session: SessionLike & { tenantId: string; companyId: string }) {
@@ -549,6 +734,129 @@ async function createDbReportJob(
   );
 }
 
+async function updateDbReportPermission(
+  session: SessionLike & { tenantId: string; companyId: string },
+  dataset: ReportDatasetView,
+  input: NormalizedReportPermissionInput,
+) {
+  const db = getDb();
+  await ensureDbReportPermissions(session, [dataset]);
+  const result = await db.$transaction(async (tx) => {
+    const existing = await tx.reportPermission.findFirst({
+      where: {
+        tenantId: session.tenantId,
+        companyId: session.companyId,
+        datasetId: dataset.id,
+        fieldId: null,
+        roleKey: input.roleKey,
+      },
+    });
+    const data = {
+      accessLevel: input.accessLevel,
+      maskingMode: input.maskingMode,
+      exportAllowed: input.exportAllowed,
+      requiresReason: input.requiresReason,
+    };
+    const record = existing
+      ? await tx.reportPermission.update({
+          where: { id: existing.id },
+          data,
+          include: { dataset: true, field: true },
+        })
+      : await tx.reportPermission.create({
+          data: {
+            tenantId: session.tenantId,
+            companyId: session.companyId,
+            datasetId: dataset.id,
+            roleKey: input.roleKey,
+            ...data,
+          },
+          include: { dataset: true, field: true },
+        });
+    await writeAuditLog(tx, {
+      tenantId: session.tenantId,
+      companyId: session.companyId,
+      actorUserId: session.user?.id,
+      actorEmployeeId: session.employee?.id,
+      action: existing ? "update" : "create",
+      entityType: "report_permission",
+      entityId: record.id,
+      before: existing
+        ? {
+            datasetCode: dataset.code,
+            roleKey: existing.roleKey,
+            accessLevel: existing.accessLevel,
+            maskingMode: existing.maskingMode,
+            exportAllowed: existing.exportAllowed,
+            requiresReason: existing.requiresReason,
+          }
+        : null,
+      after: {
+        datasetCode: dataset.code,
+        roleKey: record.roleKey,
+        accessLevel: record.accessLevel,
+        maskingMode: record.maskingMode,
+        exportAllowed: record.exportAllowed,
+        requiresReason: record.requiresReason,
+      },
+      metadata: permissionMetadata(dataset, input),
+    });
+    return record;
+  });
+  return mapDbPermission(result);
+}
+
+function updateDemoReportPermission(
+  session: SessionLike,
+  dataset: ReportDatasetView,
+  input: NormalizedReportPermissionInput,
+) {
+  const state = getDemoState();
+  const permissions = getDemoReportPermissions(getDefaultCatalogViews());
+  const index = permissions.findIndex(
+    (permission) =>
+      permission.datasetCode === dataset.code &&
+      permission.roleKey === input.roleKey &&
+      permission.fieldKey === null,
+  );
+  const before = index >= 0 ? permissions[index] : null;
+  const next: ReportPermissionView = {
+    id: before?.id ?? crypto.randomUUID(),
+    datasetCode: dataset.code,
+    datasetName: dataset.name,
+    datasetCategory: dataset.category,
+    roleKey: input.roleKey,
+    accessLevel: input.accessLevel,
+    maskingMode: input.maskingMode,
+    exportAllowed: input.exportAllowed,
+    requiresReason: input.requiresReason,
+    fieldKey: null,
+    fieldLabel: null,
+    fieldSensitivity: null,
+    updatedAt: new Date(),
+  };
+  if (index >= 0) {
+    permissions[index] = next;
+  } else {
+    permissions.push(next);
+  }
+  state.permissions = permissions.sort(sortReportPermissions);
+  writeDemoAuditLog({
+    tenantId: session.tenantId ?? "demo-tenant",
+    companyId: session.companyId ?? "demo-company",
+    actorUserId: session.user?.id,
+    actorEmployeeId: session.employee?.id,
+    actorName: session.user?.displayName ?? session.employee?.displayName,
+    action: before ? "update" : "create",
+    entityType: "report_permission",
+    entityId: next.id,
+    before,
+    after: next,
+    metadata: permissionMetadata(dataset, input),
+  });
+  return next;
+}
+
 function createDemoReportJob(session: SessionLike, draft: ReportJobView) {
   const state = getDemoState();
   state.jobs.unshift(draft);
@@ -686,11 +994,74 @@ function mapDbArchive(record: {
   };
 }
 
+function mapDbPermission(record: {
+  id: string;
+  roleKey: RoleKey;
+  accessLevel: string;
+  maskingMode: string;
+  exportAllowed: boolean;
+  requiresReason: boolean;
+  updatedAt: Date;
+  dataset: {
+    code: string;
+    name: string;
+    category: string;
+  } | null;
+  field: {
+    key: string;
+    label: string;
+    sensitivity: string;
+  } | null;
+}): ReportPermissionView {
+  return {
+    id: record.id,
+    datasetCode: record.dataset?.code ?? "unknown",
+    datasetName: record.dataset?.name ?? "未知資料集",
+    datasetCategory: record.dataset?.category ?? "unknown",
+    roleKey: record.roleKey,
+    accessLevel: normalizeAccessLevel(record.accessLevel),
+    maskingMode: normalizeMaskingMode(record.maskingMode),
+    exportAllowed: record.exportAllowed,
+    requiresReason: record.requiresReason,
+    fieldKey: record.field?.key ?? null,
+    fieldLabel: record.field?.label ?? null,
+    fieldSensitivity: record.field ? normalizeSensitivity(record.field.sensitivity) : null,
+    updatedAt: record.updatedAt,
+  };
+}
+
 function findDataset(datasets: ReportDatasetView[], datasetCode: string | null | undefined) {
   const normalized = datasetCode?.trim() || datasets[0]?.code;
   const dataset = datasets.find((item) => item.code === normalized && item.status === "active");
   if (!dataset) throw new Error("請選擇有效的報表資料集。");
   return dataset;
+}
+
+function findDatasetPermission(
+  permissions: ReportPermissionView[],
+  dataset: ReportDatasetView,
+  roleKey: RoleKey,
+) {
+  return permissions.find(
+    (permission) =>
+      permission.datasetCode === dataset.code &&
+      permission.roleKey === roleKey &&
+      permission.fieldKey === null,
+  ) ?? {
+    id: `default-${dataset.code}-${roleKey}`,
+    ...defaultReportPermissionFor(dataset, roleKey),
+    updatedAt: new Date(),
+  };
+}
+
+function assertDatasetPermission(
+  permission: ReportPermissionView,
+  dataset: ReportDatasetView,
+  roleKey: RoleKey,
+) {
+  if (!permission.exportAllowed || permission.accessLevel === "none") {
+    throw new Error(`${roleKey} 目前不能匯出 ${dataset.name} 報表。`);
+  }
 }
 
 function normalizeSelectedFields(dataset: ReportDatasetView, selectedFieldKeys: string[] | undefined) {
@@ -707,6 +1078,13 @@ function normalizeSelectedFields(dataset: ReportDatasetView, selectedFieldKeys: 
   const fields = selectedFields.filter(Boolean) as ReportFieldView[];
   if (!fields.length) throw new Error("至少選擇一個報表欄位。");
   return fields;
+}
+
+function applyPermissionToFields(permission: ReportPermissionView, fields: ReportFieldView[]) {
+  return fields.map((fieldItem) => ({
+    ...fieldItem,
+    maskingMode: combineMaskingModes(fieldItem.maskingMode, permission.maskingMode),
+  }));
 }
 
 function assertFieldsAllowed(role: RoleKey, fields: ReportFieldView[]) {
@@ -764,6 +1142,102 @@ function reportMetadata(dataset: ReportDatasetView, fields: ReportFieldView[], d
     nationalIdValuesIncluded: false,
     healthValuesIncluded: false,
     privateNotesIncluded: false,
+  };
+}
+
+type NormalizedReportPermissionInput = {
+  roleKey: RoleKey;
+  accessLevel: ReportAccessLevel;
+  maskingMode: ReportMaskingMode;
+  exportAllowed: boolean;
+  requiresReason: boolean;
+};
+
+function normalizePermissionInput(
+  dataset: ReportDatasetView,
+  input: UpdateReportPermissionInput,
+): NormalizedReportPermissionInput {
+  const roleKey = normalizeReportRole(input.roleKey);
+  const defaults = defaultReportPermissionFor(dataset, roleKey);
+  const requestedAccessLevel = normalizeAccessLevel(input.accessLevel ?? defaults.accessLevel);
+  const requestedMaskingMode = normalizeMaskingMode(input.maskingMode ?? defaults.maskingMode);
+  const canExportRole = roleKey === "owner" || roleKey === "hr_admin";
+  const exportAllowed = canExportRole && readBoolean(input.exportAllowed, defaults.exportAllowed);
+  const accessLevel = normalizeAccessForDataset(dataset, roleKey, requestedAccessLevel, exportAllowed);
+  const maskingMode = normalizeMaskingForDataset(dataset, roleKey, requestedMaskingMode, exportAllowed);
+  return {
+    roleKey,
+    accessLevel,
+    maskingMode,
+    exportAllowed,
+    requiresReason: exportAllowed ? readBoolean(input.requiresReason, true) : true,
+  };
+}
+
+function normalizeAccessForDataset(
+  dataset: ReportDatasetView,
+  roleKey: RoleKey,
+  accessLevel: ReportAccessLevel,
+  exportAllowed: boolean,
+): ReportAccessLevel {
+  if (roleKey === "employee") return "none";
+  if (roleKey === "manager" && dataset.category === "payroll") return "none";
+  if (!exportAllowed && accessLevel === "detail") return "summary";
+  if (dataset.category === "payroll" && exportAllowed) return "aggregate";
+  return accessLevel;
+}
+
+function normalizeMaskingForDataset(
+  dataset: ReportDatasetView,
+  roleKey: RoleKey,
+  maskingMode: ReportMaskingMode,
+  exportAllowed: boolean,
+): ReportMaskingMode {
+  if (roleKey === "employee") return "blocked";
+  if (roleKey === "manager" && dataset.category === "payroll") return "blocked";
+  if (!exportAllowed) return combineMaskingModes(maskingMode, "masked");
+  if (dataset.category === "payroll") return combineMaskingModes(maskingMode, "aggregate_only");
+  return maskingMode;
+}
+
+function normalizeReportRole(value: string | null | undefined): RoleKey {
+  if (value === "owner" || value === "hr_admin" || value === "manager" || value === "employee") return value;
+  return "employee";
+}
+
+function normalizeAccessLevel(value: string | null | undefined): ReportAccessLevel {
+  if (value === "none" || value === "summary" || value === "detail" || value === "aggregate") return value;
+  return "summary";
+}
+
+function combineMaskingModes(current: ReportMaskingMode, required: ReportMaskingMode): ReportMaskingMode {
+  const weight: Record<ReportMaskingMode, number> = {
+    none: 0,
+    masked: 1,
+    aggregate_only: 2,
+    blocked: 3,
+  };
+  return weight[required] > weight[current] ? required : current;
+}
+
+function readBoolean(value: boolean | string | null | undefined, fallback: boolean) {
+  if (typeof value === "boolean") return value;
+  if (value === "true" || value === "on" || value === "1") return true;
+  if (value === "false" || value === "off" || value === "0") return false;
+  return fallback;
+}
+
+function permissionMetadata(dataset: ReportDatasetView, input: NormalizedReportPermissionInput) {
+  return {
+    datasetCode: dataset.code,
+    datasetCategory: dataset.category,
+    roleKey: input.roleKey,
+    accessLevel: input.accessLevel,
+    maskingMode: input.maskingMode,
+    exportAllowed: input.exportAllowed,
+    requiresReason: input.requiresReason,
+    fieldLevelOverride: false,
+    rawSensitiveValuesIncluded: false,
   };
 }
 
@@ -882,6 +1356,20 @@ function normalizeJobStatus(value: string): ReportJobView["status"] {
 function normalizeArchiveStatus(value: string): ReportArchiveView["status"] {
   if (value === "downloaded" || value === "expired") return value;
   return "generated";
+}
+
+function sortReportPermissions(left: ReportPermissionView, right: ReportPermissionView) {
+  const roleOrder: Record<RoleKey, number> = {
+    owner: 0,
+    hr_admin: 1,
+    manager: 2,
+    employee: 3,
+  };
+  return (
+    left.datasetCode.localeCompare(right.datasetCode) ||
+    roleOrder[left.roleKey] - roleOrder[right.roleKey] ||
+    (left.fieldKey ?? "").localeCompare(right.fieldKey ?? "")
+  );
 }
 
 function canUseDatabase(
