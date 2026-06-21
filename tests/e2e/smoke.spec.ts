@@ -917,6 +917,34 @@ test("HR 可以用中文薪資法遵工作台調整扣繳與投保設定", async
   await expect(page.locator("body")).not.toContainText("12345678901234567");
 });
 
+test("HR 可以用中文特休結清工作台準備未休工資草稿", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr");
+  await submitPayrollStep(page, "Day 7 下一步：建立薪資批次", "payroll-create");
+
+  await page.goto("/hr/annual-leave-settlements");
+  await expect(page.getByRole("heading", { name: "特休未休工資結清工作台" })).toBeVisible();
+  await expect(page.getByLabel("特休未休工資結清工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("特休結清訊號板").getByText("草稿待試算", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("特休結清作業卡").getByRole("heading", { name: "第 38 條 Gate" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "三步特休結清草稿" })).toBeVisible();
+
+  const settlementForm = page.getByRole("form", { name: "特休結清草稿" });
+  await settlementForm.getByLabel("結清事由").selectOption("year_end");
+  await settlementForm.getByRole("button", { name: "準備特休結清草稿" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/annual-leave-settlements$/);
+  await expect(page.getByText("張小安 · 2.5 日")).toBeVisible();
+  await expect(page.getByText("李小真 · 1 日")).toBeVisible();
+  await expect(page.getByText(/草稿 · \$4,667/)).toBeVisible();
+  await expect(page.getByText("勞基法第 38 條").first()).toBeVisible();
+  await expect(page.getByText("施行細則第 24-1 條").first()).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("baseSalary");
+  await expect(page.locator("body")).not.toContainText("accountNumber");
+  await expect(page.locator("body")).not.toContainText("nationalId");
+});
+
 test("HR 可以建立薪資調整單且 Owner 從統一 Inbox 核准", async ({ page }) => {
   await page.goto("/app");
   await switchDemoRole(page, "hr_admin");

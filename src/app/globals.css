@@ -5162,6 +5162,144 @@ legend {
   line-height: 1.45;
 }
 
+.annual-leave-settlement-page {
+  max-width: 1280px;
+}
+
+.annual-leave-settlement-alerts {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.annual-leave-settlement-hero .hr-monthly-hero-focus.ready {
+  border-color: rgba(187, 247, 208, 0.46);
+  background: rgba(21, 128, 61, 0.16);
+}
+
+.annual-leave-settlement-hero .hr-monthly-hero-focus .button {
+  width: 100%;
+  margin-top: auto;
+}
+
+.annual-leave-settlement-command-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.annual-leave-settlement-command-grid .settings-command-card {
+  min-height: 286px;
+}
+
+.annual-leave-settlement-gate.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.annual-leave-settlement-gate.danger {
+  border-color: #fecaca;
+  background: #fff7ed;
+}
+
+.annual-leave-settlement-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.annual-leave-settlement-flow article {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.annual-leave-settlement-flow strong {
+  color: var(--foreground);
+  font-size: 16px;
+  font-weight: 1000;
+  line-height: 1.25;
+}
+
+.annual-leave-settlement-flow small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.4;
+}
+
+.annual-leave-settlement-form {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.annual-leave-settlement-fieldset {
+  display: grid;
+  gap: 12px;
+}
+
+.annual-leave-settlement-mini-task,
+.annual-leave-settlement-task {
+  align-items: flex-start;
+}
+
+.annual-leave-settlement-mini-task > span:first-child,
+.annual-leave-settlement-task > span:first-child {
+  display: grid;
+  gap: 5px;
+  overflow-wrap: anywhere;
+}
+
+.annual-leave-settlement-task.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.annual-leave-settlement-task.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.annual-leave-settlement-task.danger {
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.annual-leave-settlement-guardrail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.annual-leave-settlement-guardrail-grid article {
+  display: grid;
+  gap: 9px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.annual-leave-settlement-guardrail-grid strong {
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.annual-leave-settlement-guardrail-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+  line-height: 1.45;
+}
+
 .payroll-recordkeeping-hero .hr-monthly-hero-focus.ready {
   border-color: rgba(187, 247, 208, 0.46);
   background: rgba(21, 128, 61, 0.16);
@@ -9746,6 +9884,11 @@ legend {
   .payroll-adjustment-mini-task,
   .payroll-adjustment-log-task,
   .payroll-adjustment-guardrail-grid,
+  .annual-leave-settlement-command-grid,
+  .annual-leave-settlement-flow,
+  .annual-leave-settlement-mini-task,
+  .annual-leave-settlement-task,
+  .annual-leave-settlement-guardrail-grid,
   .payroll-compliance-command-grid,
   .payroll-compliance-recommendation-board,
   .payroll-compliance-task,
@@ -9816,6 +9959,7 @@ legend {
 
   .access-control-page .section-heading,
   .payroll-adjustment-page .section-heading,
+  .annual-leave-settlement-page .section-heading,
   .payroll-compliance-page .section-heading,
   .work-rule-page .section-heading,
   .access-user-card-head {
@@ -9833,6 +9977,9 @@ legend {
   .payroll-adjustment-command-grid .settings-command-card,
   .payroll-adjustment-flow article,
   .payroll-adjustment-guardrail-grid article,
+  .annual-leave-settlement-command-grid .settings-command-card,
+  .annual-leave-settlement-flow article,
+  .annual-leave-settlement-guardrail-grid article,
   .payroll-compliance-command-grid .settings-command-card,
   .payroll-compliance-recommendation,
   .payroll-compliance-guardrail-grid article,
