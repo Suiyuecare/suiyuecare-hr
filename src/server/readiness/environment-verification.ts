@@ -41,7 +41,7 @@ const maximumRateLimitWindowSeconds = 3_600;
 const minimumRateLimitMaxRequests = 10;
 const maximumRateLimitMaxRequests = 10_000;
 const minimumObjectStorageSignedUrlTtlSeconds = 60;
-const maximumObjectStorageSignedUrlTtlSeconds = 7_200;
+const maximumObjectStorageSignedUrlTtlSeconds = 900;
 const allowedDeploymentTargets = new Set(["vercel", "self_hosted", "other"]);
 const allowedDatabaseProviders = new Set(["supabase_postgres", "managed_postgres", "rds", "cloud_sql", "neon", "other"]);
 const allowedObjectStorageProviders = new Set(["s3", "r2", "gcs", "azure_blob", "supabase_storage", "custom"]);
@@ -101,7 +101,14 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
   const rateLimitMaxRequests = readInteger(env, "HR_ONE_RATE_LIMIT_MAX_REQUESTS");
   const externalRateLimitProvider = rateLimitProvider === "external_http";
   const objectStorageProvider = read(env, "HR_ONE_OBJECT_STORAGE_PROVIDER");
+  const objectStorageBucket = read(env, "HR_ONE_OBJECT_STORAGE_BUCKET");
+  const objectStorageLifecyclePolicyRef = read(env, "HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF");
   const objectStorageSignedUrlTtlSeconds = readInteger(env, "HR_ONE_OBJECT_STORAGE_SIGNED_URL_MAX_TTL_SECONDS");
+  const objectStorageLifecyclePolicy = evaluateObjectStorageLifecyclePolicyRef({
+    provider: objectStorageProvider,
+    bucketName: objectStorageBucket,
+    lifecyclePolicyRef: objectStorageLifecyclePolicyRef,
+  });
 
   return [
     check(
@@ -218,19 +225,26 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
     ),
     check(
       "object storage bucket",
-      hasDeployableName(read(env, "HR_ONE_OBJECT_STORAGE_BUCKET")),
-      deployableNameDetail(read(env, "HR_ONE_OBJECT_STORAGE_BUCKET"), "HR_ONE_OBJECT_STORAGE_BUCKET", "bucket configured"),
+      hasDeployableName(objectStorageBucket),
+      deployableNameDetail(objectStorageBucket, "HR_ONE_OBJECT_STORAGE_BUCKET", "bucket configured"),
     ),
     referenceCheck(env, "HR_ONE_OBJECT_STORAGE_SECRET_REF"),
     referenceCheck(env, "HR_ONE_OBJECT_STORAGE_KMS_KEY_REF"),
-    referenceCheck(env, "HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF"),
+    check(
+      "object storage lifecycle policy",
+      objectStorageLifecyclePolicy.passed,
+      objectStorageLifecyclePolicy.detail,
+    ),
     check(
       "object storage signed URL ceiling",
       objectStorageSignedUrlTtlSeconds !== null &&
         objectStorageSignedUrlTtlSeconds >= minimumObjectStorageSignedUrlTtlSeconds &&
         objectStorageSignedUrlTtlSeconds <= maximumObjectStorageSignedUrlTtlSeconds,
       objectStorageSignedUrlTtlSeconds !== null
-        ? `${objectStorageSignedUrlTtlSeconds} second(s) configured`
+        ? objectStorageSignedUrlTtlSeconds >= minimumObjectStorageSignedUrlTtlSeconds &&
+            objectStorageSignedUrlTtlSeconds <= maximumObjectStorageSignedUrlTtlSeconds
+          ? `${objectStorageSignedUrlTtlSeconds} second(s) configured`
+          : `${objectStorageSignedUrlTtlSeconds} second(s) configured; require ${minimumObjectStorageSignedUrlTtlSeconds}-${maximumObjectStorageSignedUrlTtlSeconds}`
         : "missing HR_ONE_OBJECT_STORAGE_SIGNED_URL_MAX_TTL_SECONDS",
     ),
     check(
@@ -484,6 +498,44 @@ function referenceCheck(env: Record<string, string | undefined>, key: string) {
     Boolean(value && !hasWeakValue(value) && value.length >= 8),
     value ? "vault/reference configured" : `missing ${key}`,
   );
+}
+
+function evaluateObjectStorageLifecyclePolicyRef(input: {
+  provider: string | null;
+  bucketName: string | null;
+  lifecyclePolicyRef: string | null;
+}) {
+  if (!input.lifecyclePolicyRef) {
+    return { passed: false, detail: "missing HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF" };
+  }
+  if (hasWeakValue(input.lifecyclePolicyRef) || input.lifecyclePolicyRef.length < 8) {
+    return { passed: false, detail: "invalid HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF" };
+  }
+  if (/(secret|token|password|credential|private[_-]?key|access[_-]?key|sk[_-])/i.test(input.lifecyclePolicyRef)) {
+    return { passed: false, detail: "lifecycle policy reference must not contain secret or token markers" };
+  }
+  if (!/(lifecycle|retention|archive|保留|封存|保存)/i.test(input.lifecyclePolicyRef)) {
+    return { passed: false, detail: "lifecycle policy reference must identify lifecycle, retention, or archive evidence" };
+  }
+  if (!input.bucketName || !input.lifecyclePolicyRef.toLowerCase().includes(input.bucketName.toLowerCase())) {
+    return { passed: false, detail: "lifecycle policy reference must include HR_ONE_OBJECT_STORAGE_BUCKET" };
+  }
+  const provider = input.provider;
+  if (provider && provider !== "custom") {
+    const lowerRef = input.lifecyclePolicyRef.toLowerCase();
+    const aliases: Record<string, string[]> = {
+      s3: ["s3://", "aws://"],
+      r2: ["r2://", "cloudflare-r2://"],
+      gcs: ["gcs://", "gs://"],
+      azure_blob: ["azure://", "azure-blob://", "azblob://"],
+      supabase_storage: ["supabase://", "supabase-storage://"],
+    };
+    const expectedAliases = aliases[provider];
+    if (expectedAliases && !expectedAliases.some((alias) => lowerRef.startsWith(alias))) {
+      return { passed: false, detail: `lifecycle policy reference must use ${provider} provider scheme` };
+    }
+  }
+  return { passed: true, detail: "bucket-bound provider lifecycle policy reference configured" };
 }
 
 function hasDeployableName(value: string | null) {

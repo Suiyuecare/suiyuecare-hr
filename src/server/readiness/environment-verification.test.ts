@@ -217,12 +217,64 @@ describe("environment verification", () => {
     expect(report.checks.find((item) => item.name === "HR_ONE_OBJECT_STORAGE_KMS_KEY_REF")).toMatchObject({
       passed: false,
     });
-    expect(report.checks.find((item) => item.name === "HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF")).toMatchObject({
+    expect(report.checks.find((item) => item.name === "object storage lifecycle policy")).toMatchObject({
       passed: false,
+      detail: "missing HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF",
     });
     expect(report.checks.find((item) => item.name === "object storage signed URL ceiling")).toMatchObject({
       passed: false,
-      detail: "20 second(s) configured",
+      detail: "20 second(s) configured; require 60-900",
+    });
+  });
+
+  it("requires object storage lifecycle references to bind to the configured bucket and provider scheme", () => {
+    const report = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF: "storage-lifecycle/hr-documents-7y",
+        HR_ONE_OBJECT_STORAGE_SIGNED_URL_MAX_TTL_SECONDS: "1200",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+
+    expect(environmentVerificationPassed(report)).toBe(false);
+    expect(report.checks.find((item) => item.name === "object storage lifecycle policy")).toMatchObject({
+      passed: false,
+      detail: "lifecycle policy reference must include HR_ONE_OBJECT_STORAGE_BUCKET",
+    });
+    expect(report.checks.find((item) => item.name === "object storage signed URL ceiling")).toMatchObject({
+      passed: false,
+      detail: "1200 second(s) configured; require 60-900",
+    });
+  });
+
+  it("blocks lifecycle references that look like secrets or use the wrong provider scheme", () => {
+    const secretLikeReport = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF: "s3://customer-hrone-documents/lifecycle/access-token-archive",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+    const wrongSchemeReport = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        HR_ONE_OBJECT_STORAGE_PROVIDER: "r2",
+        HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF: "s3://customer-hrone-documents/lifecycle/hr-documents-7y",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+
+    expect(secretLikeReport.checks.find((item) => item.name === "object storage lifecycle policy")).toMatchObject({
+      passed: false,
+      detail: "lifecycle policy reference must not contain secret or token markers",
+    });
+    expect(wrongSchemeReport.checks.find((item) => item.name === "object storage lifecycle policy")).toMatchObject({
+      passed: false,
+      detail: "lifecycle policy reference must use r2 provider scheme",
     });
   });
 
