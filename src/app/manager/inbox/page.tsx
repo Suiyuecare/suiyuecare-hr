@@ -13,6 +13,13 @@ export default async function ManagerInboxPage() {
   const riskItems = inbox.pending.filter((request) => isRiskyRequest(request));
   const payrollSensitiveCount = inbox.pending.filter((request) => request.type === "payroll_adjustment").length;
   const quickPathReadyCount = inbox.pending.filter((request) => canUseQuickPath(request)).length;
+  const approvalPath = buildApprovalPath({
+    pendingCount: inbox.pending.length,
+    priorityRequest,
+    quickPathReadyCount,
+    riskCount: riskItems.length,
+    payrollSensitiveCount,
+  });
   const summaries = hasPermission(session.role, "ai:approval_summary")
     ? new Map(
         await Promise.all(
@@ -46,6 +53,21 @@ export default async function ManagerInboxPage() {
             {priorityRequest ? "處理第一筆" : "查看已處理"}
           </a>
         </div>
+      </section>
+
+      <section className="manager-approval-path" aria-label="15 秒簽核路徑">
+        <div className="manager-approval-path-copy">
+          <span className="muted">15 秒簽核路徑</span>
+          <strong>{priorityRequest ? "先處理第一張決策卡，再批次清掉標準申請。" : "待簽核已清空，可以回看決議紀錄。"}</strong>
+          <small>每張卡先看風險摘要與核對清單；薪資或高風險項目不提供快速核准。</small>
+        </div>
+        {approvalPath.map((item) => (
+          <a className={`manager-approval-path-card ${item.tone}`} href={item.href} key={item.step}>
+            <span>{item.step}</span>
+            <strong>{item.title}</strong>
+            <small>{item.detail}</small>
+          </a>
+        ))}
       </section>
 
       <section className="manager-inbox-command-strip" aria-label="主管簽核摘要">
@@ -230,6 +252,15 @@ function ApprovalCard({
         <p>{request.riskSummary}</p>
       </div>
 
+      <div className="approval-checklist" aria-label={`${displayRequestTitle(request)} 主管核對清單`}>
+        <span>主管核對三件事</span>
+        <ul>
+          {approvalChecklist(request).map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </div>
+
       {canUseQuickPath(request) ? (
         <div className="quick-approval-row" aria-label={`${displayRequestTitle(request)} 快速簽核`}>
           <div>
@@ -354,6 +385,71 @@ function quickApprovalComment(type: WorkflowRequest["type"]) {
   if (type === "punch_correction") return "快速核准：已確認補打卡原因。";
   if (type === "custom_form") return "快速核准：已確認申請內容。";
   return "快速核准：已確認敏感變更內容。";
+}
+
+function buildApprovalPath(input: {
+  pendingCount: number;
+  priorityRequest?: WorkflowRequest;
+  quickPathReadyCount: number;
+  riskCount: number;
+  payrollSensitiveCount: number;
+}) {
+  return [
+    {
+      step: "01 先處理",
+      title: input.priorityRequest ? displayRequestTitle(input.priorityRequest) : "沒有待簽核",
+      detail: input.priorityRequest
+        ? `${input.priorityRequest.employeeName} · ${priorityReason(input.priorityRequest)}`
+        : "今天不用進入簽核工作流。",
+      href: input.priorityRequest ? `#approval-${input.priorityRequest.id}` : "#decided",
+      tone: input.priorityRequest ? priorityBadgeClass(input.priorityRequest) : "ready",
+    },
+    {
+      step: "02 快速路徑",
+      title: `${input.quickPathReadyCount} 筆可快簽`,
+      detail: input.quickPathReadyCount
+        ? "標準申請可在確認核對清單後快速核准或退回補件。"
+        : "目前沒有適合快速核准的標準申請。",
+      href: "#pending-approvals",
+      tone: input.quickPathReadyCount ? "focus" : "ready",
+    },
+    {
+      step: "03 風險留意",
+      title: `${input.riskCount} 筆需留意`,
+      detail: input.riskCount ? "先看工時、排班衝突、附件或敏感變更。" : "沒有被標記的風險摘要。",
+      href: "#risk-summary",
+      tone: input.riskCount ? "warning" : "ready",
+    },
+    {
+      step: "04 敏感資料",
+      title: `${input.payrollSensitiveCount} 筆薪資`,
+      detail: input.payrollSensitiveCount ? "薪資調整需完整意見與 audit，不走快速核准。" : `${input.pendingCount} 筆待簽核皆無薪資調整。`,
+      href: "#pending-approvals",
+      tone: input.payrollSensitiveCount ? "danger" : "ready",
+    },
+  ];
+}
+
+function priorityReason(request: WorkflowRequest) {
+  if (request.type === "payroll_adjustment") return "薪資敏感，需完整審核";
+  if (isRiskyRequest(request)) return "風險摘要需先確認";
+  return "最早送出，可走標準簽核";
+}
+
+function approvalChecklist(request: WorkflowRequest) {
+  if (request.type === "leave") {
+    return ["假別與剩餘天數足夠", "日期沒有和班表或已核准假衝突", "原因與附件狀態可接受"];
+  }
+  if (request.type === "overtime") {
+    return ["加班起訖與原因合理", "每日與每月工時風險已確認", "補休或加班費處理方式可追蹤"];
+  }
+  if (request.type === "punch_correction") {
+    return ["補正日期與時間合理", "漏打卡原因清楚", "不會覆蓋已確認的出勤紀錄"];
+  }
+  if (request.type === "custom_form") {
+    return ["申請內容完整", "附件或欄位摘要已確認", "目前關卡符合設定流程"];
+  }
+  return ["薪資變更依據已確認", "權限與敏感資料範圍正確", "完整意見會寫入 audit log"];
 }
 
 function getPriorityRequest(requests: WorkflowRequest[]) {

@@ -702,9 +702,92 @@ textarea {
 
 .manager-inbox-command-card:hover,
 .manager-inbox-mix-card:hover,
-.manager-risk-card:hover {
+.manager-risk-card:hover,
+.manager-approval-path-card:hover {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+.manager-approval-path {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.35fr) repeat(4, minmax(0, 0.72fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.manager-approval-path-copy,
+.manager-approval-path-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 132px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.manager-approval-path-copy {
+  border-color: #111827;
+  background: #111827;
+  color: #ffffff;
+}
+
+.manager-approval-path-copy .muted,
+.manager-approval-path-copy small {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.manager-approval-path-copy strong {
+  color: #ffffff;
+  font-size: 21px;
+  font-weight: 1000;
+  line-height: 1.18;
+}
+
+.manager-approval-path-copy small,
+.manager-approval-path-card small {
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.38;
+}
+
+.manager-approval-path-card span {
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.manager-approval-path-card strong {
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 1000;
+  line-height: 1.18;
+}
+
+.manager-approval-path-card small {
+  color: var(--muted);
+}
+
+.manager-approval-path-card.focus {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.manager-approval-path-card.warning {
+  border-color: #facc15;
+  background: #fff8e8;
+}
+
+.manager-approval-path-card.danger {
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.manager-approval-path-card.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
 }
 
 .manager-inbox-mix {
@@ -1103,6 +1186,35 @@ textarea {
 
 .quick-approval-row .button {
   min-width: 108px;
+}
+
+.approval-checklist {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #d7e1ec;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.approval-checklist span {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.approval-checklist ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.approval-checklist li {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.4;
 }
 
 .decided-list {
@@ -11352,6 +11464,7 @@ legend {
   .employee-pilot-strip,
   .manager-inbox-hero,
   .manager-inbox-command-strip,
+  .manager-approval-path,
   .manager-inbox-mix,
   .manager-risk-grid,
   .settings-control-hero,
@@ -11870,6 +11983,8 @@ legend {
   .employee-flow-step,
   .employee-daily-command-copy,
   .employee-daily-command-card,
+  .manager-approval-path-copy,
+  .manager-approval-path-card,
   .console-command-copy,
   .console-command-card,
   .console-pilot-gate-main,

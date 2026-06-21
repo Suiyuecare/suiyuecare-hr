@@ -102,9 +102,13 @@ test("主管可以從 Inbox 快速核准請假", async ({ page }) => {
   await switchDemoRole(page, "manager");
   await expect(page.getByLabel("主管簽核指揮台").getByText("主管簽核工作台")).toBeVisible();
   await expect(page.getByLabel("主管簽核摘要").getByText("今日簽核節奏")).toBeVisible();
+  await expect(page.getByLabel("15 秒簽核路徑").getByText("15 秒簽核路徑")).toBeVisible();
+  await expect(page.getByLabel("15 秒簽核路徑").getByText("01 先處理")).toBeVisible();
   await expect(page.getByLabel("風險摘要").getByRole("heading", { name: "風險先看" })).toBeVisible();
   const leaveCard = page.locator(".approval-card").filter({ hasText: "快速請假" });
   await expect(leaveCard).toBeVisible();
+  await expect(leaveCard.getByText("主管核對三件事")).toBeVisible();
+  await expect(leaveCard.getByText("假別與剩餘天數足夠")).toBeVisible();
   await leaveCard.getByRole("button", { name: "快速核准" }).click();
   await expect(page.getByText("已核准").first()).toBeVisible();
 
