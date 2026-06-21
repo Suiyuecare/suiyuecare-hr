@@ -32,6 +32,9 @@ const productionEnv = {
   HR_ONE_AUTH_AUDIENCE: "hr-one-api",
   HR_ONE_AUTH_JWKS_URL: "https://login.customer.co/customer/keys",
   HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS: "3600",
+  HR_ONE_AUTH_TENANT_CONTEXT_SOURCE: "env_defaults",
+  HR_ONE_AUTH_DEFAULT_TENANT: "customer-a",
+  HR_ONE_AUTH_DEFAULT_COMPANY: "company-1",
   HR_ONE_WEB_SESSION_MAX_AGE_SECONDS: "28800",
   HR_ONE_AI_PROVIDER: "disabled",
   HR_ONE_AI_PROMPT_STORAGE: "hashed",
@@ -425,6 +428,49 @@ describe("environment verification", () => {
     expect(report.checks.find((item) => item.name === "auth token max age")).toMatchObject({
       passed: false,
       detail: "120 second(s) configured",
+    });
+  });
+
+  it("requires an explicit OIDC tenant context source for production sessions", () => {
+    const missingSourceReport = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        HR_ONE_AUTH_TENANT_CONTEXT_SOURCE: "",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+    const missingDefaultsReport = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        HR_ONE_AUTH_DEFAULT_TENANT: "",
+        HR_ONE_AUTH_DEFAULT_COMPANY: "",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+    const tokenClaimsReport = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        HR_ONE_AUTH_TENANT_CONTEXT_SOURCE: "token_claims",
+        HR_ONE_AUTH_DEFAULT_TENANT: "",
+        HR_ONE_AUTH_DEFAULT_COMPANY: "",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+
+    expect(missingSourceReport.checks.find((item) => item.name === "auth tenant context")).toMatchObject({
+      passed: false,
+      detail: "missing HR_ONE_AUTH_TENANT_CONTEXT_SOURCE",
+    });
+    expect(missingDefaultsReport.checks.find((item) => item.name === "auth tenant context")).toMatchObject({
+      passed: false,
+      detail: "env_defaults requires HR_ONE_AUTH_DEFAULT_TENANT and HR_ONE_AUTH_DEFAULT_COMPANY",
+    });
+    expect(tokenClaimsReport.checks.find((item) => item.name === "auth tenant context")).toMatchObject({
+      passed: true,
+      detail: "OIDC tokens must provide tenant_id and company_id claims",
     });
   });
 

@@ -38,6 +38,9 @@ const productionEnv = {
   HR_ONE_AUTH_AUDIENCE: "hr-one-api",
   HR_ONE_AUTH_JWKS_URL: "https://login.customer.co/customer/keys",
   HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS: "3600",
+  HR_ONE_AUTH_TENANT_CONTEXT_SOURCE: "env_defaults",
+  HR_ONE_AUTH_DEFAULT_TENANT: "tenant_suiyuecare_prod",
+  HR_ONE_AUTH_DEFAULT_COMPANY: "company_suiyuecare_prod",
   HR_ONE_WEB_SESSION_MAX_AGE_SECONDS: "28800",
   HR_ONE_AI_PROVIDER: "disabled",
   HR_ONE_AI_PROMPT_STORAGE: "hashed",
@@ -149,6 +152,7 @@ describe("Vercel production env bootstrap", () => {
     expect(keys).toContain("NEXT_PUBLIC_SUPABASE_URL");
     expect(keys).toContain("HR_ONE_AUTH_ISSUER_URL");
     expect(keys).toContain("HR_ONE_AUTH_LOGIN_URL");
+    expect(keys).toContain("HR_ONE_AUTH_TENANT_CONTEXT_SOURCE");
     expect(keys).toContain("HR_ONE_WEB_SESSION_MAX_AGE_SECONDS");
     expect(keys).toContain("HR_ONE_SESSION_SECRET");
     expect(keys).toContain("CRON_SECRET");
@@ -170,7 +174,7 @@ describe("Vercel production env bootstrap", () => {
       "HR_ONE_OBJECT_STORAGE_SECRET_REF",
       "HR_ONE_RATE_LIMIT_SECRET_REF",
     ]);
-    expect(summary).toContain("36 bootstrap variable(s): 4 sensitive, 32 encrypted");
+    expect(summary).toContain("37 bootstrap variable(s): 4 sensitive, 33 encrypted");
   });
 
   it("does not include generated secret values in known-env command text", () => {

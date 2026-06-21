@@ -126,6 +126,7 @@ export function buildVercelProductionEnvDraftValues(options: VercelProductionEnv
     ["HR_ONE_AUTH_AUDIENCE", "authenticated"],
     ["HR_ONE_AUTH_JWKS_URL", defaultSupabaseAuthJwksUrl],
     ["HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS", "3600"],
+    ["HR_ONE_AUTH_TENANT_CONTEXT_SOURCE", "env_defaults"],
     ["HR_ONE_WEB_SESSION_MAX_AGE_SECONDS", "28800"],
     ["HR_ONE_AUTH_DEFAULT_TENANT", defaultPilotTenantId],
     ["HR_ONE_AUTH_DEFAULT_COMPANY", defaultPilotCompanyId],

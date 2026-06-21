@@ -45,6 +45,7 @@ const maximumObjectStorageSignedUrlTtlSeconds = 900;
 const allowedDeploymentTargets = new Set(["vercel", "self_hosted", "other"]);
 const allowedDatabaseProviders = new Set(["supabase_postgres", "managed_postgres", "rds", "cloud_sql", "neon", "other"]);
 const allowedObjectStorageProviders = new Set(["s3", "r2", "gcs", "azure_blob", "supabase_storage", "custom"]);
+const allowedAuthTenantContextSources = new Set(["env_defaults", "token_claims"]);
 const allowedRateLimitProviders = new Set([
   "cloudflare",
   "edge",
@@ -92,6 +93,8 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
   const authLoginUrl = read(env, "HR_ONE_AUTH_LOGIN_URL");
   const authLoginUrlSafe = isSafeAuthLoginUrl(authLoginUrl);
   const authMaxTokenAgeSeconds = readInteger(env, "HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS");
+  const authTenantContextSource = read(env, "HR_ONE_AUTH_TENANT_CONTEXT_SOURCE");
+  const authTenantContext = evaluateAuthTenantContext(env, authTenantContextSource);
   const webSessionMaxAgeSeconds = readInteger(env, "HR_ONE_WEB_SESSION_MAX_AGE_SECONDS");
   const rawPromptStorage = read(env, "HR_ONE_AI_PROMPT_STORAGE") === "raw";
   const backupRetentionDays = readInteger(env, "HR_ONE_BACKUP_RETENTION_DAYS");
@@ -301,6 +304,11 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
       authMaxTokenAgeSeconds !== null
         ? `${authMaxTokenAgeSeconds} second(s) configured`
         : "missing HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS",
+    ),
+    check(
+      "auth tenant context",
+      authTenantContext.passed,
+      authTenantContext.detail,
     ),
     check(
       "web session max age",
@@ -536,6 +544,41 @@ function evaluateObjectStorageLifecyclePolicyRef(input: {
     }
   }
   return { passed: true, detail: "bucket-bound provider lifecycle policy reference configured" };
+}
+
+function evaluateAuthTenantContext(
+  env: Record<string, string | undefined>,
+  source: string | null,
+) {
+  if (!source) {
+    return {
+      passed: false,
+      detail: "missing HR_ONE_AUTH_TENANT_CONTEXT_SOURCE",
+    };
+  }
+  if (!allowedAuthTenantContextSources.has(source)) {
+    return {
+      passed: false,
+      detail: "set HR_ONE_AUTH_TENANT_CONTEXT_SOURCE=env_defaults or token_claims",
+    };
+  }
+  if (source === "token_claims") {
+    return {
+      passed: true,
+      detail: "OIDC tokens must provide tenant_id and company_id claims",
+    };
+  }
+
+  const tenant = read(env, "HR_ONE_AUTH_DEFAULT_TENANT");
+  const company = read(env, "HR_ONE_AUTH_DEFAULT_COMPANY");
+  const tenantReady = hasDeployableName(tenant);
+  const companyReady = hasDeployableName(company);
+  return {
+    passed: tenantReady && companyReady,
+    detail: tenantReady && companyReady
+      ? "default tenant/company context configured"
+      : "env_defaults requires HR_ONE_AUTH_DEFAULT_TENANT and HR_ONE_AUTH_DEFAULT_COMPANY",
+  };
 }
 
 function hasDeployableName(value: string | null) {
