@@ -9918,6 +9918,147 @@ legend {
   font-weight: 950;
 }
 
+.employee-training-page {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 96px;
+}
+
+.employee-training-hero {
+  margin-bottom: 0;
+}
+
+.employee-training-alerts {
+  display: grid;
+  gap: 10px;
+}
+
+.employee-training-today {
+  min-height: 156px;
+}
+
+.employee-training-today.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.employee-training-today.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.employee-training-signal-board,
+.employee-training-flow,
+.employee-training-list,
+.employee-training-guardrail-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.employee-training-signal-board {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.employee-training-signal-board article,
+.employee-training-flow article,
+.employee-training-card,
+.employee-training-guardrail-grid article {
+  display: grid;
+  gap: 9px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.employee-training-signal-board article.done,
+.employee-training-flow article.done,
+.employee-training-card.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.employee-training-signal-board article.focus,
+.employee-training-flow article.focus {
+  border-color: rgba(56, 189, 248, 0.42);
+  background: #f0f9ff;
+}
+
+.employee-training-signal-board article.warning,
+.employee-training-flow article.warning,
+.employee-training-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.employee-training-card.danger {
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.employee-training-signal-board span,
+.employee-training-flow span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.employee-training-signal-board strong,
+.employee-training-flow strong,
+.employee-training-guardrail-grid strong {
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 1000;
+  line-height: 1.18;
+}
+
+.employee-training-signal-board small,
+.employee-training-flow small,
+.employee-training-guardrail-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.employee-training-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.employee-training-card-head h3 {
+  margin: 4px 0 0;
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 1000;
+  line-height: 1.18;
+}
+
+.employee-training-card .button {
+  width: 100%;
+}
+
+.employee-training-proof {
+  margin: 0;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: rgba(240, 253, 244, 0.86);
+  padding: 10px 12px;
+  color: var(--success);
+  font-size: 13px;
+  font-weight: 950;
+  line-height: 1.4;
+}
+
+.employee-training-guardrail-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 @media (max-width: 760px) {
   .app-shell {
     padding-left: 0;
@@ -10194,6 +10335,9 @@ legend {
   .work-rule-article-grid,
   .work-rule-card-head,
   .employee-work-rule-card-head,
+  .employee-training-signal-board,
+  .employee-training-flow,
+  .employee-training-guardrail-grid,
   .trial-summary-grid,
   .workspace-grid,
   .inbox-workspace,
@@ -10262,6 +10406,10 @@ legend {
   .work-rule-article-item,
   .work-rule-card,
   .employee-work-rule-card,
+  .employee-training-card,
+  .employee-training-signal-board article,
+  .employee-training-flow article,
+  .employee-training-guardrail-grid article,
   .organization-manager-line-form .form-card {
     min-height: auto;
   }
@@ -10273,8 +10421,14 @@ legend {
   }
 
   .work-rule-page .button,
-  .employee-work-rule-page .button {
+  .employee-work-rule-page .button,
+  .employee-training-page .button {
     width: 100%;
+  }
+
+  .employee-training-card-head {
+    display: grid;
+    align-items: stretch;
   }
 
   .access-inline-form {

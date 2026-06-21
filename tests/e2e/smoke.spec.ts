@@ -1446,7 +1446,7 @@ test("HR 可以發布工作條件且員工能在前台確認", async ({ page }) 
   await expect(page.locator(".employee-terms-card", { hasText: "2026.07-e2e" }).getByText("已確認")).toBeVisible();
 });
 
-test("HR 可以用中文訓練上線工作台控制第一週教學時間", async ({ page }) => {
+test("HR 可以用中文訓練上線工作台控制第一週教學時間且員工手機完成", async ({ page }) => {
   await page.goto("/app");
   await switchDemoRole(page, "hr_admin");
   await page.goto("/hr/training");
@@ -1480,6 +1480,22 @@ test("HR 可以用中文訓練上線工作台控制第一週教學時間", async
   await expect(page.locator("body")).not.toContainText("nationalId");
   await expect(page.locator("body")).not.toContainText("baseSalary");
   await expect(page.locator("body")).not.toContainText("private note");
+
+  await switchDemoRole(page, "employee");
+  await page.goto("/app/training");
+  await expect(page.getByRole("heading", { name: "我的訓練" })).toBeVisible();
+  await expect(page.getByLabel("我的訓練任務").getByText("今天要處理")).toBeVisible();
+  await expect(page.getByLabel("訓練進度板").getByText("第一週分鐘")).toBeVisible();
+  await expect(page.getByLabel("三步完成訓練").getByText("按下完成")).toBeVisible();
+
+  const employeeTraining = page.locator(".employee-training-card", { hasText: "HR One 2 分鐘快速上手" });
+  await expect(employeeTraining).toBeVisible();
+  await employeeTraining.getByRole("button", { name: "我已完成訓練" }).click();
+  await expect(page).toHaveURL(/\/app\/training$/);
+  await expect(page.locator(".employee-training-card", { hasText: "HR One 2 分鐘快速上手" }).getByText("已完成")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("nationalId");
+  await expect(page.locator("body")).not.toContainText("baseSalary");
+  await expect(page.locator("body")).not.toContainText("bankAccount");
 });
 
 test("HR 可以用中文工作規則工作台發布規章且員工手機確認", async ({ page }) => {
