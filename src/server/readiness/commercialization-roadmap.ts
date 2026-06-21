@@ -221,7 +221,7 @@ function buildBlockerRadar(tasks: SaleReadinessFoundationTask[]): SaleReadinessB
       sourceTaskId: "production_database_pooler",
       title: "正式站資料庫與 live readiness",
       saleImpact: "未通過時不可邀請真實員工，也不可把 demo fallback 當成客戶試用環境。",
-      evidenceNeeded: "Live /api/health/ready OK、production database gate ready、db:verify:production、redacted env handoff。",
+      evidenceNeeded: "Live /api/health/ready OK、production database gate ready、Supabase private schema/RLS verification、db:verify:production、redacted env handoff。",
     },
     {
       sourceTaskId: "identity_rbac_sso_boundary",
@@ -304,7 +304,7 @@ function buildFoundationTasks(
       title: "正式資料庫與租戶持久化",
       owner: "Engineering",
       outcome: "正式站不再依賴 demo fallback，Vercel runtime 能連上 Supabase PostgreSQL，並可驗證正式 customer tenant 與維護排程 scope。",
-      acceptanceEvidence: "/api/health/ready = ok、production database gate ready、db:verify:production report、redacted env handoff、maintenance scope ready。",
+      acceptanceEvidence: "/api/health/ready = ok、production database gate ready、Supabase private schema/RLS/browser-role verifier、db:verify:production report、redacted env handoff、maintenance scope ready。",
       launchItems: sources.launchItems,
       pilotItems: sources.pilotItems,
       launchIds: ["database", "tenant_seed", "operational_resilience", "operational_maintenance"],

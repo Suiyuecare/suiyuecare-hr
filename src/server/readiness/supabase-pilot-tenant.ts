@@ -77,7 +77,11 @@ export type SupabasePilotTenantVerificationSnapshot = {
   betaPilotTrialRunCount: number;
   auditLogCount: number;
   auditEntityTypes: string[];
+  rlsEnabledTableCount: number;
+  rlsDisabledTableCount: number;
   exposedTablePrivilegeCount: number;
+  exposedSecurityDefinerFunctionCount: number;
+  publicSchemaShadowTableCount: number;
   anonUsage: boolean;
   authenticatedUsage: boolean;
   publicSecurityDefinerExecuteCount: number;
@@ -1449,7 +1453,11 @@ export function buildSupabasePilotTenantVerificationSql(schemaName = "hr_one", t
     "  (SELECT count(*)::int FROM \"BetaPilotTrialRun\" bptr JOIN target ON target.company_id = bptr.\"companyId\") AS \"betaPilotTrialRunCount\",",
     "  (SELECT count(*)::int FROM \"AuditLog\" al JOIN target ON target.company_id = al.\"companyId\") AS \"auditLogCount\",",
     "  (SELECT coalesce(array_agg(DISTINCT al.\"entityType\" ORDER BY al.\"entityType\"), ARRAY[]::text[]) FROM \"AuditLog\" al JOIN target ON target.company_id = al.\"companyId\") AS \"auditEntityTypes\",",
+    "  (SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = current_schema() AND c.relkind IN ('r','p') AND c.relrowsecurity) AS \"rlsEnabledTableCount\",",
+    "  (SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = current_schema() AND c.relkind IN ('r','p') AND NOT c.relrowsecurity) AS \"rlsDisabledTableCount\",",
     "  (SELECT count(*)::int FROM information_schema.table_privileges WHERE table_schema = current_schema() AND grantee IN ('anon', 'authenticated') AND privilege_type IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER')) AS \"exposedTablePrivilegeCount\",",
+    "  (SELECT count(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = current_schema() AND p.prosecdef AND (has_function_privilege('anon', p.oid, 'EXECUTE') OR has_function_privilege('authenticated', p.oid, 'EXECUTE'))) AS \"exposedSecurityDefinerFunctionCount\",",
+    "  (SELECT count(*)::int FROM pg_class private_c JOIN pg_namespace private_n ON private_n.oid = private_c.relnamespace JOIN pg_class public_c ON public_c.relname = private_c.relname AND public_c.relkind IN ('r','p') JOIN pg_namespace public_n ON public_n.oid = public_c.relnamespace WHERE private_n.nspname = current_schema() AND public_n.nspname = 'public' AND private_c.relkind IN ('r','p')) AS \"publicSchemaShadowTableCount\",",
     `  has_schema_privilege('anon', ${schemaLiteral}, 'USAGE') AS "anonUsage",`,
     `  has_schema_privilege('authenticated', ${schemaLiteral}, 'USAGE') AS "authenticatedUsage",`,
     "  (",
@@ -1517,8 +1525,11 @@ export function buildSupabasePilotTenantVerificationChecks(
     ),
     check("rules and telemetry", snapshot.activeRuleVersionCount >= 3 && snapshot.telemetryEventCount >= 10 && snapshot.betaPilotTrialRunCount >= 1, `${snapshot.activeRuleVersionCount} active rule version(s), ${snapshot.telemetryEventCount} telemetry event(s), ${snapshot.betaPilotTrialRunCount} trial run(s)`),
     check("audit coverage", snapshot.auditLogCount >= 7 && missingAuditTypes.length === 0, missingAuditTypes.length ? `missing ${missingAuditTypes.join(", ")}` : `${snapshot.auditLogCount} audit event(s)`),
+    check("Supabase private schema RLS defense", snapshot.rlsDisabledTableCount === 0 && snapshot.rlsEnabledTableCount > 0, `${snapshot.rlsEnabledTableCount} table(s) RLS-enabled, ${snapshot.rlsDisabledTableCount} disabled`),
+    check("Supabase public schema shadow tables", snapshot.publicSchemaShadowTableCount === 0, `${snapshot.publicSchemaShadowTableCount} public table(s) share HR One private table names`),
     check("Supabase browser role schema usage", !snapshot.anonUsage && !snapshot.authenticatedUsage, `anon=${snapshot.anonUsage ? "allowed" : "blocked"}, authenticated=${snapshot.authenticatedUsage ? "allowed" : "blocked"}`),
     check("Supabase browser table grants", snapshot.exposedTablePrivilegeCount === 0, `${snapshot.exposedTablePrivilegeCount} anon/authenticated table privilege(s)`),
+    check("Supabase private security-definer exposure", snapshot.exposedSecurityDefinerFunctionCount === 0, `${snapshot.exposedSecurityDefinerFunctionCount} callable private security-definer function(s)`),
     check("Supabase public security-definer RPC exposure", snapshot.publicSecurityDefinerExecuteCount === 0, `${snapshot.publicSecurityDefinerExecuteCount} callable public security-definer function(s)`),
   ];
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertSafeMigrationSql,
   buildDeterministicMigrationId,
+  buildPrivateSchemaPostureSql,
   buildPrismaMigrationBaselineSql,
   buildSupabasePrivateSchemaBootstrapSql,
   normalizePrivateSchemaName,
@@ -28,10 +29,21 @@ describe("Supabase private schema bootstrap", () => {
     expect(sql).toContain('CREATE SCHEMA IF NOT EXISTS "hr_one";');
     expect(sql).toContain('SET search_path TO "hr_one";');
     expect(sql).toContain('REVOKE ALL ON SCHEMA "hr_one" FROM anon;');
+    expect(sql).toContain('REVOKE ALL ON ALL TABLES IN SCHEMA "hr_one" FROM anon, authenticated;');
+    expect(sql).toContain("ENABLE ROW LEVEL SECURITY");
     expect(sql).toContain('CREATE TABLE "Tenant"');
     expect(sql).toContain('CREATE TABLE IF NOT EXISTS "_prisma_migrations"');
     expect(sql).toContain("'20260612000000_init'");
     expect(sql).not.toContain('CREATE SCHEMA IF NOT EXISTS "public"');
+  });
+
+  it("builds defense-in-depth SQL that enables RLS on every private-schema table", () => {
+    const sql = buildPrivateSchemaPostureSql("hr_one");
+
+    expect(sql).toContain('REVOKE ALL ON ALL TABLES IN SCHEMA "hr_one" FROM anon, authenticated;');
+    expect(sql).toContain("ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY");
+    expect(sql).toContain("relkind IN ('r','p')");
+    expect(sql).not.toContain("SECURITY DEFINER");
   });
 
   it("rejects public and reserved schema names", () => {

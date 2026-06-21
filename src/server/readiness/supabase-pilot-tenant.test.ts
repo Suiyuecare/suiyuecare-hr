@@ -62,7 +62,11 @@ const readySnapshot: SupabasePilotTenantVerificationSnapshot = {
     "pilot_seed",
     "salary_profile",
   ],
+  rlsEnabledTableCount: 76,
+  rlsDisabledTableCount: 0,
   exposedTablePrivilegeCount: 0,
+  exposedSecurityDefinerFunctionCount: 0,
+  publicSchemaShadowTableCount: 0,
   anonUsage: false,
   authenticatedUsage: false,
   publicSecurityDefinerExecuteCount: 0,
@@ -99,6 +103,9 @@ describe("Supabase pilot tenant seed", () => {
     expect(sql).toContain('SET search_path TO "hr_one";');
     expect(sql).toContain('"Payslip"');
     expect(sql).toContain("information_schema.table_privileges");
+    expect(sql).toContain("relrowsecurity");
+    expect(sql).toContain("publicSchemaShadowTableCount");
+    expect(sql).toContain("exposedSecurityDefinerFunctionCount");
     expect(sql).toContain("n.nspname = 'public'");
     expect(sql).toContain('cfss."retentionDays" >= 1825');
     expect(sql).toContain('cfss."signedUrlTtlMinutes" BETWEEN 1 AND 15');
@@ -129,7 +136,11 @@ describe("Supabase pilot tenant seed", () => {
     const checks = buildSupabasePilotTenantVerificationChecks({
       ...readySnapshot,
       auditEntityTypes: readySnapshot.auditEntityTypes.filter((entityType) => entityType !== "payslip"),
+      rlsEnabledTableCount: 75,
+      rlsDisabledTableCount: 1,
       exposedTablePrivilegeCount: 1,
+      exposedSecurityDefinerFunctionCount: 1,
+      publicSchemaShadowTableCount: 1,
       anonUsage: true,
       publicSecurityDefinerExecuteCount: 2,
     });
@@ -137,8 +148,11 @@ describe("Supabase pilot tenant seed", () => {
     expect(supabasePilotTenantVerificationPassed(checks)).toBe(false);
     expect(checks.filter((item) => !item.passed).map((item) => item.name)).toEqual([
       "audit coverage",
+      "Supabase private schema RLS defense",
+      "Supabase public schema shadow tables",
       "Supabase browser role schema usage",
       "Supabase browser table grants",
+      "Supabase private security-definer exposure",
       "Supabase public security-definer RPC exposure",
     ]);
   });

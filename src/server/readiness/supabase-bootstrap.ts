@@ -51,6 +51,7 @@ export function buildSupabasePrivateSchemaBootstrapSql(
     "",
     `SET search_path TO "${schemaName}";`,
     buildPrismaMigrationBaselineSql(options.migrations, generatedAt),
+    buildPrivateSchemaPostureSql(schemaName),
     "-- HR One private schema bootstrap complete.",
     "",
   ].join("\n");
@@ -131,6 +132,32 @@ export function buildDeterministicMigrationId(migrationName: string, checksum: s
     hash.slice(16, 20),
     hash.slice(20, 32),
   ].join("-");
+}
+
+export function buildPrivateSchemaPostureSql(schemaName: string): string {
+  const normalized = normalizePrivateSchemaName(schemaName);
+  return [
+    "-- Lock browser API roles out after all bootstrap objects are created.",
+    `REVOKE ALL ON ALL TABLES IN SCHEMA "${normalized}" FROM anon, authenticated;`,
+    `REVOKE ALL ON ALL SEQUENCES IN SCHEMA "${normalized}" FROM anon, authenticated;`,
+    `REVOKE ALL ON ALL FUNCTIONS IN SCHEMA "${normalized}" FROM anon, authenticated;`,
+    "-- Enable RLS on every private-schema table as defense in depth if a grant is accidentally added later.",
+    "DO $$",
+    "DECLARE",
+    "  table_record record;",
+    "BEGIN",
+    "  FOR table_record IN",
+    "    SELECT n.nspname AS schema_name, c.relname AS table_name",
+    "    FROM pg_class c",
+    "    JOIN pg_namespace n ON n.oid = c.relnamespace",
+    `    WHERE n.nspname = ${sqlStringLiteral(normalized)}`,
+    "      AND c.relkind IN ('r','p')",
+    "  LOOP",
+    "    EXECUTE format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY', table_record.schema_name, table_record.table_name);",
+    "  END LOOP;",
+    "END $$;",
+    "",
+  ].join("\n");
 }
 
 function rewriteMigrationForPrivateSchema(sql: string, schemaName: string): string {
