@@ -81,7 +81,7 @@ Current live production-pilot status and blockers are tracked in [`docs/pilot-pr
 - Unified Inbox for leave, overtime, punch correction, and custom HR forms.
 - Approve/reject with manager comment.
 - Employee request timeline and in-app notifications.
-- Notification channel settings and delivery metadata for in-app, email, LINE, Slack, and Teams, with external payload hashes instead of raw sensitive content.
+- Notification channel settings and delivery metadata for in-app, email, LINE, Slack, and Teams, with external payload hashes instead of raw sensitive content. Settings, delivery reads, and notification creation fail closed in database mode instead of falling back to demo delivery state.
 - HR attendance exception view.
 - HR monthly close command center with a Finance-style hero, today-first action, signal board, close health, attendance exception queue, employee readiness gaps, payroll close cockpit, and KPI focus instead of a deep function menu.
 - Finance-style HR winning KPI command center at `/hr/kpis` for leave speed, manager approval speed, payroll close reduction, attendance auto-resolution, mobile task completion, form self-service, audit coverage, payroll access security, sourced AI answers, and rollout training time. The page is HR/Owner-gated, Chinese-first, organized by today-first focus, sales readiness, signal board, responsible owner work cards, and privacy-safe evidence labels instead of a raw English scorecard.
@@ -616,7 +616,7 @@ Use `/hr/onboarding-readiness` after provisioning and employee import. It shows 
 - `src/server/auth/policy.ts`: authentication assurance policy for SSO, MFA, allowed email domains, session lifetime, and idle timeout.
 - `src/server/auth/oidc.ts`: provider-neutral OIDC JWT verifier for production SSO token validation.
 - `src/server/auth/oidc-session.ts`: DB-backed OIDC session resolver that maps verified identity claims to active HR One users, employees, and company role assignments.
-- `src/server/notifications/service.ts`: notification channel settings, delivery metadata, payload hashing, and DB/demo fallback.
+- `src/server/notifications/service.ts`: notification channel settings, delivery metadata, payload hashing, local demo previews, and database-mode fail-closed behavior for settings, delivery reads, and notification creation.
 - `src/server/audit`: redaction and audit foundations.
 - `src/server/audit/queries.ts`: audit log query boundary for DB and demo audit trails.
 - `src/server/employees/documents.ts`: employee document vault with storage object metadata, self-service visibility, RBAC, audit logs, local demo previews, and database-mode fail-closed behavior for sensitive HR documents.

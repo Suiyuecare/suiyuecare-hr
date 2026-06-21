@@ -102,8 +102,8 @@ const globalForNotifications = globalThis as unknown as {
 export async function getNotificationAdminWorkspace(session: SessionLike): Promise<NotificationAdminWorkspace> {
   assertPermission(session.role, "settings:read");
   const settings = await getNotificationSettings(session);
-  const deliveries = canUseDatabase(session)
-    ? await listDbDeliveries(session).catch(() => getDemoState().deliveries)
+  const deliveries = process.env.DATABASE_URL
+    ? await listDbDeliveries(assertDatabaseNotificationContext(session))
     : getDemoState().deliveries;
   return {
     settings,
@@ -112,17 +112,14 @@ export async function getNotificationAdminWorkspace(session: SessionLike): Promi
 }
 
 export async function getNotificationSettings(session: SessionLike) {
-  if (canUseDatabase(session)) {
-    try {
-      const record = await getDb().companyNotificationSetting.findUnique({
-        where: { companyId: session.companyId },
-      });
-      return record ? readSettings(record) : defaultNotificationSettings;
-    } catch {
-      return getDemoState().settings;
-    }
+  if (!process.env.DATABASE_URL) {
+    return getDemoState().settings;
   }
-  return getDemoState().settings;
+  const dbSession = assertDatabaseNotificationContext(session);
+  const record = await getDb().companyNotificationSetting.findUnique({
+    where: { companyId: dbSession.companyId },
+  });
+  return record ? readSettings(record) : defaultNotificationSettings;
 }
 
 export async function updateNotificationSettings(
@@ -132,14 +129,10 @@ export async function updateNotificationSettings(
   assertPermission(session.role, "settings:write");
   const before = await getNotificationSettings(session);
   const normalized = normalizeSettings(input, before);
-  if (canUseDatabase(session)) {
-    try {
-      return updateDbSettings(session, before, normalized);
-    } catch {
-      return updateDemoSettings(session, before, normalized);
-    }
+  if (!process.env.DATABASE_URL) {
+    return updateDemoSettings(session, before, normalized);
   }
-  return updateDemoSettings(session, before, normalized);
+  return updateDbSettings(assertDatabaseNotificationContext(session), before, normalized);
 }
 
 export async function sendNotification(input: SendNotificationInput) {
@@ -151,11 +144,7 @@ export async function sendNotification(input: SendNotificationInput) {
   if (!eventEnabled(settings, input.eventType ?? "general")) return null;
 
   if (process.env.DATABASE_URL) {
-    try {
-      return await createDbNotification(input, settings);
-    } catch {
-      return createDemoNotification(input, settings);
-    }
+    return createDbNotification(input, settings);
   }
   return createDemoNotification(input, settings);
 }
@@ -446,8 +435,11 @@ function changedFields(before: NotificationChannelSettings, after: NotificationC
   return (Object.keys(after) as Array<keyof NotificationChannelSettings>).filter((key) => before[key] !== after[key]);
 }
 
-function canUseDatabase(
+function assertDatabaseNotificationContext<T extends SessionLike>(
   session: SessionLike,
-): session is SessionLike & { tenantId: string; companyId: string } {
-  return Boolean(process.env.DATABASE_URL && session.tenantId && session.companyId);
+): T & { tenantId: string; companyId: string } {
+  if (!session.tenantId || !session.companyId) {
+    throw new Error("Notification settings require tenant and company context in database mode.");
+  }
+  return session as T & { tenantId: string; companyId: string };
 }
