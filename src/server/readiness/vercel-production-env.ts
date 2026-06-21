@@ -63,6 +63,8 @@ const nonSensitiveKeys = new Set([
   "HR_ONE_AUTH_AUDIENCE",
   "HR_ONE_AUTH_DEFAULT_COMPANY",
   "HR_ONE_AUTH_DEFAULT_TENANT",
+  "HR_ONE_CRON_COMPANY_ID",
+  "HR_ONE_CRON_TENANT_ID",
   "HR_ONE_AUTH_JWKS_URL",
   "HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS",
   "HR_ONE_AI_PROVIDER",
@@ -94,6 +96,8 @@ export const knownProductionBootstrapKeys = [
   "HR_ONE_AUTH_JWKS_URL",
   "HR_ONE_AUTH_DEFAULT_TENANT",
   "HR_ONE_AUTH_DEFAULT_COMPANY",
+  "HR_ONE_CRON_TENANT_ID",
+  "HR_ONE_CRON_COMPANY_ID",
   "HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS",
   "HR_ONE_AI_PROVIDER",
   "HR_ONE_AI_PROMPT_STORAGE",
@@ -109,6 +113,7 @@ export const generatedSecretBootstrapKeys = [
   "HR_ONE_SESSION_SECRET",
   "HR_ONE_ENCRYPTION_KEY",
   "HR_ONE_AUDIT_LOG_SIGNING_KEY",
+  "CRON_SECRET",
 ] as const;
 
 export const operatorManagedProductionKeys = [

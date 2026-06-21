@@ -16,6 +16,9 @@ const productionEnv = {
   HR_ONE_SESSION_SECRET: "session-secret-with-at-least-32-characters",
   HR_ONE_ENCRYPTION_KEY: "encryption-key-with-at-least-32-chars",
   HR_ONE_AUDIT_LOG_SIGNING_KEY: "audit-log-signing-key-with-32-chars",
+  CRON_SECRET: "cron-secret-with-at-least-32-characters",
+  HR_ONE_CRON_TENANT_ID: "tenant_suiyuecare_prod",
+  HR_ONE_CRON_COMPANY_ID: "company_suiyuecare_prod",
   HR_ONE_OBJECT_STORAGE_SECRET_REF: "vault://customer/hrone/storage",
   HR_ONE_AUTH_PROVIDER: "entra_id",
   HR_ONE_AUTH_SESSION_SOURCE: "oidc",
@@ -111,6 +114,57 @@ describe("environment verification", () => {
     expect(report.checks.find((item) => item.name === "auth jwks url")).toMatchObject({
       passed: false,
       detail: "invalid HR_ONE_AUTH_JWKS_URL",
+    });
+  });
+
+  it("requires report maintenance cron secret and tenant scope in production", () => {
+    const report = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        CRON_SECRET: "change-me",
+        HR_ONE_CRON_TENANT_ID: "",
+        HR_ONE_CRON_COMPANY_ID: "demo-company",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+
+    expect(environmentVerificationPassed(report)).toBe(false);
+    expect(report.checks.find((item) => item.name === "CRON_SECRET")).toMatchObject({
+      passed: false,
+      detail: "invalid CRON_SECRET",
+    });
+    expect(report.checks.find((item) => item.name === "scheduled job tenant scope")).toMatchObject({
+      passed: false,
+      detail: "missing HR_ONE_CRON_TENANT_ID",
+    });
+    expect(report.checks.find((item) => item.name === "scheduled job company scope")).toMatchObject({
+      passed: false,
+      detail: "invalid HR_ONE_CRON_COMPANY_ID",
+    });
+  });
+
+  it("allows legacy report maintenance scope env while preferring cron names", () => {
+    const report = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        HR_ONE_CRON_TENANT_ID: "",
+        HR_ONE_CRON_COMPANY_ID: "",
+        HR_ONE_MAINTENANCE_TENANT_ID: "tenant_suiyuecare_prod",
+        HR_ONE_MAINTENANCE_COMPANY_ID: "company_suiyuecare_prod",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+
+    expect(environmentVerificationPassed(report)).toBe(true);
+    expect(report.checks.find((item) => item.name === "scheduled job tenant scope")).toMatchObject({
+      passed: true,
+      detail: "HR_ONE_MAINTENANCE_TENANT_ID configured; prefer HR_ONE_CRON_TENANT_ID",
+    });
+    expect(report.checks.find((item) => item.name === "scheduled job company scope")).toMatchObject({
+      passed: true,
+      detail: "HR_ONE_MAINTENANCE_COMPANY_ID configured; prefer HR_ONE_CRON_COMPANY_ID",
     });
   });
 

@@ -196,6 +196,9 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
     secretCheck(env, "HR_ONE_SESSION_SECRET"),
     secretCheck(env, "HR_ONE_ENCRYPTION_KEY"),
     secretCheck(env, "HR_ONE_AUDIT_LOG_SIGNING_KEY"),
+    secretCheck(env, "CRON_SECRET"),
+    scheduledJobScopeCheck(env, "scheduled job tenant scope", "HR_ONE_CRON_TENANT_ID", "HR_ONE_MAINTENANCE_TENANT_ID"),
+    scheduledJobScopeCheck(env, "scheduled job company scope", "HR_ONE_CRON_COMPANY_ID", "HR_ONE_MAINTENANCE_COMPANY_ID"),
     referenceCheck(env, "HR_ONE_OBJECT_STORAGE_SECRET_REF"),
     check(
       "auth provider",
@@ -424,10 +427,11 @@ function formatDatabasePosture(posture: ReturnType<typeof classifyDatabaseConnec
 
 function secretCheck(env: Record<string, string | undefined>, key: string) {
   const value = read(env, key);
+  const passed = isStrongSecret(value);
   return check(
     key,
-    isStrongSecret(value),
-    value ? "configured and not a weak placeholder" : `missing ${key}`,
+    passed,
+    value ? (passed ? "configured and not a weak placeholder" : `invalid ${key}`) : `missing ${key}`,
   );
 }
 
@@ -438,6 +442,30 @@ function referenceCheck(env: Record<string, string | undefined>, key: string) {
     Boolean(value && !hasWeakValue(value) && value.length >= 8),
     value ? "vault/reference configured" : `missing ${key}`,
   );
+}
+
+function scheduledJobScopeCheck(
+  env: Record<string, string | undefined>,
+  name: string,
+  canonicalKey: string,
+  fallbackKey: string,
+) {
+  const canonicalValue = read(env, canonicalKey);
+  const fallbackValue = read(env, fallbackKey);
+  const selectedKey = canonicalValue ? canonicalKey : fallbackValue ? fallbackKey : null;
+  const selectedValue = canonicalValue ?? fallbackValue;
+  const passed = Boolean(selectedValue && selectedValue.length >= 8 && !hasWeakValue(selectedValue));
+  let detail = `missing ${canonicalKey}`;
+
+  if (selectedValue && selectedKey) {
+    detail = passed
+      ? selectedKey === canonicalKey
+        ? `${canonicalKey} configured`
+        : `${fallbackKey} configured; prefer ${canonicalKey}`
+      : `invalid ${selectedKey}`;
+  }
+
+  return check(name, passed, detail);
 }
 
 function read(env: Record<string, string | undefined>, key: string) {

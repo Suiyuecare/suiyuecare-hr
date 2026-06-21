@@ -22,6 +22,9 @@ const productionEnv = {
   HR_ONE_SESSION_SECRET: "session-secret-with-at-least-32-characters",
   HR_ONE_ENCRYPTION_KEY: "encryption-key-with-at-least-32-chars",
   HR_ONE_AUDIT_LOG_SIGNING_KEY: "audit-log-signing-key-with-32-chars",
+  CRON_SECRET: "cron-secret-with-at-least-32-characters",
+  HR_ONE_CRON_TENANT_ID: "tenant_suiyuecare_prod",
+  HR_ONE_CRON_COMPANY_ID: "company_suiyuecare_prod",
   HR_ONE_OBJECT_STORAGE_SECRET_REF: "vault://customer/hrone/storage",
   HR_ONE_AUTH_PROVIDER: "entra_id",
   HR_ONE_AUTH_SESSION_SOURCE: "oidc",
@@ -141,6 +144,9 @@ describe("Vercel production env bootstrap", () => {
     expect(keys).toContain("HR_ONE_AUTH_ISSUER_URL");
     expect(keys).toContain("HR_ONE_AUTH_LOGIN_URL");
     expect(keys).toContain("HR_ONE_SESSION_SECRET");
+    expect(keys).toContain("CRON_SECRET");
+    expect(keys).toContain("HR_ONE_CRON_TENANT_ID");
+    expect(keys).toContain("HR_ONE_CRON_COMPANY_ID");
     expect(keys).not.toContain("DATABASE_URL");
     expect(keys).not.toContain("HR_ONE_OBJECT_STORAGE_SECRET_REF");
     expect(plan.skippedPlaceholderKeys).toEqual([
@@ -152,7 +158,7 @@ describe("Vercel production env bootstrap", () => {
       "HR_ONE_OBJECT_STORAGE_SECRET_REF",
       "HR_ONE_RATE_LIMIT_SECRET_REF",
     ]);
-    expect(summary).toContain("29 bootstrap variable(s): 3 sensitive, 26 encrypted");
+    expect(summary).toContain("32 bootstrap variable(s): 4 sensitive, 28 encrypted");
   });
 
   it("does not include generated secret values in known-env command text", () => {
