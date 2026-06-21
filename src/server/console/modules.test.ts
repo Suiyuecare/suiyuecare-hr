@@ -139,4 +139,79 @@ describe("console modules", () => {
     expect(employeeRadar.totalModules).toBe(0);
     expect(employeeRadar.nextAction).toBeNull();
   });
+
+  it("folds live launch readiness and audit evidence into the sale-ready radar", () => {
+    const hrRadar = getConsoleReadinessRadar("hr_admin", {
+      launchReadiness: {
+        readyForSale: false,
+        readyCount: 7,
+        actionRequiredCount: 2,
+        blockedCount: 3,
+        items: [
+          {
+            id: "database",
+            title: "PostgreSQL persistence",
+            status: "blocked",
+            detail: "DATABASE_URL is not configured.",
+            actionLabel: "Open setup docs",
+            actionHref: "/settings/readiness#database-setup",
+          },
+          {
+            id: "payment_security",
+            title: "Payroll payment security",
+            status: "blocked",
+            detail: "Vault reference missing.",
+            actionLabel: "Configure payment security",
+            actionHref: "/hr/payroll-payment-security",
+          },
+          {
+            id: "notifications",
+            title: "Notification delivery",
+            status: "action_required",
+            detail: "Only in-app notifications are enabled.",
+            actionLabel: "Configure notifications",
+            actionHref: "/settings/notifications",
+          },
+          {
+            id: "kpis",
+            title: "Winning KPI gate",
+            status: "action_required",
+            detail: "Some KPI(s) are failing.",
+            actionLabel: "Open KPIs",
+            actionHref: "/hr/kpis",
+          },
+        ],
+      },
+      auditEvidence: {
+        latest: {
+          recordCount: 12,
+          warnings: ["No payroll_export audit evidence in selected period."],
+          coveredEntityTypes: ["employee_lifecycle_event"],
+          generatedAt: new Date("2026-06-22T00:00:00.000Z"),
+        },
+      },
+    });
+
+    const company = hrRadar.items.find((item) => item.moduleId === "company");
+    const payroll = hrRadar.items.find((item) => item.moduleId === "payroll");
+    const reports = hrRadar.items.find((item) => item.moduleId === "reports");
+    const announcements = hrRadar.items.find((item) => item.moduleId === "announcements");
+
+    expect(hrRadar.liveGateSummary).toMatchObject({
+      readyForSale: false,
+      readyCount: 7,
+      actionRequiredCount: 2,
+      blockedCount: 3,
+    });
+    expect(hrRadar.auditEvidenceSummary).toMatchObject({
+      status: "warning",
+      recordCount: 12,
+      warningCount: 1,
+    });
+    expect(company?.topRisks).toEqual(expect.arrayContaining(["正式資料庫：阻擋"]));
+    expect(company?.nextAction).toMatchObject({ label: "修正式資料庫", href: "/settings/production-database" });
+    expect(payroll?.topRisks).toEqual(expect.arrayContaining(["發薪付款安全：阻擋"]));
+    expect(reports?.topRisks).toEqual(expect.arrayContaining(["勞檢證據包：1 個覆蓋缺口"]));
+    expect(announcements?.topRisks).toEqual(expect.arrayContaining(["通知管道：待收斂"]));
+  });
 });

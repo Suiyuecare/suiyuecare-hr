@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { hasPermission } from "@/server/auth/rbac";
 import { getDemoSession } from "@/server/auth/session";
+import { getAuditEvidenceWorkspace } from "@/server/audit/evidence-packages";
 import {
   filterConsoleModules,
   getConsoleModules,
@@ -15,6 +16,7 @@ import {
   type PilotOperationsReport,
   type PilotOperationsTodayGateStatus,
 } from "@/server/readiness/pilot-operations";
+import { getLaunchReadinessReport } from "@/server/readiness/launch";
 
 type SearchParams = Promise<{ q?: string }>;
 
@@ -24,10 +26,15 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
   const session = await getDemoSession();
   const allModules = getConsoleModules(session.role);
   const modules = filterConsoleModules(allModules, query);
-  const readinessRadar = getConsoleReadinessRadar(session.role);
-  const pilotOperations = hasPermission(session.role, "settings:read")
-    ? await getPilotOperationsReport(session)
-    : null;
+  const [pilotOperations, launchReadiness, auditEvidence] = await Promise.all([
+    hasPermission(session.role, "settings:read") ? getPilotOperationsReport(session) : null,
+    hasPermission(session.role, "settings:read") ? getLaunchReadinessReport(session) : null,
+    hasPermission(session.role, "audit:read") ? getAuditEvidenceWorkspace(session) : null,
+  ]);
+  const readinessRadar = getConsoleReadinessRadar(session.role, {
+    launchReadiness,
+    auditEvidence,
+  });
   const pinnedCount = allModules.reduce((sum, module) => sum + module.pinned.length, 0);
   const linkCount = allModules.reduce(
     (sum, module) => sum + module.sections.reduce((sectionSum, section) => sectionSum + section.links.length, 0),
@@ -239,6 +246,16 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
 
 function ConsoleReadinessRadarBoard({ radar }: { radar: ConsoleReadinessRadar }) {
   const nextAction = radar.nextAction;
+  const liveGateTone = radar.liveGateSummary?.blockedCount
+    ? "danger"
+    : radar.liveGateSummary?.actionRequiredCount
+      ? "warning"
+      : "ready";
+  const liveGateLabel = radar.liveGateSummary?.blockedCount
+    ? `${radar.liveGateSummary.blockedCount} 阻擋`
+    : radar.liveGateSummary?.actionRequiredCount
+      ? `${radar.liveGateSummary.actionRequiredCount} 待收斂`
+      : "可販售";
 
   return (
     <section className="console-readiness-radar" aria-label="上線缺口雷達">
@@ -263,6 +280,33 @@ function ConsoleReadinessRadarBoard({ radar }: { radar: ConsoleReadinessRadar })
         <RadarMetric label="待收斂模組" value={radar.warningModules} tone={radar.warningModules ? "warning" : "ready"} />
         <RadarMetric label="阻擋訊號" value={radar.blockerSignals} tone={radar.blockerSignals ? "danger" : "ready"} />
       </div>
+
+      {radar.liveGateSummary || radar.auditEvidenceSummary ? (
+        <div className="console-readiness-source-strip" aria-label="真實營運訊號">
+          {radar.liveGateSummary ? (
+            <div className={`console-readiness-source-card ${liveGateTone}`}>
+              <span>上線 Gate</span>
+              <strong>{liveGateLabel}</strong>
+              <small>
+                {radar.liveGateSummary.readyCount} 可用 · {radar.liveGateSummary.actionRequiredCount} 待收斂 · {radar.liveGateSummary.readyForSale ? "ready for sale" : "仍需處理"}
+              </small>
+            </div>
+          ) : null}
+          {radar.auditEvidenceSummary ? (
+            <div className={`console-readiness-source-card ${toneClass(radar.auditEvidenceSummary.status)}`}>
+              <span>Audit evidence</span>
+              <strong>
+                {radar.auditEvidenceSummary.latestGeneratedAt
+                  ? `${radar.auditEvidenceSummary.recordCount} 筆`
+                  : "尚未產生"}
+              </strong>
+              <small>
+                {radar.auditEvidenceSummary.warningCount} 個覆蓋警示 · {radar.auditEvidenceSummary.latestGeneratedAt ? "已有封存摘要" : "需產生勞檢證據包"}
+              </small>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="console-readiness-radar-grid" aria-label="模組缺口清單">
         {radar.items.map((item) => (

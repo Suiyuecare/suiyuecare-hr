@@ -123,8 +123,10 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByLabel("Day 0 到 Day 14 檢查點")).toBeVisible();
   await expect(page.getByLabel("上線缺口雷達").getByRole("heading", { name: "上線缺口雷達" })).toBeVisible();
   await expect(page.getByLabel("缺口摘要").getByText("阻擋模組")).toBeVisible();
+  await expect(page.getByLabel("真實營運訊號").getByText("上線 Gate")).toBeVisible();
+  await expect(page.getByLabel("真實營運訊號").getByText("Audit evidence")).toBeVisible();
   await expect(page.getByLabel("模組缺口清單").getByText("公司管理", { exact: true })).toBeVisible();
-  await expect(page.getByLabel("模組缺口清單").getByText("檢查正式環境資料庫 Gate")).toBeVisible();
+  await expect(page.getByLabel("模組缺口清單").getByText("正式資料庫：阻擋")).toBeVisible();
 
   const companyModuleLink = page.locator("article#company").getByRole("link", { name: "模組總覽" });
   await expect(companyModuleLink).toBeVisible();

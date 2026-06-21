@@ -69,6 +69,20 @@ export type ConsoleReadinessRadarItem = {
   nextAction: ConsoleLink;
 };
 
+export type ConsoleReadinessRadarLiveGateSummary = {
+  readyForSale: boolean;
+  readyCount: number;
+  actionRequiredCount: number;
+  blockedCount: number;
+};
+
+export type ConsoleReadinessRadarAuditSummary = {
+  status: ConsoleTone;
+  recordCount: number;
+  warningCount: number;
+  latestGeneratedAt: Date | null;
+};
+
 export type ConsoleReadinessRadar = {
   totalModules: number;
   blockerModules: number;
@@ -76,8 +90,42 @@ export type ConsoleReadinessRadar = {
   readyModules: number;
   blockerSignals: number;
   warningSignals: number;
+  liveGateSummary: ConsoleReadinessRadarLiveGateSummary | null;
+  auditEvidenceSummary: ConsoleReadinessRadarAuditSummary | null;
   nextAction: ConsoleReadinessRadarItem | null;
   items: ConsoleReadinessRadarItem[];
+};
+
+export type ConsoleReadinessRadarSources = {
+  launchReadiness?: {
+    readyForSale: boolean;
+    readyCount: number;
+    actionRequiredCount: number;
+    blockedCount: number;
+    items: Array<{
+      id: string;
+      title: string;
+      status: "ready" | "action_required" | "blocked";
+      detail: string;
+      actionLabel: string;
+      actionHref: string;
+    }>;
+  } | null;
+  auditEvidence?: {
+    latest: {
+      recordCount: number;
+      warnings: string[];
+      coveredEntityTypes: string[];
+      generatedAt: Date;
+    } | null;
+  } | null;
+};
+
+type ConsoleRadarSignal = {
+  title: string;
+  tone: ConsoleTone;
+  href?: string;
+  actionLabel?: string;
 };
 
 type ConsoleModuleProfile = Omit<ConsoleModuleDetail, "module" | "setupLinks"> & {
@@ -818,7 +866,11 @@ export function getConsoleModuleDetail(role: RoleKey, moduleId: string): Console
   };
 }
 
-export function getConsoleReadinessRadar(role: RoleKey): ConsoleReadinessRadar {
+export function getConsoleReadinessRadar(
+  role: RoleKey,
+  sources: ConsoleReadinessRadarSources = {},
+): ConsoleReadinessRadar {
+  const sourceSignals = buildSourceSignals(sources);
   const items = getConsoleModules(role)
     .map((consoleModule) => {
       const detail = getConsoleModuleDetail(role, consoleModule.id);
@@ -836,17 +888,21 @@ export function getConsoleReadinessRadar(role: RoleKey): ConsoleReadinessRadar {
         title: guardrail.title,
         tone: guardrail.tone,
       }));
-      const signals = [...taskSignals, ...guardrailSignals, ...kpiSignals];
+      const liveSignals = sourceSignals.get(consoleModule.id) ?? [];
+      const signals = [...liveSignals, ...taskSignals, ...guardrailSignals, ...kpiSignals];
       const blockerCount = signals.filter((signal) => signal.tone === "danger").length;
       const warningCount = signals.filter((signal) => signal.tone === "warning").length;
       const readyCount = signals.filter((signal) => signal.tone === "ready").length;
       const tone: ConsoleTone = blockerCount > 0 ? "danger" : warningCount > 0 ? "warning" : "ready";
+      const prioritizedLiveSignal =
+        liveSignals.find((signal) => signal.tone === "danger") ??
+        liveSignals.find((signal) => signal.tone === "warning");
       const prioritizedTask =
         detail.tasks.find((task) => task.tone === "danger") ??
         detail.tasks.find((task) => task.tone === "warning") ??
         detail.tasks[0];
-      const topRisks = signals
-        .filter((signal) => signal.tone === tone)
+      const topRiskSignals = prioritizeTopRiskSignals(signals, liveSignals);
+      const topRisks = topRiskSignals
         .slice(0, 3)
         .map((signal) => signal.title);
 
@@ -859,9 +915,11 @@ export function getConsoleReadinessRadar(role: RoleKey): ConsoleReadinessRadar {
         warningCount,
         readyCount,
         topRisks,
-        nextAction: prioritizedTask
-          ? { label: prioritizedTask.status, href: prioritizedTask.href }
-          : consoleModule.primary,
+        nextAction: prioritizedLiveSignal?.href
+          ? { label: prioritizedLiveSignal.actionLabel ?? "處理 Gate", href: prioritizedLiveSignal.href }
+          : prioritizedTask
+            ? { label: prioritizedTask.status, href: prioritizedTask.href }
+            : consoleModule.primary,
       } satisfies ConsoleReadinessRadarItem;
     })
     .filter((item): item is ConsoleReadinessRadarItem => item !== null)
@@ -880,6 +938,15 @@ export function getConsoleReadinessRadar(role: RoleKey): ConsoleReadinessRadar {
     readyModules: items.filter((item) => item.tone === "ready").length,
     blockerSignals: items.reduce((sum, item) => sum + item.blockerCount, 0),
     warningSignals: items.reduce((sum, item) => sum + item.warningCount, 0),
+    liveGateSummary: sources.launchReadiness
+      ? {
+        readyForSale: sources.launchReadiness.readyForSale,
+        readyCount: sources.launchReadiness.readyCount,
+        actionRequiredCount: sources.launchReadiness.actionRequiredCount,
+        blockedCount: sources.launchReadiness.blockedCount,
+      }
+      : null,
+    auditEvidenceSummary: buildAuditEvidenceSummary(sources.auditEvidence),
     nextAction: items[0] ?? null,
     items,
   };
@@ -922,6 +989,183 @@ function toneRank(tone: ConsoleTone) {
   if (tone === "warning") return 1;
   return 2;
 }
+
+function buildSourceSignals(sources: ConsoleReadinessRadarSources) {
+  const signalsByModule = new Map<string, ConsoleRadarSignal[]>();
+
+  for (const item of sources.launchReadiness?.items ?? []) {
+    const moduleIds = launchItemModuleIds[item.id];
+    if (!moduleIds) continue;
+    const tone = launchStatusTone(item.status);
+    const signal = {
+      title: `${launchItemLabel(item.id, item.title)}：${launchStatusLabel(item.status)}`,
+      tone,
+      href: launchItemHref(item.id, item.actionHref),
+      actionLabel: launchItemActionLabel(item.id, item.actionLabel),
+    } satisfies ConsoleRadarSignal;
+    for (const moduleId of moduleIds) {
+      addSourceSignal(signalsByModule, moduleId, signal);
+    }
+  }
+
+  const auditEvidenceSummary = buildAuditEvidenceSummary(sources.auditEvidence);
+  if (auditEvidenceSummary) {
+    addSourceSignal(signalsByModule, "reports", {
+      title: auditEvidenceSignalTitle(auditEvidenceSummary),
+      tone: auditEvidenceSummary.status,
+      href: "/settings/audit",
+      actionLabel: "產生稽核證據",
+    });
+  }
+
+  return signalsByModule;
+}
+
+function addSourceSignal(
+  signalsByModule: Map<string, ConsoleRadarSignal[]>,
+  moduleId: string,
+  signal: ConsoleRadarSignal,
+) {
+  signalsByModule.set(moduleId, [...(signalsByModule.get(moduleId) ?? []), signal]);
+}
+
+function prioritizeTopRiskSignals(signals: ConsoleRadarSignal[], liveSignals: ConsoleRadarSignal[]) {
+  const liveRiskSignals = liveSignals.filter((signal) => signal.tone !== "ready");
+  const liveRiskSet = new Set(liveRiskSignals);
+  const moduleRiskSignals = signals.filter((signal) => signal.tone !== "ready" && !liveRiskSet.has(signal));
+  const readySignals = signals.filter((signal) => signal.tone === "ready");
+  return [...liveRiskSignals, ...moduleRiskSignals, ...readySignals];
+}
+
+function buildAuditEvidenceSummary(
+  auditEvidence: ConsoleReadinessRadarSources["auditEvidence"],
+): ConsoleReadinessRadarAuditSummary | null {
+  if (auditEvidence === undefined || auditEvidence === null) return null;
+  if (!auditEvidence.latest) {
+    return {
+      status: "danger",
+      recordCount: 0,
+      warningCount: 1,
+      latestGeneratedAt: null,
+    };
+  }
+  return {
+    status: auditEvidence.latest.warnings.length > 0 ? "warning" : "ready",
+    recordCount: auditEvidence.latest.recordCount,
+    warningCount: auditEvidence.latest.warnings.length,
+    latestGeneratedAt: auditEvidence.latest.generatedAt,
+  };
+}
+
+function auditEvidenceSignalTitle(summary: ConsoleReadinessRadarAuditSummary) {
+  if (!summary.latestGeneratedAt) return "勞檢證據包：尚未產生";
+  if (summary.warningCount > 0) return `勞檢證據包：${summary.warningCount} 個覆蓋缺口`;
+  return `勞檢證據包：${summary.recordCount} 筆 evidence 已封存`;
+}
+
+function launchStatusTone(status: "ready" | "action_required" | "blocked"): ConsoleTone {
+  if (status === "blocked") return "danger";
+  if (status === "action_required") return "warning";
+  return "ready";
+}
+
+function launchStatusLabel(status: "ready" | "action_required" | "blocked") {
+  if (status === "blocked") return "阻擋";
+  if (status === "action_required") return "待收斂";
+  return "可用";
+}
+
+function launchItemLabel(id: string, fallback: string) {
+  return launchItemLabels[id] ?? fallback;
+}
+
+function launchItemHref(id: string, fallback: string) {
+  return launchItemHrefs[id] ?? fallback;
+}
+
+function launchItemActionLabel(id: string, fallback: string) {
+  return launchItemActionLabels[id] ?? fallback;
+}
+
+const launchItemModuleIds: Record<string, string[]> = {
+  database: ["company"],
+  tenant_seed: ["people"],
+  operational_resilience: ["company"],
+  subscription: ["company"],
+  security: ["company"],
+  sso_identities: ["company"],
+  file_storage: ["company"],
+  support_access: ["company"],
+  privacy: ["people"],
+  offboarding: ["people"],
+  work_rules: ["company"],
+  labor_roster: ["people"],
+  training: ["people"],
+  incidents: ["people"],
+  notifications: ["announcements"],
+  payment_security: ["payroll"],
+  calendar: ["attendance", "scheduling"],
+  law_rules: ["attendance", "scheduling", "payroll"],
+  audit: ["reports"],
+  kpis: ["reports"],
+};
+
+const launchItemLabels: Record<string, string> = {
+  database: "正式資料庫",
+  tenant_seed: "租戶與員工資料",
+  operational_resilience: "備份還原",
+  subscription: "商務訂閱",
+  security: "登入與 MFA",
+  sso_identities: "特權 SSO 綁定",
+  file_storage: "文件儲存",
+  support_access: "支援存取",
+  privacy: "個資治理",
+  offboarding: "離職交接",
+  work_rules: "工作規則確認",
+  labor_roster: "勞工名卡",
+  training: "到職訓練",
+  incidents: "職場事件處理",
+  notifications: "通知管道",
+  payment_security: "發薪付款安全",
+  calendar: "台灣行事曆",
+  law_rules: "台灣法規規則",
+  audit: "Audit evidence",
+  kpis: "贏面 KPI",
+};
+
+const launchItemHrefs: Record<string, string> = {
+  database: "/settings/production-database",
+  tenant_seed: "/hr/employee-import",
+  operational_resilience: "/settings/operational-resilience",
+  subscription: "/settings/subscription",
+  security: "/settings/security",
+  law_rules: "/settings/law-rules",
+  audit: "/settings/audit",
+  kpis: "/hr/kpis",
+};
+
+const launchItemActionLabels: Record<string, string> = {
+  database: "修正式資料庫",
+  tenant_seed: "匯入員工",
+  operational_resilience: "補備援證據",
+  subscription: "檢查商務狀態",
+  security: "設定登入政策",
+  sso_identities: "綁定 SSO",
+  file_storage: "設定文件儲存",
+  support_access: "檢查支援存取",
+  privacy: "補個資治理",
+  offboarding: "處理離職任務",
+  work_rules: "發布工作規則",
+  labor_roster: "補勞工名卡",
+  training: "指派訓練",
+  incidents: "檢查事件流程",
+  notifications: "設定通知",
+  payment_security: "補付款 Gate",
+  calendar: "審核行事曆",
+  law_rules: "審核法規規則",
+  audit: "檢查 audit",
+  kpis: "查看 KPI",
+};
 
 function buildDefaultModuleProfile(module: ConsoleModule): ConsoleModuleProfile {
   return {

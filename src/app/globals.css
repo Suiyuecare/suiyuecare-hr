@@ -2568,6 +2568,57 @@ legend {
   line-height: 1;
 }
 
+.console-readiness-source-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.console-readiness-source-card {
+  display: grid;
+  gap: 7px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+}
+
+.console-readiness-source-card.danger {
+  border-color: #fca5a5;
+  background: #fff1f2;
+}
+
+.console-readiness-source-card.warning {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+.console-readiness-source-card.ready {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.console-readiness-source-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.console-readiness-source-card strong {
+  color: var(--foreground);
+  font-size: 22px;
+  font-weight: 1000;
+  line-height: 1.05;
+}
+
+.console-readiness-source-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.4;
+}
+
 .console-readiness-radar-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -10700,6 +10751,7 @@ legend {
   .console-pilot-gate-flow,
   .console-readiness-radar-head,
   .console-readiness-radar-grid,
+  .console-readiness-source-strip,
   .console-product-lanes,
   .console-module-detail-hero,
   .organization-hero,
