@@ -100,6 +100,14 @@ describe("production database remediation", () => {
         }),
       ]),
     );
+    expect(report.vercelCutover).toMatchObject({
+      status: "waiting_for_env",
+      nextCommand: "pnpm env:verify:production -- --env-file=.env.vercel.production",
+    });
+    expect(report.vercelCutover.steps.find((step) => step.id === "vercel_env_write")).toMatchObject({
+      status: "blocked",
+      evidence: "Vercel env apply summary with key names only",
+    });
 
     const markdown = formatProductionDatabaseRemediationMarkdown(report);
     expect(markdown).toContain("## Local Env Draft");
@@ -109,6 +117,8 @@ describe("production database remediation", () => {
     expect(markdown).toContain("Username: postgres.aruncclorusswpfnpgsn");
     expect(markdown).toContain("Required params: pgbouncer=true, connection_limit=1, schema=hr_one");
     expect(markdown).toContain("## Launch Checklist");
+    expect(markdown).toContain("## Vercel Production Cutover");
+    expect(markdown).toContain("本地 production env 草稿通過");
     expect(markdown).toContain("pooler URL redacted handoff");
 
     const serialized = JSON.stringify(report);
@@ -164,6 +174,40 @@ describe("production database remediation", () => {
     expect(serialized).not.toContain("postgresql://");
     expect(serialized).not.toContain("pooler-secret-value");
     expect(serialized).not.toContain("postgres.aruncclorusswpfnpgsn");
+  });
+
+  it("marks Vercel cutover ready to apply when the local env draft is ready but live health is still blocked", () => {
+    const envDraft = buildProductionDatabaseEnvDraftReport(
+      {
+        ...validProductionEnv(),
+        DATABASE_URL: "postgresql://postgres.aruncclorusswpfnpgsn:pooler-secret-value@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&schema=hr_one",
+      },
+      {
+        source: ".env.vercel.production",
+        now: new Date("2026-06-17T08:00:00.000Z"),
+      },
+    );
+    const report = buildProductionDatabaseRemediationReport({
+      appUrl: "https://hr.suiyuecare.com",
+      expectedHost: "hr.suiyuecare.com",
+      healthReport: directHostFailureHealth,
+      fetchedHealthStatusCode: 503,
+      envDraft,
+      generatedAt: new Date("2026-06-17T08:00:00.000Z"),
+    });
+
+    expect(report.vercelCutover.status).toBe("ready_to_apply");
+    expect(report.vercelCutover.nextCommand).toBe("pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --dry-run");
+    expect(report.vercelCutover.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "env_draft_ready", status: "done" }),
+        expect.objectContaining({ id: "database_url_handoff", status: "done" }),
+        expect.objectContaining({ id: "production_redeploy", status: "todo" }),
+        expect.objectContaining({ id: "live_ready_probe", status: "todo" }),
+      ]),
+    );
+    expect(JSON.stringify(report.vercelCutover)).not.toContain("pooler-secret-value");
+    expect(JSON.stringify(report.vercelCutover)).not.toContain("postgresql://");
   });
 
   it("attaches redacted current runtime env diagnostics by default", async () => {
@@ -242,6 +286,10 @@ describe("production database remediation", () => {
     expect(report.rootCause).toBe("ready");
     expect(report.gate.status).toBe("ready");
     expect(report.nextActions[0]).toContain("Production database gate 已通過");
+    expect(report.vercelCutover.status).toBe("verified");
+    expect(report.vercelCutover.steps.find((step) => step.id === "live_ready_probe")).toMatchObject({
+      status: "done",
+    });
     expect(report.launchChecklist).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "health-ready", status: "done" }),

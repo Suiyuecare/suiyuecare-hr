@@ -161,6 +161,47 @@ export default async function ProductionDatabasePage() {
           </ol>
         </section>
 
+        <section className="panel span-12 production-database-cutover-board" aria-label="Vercel Production env cutover">
+          <div className="section-heading">
+            <div>
+              <h2>Vercel Production env 切換預檢</h2>
+              <p className="muted">
+                從本地草稿、DATABASE_URL handoff、Vercel 寫入、重新部署到 live health，逐步確認；沒有 redeploy 與 health ready，就不能當作完成。
+              </p>
+            </div>
+            <span className={`badge ${cutoverBadgeClass(report.vercelCutover.status)}`}>
+              {cutoverStatusLabel(report.vercelCutover.status)}
+            </span>
+          </div>
+          <div className={`production-database-cutover-focus ${cutoverTone(report.vercelCutover.status)}`}>
+            <div>
+              <span className="eyebrow">下一個不可跳過的命令</span>
+              <strong>{report.vercelCutover.summary}</strong>
+              <code>{report.vercelCutover.nextCommand}</code>
+            </div>
+            <a className="button primary" href="#production-database-commands">
+              看命令區
+            </a>
+          </div>
+          <ol className="production-database-checklist-flow">
+            {report.vercelCutover.steps.map((step, index) => (
+              <li className={`production-database-checklist-item ${step.status}`} key={step.id}>
+                <span className="production-database-checklist-index">{String(index + 1).padStart(2, "0")}</span>
+                <div>
+                  <span className="eyebrow">{checklistStatusLabel(step.status)}</span>
+                  <h3>{step.title}</h3>
+                  <p>{step.detail}</p>
+                  <small>證據：{step.evidence}</small>
+                  {step.command ? <code>{step.command}</code> : null}
+                </div>
+                <span className={`badge ${stepBadgeClass(step.status)}`}>
+                  {stepStatusLabel(step.status)}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
         <section
           className={`panel span-12 production-database-gate ${report.status === "ready" ? "ready" : "danger"}`}
           id="production-database-diagnosis"
@@ -545,6 +586,28 @@ function databasePostureLabel(posture: ProductionDatabaseEnvDraftReport["databas
     not_checked: "未檢查",
   };
   return labels[posture];
+}
+
+function cutoverStatusLabel(status: ProductionDatabaseRemediationReport["vercelCutover"]["status"]) {
+  const labels: Record<ProductionDatabaseRemediationReport["vercelCutover"]["status"], string> = {
+    waiting_for_env: "待補 env",
+    ready_to_apply: "可寫入",
+    waiting_for_redeploy: "待重部署",
+    verified: "已驗證",
+  };
+  return labels[status];
+}
+
+function cutoverBadgeClass(status: ProductionDatabaseRemediationReport["vercelCutover"]["status"]) {
+  if (status === "verified") return "done";
+  if (status === "waiting_for_env") return "danger";
+  return "warning";
+}
+
+function cutoverTone(status: ProductionDatabaseRemediationReport["vercelCutover"]["status"]) {
+  if (status === "verified") return "done";
+  if (status === "waiting_for_env") return "danger";
+  return "warning";
 }
 
 function checklistStatusLabel(status: ProductionDatabaseRemediationStep["status"]) {

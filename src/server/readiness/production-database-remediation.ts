@@ -45,6 +45,35 @@ export type ProductionDatabaseLaunchChecklistItem = {
   status: "done" | "blocked" | "todo";
 };
 
+export type VercelProductionCutoverStatus =
+  | "waiting_for_env"
+  | "ready_to_apply"
+  | "waiting_for_redeploy"
+  | "verified";
+
+export type VercelProductionCutoverStep = {
+  id:
+    | "env_draft_ready"
+    | "database_url_handoff"
+    | "vercel_apply_dry_run"
+    | "vercel_env_write"
+    | "production_redeploy"
+    | "live_ready_probe"
+    | "pilot_gate_evidence";
+  title: string;
+  status: "done" | "blocked" | "todo";
+  detail: string;
+  evidence: string;
+  command?: string;
+};
+
+export type VercelProductionCutoverPlan = {
+  status: VercelProductionCutoverStatus;
+  summary: string;
+  nextCommand: string;
+  steps: VercelProductionCutoverStep[];
+};
+
 export type ProductionDatabaseRemediationTrack = {
   id: "transaction_pooler" | "ipv4_addon" | "verification";
   title: string;
@@ -66,6 +95,7 @@ export type ProductionDatabaseRemediationReport = {
   databaseDetail: string;
   environmentDetail: string;
   launchChecklist: ProductionDatabaseLaunchChecklistItem[];
+  vercelCutover: VercelProductionCutoverPlan;
   tracks: ProductionDatabaseRemediationTrack[];
   nextActions: string[];
   privacyGuardrails: string[];
@@ -242,6 +272,12 @@ export function buildProductionDatabaseRemediationReport(
   });
   const status = gate.status === "ready" && rootCause === "ready" ? "ready" : "blocked";
   const launchChecklist = buildLaunchChecklist(rootCause, gate, envDraft);
+  const vercelCutover = buildVercelProductionCutoverPlan({
+    envDraft,
+    gate,
+    rootCause,
+    status,
+  });
   const tracks = buildTracks(rootCause);
   const nextActions = buildNextActions(rootCause, gate, envDraft);
 
@@ -258,6 +294,7 @@ export function buildProductionDatabaseRemediationReport(
     databaseDetail,
     environmentDetail,
     launchChecklist,
+    vercelCutover,
     tracks,
     nextActions,
     privacyGuardrails: [
@@ -321,6 +358,17 @@ export function formatProductionDatabaseRemediationMarkdown(
     ...report.launchChecklist.map((item) => {
       const command = item.command ? ` Command: ${redactSensitiveDetail(item.command)}` : "";
       return `- [${item.status.toUpperCase()}] ${item.title}: ${redactSensitiveDetail(item.detail)} Evidence: ${redactSensitiveDetail(item.evidence)}.${command}`;
+    }),
+    "",
+    "## Vercel Production Cutover",
+    "",
+    `- Status: ${report.vercelCutover.status}`,
+    `- Summary: ${redactSensitiveDetail(report.vercelCutover.summary)}`,
+    `- Next command: ${redactSensitiveDetail(report.vercelCutover.nextCommand)}`,
+    "",
+    ...report.vercelCutover.steps.map((step) => {
+      const command = step.command ? ` Command: ${redactSensitiveDetail(step.command)}` : "";
+      return `- [${step.status.toUpperCase()}] ${step.title}: ${redactSensitiveDetail(step.detail)} Evidence: ${redactSensitiveDetail(step.evidence)}.${command}`;
     }),
     "",
     "## Privacy Guardrails",
@@ -515,6 +563,125 @@ function buildLaunchChecklist(
       status: overallReady ? "todo" : "blocked",
     }),
   ];
+}
+
+function buildVercelProductionCutoverPlan(input: {
+  envDraft: ProductionDatabaseEnvDraftReport | null;
+  gate: ProductionPilotGateReport;
+  rootCause: ProductionDatabaseRootCause;
+  status: "ready" | "blocked";
+}): VercelProductionCutoverPlan {
+  const envDraftReady = input.envDraft?.status === "ready";
+  const envDraftHasTransactionPooler = input.envDraft?.databaseConnectionPosture === "supabase-pooler-transaction";
+  const liveReady = input.status === "ready" && input.rootCause === "ready" && input.gate.status === "ready";
+  const liveEnvironmentReady = gateCheckPassed(input.gate, "production environment");
+  const liveDatabaseReady = gateCheckPassed(input.gate, "production database");
+  const status: VercelProductionCutoverStatus = liveReady
+    ? "verified"
+    : envDraftReady
+      ? liveEnvironmentReady || liveDatabaseReady
+        ? "waiting_for_redeploy"
+        : "ready_to_apply"
+      : "waiting_for_env";
+  const steps: VercelProductionCutoverStep[] = [
+    cutoverStep({
+      id: "env_draft_ready",
+      title: "本地 production env 草稿通過",
+      status: envDraftReady ? "done" : "blocked",
+      detail: envDraftReady
+        ? "本地草稿已通過 production verifier；仍不能代表 Vercel Production 已套用。"
+        : "先把 .env.vercel.production 補到 ready，尤其是 DATABASE_URL、OIDC、vault/KMS 與備份還原證據。",
+      evidence: "env:verify:production 或 pilot:production-database 的 Local Env Draft = ready",
+      command: "pnpm env:verify:production -- --env-file=.env.vercel.production",
+    }),
+    cutoverStep({
+      id: "database_url_handoff",
+      title: "DATABASE_URL handoff 已確認 pooler 形狀",
+      status: envDraftReady && envDraftHasTransactionPooler ? "done" : envDraftReady ? "todo" : "blocked",
+      detail: envDraftHasTransactionPooler
+        ? "DATABASE_URL 形狀已是 Supabase transaction pooler；密碼與完整 URL 不會進報告。"
+        : "使用 stdin 建立 redacted handoff，確認是 transaction pooler、schema=hr_one 與 Prisma pooler 參數。",
+      evidence: "hr-one-vercel-database-url-handoff.md",
+      command:
+        "printf '%s' \"$SUPABASE_TRANSACTION_POOLER_DATABASE_URL\" | pnpm vercel:database-url-handoff -- --env-file=.env.vercel.production --output=/tmp/hr-one-vercel-database-url-handoff.md",
+    }),
+    cutoverStep({
+      id: "vercel_apply_dry_run",
+      title: "Vercel env write dry-run",
+      status: envDraftReady ? "todo" : "blocked",
+      detail: "先確認要寫入的 key、sensitive/encrypted 類型與 verifier 狀態；dry-run 不代表正式 runtime 已修好。",
+      evidence: "vercel:apply-production-env dry-run summary",
+      command: "pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --dry-run",
+    }),
+    cutoverStep({
+      id: "vercel_env_write",
+      title: "寫入 Vercel Production env",
+      status: envDraftReady ? "todo" : "blocked",
+      detail: "只用 CLI/API 或 Vercel Dashboard 寫入 secret；不要把完整 DATABASE_URL 貼到文件或聊天工具。",
+      evidence: "Vercel env apply summary with key names only",
+      command: "pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --method=cli",
+    }),
+    cutoverStep({
+      id: "production_redeploy",
+      title: "重新部署 Production",
+      status: liveReady ? "done" : envDraftReady ? "todo" : "blocked",
+      detail: "Vercel env 寫入後必須重新部署，既有 lambda/runtime 不會自動拿到新 secret。",
+      evidence: "Vercel production deployment URL and timestamp",
+      command: "pnpm dlx vercel@latest --prod --scope team_LGag47eU8tKbsK6ixAmVa5Uq",
+    }),
+    cutoverStep({
+      id: "live_ready_probe",
+      title: "Live /api/health/ready 通過",
+      status: liveReady ? "done" : envDraftReady ? "todo" : "blocked",
+      detail: liveReady
+        ? "正式站 live readiness 已回 ok。"
+        : "redeploy 後必須讓 live readiness 回 ok；只看 env key inventory 不足以放行。",
+      evidence: "https://hr.suiyuecare.com/api/health/ready = ok",
+      command: "curl -fsS https://hr.suiyuecare.com/api/health/ready",
+    }),
+    cutoverStep({
+      id: "pilot_gate_evidence",
+      title: "保存 production pilot gate 證據",
+      status: liveReady ? "todo" : "blocked",
+      detail: "health ready 通過後，仍要輸出 redacted gate report，給 Go/No-Go 和 invitation release 使用。",
+      evidence: "hr-one-production-database-gate.md",
+      command: "pnpm pilot:production-database -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --output=/tmp/hr-one-production-database-gate.md",
+    }),
+  ];
+
+  return {
+    status,
+    summary: cutoverSummary(status),
+    nextCommand: firstOpenCutoverCommand(steps),
+    steps,
+  };
+}
+
+function cutoverStep(step: VercelProductionCutoverStep): VercelProductionCutoverStep {
+  return {
+    ...step,
+    detail: redactSensitiveDetail(step.detail),
+    evidence: redactSensitiveDetail(step.evidence),
+    command: step.command ? redactSensitiveDetail(step.command) : undefined,
+  };
+}
+
+function cutoverSummary(status: VercelProductionCutoverStatus) {
+  if (status === "verified") {
+    return "Production env、redeploy 與 live readiness 已串起來；接著保存 gate report 並跑完整 Go/No-Go。";
+  }
+  if (status === "waiting_for_redeploy") {
+    return "本地 env 草稿已 ready，但 live production 仍未證明；請寫入 Vercel env、重新部署並確認 health ready。";
+  }
+  if (status === "ready_to_apply") {
+    return "本地 env 草稿已 ready，可以 dry-run、寫入 Vercel Production env，然後重新部署。";
+  }
+  return "還不能寫入或開跑；先補 production env 草稿和 DATABASE_URL handoff。";
+}
+
+function firstOpenCutoverCommand(steps: VercelProductionCutoverStep[]) {
+  return steps.find((step) => step.status !== "done")?.command ??
+    "pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --tenant-slug=<customer-slug>";
 }
 
 function checklistItem(item: ProductionDatabaseLaunchChecklistItem): ProductionDatabaseLaunchChecklistItem {

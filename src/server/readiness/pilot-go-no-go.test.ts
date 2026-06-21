@@ -325,6 +325,66 @@ function productionDatabaseReport(options: {
     databaseDetail: options.status === "ready" ? "database ping succeeded" : "database ping failed",
     environmentDetail: options.status === "ready" ? "production environment posture verified" : "production environment verification failed",
     launchChecklist: [],
+    vercelCutover: {
+      status: options.status === "ready" ? "verified" : envDraftStatus === "ready" ? "ready_to_apply" : "waiting_for_env",
+      summary: options.status === "ready"
+        ? "Vercel production cutover verified."
+        : "Vercel production cutover still needs operator action.",
+      nextCommand: options.status === "ready"
+        ? "curl -fsS https://hr.suiyuecare.com/api/health/ready"
+        : "pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --dry-run",
+      steps: [
+        {
+          id: "env_draft_ready",
+          title: "本地 production env 草稿通過",
+          status: envDraftStatus === "ready" ? "done" : "blocked",
+          detail: "Fixture env draft state.",
+          evidence: "Fixture env draft evidence.",
+        },
+        {
+          id: "database_url_handoff",
+          title: "Supabase transaction pooler URL 已交接",
+          status: envDraftStatus === "ready" ? "done" : "blocked",
+          detail: "Fixture database handoff state.",
+          evidence: "Fixture database handoff evidence.",
+        },
+        {
+          id: "vercel_apply_dry_run",
+          title: "Vercel env 寫入前 dry-run",
+          status: options.status === "ready" ? "done" : "todo",
+          detail: "Fixture dry-run state.",
+          evidence: "Fixture dry-run evidence.",
+        },
+        {
+          id: "vercel_env_write",
+          title: "寫入 Vercel Production env",
+          status: options.status === "ready" ? "done" : "todo",
+          detail: "Fixture env write state.",
+          evidence: "Fixture env write evidence.",
+        },
+        {
+          id: "production_redeploy",
+          title: "重新部署 production",
+          status: options.status === "ready" ? "done" : "todo",
+          detail: "Fixture redeploy state.",
+          evidence: "Fixture redeploy evidence.",
+        },
+        {
+          id: "live_ready_probe",
+          title: "Live /api/health/ready 通過",
+          status: options.status === "ready" ? "done" : "todo",
+          detail: "Fixture live ready state.",
+          evidence: "Fixture live ready evidence.",
+        },
+        {
+          id: "pilot_gate_evidence",
+          title: "試營運 gate 留存 production 證據",
+          status: options.status === "ready" ? "done" : "todo",
+          detail: "Fixture pilot gate state.",
+          evidence: "Fixture pilot gate evidence.",
+        },
+      ],
+    },
     tracks: [],
     nextActions,
     privacyGuardrails: [],
