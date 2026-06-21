@@ -10837,6 +10837,100 @@ legend {
   min-height: 286px;
 }
 
+.employee-master-job-architecture {
+  display: grid;
+  gap: 14px;
+  border-left: 6px solid var(--warning);
+}
+
+.employee-master-job-architecture.ready {
+  border-left-color: var(--success);
+}
+
+.employee-master-job-architecture.blocked {
+  border-left-color: var(--danger);
+}
+
+.employee-master-job-architecture-grid,
+.employee-master-job-action-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.employee-master-job-architecture-card,
+.employee-master-job-action {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 184px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.employee-master-job-architecture-card.warning,
+.employee-master-job-action.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.employee-master-job-architecture-card.danger,
+.employee-master-job-action.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.employee-master-job-architecture-card.ready,
+.employee-master-job-action.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.employee-master-job-architecture-card span,
+.employee-master-job-action span {
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.employee-master-job-architecture-card strong {
+  color: var(--foreground);
+  font-size: 28px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.employee-master-job-architecture-card h3,
+.employee-master-job-action strong {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 1000;
+  line-height: 1.18;
+}
+
+.employee-master-job-architecture-card small,
+.employee-master-job-action small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.45;
+}
+
+.employee-master-job-action-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.employee-master-job-action .button {
+  align-self: end;
+  width: 100%;
+  margin-top: auto;
+}
+
 .employee-master-update-panel {
   align-self: start;
 }
@@ -11059,6 +11153,8 @@ legend {
   .employee-document-detail-grid,
   .employee-document-guardrail-grid,
   .employee-master-command-grid,
+  .employee-master-job-architecture-grid,
+  .employee-master-job-action-list,
   .employee-master-update-grid,
   .employee-master-department-grid,
   .employee-master-guardrail-grid {
@@ -11093,6 +11189,11 @@ legend {
   .employee-document-detail-grid span,
   .employee-document-guardrail-grid article,
   .employee-master-command-grid .settings-command-card {
+    min-height: auto;
+  }
+
+  .employee-master-job-architecture-card,
+  .employee-master-job-action {
     min-height: auto;
   }
 

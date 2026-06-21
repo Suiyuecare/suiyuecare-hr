@@ -45,6 +45,18 @@ describe("employee master workspace", () => {
     expect(workspace.summary.visibleEmployeeCount).toBeGreaterThanOrEqual(25);
     expect(workspace.summary.missingLoginCount).toBeGreaterThan(0);
     expect(workspace.summary.laborRosterGapCount).toBeGreaterThan(0);
+    expect(workspace.jobArchitecture).toMatchObject({
+      status: "warning",
+      coverageLabel: expect.stringMatching(/^\d+\/\d+$/),
+      cards: expect.arrayContaining([
+        expect.objectContaining({ id: "employee_coverage", href: "#employee-master-update" }),
+        expect.objectContaining({ id: "position_catalog", href: "/settings/organization#job-architecture" }),
+      ]),
+      actionQueue: expect.arrayContaining([
+        expect.objectContaining({ id: "map_employees_to_positions", actionLabel: "開啟主檔修正" }),
+        expect.objectContaining({ id: "keep_lifecycle_aligned", href: "/hr/employee-lifecycle" }),
+      ]),
+    });
     expect(workspace.employees[0]).toMatchObject({
       employeeNo: "E001",
       displayName: "林人資",

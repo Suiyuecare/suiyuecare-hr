@@ -51,6 +51,37 @@ export type EmployeeMasterJobPosition = {
   levelCode: string | null;
 };
 
+export type EmployeeMasterJobArchitectureTone = "ready" | "warning" | "danger";
+
+export type EmployeeMasterJobArchitectureCard = {
+  id: string;
+  label: string;
+  title: string;
+  value: string;
+  detail: string;
+  tone: EmployeeMasterJobArchitectureTone;
+  href: string;
+};
+
+export type EmployeeMasterJobArchitectureAction = {
+  id: string;
+  stepLabel: string;
+  title: string;
+  detail: string;
+  tone: EmployeeMasterJobArchitectureTone;
+  href: string;
+  actionLabel: string;
+};
+
+export type EmployeeMasterJobArchitectureReadiness = {
+  status: "ready" | "warning" | "blocked";
+  title: string;
+  detail: string;
+  coverageLabel: string;
+  cards: EmployeeMasterJobArchitectureCard[];
+  actionQueue: EmployeeMasterJobArchitectureAction[];
+};
+
 export type EmployeeMasterWorkspace = {
   scopeLabel: string;
   companyName: string;
@@ -82,6 +113,7 @@ export type EmployeeMasterWorkspace = {
     detail: string;
     nextActions: string[];
   };
+  jobArchitecture: EmployeeMasterJobArchitectureReadiness;
 };
 
 export type EmployeeMasterUpdateInput = {
@@ -501,6 +533,7 @@ function buildWorkspace(input: {
     ...input,
     summary,
     readiness: readinessFor(summary),
+    jobArchitecture: jobArchitectureReadinessFor(input.employees, input.jobPositions),
   };
 }
 
@@ -846,6 +879,179 @@ function readinessFor(summary: EmployeeMasterWorkspace["summary"]): EmployeeMast
       "定期複核權限、稽核紀錄與員工自助可見資料。",
     ],
   };
+}
+
+function jobArchitectureReadinessFor(
+  rows: EmployeeMasterRow[],
+  jobPositions: EmployeeMasterJobPosition[],
+): EmployeeMasterJobArchitectureReadiness {
+  const missingRows = rows.filter((row) => !row.jobPositionId);
+  const activeRows = rows.filter((row) => row.employmentStatus === "active");
+  const positionsWithoutLevel = jobPositions.filter((position) => !position.levelCode);
+  const positionsWithoutDepartment = jobPositions.filter((position) => !position.departmentId);
+  const standardTitleSet = new Set(jobPositions.map((position) => normalizeComparableTitle(position.title)));
+  const freeTextTitles = new Set(
+    rows
+      .filter((row) => !row.jobPositionId && !standardTitleSet.has(normalizeComparableTitle(row.jobTitle)))
+      .map((row) => row.jobTitle.trim())
+      .filter(Boolean),
+  );
+  const coveredCount = rows.length - missingRows.length;
+  const coverageLabel = rows.length ? `${coveredCount}/${rows.length}` : "0/0";
+  const standardLevelCount = new Set(jobPositions.map((position) => position.levelCode).filter(Boolean)).size;
+  const blocked = jobPositions.length === 0;
+  const warning =
+    missingRows.length > 0 ||
+    positionsWithoutLevel.length > 0 ||
+    positionsWithoutDepartment.length > 0 ||
+    freeTextTitles.size > 0;
+  const status: EmployeeMasterJobArchitectureReadiness["status"] = blocked ? "blocked" : warning ? "warning" : "ready";
+
+  return {
+    status,
+    title: blocked
+      ? "尚未建立標準職務"
+      : warning
+        ? "職務架構仍需收斂"
+        : "職務架構已可支撐營運",
+    detail: blocked
+      ? "請先到公司組織設定建立標準職務與職等，再回到人事主檔對應員工。"
+      : warning
+        ? `${missingRows.length} 位員工未對應標準職務，${positionsWithoutLevel.length} 個職務缺職等，${positionsWithoutDepartment.length} 個職務缺預設部門。`
+        : "員工主檔已引用標準職務與職等，能支撐薪資、權限、報表與人事異動流程。",
+    coverageLabel,
+    cards: [
+      {
+        id: "employee_coverage",
+        label: "員工對應",
+        title: missingRows.length ? "仍有員工未對應" : "員工已對應",
+        value: coverageLabel,
+        detail: missingRows.length
+          ? `先處理 ${formatEmployeeSample(missingRows)}，避免報表與薪資前置使用自由文字。`
+          : `${activeRows.length} 位在職員工可引用標準職務。`,
+        tone: missingRows.length ? "warning" : "ready",
+        href: "#employee-master-update",
+      },
+      {
+        id: "position_catalog",
+        label: "標準職務",
+        title: jobPositions.length ? "職務目錄可用" : "缺標準職務",
+        value: `${jobPositions.length}`,
+        detail: jobPositions.length
+          ? `${standardLevelCount} 個職等已被職務引用；職務目錄由公司組織設定維護。`
+          : "尚未建立任何標準職務，員工只能留下自由文字職稱。",
+        tone: jobPositions.length ? "ready" : "danger",
+        href: "/settings/organization#job-architecture",
+      },
+      {
+        id: "level_department_links",
+        label: "職等/部門",
+        title: positionsWithoutLevel.length || positionsWithoutDepartment.length ? "職務設定待補" : "職務設定完整",
+        value: `${positionsWithoutLevel.length + positionsWithoutDepartment.length}`,
+        detail: positionsWithoutLevel.length || positionsWithoutDepartment.length
+          ? `${positionsWithoutLevel.length} 個職務缺職等，${positionsWithoutDepartment.length} 個職務缺預設部門。`
+          : "職務已連到職等與預設部門，後續可被權限、薪資與報表共用。",
+        tone: positionsWithoutLevel.length || positionsWithoutDepartment.length ? "warning" : "ready",
+        href: "/settings/organization#job-architecture",
+      },
+      {
+        id: "free_text_titles",
+        label: "自由文字",
+        title: freeTextTitles.size ? "職稱仍未收斂" : "職稱已收斂",
+        value: `${freeTextTitles.size}`,
+        detail: freeTextTitles.size
+          ? `仍有 ${freeTextTitles.size} 種職稱找不到對應標準職務。`
+          : "自由文字職稱已能對應標準職務，清單只保留顯示名稱。",
+        tone: freeTextTitles.size ? "warning" : "ready",
+        href: freeTextTitles.size ? "/settings/organization#job-architecture" : "#employee-master-list",
+      },
+    ],
+    actionQueue: buildJobArchitectureActions({
+      blocked,
+      missingRows,
+      positionsWithoutLevel,
+      positionsWithoutDepartment,
+      freeTextTitleCount: freeTextTitles.size,
+      status,
+    }),
+  };
+}
+
+function buildJobArchitectureActions(input: {
+  blocked: boolean;
+  missingRows: EmployeeMasterRow[];
+  positionsWithoutLevel: EmployeeMasterJobPosition[];
+  positionsWithoutDepartment: EmployeeMasterJobPosition[];
+  freeTextTitleCount: number;
+  status: EmployeeMasterJobArchitectureReadiness["status"];
+}) {
+  const actions: EmployeeMasterJobArchitectureAction[] = [];
+  if (input.blocked) {
+    actions.push({
+      id: "create_standard_positions",
+      stepLabel: "01 先建立",
+      title: "建立標準職務與職等",
+      detail: "公司沒有標準職務時，人事主檔、薪資、權限與報表都只能靠自由文字職稱。",
+      tone: "danger",
+      href: "/settings/organization#job-architecture",
+      actionLabel: "開啟組織設定",
+    });
+  }
+  if (input.missingRows.length > 0) {
+    actions.push({
+      id: "map_employees_to_positions",
+      stepLabel: actions.length ? "02 接著" : "01 先處理",
+      title: "把員工對應到標準職務",
+      detail: `${input.missingRows.length} 位員工待對應，先處理 ${formatEmployeeSample(input.missingRows)}。`,
+      tone: "warning",
+      href: "#employee-master-update",
+      actionLabel: "開啟主檔修正",
+    });
+  }
+  if (input.positionsWithoutLevel.length > 0 || input.positionsWithoutDepartment.length > 0) {
+    actions.push({
+      id: "complete_position_metadata",
+      stepLabel: actions.length ? `0${actions.length + 1} 再來` : "01 先處理",
+      title: "補齊職務的職等與預設部門",
+      detail: `${input.positionsWithoutLevel.length} 個職務缺職等，${input.positionsWithoutDepartment.length} 個職務缺預設部門。`,
+      tone: "warning",
+      href: "/settings/organization#job-architecture",
+      actionLabel: "補職務設定",
+    });
+  }
+  if (input.freeTextTitleCount > 0) {
+    actions.push({
+      id: "standardize_free_text_titles",
+      stepLabel: actions.length ? `0${actions.length + 1} 再來` : "01 先處理",
+      title: "把自由文字職稱收斂到職務目錄",
+      detail: `${input.freeTextTitleCount} 種職稱尚未納入標準職務，會讓報表與權限分類不穩定。`,
+      tone: "warning",
+      href: "/settings/organization#job-architecture",
+      actionLabel: "新增標準職務",
+    });
+  }
+  actions.push({
+    id: "keep_lifecycle_aligned",
+    stepLabel: actions.length ? `0${actions.length + 1} 最後` : "01 維護",
+    title: input.status === "ready" ? "用人事異動維護後續變更" : "清完後改由人事異動維護",
+    detail: input.status === "ready"
+      ? "調部、升遷、留停、復職與離職都應回到人事異動流程，避免主檔與薪資/權限脫鉤。"
+      : "職務架構收斂後，後續調部與升遷請走人事異動流程，保留 audit log。",
+    tone: input.status === "ready" ? "ready" : "warning",
+    href: "/hr/employee-lifecycle",
+    actionLabel: "開啟人事異動",
+  });
+  return actions.slice(0, 4);
+}
+
+function normalizeComparableTitle(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function formatEmployeeSample(rows: EmployeeMasterRow[]) {
+  const sample = rows.slice(0, 3).map((row) => `${row.employeeNo} ${row.displayName}`);
+  const suffix = rows.length > sample.length ? ` 等 ${rows.length} 位` : "";
+  return `${sample.join("、")}${suffix}`;
 }
 
 function getDemoMasterRecords() {

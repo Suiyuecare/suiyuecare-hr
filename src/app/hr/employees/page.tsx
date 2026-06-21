@@ -165,6 +165,41 @@ export default async function EmployeeMasterPage({ searchParams }: { searchParam
         </article>
       </section>
 
+      <section className={`panel employee-master-job-architecture ${workspace.jobArchitecture.status}`} aria-label="職務架構閉環">
+        <div className="section-heading">
+          <div>
+            <span className="muted">標準職務 / 職等 / 主檔對應</span>
+            <h2>職務架構閉環</h2>
+            <p className="muted">{workspace.jobArchitecture.detail}</p>
+          </div>
+          <span className={`badge ${jobArchitectureBadgeClass(workspace.jobArchitecture.status)}`}>
+            {workspace.jobArchitecture.coverageLabel} 已對應
+          </span>
+        </div>
+        <div className="employee-master-job-architecture-grid" aria-label="職務架構訊號板">
+          {workspace.jobArchitecture.cards.map((card) => (
+            <a className={`employee-master-job-architecture-card ${card.tone}`} href={card.href} key={card.id}>
+              <span>{card.label}</span>
+              <strong>{card.value}</strong>
+              <h3>{card.title}</h3>
+              <small>{card.detail}</small>
+            </a>
+          ))}
+        </div>
+        <ol className="employee-master-job-action-list" aria-label="職務架構下一步">
+          {workspace.jobArchitecture.actionQueue.map((item) => (
+            <li className={`employee-master-job-action ${item.tone}`} key={item.id}>
+              <span>{item.stepLabel}</span>
+              <strong>{item.title}</strong>
+              <small>{item.detail}</small>
+              <a className="button" href={item.href}>
+                {item.actionLabel}
+              </a>
+            </li>
+          ))}
+        </ol>
+      </section>
+
       <section className="grid employee-master-grid">
         <section className="panel span-12 employee-master-update-panel" id="employee-master-create">
           <div className="section-heading">
@@ -565,6 +600,12 @@ function readinessLabel(status: EmployeeMasterWorkspace["readiness"]["status"]) 
 }
 
 function readinessBadgeClass(status: EmployeeMasterWorkspace["readiness"]["status"]) {
+  if (status === "blocked") return "danger";
+  if (status === "warning") return "warning";
+  return "done";
+}
+
+function jobArchitectureBadgeClass(status: EmployeeMasterWorkspace["jobArchitecture"]["status"]) {
   if (status === "blocked") return "danger";
   if (status === "warning") return "warning";
   return "done";
