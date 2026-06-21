@@ -500,4 +500,55 @@ describe("payroll close checks", () => {
       actionLabel: "人資確認",
     });
   });
+
+  it("blocks payroll lock when active legal sources are not official HTTPS gov.tw URLs", () => {
+    const laborConfig = structuredClone(defaultTaiwanLaborStandardsConfig);
+    laborConfig.version = "2026.02-untrusted-source";
+    laborConfig.sources = laborConfig.sources.map((source, index) =>
+      index === 0
+        ? {
+            ...source,
+            url: "https://example.com/private-law-database",
+          }
+        : source,
+    );
+
+    const ruleReview = evaluatePayrollRuleReview({
+      payrollRuleVersionId: laborConfig.version,
+      laborConfig,
+    });
+    const checklist = closeChecklist({
+      attendanceComplete: true,
+      pendingApprovalCount: 0,
+      exceptionCount: 0,
+      calculated: true,
+      exceptionsReviewed: true,
+      confirmed: true,
+      locked: false,
+      released: false,
+      ruleReview,
+    });
+
+    expect(ruleReview).toMatchObject({
+      sourceAuthorityPassed: false,
+      untrustedLegalSourceCount: 1,
+      invalidLegalSourceUrlCount: 0,
+      blocksLock: true,
+    });
+    expect(ruleReview.detail).toContain("non-official or invalid legal source URLs");
+    expect(checklist.canLock).toBe(false);
+    expect(checklist.legalGate.steps.find((step) => step.id === "rule_version")).toMatchObject({
+      status: "blocked",
+      evidence: "payrollRun.ruleVersionId, payrollItem.ruleVersionId, HTTPS official .gov.tw legal sources",
+    });
+    expect(
+      canLockPayroll({
+        attendanceComplete: true,
+        pendingApprovalCount: 0,
+        exceptionCount: 0,
+        status: "confirmed",
+        ruleReviewPassed: !ruleReview.blocksLock,
+      }),
+    ).toBe(false);
+  });
 });

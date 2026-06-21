@@ -86,6 +86,9 @@ export type PayrollCloseChecklist = {
     payrollRuleVersionId: string | null;
     reviewStatus: "pending_legal_review" | "approved";
     requiresPayrollRecalculation: boolean;
+    sourceAuthorityPassed: boolean;
+    untrustedLegalSourceCount: number;
+    invalidLegalSourceUrlCount: number;
     needsRecalculation: boolean;
     blocksLock: boolean;
     detail: string;

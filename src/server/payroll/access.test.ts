@@ -5,6 +5,7 @@ import {
   resetRuleSettingsDemoState,
   updateTaiwanLaborStandardsConfig,
 } from "@/server/rules/settings";
+import { defaultTaiwanLaborStandardsConfig } from "@/server/rules/taiwan-labor-standards";
 import {
   calculateDemoPayrollRun,
   createDemoPayrollRun,
@@ -174,5 +175,40 @@ describe("payroll access matrix", () => {
     lockDemoPayrollRun();
 
     expect(recalculated.ruleVersionId).not.toBe(firstRuleVersionId);
+  });
+
+  it("blocks payroll lock when the active law rule version uses non-official legal sources", async () => {
+    createDemoPayrollRun();
+    resolveDemoPayrollBlockers();
+    calculateDemoPayrollRun();
+    confirmDemoPayrollRun();
+
+    await updateTaiwanLaborStandardsConfig(ownerSession, {
+      sources: defaultTaiwanLaborStandardsConfig.sources.map((source, index) =>
+        index === 0
+          ? {
+              ...source,
+              url: "https://example.com/private-law-database",
+            }
+          : source,
+      ),
+      changeControl: {
+        reason: "Operator accidentally pasted a private legal database URL.",
+        sourceUrl: "https://example.com/private-law-database",
+        reviewedBy: "林人資",
+        reviewStatus: "approved",
+        requiresPayrollRecalculation: false,
+      },
+    });
+
+    const dashboard = await getPayrollDashboard(hrSession);
+
+    expect(dashboard.checklist.ruleReview).toMatchObject({
+      sourceAuthorityPassed: false,
+      untrustedLegalSourceCount: 1,
+      blocksLock: true,
+    });
+    expect(dashboard.checklist.canLock).toBe(false);
+    expect(() => lockDemoPayrollRun()).toThrow(/Payroll cannot be locked/);
   });
 });

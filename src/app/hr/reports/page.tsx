@@ -1110,6 +1110,13 @@ function localizePayrollStepTitle(title: string) {
 
 function localizePayrollStepDetail(detail: string) {
   const labels: Record<string, string> = {
+    "No payroll calculation has selected a rule version yet.": "尚未試算，因此薪資草稿還沒有綁定規則版本。",
+    "Active law rule version is still pending legal review.": "啟用中的法規規則仍待法務或人資複核，暫時不能鎖定薪資。",
+    "Active law rule version has non-official or invalid legal source URLs. Replace them with HTTPS official .gov.tw sources before payroll lock.":
+      "啟用中的法規規則含非官方或無效法規來源；請先改成 HTTPS 官方 .gov.tw 來源，才能鎖定薪資。",
+    "Active law rule version changed after this payroll draft. Recalculate before lock.":
+      "法規規則在薪資草稿後已異動，鎖定前必須重新試算。",
+    "Payroll draft uses the active reviewed rule version.": "薪資草稿已使用啟用且完成複核的規則版本。",
     "Missing punches must be resolved.": "漏打卡必須先處理。",
     "0 pending approval(s).": "目前沒有待簽核。",
     "Calculate after blockers are clear.": "阻擋項清除後才能試算。",

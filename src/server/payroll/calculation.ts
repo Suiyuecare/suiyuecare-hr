@@ -13,6 +13,7 @@ import {
   validateMinimumWage,
   type TaiwanLaborStandardsConfig,
 } from "@/server/rules/taiwan-labor-standards";
+import { evaluateLegalSourceAuthority } from "@/server/rules/validation";
 import type { PayrollCloseChecklist } from "./types";
 
 export type PayrollRuleConfig = {
@@ -201,15 +202,19 @@ export function evaluatePayrollRuleReview(input: {
 }): PayrollCloseChecklist["ruleReview"] {
   const activeRuleVersion = input.laborConfig.version;
   const payrollRuleVersionId = input.payrollRuleVersionId ?? null;
+  const sourceAuthority = evaluateLegalSourceAuthority(input.laborConfig.sources);
   const requiresPayrollRecalculation = input.laborConfig.changeControl.requiresPayrollRecalculation;
   const needsRecalculation =
     requiresPayrollRecalculation &&
     Boolean(payrollRuleVersionId) &&
     payrollRuleVersionId !== activeRuleVersion;
   const pendingLegalReview = input.laborConfig.changeControl.reviewStatus !== "approved";
-  const blocksLock = needsRecalculation || pendingLegalReview;
+  const sourceAuthorityBlocked = !sourceAuthority.passed;
+  const blocksLock = needsRecalculation || pendingLegalReview || sourceAuthorityBlocked;
   const detail = pendingLegalReview
     ? "Active law rule version is still pending legal review."
+    : sourceAuthorityBlocked
+      ? "Active law rule version has non-official or invalid legal source URLs. Replace them with HTTPS official .gov.tw sources before payroll lock."
     : needsRecalculation
       ? "Active law rule version changed after this payroll draft. Recalculate before lock."
       : payrollRuleVersionId
@@ -221,6 +226,9 @@ export function evaluatePayrollRuleReview(input: {
     payrollRuleVersionId,
     reviewStatus: input.laborConfig.changeControl.reviewStatus,
     requiresPayrollRecalculation,
+    sourceAuthorityPassed: sourceAuthority.passed,
+    untrustedLegalSourceCount: sourceAuthority.untrustedSourceCount,
+    invalidLegalSourceUrlCount: sourceAuthority.invalidUrlSourceCount,
     needsRecalculation,
     blocksLock,
     detail,
@@ -332,7 +340,7 @@ function buildPayrollLegalGate(input: {
       detail: input.ruleReview.blocksLock
         ? input.ruleReview.detail
         : "薪資草稿必須綁定已審核的台灣法規與薪資規則版本。",
-      evidence: "payrollRun.ruleVersionId, payrollItem.ruleVersionId",
+      evidence: "payrollRun.ruleVersionId, payrollItem.ruleVersionId, HTTPS official .gov.tw legal sources",
       actionLabel: input.ruleReview.payrollRuleVersionId ? "檢查法規規則" : "先試算草稿",
       actionHref: input.ruleReview.payrollRuleVersionId ? "/settings/law-rules" : "/hr",
     },
