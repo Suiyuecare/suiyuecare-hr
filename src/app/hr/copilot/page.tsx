@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getAiResult } from "@/server/ai/demo-store";
+import { getAiResult } from "@/server/ai/results";
 import type {
   AiApprovalSummary,
   AiFormDraft,
@@ -27,7 +27,7 @@ export default async function HrCopilotPage({ searchParams }: { searchParams: Se
     return <UnauthorizedCopilot />;
   }
 
-  const result = getAiResult(params.result);
+  const result = await getAiResult(session, params.result);
   const focus = copilotFocus(Boolean(params.error), Boolean(result));
 
   return (

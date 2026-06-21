@@ -171,6 +171,7 @@ model Company {
   supportAccessGrants           SupportAccessGrant[]
   policyDocuments               CompanyPolicyDocument[]
   aiUsageLogs                   AiUsageLog[]
+  aiCopilotResults              AiCopilotResult[]
   productTelemetryEvents        ProductTelemetryEvent[]
   reportDatasets                ReportDataset[]
   reportFields                  ReportField[]
@@ -1684,6 +1685,22 @@ model AiUsageLog {
   createdAt               DateTime @default(now())
 
   @@index([tenantId, companyId, category, createdAt])
+}
+
+model AiCopilotResult {
+  id          String   @id @default(cuid())
+  tenantId    String
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  actorUserId String
+  category    String
+  resultJson  Json
+  outputHash  String?
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, companyId, actorUserId, createdAt])
+  @@index([tenantId, companyId, expiresAt])
 }
 
 model SalaryProfile {
