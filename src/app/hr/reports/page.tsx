@@ -136,6 +136,24 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
         </section>
       ) : null}
 
+      {params.success === "report-maintenance" ? (
+        <section className="report-alerts" aria-live="polite">
+          <div className="panel success-panel">
+            <strong>報表維護已完成</strong>
+            <p>已處理到期可重試的背景匯出，並清理過期封存；audit log 只保留 job、archive、worker hash 與維護結果。</p>
+          </div>
+        </section>
+      ) : null}
+
+      {params.success === "report-maintenance-empty" ? (
+        <section className="report-alerts" aria-live="polite">
+          <div className="panel warning-panel">
+            <strong>報表維護沒有待處理項目</strong>
+            <p>目前沒有到期可重試的匯出佇列，也沒有需要標記過期的封存。</p>
+          </div>
+        </section>
+      ) : null}
+
       {params.error ? (
         <section className="report-alerts" aria-live="polite">
           <div className="panel danger-panel">
@@ -313,7 +331,14 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
               <h2>最近自訂報表</h2>
               <p className="muted">這裡只顯示 job、欄位政策、筆數、hash 與下載期限；不顯示報表原始資料列。</p>
             </div>
-            <span className="badge">{reportWorkspace.jobs.length} 筆</span>
+            <div className="report-builder-actions">
+              <span className="badge">{reportWorkspace.jobs.length} 筆</span>
+              <form action="/api/reports/maintenance/run" method="post">
+                <button className="button" type="submit" disabled={!canManageReports}>
+                  執行維護
+                </button>
+              </form>
+            </div>
           </div>
           {reportWorkspace.jobs.length ? (
             <div className="report-job-list" aria-label="最近自訂報表">
@@ -918,9 +943,9 @@ function buildNextStageItems() {
     },
     {
       title: "失敗重試與到期清理排程",
-      detail: "下一步把 queued/failed 報表接上自動重試、指數退避、封存到期清理與物件儲存 lifecycle policy。",
-      status: "排程",
-      tone: "warning",
+      detail: "queued 報表已接上失敗重試、退避、Cron 維護入口與封存到期清理；下一步是正式物件儲存 lifecycle policy。",
+      status: "已上線",
+      tone: "done",
     },
     {
       title: "後台模組列表全面財務系統風格化",

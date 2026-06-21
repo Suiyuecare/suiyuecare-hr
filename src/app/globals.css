@@ -361,6 +361,11 @@ textarea {
   background: #f0fdf4;
 }
 
+.warning-panel {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
 .span-4 {
   grid-column: span 4;
 }

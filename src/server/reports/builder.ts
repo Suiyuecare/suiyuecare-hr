@@ -163,6 +163,7 @@ export type ProcessReportExportQueueInput = {
   jobId?: string | null;
   workerId?: string | null;
   limit?: number | string | null;
+  now?: Date | null;
 };
 
 export type ProcessReportExportQueueResult = {
@@ -170,6 +171,21 @@ export type ProcessReportExportQueueResult = {
   skippedCount: number;
   failedCount: number;
   jobs: ReportJobView[];
+};
+
+export type ReportArchiveCleanupResult = {
+  expiredCount: number;
+  skippedCount: number;
+  archiveIds: string[];
+};
+
+export type ReportExportMaintenanceInput = ProcessReportExportQueueInput & {
+  cleanupLimit?: number | string | null;
+};
+
+export type ReportExportMaintenanceResult = {
+  queue: ProcessReportExportQueueResult;
+  cleanup: ReportArchiveCleanupResult;
 };
 
 export type ReportAdminWorkspace = {
@@ -502,10 +518,36 @@ export async function processReportExportQueue(
   const limit = normalizeQueueProcessLimit(input.limit);
   const jobId = input.jobId?.trim() || null;
   const workerId = normalizeQueueWorkerId(input.workerId);
+  const now = input.now ?? new Date();
   if (canUseDatabase(session)) {
-    return processDbReportExportQueue(session, { jobId, limit, workerId });
+    return processDbReportExportQueue(session, { jobId, limit, workerId, now });
   }
-  return processDemoReportExportQueue(session, { jobId, limit, workerId });
+  return processDemoReportExportQueue(session, { jobId, limit, workerId, now });
+}
+
+export async function cleanupExpiredReportArchives(
+  session: SessionLike,
+  input: { limit?: number | string | null; now?: Date | null } = {},
+): Promise<ReportArchiveCleanupResult> {
+  assertPermission(session.role, "report:manage");
+  const limit = normalizeQueueProcessLimit(input.limit);
+  const now = input.now ?? new Date();
+  if (canUseDatabase(session)) {
+    return cleanupDbExpiredReportArchives(session, { limit, now });
+  }
+  return cleanupDemoExpiredReportArchives(session, { limit, now });
+}
+
+export async function runReportExportMaintenance(
+  session: SessionLike,
+  input: ReportExportMaintenanceInput = {},
+): Promise<ReportExportMaintenanceResult> {
+  const queue = await processReportExportQueue(session, input);
+  const cleanup = await cleanupExpiredReportArchives(session, {
+    limit: input.cleanupLimit,
+    now: input.now,
+  });
+  return { queue, cleanup };
 }
 
 export async function issueReportArchiveDownloadToken(
@@ -1284,7 +1326,7 @@ async function approveDbReportJobReview(
 
 async function processDbReportExportQueue(
   session: SessionLike & { tenantId: string; companyId: string },
-  input: { jobId: string | null; limit: number; workerId: string },
+  input: { jobId: string | null; limit: number; workerId: string; now: Date },
 ): Promise<ProcessReportExportQueueResult> {
   const db = getDb();
   const datasets = await getDbReportCatalog(session);
@@ -1310,35 +1352,143 @@ async function processDbReportExportQueue(
   }
 
   const processed: ReportJobView[] = [];
+  let skippedCount = 0;
+  let failedCount = 0;
   for (const record of records) {
     const existingJob = mapDbJob(record, datasets);
-    const startedQueue = markReportQueueProcessing(existingJob.queue);
+    if (!isReportQueueDue(existingJob.queue, input.now)) {
+      skippedCount += 1;
+      continue;
+    }
+    const startedQueue = markReportQueueProcessing(existingJob.queue, input.now);
     const metadata = readMetadataObject(record.metadataJson);
     const archive = record.archives[0];
     if (!archive) {
       throw new Error("報表佇列缺少封存 metadata，請重新建立報表。");
     }
-    const archiveStorage = await buildReportArchiveObjectStorage(session, existingJob, archive);
-    const completedQueue = markReportQueueReady(startedQueue, archiveStorage.storageTarget);
-    const updated = await db.$transaction(async (tx) => {
-      const archiveRecord = await tx.reportExportArchive.update({
-        where: { id: archive.id },
-        data: {
-          metadataJson: {
-            ...readMetadataObject(archive.metadataJson),
-            storage: reportArchiveStorageMetadata(archiveStorage),
-          } as Prisma.InputJsonValue,
-        },
-      });
-      const job = await tx.reportJob.update({
-        where: { id: record.id },
-        data: {
-          status: "generated",
-          metadataJson: {
-            ...metadata,
+    try {
+      const archiveStorage = await buildReportArchiveObjectStorage(session, existingJob, archive);
+      const completedQueue = markReportQueueReady(startedQueue, archiveStorage.storageTarget, input.now);
+      const updated = await db.$transaction(async (tx) => {
+        const archiveRecord = await tx.reportExportArchive.update({
+          where: { id: archive.id },
+          data: {
+            metadataJson: {
+              ...readMetadataObject(archive.metadataJson),
+              storage: reportArchiveStorageMetadata(archiveStorage),
+            } as Prisma.InputJsonValue,
+          },
+        });
+        const job = await tx.reportJob.update({
+          where: { id: record.id },
+          data: {
+            status: "generated",
+            metadataJson: {
+              ...metadata,
+              queue: reportQueueMetadata(completedQueue),
+            } as Prisma.InputJsonValue,
+          },
+          include: {
+            dataset: true,
+            archives: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+            },
+          },
+        });
+        await writeAuditLog(tx, {
+          tenantId: session.tenantId,
+          companyId: session.companyId,
+          actorUserId: session.user?.id,
+          actorEmployeeId: session.employee?.id,
+          action: "update",
+          entityType: "report_export_queue",
+          entityId: record.id,
+          before: {
+            status: record.status,
+            queue: reportQueueMetadata(existingJob.queue),
+          },
+          after: {
+            status: job.status,
             queue: reportQueueMetadata(completedQueue),
-          } as Prisma.InputJsonValue,
-        },
+          },
+          metadata: reportQueueAuditMetadata(existingJob, completedQueue, archive.id, input.workerId),
+        });
+        return {
+          ...job,
+          archives: [archiveRecord],
+        };
+      });
+      processed.push(mapDbJob(updated, datasets));
+    } catch (error) {
+      failedCount += 1;
+      const failedQueue = markReportQueueFailed(startedQueue, error, input.now);
+      const nextStatus = failedQueue.status === "failed" ? "failed" : "queued";
+      const updated = await db.$transaction(async (tx) => {
+        const job = await tx.reportJob.update({
+          where: { id: record.id },
+          data: {
+            status: nextStatus,
+            metadataJson: {
+              ...metadata,
+              queue: reportQueueMetadata(failedQueue),
+            } as Prisma.InputJsonValue,
+          },
+          include: {
+            dataset: true,
+            archives: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+            },
+          },
+        });
+        await writeAuditLog(tx, {
+          tenantId: session.tenantId,
+          companyId: session.companyId,
+          actorUserId: session.user?.id,
+          actorEmployeeId: session.employee?.id,
+          action: "update",
+          entityType: "report_export_queue",
+          entityId: record.id,
+          before: {
+            status: record.status,
+            queue: reportQueueMetadata(existingJob.queue),
+          },
+          after: {
+            status: nextStatus,
+            queue: reportQueueMetadata(failedQueue),
+          },
+          metadata: reportQueueAuditMetadata(existingJob, failedQueue, archive.id, input.workerId),
+        });
+        return job;
+      });
+      processed.push(mapDbJob(updated, datasets));
+    }
+  }
+
+  return {
+    processedCount: processed.filter((job) => job.status === "generated").length,
+    skippedCount,
+    failedCount,
+    jobs: processed,
+  };
+}
+
+async function cleanupDbExpiredReportArchives(
+  session: SessionLike & { tenantId: string; companyId: string },
+  input: { limit: number; now: Date },
+): Promise<ReportArchiveCleanupResult> {
+  const db = getDb();
+  const datasets = await getDbReportCatalog(session);
+  const records = await db.reportExportArchive.findMany({
+    where: {
+      tenantId: session.tenantId,
+      companyId: session.companyId,
+      status: { not: "expired" },
+      downloadExpiresAt: { lte: input.now },
+    },
+    include: {
+      reportJob: {
         include: {
           dataset: true,
           archives: {
@@ -1346,6 +1496,18 @@ async function processDbReportExportQueue(
             take: 1,
           },
         },
+      },
+    },
+    orderBy: { downloadExpiresAt: "asc" },
+    take: input.limit,
+  });
+  const archiveIds: string[] = [];
+  for (const record of records) {
+    const dataset = findDataset(datasets, record.reportJob.dataset.code);
+    const updated = await db.$transaction(async (tx) => {
+      const archive = await tx.reportExportArchive.update({
+        where: { id: record.id },
+        data: { status: "expired" },
       });
       await writeAuditLog(tx, {
         tenantId: session.tenantId,
@@ -1353,31 +1515,26 @@ async function processDbReportExportQueue(
         actorUserId: session.user?.id,
         actorEmployeeId: session.employee?.id,
         action: "update",
-        entityType: "report_export_queue",
-        entityId: record.id,
+        entityType: "report_export_archive",
+        entityId: archive.id,
         before: {
           status: record.status,
-          queue: reportQueueMetadata(existingJob.queue),
+          downloadedAt: record.downloadedAt,
         },
         after: {
-          status: job.status,
-          queue: reportQueueMetadata(completedQueue),
+          status: archive.status,
+          downloadedAt: archive.downloadedAt,
         },
-        metadata: reportQueueAuditMetadata(existingJob, completedQueue, archive?.id ?? null, input.workerId),
+        metadata: archiveMaintenanceMetadata(dataset, record.reportJob.id, archive.fileName, archive.contentHash, "expired_cleanup"),
       });
-      return {
-        ...job,
-        archives: [archiveRecord],
-      };
+      return archive;
     });
-    processed.push(mapDbJob(updated, datasets));
+    archiveIds.push(updated.id);
   }
-
   return {
-    processedCount: processed.length,
+    expiredCount: archiveIds.length,
     skippedCount: 0,
-    failedCount: 0,
-    jobs: processed,
+    archiveIds,
   };
 }
 
@@ -1559,7 +1716,7 @@ function createDemoReportJob(session: SessionLike, draft: ReportJobView) {
 
 async function processDemoReportExportQueue(
   session: SessionLike,
-  input: { jobId: string | null; limit: number; workerId: string },
+  input: { jobId: string | null; limit: number; workerId: string; now: Date },
 ): Promise<ProcessReportExportQueueResult> {
   const state = getDemoState();
   const candidates = state.jobs
@@ -1570,53 +1727,140 @@ async function processDemoReportExportQueue(
   }
 
   const processed: ReportJobView[] = [];
+  let skippedCount = 0;
+  let failedCount = 0;
   for (const existingJob of candidates) {
     const jobIndex = state.jobs.findIndex((job) => job.id === existingJob.id);
     const archiveIndex = state.archives.findIndex((archive) => archive.id === existingJob.archive.id);
     if (jobIndex < 0) continue;
-    const storage = await buildReportArchiveObjectStorage(session, existingJob, existingJob.archive);
-    const queue = markReportQueueReady(markReportQueueProcessing(existingJob.queue), storage.storageTarget);
-    const updatedArchive: ReportArchiveView = {
-      ...existingJob.archive,
-      storage,
-    };
-    const updatedJob: ReportJobView = {
-      ...existingJob,
-      status: "generated",
-      queue,
-      archive: updatedArchive,
-    };
-    state.jobs[jobIndex] = updatedJob;
-    if (archiveIndex >= 0) {
-      state.archives[archiveIndex] = updatedArchive;
+    if (!isReportQueueDue(existingJob.queue, input.now)) {
+      skippedCount += 1;
+      continue;
     }
-    writeDemoAuditLog({
-      tenantId: session.tenantId ?? "demo-tenant",
-      companyId: session.companyId ?? "demo-company",
-      actorUserId: session.user?.id,
-      actorEmployeeId: session.employee?.id,
-      actorName: session.user?.displayName ?? session.employee?.displayName,
-      action: "update",
-      entityType: "report_export_queue",
-      entityId: updatedJob.id,
-      before: {
-        status: existingJob.status,
-        queue: reportQueueMetadata(existingJob.queue),
-      },
-      after: {
-        status: updatedJob.status,
-        queue: reportQueueMetadata(queue),
-      },
-      metadata: reportQueueAuditMetadata(updatedJob, queue, updatedJob.archive.id, input.workerId),
-    });
-    processed.push(updatedJob);
+    const startedQueue = markReportQueueProcessing(existingJob.queue, input.now);
+    try {
+      const storage = await buildReportArchiveObjectStorage(session, existingJob, existingJob.archive);
+      const queue = markReportQueueReady(startedQueue, storage.storageTarget, input.now);
+      const updatedArchive: ReportArchiveView = {
+        ...existingJob.archive,
+        storage,
+      };
+      const updatedJob: ReportJobView = {
+        ...existingJob,
+        status: "generated",
+        queue,
+        archive: updatedArchive,
+      };
+      state.jobs[jobIndex] = updatedJob;
+      if (archiveIndex >= 0) {
+        state.archives[archiveIndex] = updatedArchive;
+      }
+      writeDemoAuditLog({
+        tenantId: session.tenantId ?? "demo-tenant",
+        companyId: session.companyId ?? "demo-company",
+        actorUserId: session.user?.id,
+        actorEmployeeId: session.employee?.id,
+        actorName: session.user?.displayName ?? session.employee?.displayName,
+        action: "update",
+        entityType: "report_export_queue",
+        entityId: updatedJob.id,
+        before: {
+          status: existingJob.status,
+          queue: reportQueueMetadata(existingJob.queue),
+        },
+        after: {
+          status: updatedJob.status,
+          queue: reportQueueMetadata(queue),
+        },
+        metadata: reportQueueAuditMetadata(updatedJob, queue, updatedJob.archive.id, input.workerId),
+      });
+      processed.push(updatedJob);
+    } catch (error) {
+      failedCount += 1;
+      const queue = markReportQueueFailed(startedQueue, error, input.now);
+      const updatedJob: ReportJobView = {
+        ...existingJob,
+        status: queue.status === "failed" ? "failed" : "queued",
+        queue,
+      };
+      state.jobs[jobIndex] = updatedJob;
+      writeDemoAuditLog({
+        tenantId: session.tenantId ?? "demo-tenant",
+        companyId: session.companyId ?? "demo-company",
+        actorUserId: session.user?.id,
+        actorEmployeeId: session.employee?.id,
+        actorName: session.user?.displayName ?? session.employee?.displayName,
+        action: "update",
+        entityType: "report_export_queue",
+        entityId: updatedJob.id,
+        before: {
+          status: existingJob.status,
+          queue: reportQueueMetadata(existingJob.queue),
+        },
+        after: {
+          status: updatedJob.status,
+          queue: reportQueueMetadata(queue),
+        },
+        metadata: reportQueueAuditMetadata(updatedJob, queue, updatedJob.archive.id, input.workerId),
+      });
+      processed.push(updatedJob);
+    }
   }
 
   return {
-    processedCount: processed.length,
-    skippedCount: 0,
-    failedCount: 0,
+    processedCount: processed.filter((job) => job.status === "generated").length,
+    skippedCount,
+    failedCount,
     jobs: processed,
+  };
+}
+
+function cleanupDemoExpiredReportArchives(
+  session: SessionLike,
+  input: { limit: number; now: Date },
+): ReportArchiveCleanupResult {
+  const state = getDemoState();
+  const datasets = getDefaultCatalogViews();
+  const expiredArchives = state.archives
+    .filter((archive) => archive.status !== "expired" && archive.downloadExpiresAt <= input.now)
+    .slice(0, input.limit);
+  const archiveIds: string[] = [];
+  for (const archive of expiredArchives) {
+    const archiveIndex = state.archives.findIndex((item) => item.id === archive.id);
+    const jobIndex = state.jobs.findIndex((item) => item.archive.id === archive.id);
+    const existingJob = state.jobs[jobIndex];
+    const expiredArchive = { ...archive, status: "expired" as const };
+    if (archiveIndex >= 0) state.archives[archiveIndex] = expiredArchive;
+    if (existingJob) {
+      state.jobs[jobIndex] = {
+        ...existingJob,
+        archive: expiredArchive,
+      };
+      const dataset = findDataset(datasets, existingJob.datasetCode);
+      writeDemoAuditLog({
+        tenantId: session.tenantId ?? "demo-tenant",
+        companyId: session.companyId ?? "demo-company",
+        actorUserId: session.user?.id,
+        actorEmployeeId: session.employee?.id,
+        actorName: session.user?.displayName ?? session.employee?.displayName,
+        action: "update",
+        entityType: "report_export_archive",
+        entityId: expiredArchive.id,
+        before: {
+          status: archive.status,
+        },
+        after: {
+          status: expiredArchive.status,
+        },
+        metadata: archiveMaintenanceMetadata(dataset, existingJob.id, expiredArchive.fileName, expiredArchive.contentHash, "expired_cleanup"),
+      });
+    }
+    archiveIds.push(expiredArchive.id);
+  }
+  return {
+    expiredCount: archiveIds.length,
+    skippedCount: 0,
+    archiveIds,
   };
 }
 
@@ -2226,6 +2470,9 @@ async function buildReportArchiveObjectStorage(
   archive: Pick<ReportArchiveView, "id" | "fileName" | "contentHash" | "downloadExpiresAt">,
 ): Promise<ReportArchiveStorageView> {
   const settings = await getFileStorageSettings(session);
+  if (!settings.allowedMimeTypes.includes("text/csv")) {
+    throw new Error("公司物件儲存政策尚未允許 text/csv 報表封存。");
+  }
   const objectKey = [
     cleanObjectPathSegment(settings.basePrefix || "hr-one"),
     cleanObjectPathSegment(session.tenantId ?? "demo-tenant"),
@@ -2311,12 +2558,12 @@ function advanceReportQueueAfterReview(queue: ReportExportQueueView): ReportExpo
   };
 }
 
-function markReportQueueProcessing(queue: ReportExportQueueView): ReportExportQueueView {
+function markReportQueueProcessing(queue: ReportExportQueueView, now = new Date()): ReportExportQueueView {
   return {
     ...queue,
     status: "processing",
     attempts: queue.attempts + 1,
-    startedAt: new Date(),
+    startedAt: now,
     nextRunAt: null,
     lastErrorHash: null,
     storageTarget: queue.storageTarget,
@@ -2326,14 +2573,49 @@ function markReportQueueProcessing(queue: ReportExportQueueView): ReportExportQu
 function markReportQueueReady(
   queue: ReportExportQueueView,
   storageTarget: ReportArchiveStorageTarget = "inline_manifest",
+  now = new Date(),
 ): ReportExportQueueView {
   return {
     ...queue,
     status: "ready",
-    finishedAt: new Date(),
+    finishedAt: now,
     nextRunAt: null,
     lastErrorHash: null,
     storageTarget,
+  };
+}
+
+function markReportQueueFailed(
+  queue: ReportExportQueueView,
+  error: unknown,
+  now = new Date(),
+): ReportExportQueueView {
+  const attempts = Math.max(queue.attempts, 1);
+  const exhausted = attempts >= queue.maxAttempts;
+  return {
+    ...queue,
+    status: exhausted ? "failed" : "queued",
+    finishedAt: exhausted ? now : null,
+    nextRunAt: exhausted ? null : addMinutes(now, reportQueueBackoffMinutes(attempts)),
+    lastErrorHash: stableHash(normalizeReportQueueError(error)),
+    storageTarget: "object_storage_pending",
+  };
+}
+
+function isReportQueueDue(queue: ReportExportQueueView, now = new Date()) {
+  if (queue.status !== "queued") return false;
+  return !queue.nextRunAt || queue.nextRunAt <= now;
+}
+
+function reportQueueBackoffMinutes(attempts: number) {
+  return Math.min(60, 5 * 3 ** Math.max(0, attempts - 1));
+}
+
+function normalizeReportQueueError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return {
+    message: message.slice(0, 160),
+    name: error instanceof Error ? error.name : "Error",
   };
 }
 
@@ -2661,6 +2943,20 @@ function archiveSignedUrlMetadata(
     storageProvider: storage.storageProvider,
     objectKeyHash: storage.objectKeyHash,
     objectHash: storage.objectHash,
+    objectBytesStoredInHrOne: false,
+  };
+}
+
+function archiveMaintenanceMetadata(
+  dataset: Pick<ReportDatasetView, "code" | "category">,
+  reportJobId: string,
+  fileName: string,
+  contentHash: string,
+  maintenanceAction: "expired_cleanup",
+) {
+  return {
+    ...archiveDownloadMetadata(dataset, reportJobId, fileName, contentHash),
+    maintenanceAction,
     objectBytesStoredInHrOne: false,
   };
 }
@@ -2993,6 +3289,10 @@ function addDays(date: Date, days: number) {
   const next = new Date(date);
   next.setUTCDate(next.getUTCDate() + days);
   return next;
+}
+
+function addMinutes(date: Date, minutes: number) {
+  return new Date(date.getTime() + minutes * 60_000);
 }
 
 function readStringArray(value: Prisma.JsonValue) {

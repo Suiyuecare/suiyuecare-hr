@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { getAuditDemoState, resetAuditDemoState } from "@/server/audit/demo-store";
+import { resetFileStorageDemoState, updateFileStorageSettings } from "@/server/files/storage";
 import {
   approveReportJobReview,
+  cleanupExpiredReportArchives,
   createCustomReportJob,
   downloadReportArchive,
   getReportAdminWorkspace,
@@ -9,6 +11,7 @@ import {
   issueReportArchiveSignedUrl,
   processReportExportQueue,
   resetReportDemoState,
+  runReportExportMaintenance,
   updateReportPermission,
 } from "./builder";
 
@@ -40,6 +43,7 @@ describe("report builder foundation", () => {
   beforeEach(() => {
     resetReportDemoState();
     resetAuditDemoState();
+    resetFileStorageDemoState();
   });
 
   it("creates a masked custom report job, archive metadata, and audit logs", async () => {
@@ -482,6 +486,160 @@ describe("report builder foundation", () => {
     expect(auditPayload).not.toContain(signedToken!);
     expect(auditPayload).not.toContain("baseSalary");
     expect(auditPayload).not.toContain("accountNumber");
+  });
+
+  it("retries failed background report exports with backoff and redacted audit metadata", async () => {
+    const now = new Date("2026-06-22T01:00:00.000Z");
+    await updateFileStorageSettings(ownerSession, {
+      allowedMimeTypes: ["application/pdf"],
+    });
+    const job = await createCustomReportJob(hrSession, {
+      title: "背景出勤報表 - 儲存政策測試",
+      datasetCode: "attendance_monthly",
+      purpose: "monthly_close",
+      deliveryMode: "background",
+      selectedFieldKeys: ["exception_type", "severity"],
+    });
+
+    const failed = await processReportExportQueue(hrSession, {
+      jobId: job.id,
+      workerId: "unit-test-worker-secret",
+      now,
+    });
+    const tooEarly = await processReportExportQueue(hrSession, {
+      jobId: job.id,
+      workerId: "unit-test-worker-secret",
+      now: new Date("2026-06-22T01:01:00.000Z"),
+    });
+    await updateFileStorageSettings(ownerSession, {
+      allowedMimeTypes: ["application/pdf", "text/csv"],
+    });
+    const retried = await processReportExportQueue(hrSession, {
+      jobId: job.id,
+      workerId: "unit-test-worker-secret",
+      now: new Date("2026-06-22T01:06:00.000Z"),
+    });
+    const auditPayload = JSON.stringify(getAuditDemoState().logs);
+
+    expect(failed).toMatchObject({
+      processedCount: 0,
+      failedCount: 1,
+      jobs: [
+        expect.objectContaining({
+          status: "queued",
+          queue: expect.objectContaining({
+            status: "queued",
+            attempts: 1,
+            storageTarget: "object_storage_pending",
+          }),
+        }),
+      ],
+    });
+    expect(failed.jobs[0].queue.lastErrorHash).toHaveLength(64);
+    expect(failed.jobs[0].queue.nextRunAt?.toISOString()).toBe("2026-06-22T01:05:00.000Z");
+    expect(tooEarly).toMatchObject({
+      processedCount: 0,
+      skippedCount: 1,
+      failedCount: 0,
+      jobs: [],
+    });
+    expect(retried).toMatchObject({
+      processedCount: 1,
+      failedCount: 0,
+      jobs: [
+        expect.objectContaining({
+          status: "generated",
+          queue: expect.objectContaining({
+            status: "ready",
+            attempts: 2,
+            lastErrorHash: null,
+            storageTarget: "object_storage_signed_url",
+          }),
+        }),
+      ],
+    });
+    expect(getAuditDemoState().logs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entityType: "report_export_queue",
+          action: "update",
+          metadataJson: expect.objectContaining({
+            queueStatus: "queued",
+            rawErrorStored: false,
+          }),
+        }),
+      ]),
+    );
+    expect(auditPayload).not.toContain("unit-test-worker-secret");
+    expect(auditPayload).not.toContain("公司物件儲存政策尚未允許");
+  });
+
+  it("expires old report archives through cleanup maintenance with audit evidence", async () => {
+    const job = await createCustomReportJob(hrSession, {
+      title: "過期封存清理測試",
+      datasetCode: "attendance_monthly",
+      purpose: "audit_archive",
+      selectedFieldKeys: ["exception_type", "severity"],
+    });
+
+    const cleanup = await cleanupExpiredReportArchives(hrSession, {
+      now: new Date(job.archive.downloadExpiresAt.getTime() + 60_000),
+    });
+    const workspace = await getReportAdminWorkspace(hrSession);
+
+    expect(cleanup).toEqual({
+      expiredCount: 1,
+      skippedCount: 0,
+      archiveIds: [job.archive.id],
+    });
+    expect(workspace.archives[0]).toMatchObject({
+      id: job.archive.id,
+      status: "expired",
+    });
+    expect(getAuditDemoState().logs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entityType: "report_export_archive",
+          action: "update",
+          entityId: job.archive.id,
+          metadataJson: expect.objectContaining({
+            maintenanceAction: "expired_cleanup",
+            rawRowsIncluded: false,
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("runs queue and archive cleanup as one maintenance operation", async () => {
+    const job = await createCustomReportJob(hrSession, {
+      title: "整批報表維護測試",
+      datasetCode: "attendance_monthly",
+      purpose: "monthly_close",
+      deliveryMode: "background",
+      selectedFieldKeys: ["exception_type", "severity"],
+    });
+
+    const result = await runReportExportMaintenance(hrSession, {
+      workerId: "unit-test-maintenance",
+      now: new Date(),
+    });
+
+    expect(result.queue).toMatchObject({
+      processedCount: 1,
+      failedCount: 0,
+    });
+    expect(result.queue.jobs[0]).toMatchObject({
+      id: job.id,
+      status: "generated",
+      queue: expect.objectContaining({
+        status: "ready",
+      }),
+    });
+    expect(result.cleanup).toMatchObject({
+      expiredCount: 0,
+      skippedCount: 0,
+    });
   });
 
   it("keeps sensitive background exports queued after second-person review", async () => {
