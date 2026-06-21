@@ -1442,6 +1442,39 @@ test("HR 可以用公司行事曆工作台完成年度審核與日期設定", as
   await expect(page.locator("#calendar-day-list").getByText("端午節補假")).toBeVisible();
 });
 
+test("HR 可以用中文工時約定設定台完成延長工時證據", async ({ page }) => {
+  await page.goto("/app");
+  await page.getByLabel("示範角色").selectOption("hr_admin");
+  await page.getByRole("button", { name: "切換" }).click();
+  await page.goto("/hr/worktime-agreements");
+
+  await expect(page.getByRole("heading", { name: "工時約定設定台" })).toBeVisible();
+  await expect(page.getByLabel("工時約定設定台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("工時約定訊號板").getByText("月結 Gate")).toBeVisible();
+  await expect(page.getByLabel("工時約定作業卡").getByRole("heading", { name: "同意來源" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "三步工時約定精靈" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "法規來源" })).toBeVisible();
+
+  const wizard = page.getByRole("form", { name: "工時約定設定精靈" });
+  await wizard.getByLabel("同意來源").selectOption("labor_management_conference");
+  await wizard.getByLabel("證據編號").fill("meeting://2026-06");
+  await wizard.getByLabel("HR 驗證狀態").selectOption("verified");
+  await wizard.getByLabel("同意證據已留存").check();
+  await wizard.getByLabel("生效開始日").fill("2026-01-01");
+  await wizard.getByLabel("生效結束日").fill("2026-12-31");
+  await wizard.getByLabel("單月加班上限（小時）").fill("54");
+  await wizard.getByLabel("三個月加班上限（小時）").fill("138");
+  await wizard.getByLabel("需地方主管機關備查").check();
+  await wizard.getByLabel("備查已完成").check();
+  await wizard.getByLabel("驗證備註").fill("E2E 測試用證據編號，未輸入個資或薪資。");
+  await wizard.getByRole("button", { name: "儲存工時約定" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/worktime-agreements$/);
+  await expect(page.getByLabel("工時約定訊號板").getByText("可套用")).toBeVisible();
+  await expect(page.getByLabel("工時約定訊號板").getByText("已備查")).toBeVisible();
+  await expect(page.getByText("工時約定已可用於法遵掃描")).toBeVisible();
+});
+
 async function switchDemoRole(page: Page, role: "employee" | "manager" | "hr_admin" | "owner") {
   await page.getByLabel("示範角色").selectOption(role);
   await page.getByRole("button", { name: "切換" }).click();
