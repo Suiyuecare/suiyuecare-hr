@@ -8149,6 +8149,172 @@ legend {
   min-height: 286px;
 }
 
+.report-alerts {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.report-builder-grid,
+.report-job-list {
+  display: grid;
+  gap: 12px;
+}
+
+.report-builder-card,
+.report-job-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.report-builder-card-header {
+  display: grid;
+  gap: 8px;
+}
+
+.report-builder-card h3,
+.report-job-card h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 1000;
+  line-height: 1.15;
+}
+
+.report-builder-card p,
+.report-job-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+  line-height: 1.45;
+}
+
+.report-fieldset {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.report-fieldset legend {
+  padding: 0 6px;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.report-field-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.report-field-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.report-field-option input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.report-field-option span {
+  display: grid;
+  gap: 4px;
+}
+
+.report-field-option strong {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.report-field-option small,
+.report-field-option em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 780;
+  line-height: 1.35;
+}
+
+.report-blocked-fields {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  padding: 10px;
+}
+
+.report-blocked-fields strong,
+.report-blocked-fields span {
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.4;
+}
+
+.report-job-meta,
+.report-selected-fields {
+  display: grid;
+  gap: 8px;
+}
+
+.report-job-meta {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.report-job-meta span {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.report-job-meta strong {
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 1000;
+  overflow-wrap: anywhere;
+}
+
+.report-job-meta small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 820;
+}
+
+.report-selected-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.report-archive-task {
+  align-items: flex-start;
+}
+
+.report-archive-task > span:first-child {
+  display: grid;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+
 .report-step-list {
   display: grid;
   gap: 10px;
@@ -8860,6 +9026,9 @@ legend {
   .labor-roster-guardrail-grid,
   .report-command-grid,
   .report-lane-grid,
+  .report-builder-grid,
+  .report-job-meta,
+  .report-selected-fields,
   .report-step,
   .report-payroll-task,
   .report-next-task,

@@ -48,6 +48,7 @@ import { resetPayrollRecordkeepingDemoState } from "@/server/payroll/recordkeepi
 import { resetSalaryProfileDemoState } from "@/server/payroll/salary-profiles";
 import { resetPrivacyDemoState } from "@/server/privacy/governance";
 import { resetOperationalResilienceDemoState } from "@/server/readiness/operational-resilience";
+import { resetReportDemoState } from "@/server/reports/builder";
 import { resetRuleSettingsDemoState } from "@/server/rules/settings";
 import { resetShiftTemplateDemoState } from "@/server/scheduling/shift-templates";
 import { resetSecuritySettingsDemoState } from "@/server/settings/security";
@@ -82,6 +83,7 @@ export async function POST() {
     resetPayrollRecordkeepingDemoState();
     resetPrivacyDemoState();
     resetOperationalResilienceDemoState();
+    resetReportDemoState();
     resetPaymentProfileDemoState();
     resetSalaryProfileDemoState();
     resetAiDemoState();

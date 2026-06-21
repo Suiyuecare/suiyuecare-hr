@@ -172,12 +172,142 @@ model Company {
   policyDocuments               CompanyPolicyDocument[]
   aiUsageLogs                   AiUsageLog[]
   productTelemetryEvents        ProductTelemetryEvent[]
+  reportDatasets                ReportDataset[]
+  reportFields                  ReportField[]
+  reportPermissions             ReportPermission[]
+  reportJobs                    ReportJob[]
+  reportExportArchives          ReportExportArchive[]
   betaPilotTrialRuns            BetaPilotTrialRun[]
   betaPilotTrialEvents          BetaPilotTrialEvent[]
   createdAt                     DateTime                              @default(now())
   updatedAt                     DateTime                              @updatedAt
 
   @@index([tenantId])
+}
+
+model ReportDataset {
+  id          String             @id @default(cuid())
+  tenantId    String
+  companyId   String
+  company     Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  code        String
+  name        String
+  category    String
+  description String
+  status      String             @default("active")
+  sortOrder   Int                @default(100)
+  fields      ReportField[]
+  permissions ReportPermission[]
+  jobs        ReportJob[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([companyId, code])
+  @@index([tenantId, companyId])
+  @@index([tenantId, companyId, status])
+}
+
+model ReportField {
+  id          String             @id @default(cuid())
+  tenantId    String
+  companyId   String
+  company     Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  datasetId   String
+  dataset     ReportDataset      @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  key         String
+  label       String
+  valueType   String             @default("string")
+  sensitivity String             @default("internal")
+  maskingMode String             @default("none")
+  exportable  Boolean            @default(true)
+  sourceRef   String?
+  description String?
+  sortOrder   Int                @default(100)
+  status      String             @default("active")
+  permissions ReportPermission[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([datasetId, key])
+  @@index([tenantId, companyId])
+  @@index([tenantId, companyId, sensitivity])
+  @@index([tenantId, companyId, status])
+}
+
+model ReportPermission {
+  id             String         @id @default(cuid())
+  tenantId       String
+  companyId      String
+  company        Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  datasetId      String?
+  dataset        ReportDataset? @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  fieldId        String?
+  field          ReportField?   @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  roleKey        RoleKey
+  accessLevel    String         @default("summary")
+  maskingMode    String         @default("masked")
+  exportAllowed  Boolean        @default(false)
+  requiresReason Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([tenantId, companyId, roleKey])
+  @@index([tenantId, companyId, datasetId])
+  @@index([tenantId, companyId, fieldId])
+}
+
+model ReportJob {
+  id                    String                @id @default(cuid())
+  tenantId              String
+  companyId             String
+  company               Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  datasetId             String
+  dataset               ReportDataset         @relation(fields: [datasetId], references: [id], onDelete: Restrict)
+  title                 String
+  purpose               String
+  status                String                @default("generated")
+  format                String                @default("csv")
+  periodStart           DateTime?
+  periodEnd             DateTime?
+  selectedFieldKeysJson Json
+  filterSummaryHash     String?
+  rowCount              Int                   @default(0)
+  maskedFieldCount      Int                   @default(0)
+  contentHash           String
+  requestedByUserId     String?
+  expiresAt             DateTime
+  metadataJson          Json
+  archives              ReportExportArchive[]
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  @@index([tenantId, companyId, status])
+  @@index([tenantId, companyId, datasetId])
+  @@index([tenantId, companyId, createdAt])
+}
+
+model ReportExportArchive {
+  id                String    @id @default(cuid())
+  tenantId          String
+  companyId         String
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reportJobId       String
+  reportJob         ReportJob @relation(fields: [reportJobId], references: [id], onDelete: Cascade)
+  fileName          String
+  format            String    @default("csv")
+  status            String    @default("generated")
+  recordCount       Int       @default(0)
+  contentHash       String
+  downloadExpiresAt DateTime
+  downloadedAt      DateTime?
+  generatedByUserId String?
+  metadataJson      Json
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([tenantId, companyId, status])
+  @@index([tenantId, companyId, reportJobId])
+  @@index([tenantId, companyId, downloadExpiresAt])
 }
 
 model Department {

@@ -2,6 +2,7 @@ import { Prisma, PrismaClient, RoleKey } from "@prisma/client";
 import { createHash } from "node:crypto";
 import { defaultApprovedPolicyDocs } from "../src/server/ai/policy-docs";
 import { taiwanStatutoryLeaveRequirements } from "../src/server/leave/statutory";
+import { defaultReportCatalog } from "../src/server/reports/builder";
 import { defaultTaiwanLaborStandardsConfig } from "../src/server/rules/taiwan-labor-standards";
 import {
   buildRuleVersionTestCases,
@@ -34,6 +35,11 @@ type SeedTelemetryEvent = readonly [
 async function main() {
   await prisma.auditEvidencePackage.deleteMany();
   await prisma.auditLog.deleteMany();
+  await prisma.reportExportArchive.deleteMany();
+  await prisma.reportJob.deleteMany();
+  await prisma.reportPermission.deleteMany();
+  await prisma.reportField.deleteMany();
+  await prisma.reportDataset.deleteMany();
   await prisma.dataSubjectRequest.deleteMany();
   await prisma.employeePrivacyConsent.deleteMany();
   await prisma.companyPrivacySetting.deleteMany();
@@ -312,6 +318,52 @@ async function main() {
       verificationNote: "Demo workspace is intentionally unverified for production resilience.",
     },
   });
+
+  for (const dataset of defaultReportCatalog) {
+    const createdDataset = await prisma.reportDataset.create({
+      data: {
+        tenantId: tenant.id,
+        companyId: company.id,
+        code: dataset.code,
+        name: dataset.name,
+        category: dataset.category,
+        description: dataset.description,
+        sortOrder: dataset.sortOrder,
+      },
+    });
+    for (const field of dataset.fields) {
+      await prisma.reportField.create({
+        data: {
+          tenantId: tenant.id,
+          companyId: company.id,
+          datasetId: createdDataset.id,
+          key: field.key,
+          label: field.label,
+          valueType: field.valueType,
+          sensitivity: field.sensitivity,
+          maskingMode: field.maskingMode,
+          exportable: field.exportable,
+          sourceRef: field.sourceRef,
+          description: field.description,
+          sortOrder: field.sortOrder,
+        },
+      });
+    }
+    for (const roleKey of ["owner", "hr_admin"] as const) {
+      await prisma.reportPermission.create({
+        data: {
+          tenantId: tenant.id,
+          companyId: company.id,
+          datasetId: createdDataset.id,
+          roleKey,
+          accessLevel: dataset.category === "payroll" ? "aggregate" : "summary",
+          maskingMode: dataset.category === "payroll" ? "aggregate_only" : "masked",
+          exportAllowed: true,
+          requiresReason: true,
+        },
+      });
+    }
+  }
 
   const roles = await Promise.all(
     [

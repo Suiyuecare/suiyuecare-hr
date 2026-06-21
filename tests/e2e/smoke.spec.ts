@@ -999,6 +999,23 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "報表設定與封存" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "下一階段基礎工程" })).toBeVisible();
   await expect(page.getByRole("link", { name: "下載封存資料" }).first()).toBeVisible();
+  const customReportForm = page.getByRole("form", { name: "人事準備度自訂報表" });
+  await customReportForm.getByLabel("報表名稱").fill("兩週試用人事準備度報表");
+  await customReportForm.getByLabel("用途").selectOption("labor_inspection");
+  await customReportForm.getByLabel("期間開始").fill("2026-06-01");
+  await customReportForm.getByLabel("期間結束").fill("2026-06-30");
+  await customReportForm.getByRole("button", { name: "產生遮罩封存" }).click();
+  await expect(page).toHaveURL(/\/hr\/reports\?success=custom-report#report-jobs$/);
+  await expect(page.getByText("自訂報表已產生")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "最近自訂報表" })).toBeVisible();
+  const customReportJobs = page.getByLabel("最近自訂報表");
+  await expect(customReportJobs.getByText("兩週試用人事準備度報表")).toBeVisible();
+  await expect(customReportJobs.getByText("遮罩封存", { exact: true })).toBeVisible();
+  await expect(customReportJobs.getByText(/hash [a-f0-9]{10}/).first()).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("baseSalary");
+  await expect(page.locator("body")).not.toContainText("accountNumber");
+  await expect(page.locator("body")).not.toContainText("nationalId");
+  await expect(page.locator("body")).not.toContainText("66000");
 
   await page.goto("/hr");
   await expect(page.getByRole("heading", { name: "HR 月結指揮台" })).toBeVisible();

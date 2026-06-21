@@ -36,6 +36,7 @@ export type Permission =
   | "announcement:manage"
   | "announcement:self"
   | "subscription:manage"
+  | "report:manage"
   | "payroll:manage"
   | "payroll_adjustment:approve"
   | "payslip:self"
@@ -73,6 +74,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "announcement:manage",
     "announcement:self",
     "subscription:manage",
+    "report:manage",
     "payroll:manage",
     "payroll_adjustment:approve",
     "ai:policy",
@@ -111,6 +113,7 @@ const rolePermissions: Record<RoleKey, readonly Permission[]> = {
     "incident:self",
     "announcement:manage",
     "announcement:self",
+    "report:manage",
     "payroll:manage",
     "ai:policy",
     "ai:form_builder",

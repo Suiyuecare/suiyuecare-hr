@@ -7,18 +7,30 @@ import { listAttendanceExceptions, summarizeAttendanceExceptionResolution } from
 import { getHrOneKpis, summarizeHrOneKpis, type HrOneKpi } from "@/server/kpis/hr-one";
 import { getPayrollDashboard } from "@/server/payroll/service";
 import type { PayrollCloseChecklist, PayrollRunView } from "@/server/payroll/types";
+import {
+  getReportAdminWorkspace,
+  type ReportArchiveView,
+  type ReportDatasetView,
+  type ReportJobView,
+} from "@/server/reports/builder";
 
-export default async function HrReportsPage() {
-  const session = await getDemoSession();
+type SearchParams = Promise<{
+  error?: string;
+  success?: string;
+}>;
+
+export default async function HrReportsPage({ searchParams }: { searchParams: SearchParams }) {
+  const [session, params] = await Promise.all([getDemoSession(), searchParams]);
   if (!hasPermission(session.role, "dashboard:hr")) {
     redirect(dashboardPathForRole(session.role));
   }
 
-  const [kpis, exceptions, payroll, auditLogs] = await Promise.all([
+  const [kpis, exceptions, payroll, auditLogs, reportWorkspace] = await Promise.all([
     getHrOneKpis(session),
     listAttendanceExceptions(session),
     getPayrollDashboard(session),
     getAuditLogs(session, 8),
+    getReportAdminWorkspace(session),
   ]);
   const kpiSummary = summarizeHrOneKpis(kpis);
   const attendanceSummary = summarizeAttendanceExceptionResolution(exceptions);
@@ -36,8 +48,8 @@ export default async function HrReportsPage() {
     payrollChecklist: payroll.checklist,
     auditEventCount: auditLogs.length,
   });
-  const customReportSteps = buildCustomReportSteps();
   const nextStageItems = buildNextStageItems();
+  const canManageReports = hasPermission(session.role, "report:manage");
 
   return (
     <main className="page report-workspace-page">
@@ -76,6 +88,24 @@ export default async function HrReportsPage() {
           </Link>
         </aside>
       </section>
+
+      {params.success === "custom-report" ? (
+        <section className="report-alerts" aria-live="polite">
+          <div className="panel success-panel">
+            <strong>自訂報表已產生</strong>
+            <p>已建立報表 job、遮罩封存 metadata 與 audit log；頁面不回顯薪資金額、銀行帳號、身分證或私人備註。</p>
+          </div>
+        </section>
+      ) : null}
+
+      {params.error ? (
+        <section className="report-alerts" aria-live="polite">
+          <div className="panel danger-panel">
+            <strong>自訂報表未建立</strong>
+            <p>{localizeReportError(params.error)}</p>
+          </div>
+        </section>
+      ) : null}
 
       <section className="hr-monthly-signal-board report-signal-board" aria-label="報表訊號板">
         {reportCards.map((card) => (
@@ -129,22 +159,15 @@ export default async function HrReportsPage() {
           <div className="section-heading">
             <div>
               <h2>自訂報表精靈</h2>
-              <p className="muted">用非工程語言完成報表設定；正式儲存前仍需把欄位授權、匯出遮罩與稽核紀錄寫入後端。</p>
+              <p className="muted">選資料集、用途、期間與欄位；系統只產生遮罩封存 metadata、內容 hash 與稽核紀錄，不回顯原始個資或薪資。</p>
             </div>
-            <span className="badge warning">下一階段串接</span>
+            <span className="badge done">已串接</span>
           </div>
-          <ol className="report-step-list">
-            {customReportSteps.map((step) => (
-              <li className={`report-step ${step.tone}`} key={step.title}>
-                <span>{step.index}</span>
-                <div>
-                  <strong>{step.title}</strong>
-                  <p>{step.detail}</p>
-                </div>
-                <span className={`badge ${step.badgeClass}`}>{step.status}</span>
-              </li>
+          <div className="report-builder-grid" aria-label="自訂報表資料集">
+            {reportWorkspace.datasets.map((dataset) => (
+              <ReportDatasetBuilder dataset={dataset} canManageReports={canManageReports} key={dataset.code} />
             ))}
-          </ol>
+          </div>
         </section>
 
         <section className="panel span-5" id="report-settings">
@@ -167,6 +190,10 @@ export default async function HrReportsPage() {
               <strong>報表權限矩陣</strong>
               <small>老闆、人資、行政主任、主管只能看到自己職務需要的欄位。</small>
             </Link>
+            <div className="report-settings-card">
+              <strong>{reportWorkspace.summary.datasetCount} 個資料集 / {reportWorkspace.summary.fieldCount} 個欄位</strong>
+              <small>{reportWorkspace.summary.blockedSensitiveFieldCount} 個敏感欄位預設不可匯出；每次建立都寫入 audit log。</small>
+            </div>
           </div>
         </section>
 
@@ -215,6 +242,50 @@ export default async function HrReportsPage() {
               ]}
             />
           </div>
+        </section>
+
+        <section className="panel span-7" id="report-jobs">
+          <div className="section-heading">
+            <div>
+              <h2>最近自訂報表</h2>
+              <p className="muted">這裡只顯示 job、欄位政策、筆數、hash 與下載期限；不顯示報表原始資料列。</p>
+            </div>
+            <span className="badge">{reportWorkspace.jobs.length} 筆</span>
+          </div>
+          {reportWorkspace.jobs.length ? (
+            <div className="report-job-list" aria-label="最近自訂報表">
+              {reportWorkspace.jobs.map((job) => (
+                <ReportJobCard job={job} key={job.id} />
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state compact">
+              <strong>尚未產生自訂報表</strong>
+              <p>先從左側資料集建立一份遮罩封存報表，確認 job、hash、下載期限與 audit log 都能落地。</p>
+            </div>
+          )}
+        </section>
+
+        <section className="panel span-5">
+          <div className="section-heading">
+            <div>
+              <h2>封存清單</h2>
+              <p className="muted">封存只列 manifest metadata；實際檔案下載仍需後續接物件儲存與短效 URL。</p>
+            </div>
+            <span className="badge">{reportWorkspace.archives.length} 包</span>
+          </div>
+          {reportWorkspace.archives.length ? (
+            <ul className="task-list compact report-archive-list" aria-label="報表封存清單">
+              {reportWorkspace.archives.map((archive) => (
+                <ReportArchiveItem archive={archive} key={archive.id} />
+              ))}
+            </ul>
+          ) : (
+            <div className="empty-state compact">
+              <strong>尚無報表封存</strong>
+              <p>建立自訂報表後會產生檔名、筆數、內容 hash 與下載期限。</p>
+            </div>
+          )}
         </section>
 
         <section className="panel span-7" id="payroll-analytics">
@@ -295,6 +366,132 @@ function ReportLane({
         ))}
       </div>
     </article>
+  );
+}
+
+function ReportDatasetBuilder({
+  dataset,
+  canManageReports,
+}: {
+  dataset: ReportDatasetView;
+  canManageReports: boolean;
+}) {
+  const exportableFields = dataset.fields.filter((field) => field.exportable && field.maskingMode !== "blocked");
+  const blockedFields = dataset.fields.filter((field) => !field.exportable || field.maskingMode === "blocked");
+  return (
+    <form action="/api/reports/custom" method="post" className="report-builder-card" aria-label={`${dataset.name}自訂報表`}>
+      <input type="hidden" name="datasetCode" value={dataset.code} />
+      <div className="report-builder-card-header">
+        <span className="badge">{dataset.category}</span>
+        <h3>{dataset.name}</h3>
+        <p>{dataset.description}</p>
+      </div>
+      <label>
+        報表名稱
+        <input name="title" defaultValue={`${dataset.name}報表`} disabled={!canManageReports} />
+      </label>
+      <div className="field-grid">
+        <label>
+          用途
+          <select name="purpose" defaultValue="management_review" disabled={!canManageReports}>
+            <option value="management_review">管理檢視</option>
+            <option value="monthly_close">月結檢查</option>
+            <option value="labor_inspection">勞檢準備</option>
+            <option value="audit_archive">稽核封存</option>
+            <option value="pilot_readiness">試用導入</option>
+          </select>
+        </label>
+        <label>
+          格式
+          <select name="format" defaultValue="csv" disabled={!canManageReports}>
+            <option value="csv">CSV manifest</option>
+            <option value="xlsx">XLSX manifest</option>
+          </select>
+        </label>
+        <label>
+          期間開始
+          <input name="periodStart" type="date" disabled={!canManageReports} />
+        </label>
+        <label>
+          期間結束
+          <input name="periodEnd" type="date" disabled={!canManageReports} />
+        </label>
+      </div>
+      <fieldset className="report-fieldset" disabled={!canManageReports}>
+        <legend>可匯出欄位</legend>
+        <div className="report-field-grid">
+          {exportableFields.map((field) => (
+            <label className="report-field-option" key={field.key}>
+              <input
+                name="selectedFieldKeys"
+                type="checkbox"
+                value={field.key}
+                defaultChecked={field.sortOrder <= 40}
+              />
+              <span>
+                <strong>{field.label}</strong>
+                <small>{field.description}</small>
+                <em>{maskingLabel(field.maskingMode)} · {sensitivityLabel(field.sensitivity)}</em>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      {blockedFields.length ? (
+        <div className="report-blocked-fields">
+          <strong>不可匯出欄位</strong>
+          <span>{blockedFields.map((field) => field.label).join("、")}</span>
+        </div>
+      ) : null}
+      <button className="button primary" type="submit" disabled={!canManageReports}>
+        產生遮罩封存
+      </button>
+    </form>
+  );
+}
+
+function ReportJobCard({ job }: { job: ReportJobView }) {
+  return (
+    <article className="report-job-card">
+      <div>
+        <span className="badge done">遮罩封存</span>
+        <h3>{job.title}</h3>
+        <p>{job.datasetName} · {purposeLabel(job.purpose)} · {job.periodLabel}</p>
+      </div>
+      <div className="report-job-meta">
+        <span>
+          <strong>{job.rowCount}</strong>
+          <small>筆 metadata</small>
+        </span>
+        <span>
+          <strong>{job.maskedFieldCount}</strong>
+          <small>遮罩欄位</small>
+        </span>
+        <span>
+          <strong>{job.archive.fileName}</strong>
+          <small>hash {job.contentHash.slice(0, 10)}</small>
+        </span>
+      </div>
+      <div className="report-selected-fields" aria-label={`${job.title} 欄位政策`}>
+        {job.selectedFields.map((field) => (
+          <span className={`badge ${field.maskingMode === "none" ? "" : "warning"}`} key={field.key}>
+            {field.label} · {maskingLabel(field.maskingMode)}
+          </span>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function ReportArchiveItem({ archive }: { archive: ReportArchiveView }) {
+  return (
+    <li className="task report-archive-task">
+      <span>
+        <strong>{archive.fileName}</strong>
+        <small>{archive.recordCount} 筆 · hash {archive.contentHash.slice(0, 10)} · 到期 {formatDateLabel(archive.downloadExpiresAt)}</small>
+      </span>
+      <span className="badge">{archive.status === "downloaded" ? "已下載" : archive.status === "expired" ? "已到期" : "已產生"}</span>
+    </li>
   );
 }
 
@@ -391,47 +588,18 @@ function buildReportCards(input: {
   ];
 }
 
-function buildCustomReportSteps() {
-  return [
-    {
-      index: "01",
-      title: "選擇使用者與用途",
-      detail: "老闆看趨勢、人資看異常、行政主任看作業缺口，預設不給深層欄位清單。",
-      status: "角色先行",
-      badgeClass: "done",
-      tone: "ready",
-    },
-    {
-      index: "02",
-      title: "選資料域與欄位",
-      detail: "人事、出勤、薪酬、表單與稽核資料分開授權；敏感欄位預設遮罩或不可選。",
-      status: "需後端權限表",
-      badgeClass: "warning",
-      tone: "warning",
-    },
-    {
-      index: "03",
-      title: "設定頻率與封存",
-      detail: "每次匯出都要寫稽核紀錄，封存只保留內容雜湊、期間、筆數與遮罩摘要。",
-      status: "需匯出佇列",
-      badgeClass: "warning",
-      tone: "warning",
-    },
-  ];
-}
-
 function buildNextStageItems() {
   return [
     {
-      title: "報表資料集與欄位權限",
-      detail: "建立報表資料集、欄位與權限設定，讓自訂報表不靠工程師硬寫。",
-      status: "基礎工程",
+      title: "背景匯出工作佇列",
+      detail: "把目前同步產生的 manifest 推進成背景工作、短效下載 URL 與失敗重試。",
+      status: "佇列",
       tone: "warning",
     },
     {
-      title: "封存匯出工作佇列",
-      detail: "匯出改成背景工作，產出檔案、內容雜湊、下載期限、申請人與稽核證據。",
-      status: "資安工程",
+      title: "可視化欄位權限矩陣",
+      detail: "讓 Owner/HR 在後台調整角色、欄位遮罩、是否可匯出與必填用途。",
+      status: "權限",
       tone: "warning",
     },
     {
@@ -447,6 +615,56 @@ function buildNextStageItems() {
       tone: "danger",
     },
   ];
+}
+
+function maskingLabel(maskingMode: string) {
+  const labels: Record<string, string> = {
+    none: "不遮罩",
+    masked: "遮罩",
+    aggregate_only: "只出彙總",
+    blocked: "不可匯出",
+  };
+  return labels[maskingMode] ?? "遮罩";
+}
+
+function sensitivityLabel(sensitivity: string) {
+  const labels: Record<string, string> = {
+    public: "公開",
+    internal: "內部",
+    personal: "個資",
+    payroll: "薪資",
+    bank: "銀行",
+    national_id: "身分證",
+    health: "健康/私密",
+  };
+  return labels[sensitivity] ?? "內部";
+}
+
+function purposeLabel(purpose: string) {
+  const labels: Record<string, string> = {
+    management_review: "管理檢視",
+    monthly_close: "月結檢查",
+    labor_inspection: "勞檢準備",
+    audit_archive: "稽核封存",
+    pilot_readiness: "試用導入",
+  };
+  return labels[purpose] ?? "管理檢視";
+}
+
+function formatDateLabel(value: Date) {
+  return new Intl.DateTimeFormat("zh-TW", {
+    dateStyle: "medium",
+    timeZone: "Asia/Taipei",
+  }).format(value);
+}
+
+function localizeReportError(error: string) {
+  if (/report:manage/i.test(error)) return "目前角色沒有建立自訂報表的權限。";
+  if (/不可匯出/.test(error)) return error;
+  if (/薪資/.test(error)) return "薪資報表欄位需要薪資管理權限，且只能輸出遮罩或彙總。";
+  if (/結束日期/.test(error)) return "報表結束日期不可早於開始日期。";
+  if (/資料集|欄位/.test(error)) return "請選擇有效資料集與該資料集底下的欄位。";
+  return "請確認資料集、欄位、用途與期間後再試一次。";
 }
 
 function localizePayrollStepTitle(title: string) {
