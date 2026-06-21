@@ -16,6 +16,11 @@ import {
 } from "../src/server/rules/taiwan-labor-standards";
 import { evaluateTaiwanRuleEngineReadiness } from "../src/server/rules/interfaces";
 import { readRuleValidationSummary } from "../src/server/rules/validation";
+import {
+  buildTaiwanLaborComplianceCoverage,
+  summarizeTaiwanLaborComplianceCoverage,
+  type TaiwanLaborComplianceCoverageSummary,
+} from "../src/server/rules/settings";
 
 const prisma = new PrismaClient();
 const statutoryInsuranceTypes = [
@@ -301,6 +306,9 @@ async function buildSnapshot(
     : defaultTaiwanLaborStandardsConfig;
   const ruleValidation = summarizeRuleValidation(activeRuleVersions.map((version) => version.definitionJson));
   const legalSourceFreshness = summarizeLegalSourceFreshness(activeRuleVersions.map((version) => version.definitionJson));
+  const laborComplianceCoverage = laborSettingsVersion
+    ? summarizeTaiwanLaborComplianceCoverage(buildTaiwanLaborComplianceCoverage(laborConfig))
+    : missingTaiwanLaborComplianceCoverage();
   const ruleEngineReadiness = await evaluateTaiwanRuleEngineReadiness(laborConfig);
   const minimumWageCompliance = evaluateSalaryProfileMinimumWageCompliance(
     currentSalaryProfiles.map((profile) => ({
@@ -451,6 +459,7 @@ async function buildSnapshot(
     ruleValidation,
     ruleEngineReadiness,
     legalSourceFreshness,
+    laborComplianceCoverage,
     laborRuleChangeControl: laborSettingsVersion ? readChangeControl(laborSettingsVersion.definitionJson) : null,
     securitySettings: securitySetting
       ? {
@@ -623,6 +632,7 @@ function emptySnapshot(
       oldestCheckedAt: null,
       maxAgeDays: 180,
     },
+    laborComplianceCoverage: missingTaiwanLaborComplianceCoverage(),
     laborRuleChangeControl: null,
     securitySettings: null,
     fileStorageSettings: null,
@@ -750,6 +760,18 @@ function summarizeLegalSourceFreshness(definitions: unknown[]) {
     invalidVersionCount: summaries.filter((summary) => !summary || (summary.invalidSourceCount ?? 0) > 0).length,
     oldestCheckedAt,
     maxAgeDays,
+  };
+}
+
+function missingTaiwanLaborComplianceCoverage(): TaiwanLaborComplianceCoverageSummary {
+  return {
+    status: "blocked",
+    coveredCount: 0,
+    needsReviewCount: 0,
+    blockedCount: 11,
+    totalCount: 11,
+    blockedItems: ["missing Taiwan labor settings rule version"],
+    needsReviewItems: [],
   };
 }
 

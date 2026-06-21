@@ -8,6 +8,7 @@ import type { MinimumWageComplianceReport } from "@/server/payroll/minimum-wage"
 import type { PayrollRecordkeepingReadinessReport } from "@/server/payroll/recordkeeping";
 import type { PayrollInsuranceGradeReadinessReport } from "@/server/payroll/insurance-grade-readiness";
 import type { RuleEngineReadiness } from "@/server/rules/interfaces";
+import type { TaiwanLaborComplianceCoverageSummary } from "@/server/rules/settings";
 
 export type DatabaseVerificationMode = "demo" | "production";
 
@@ -110,6 +111,7 @@ export type DatabaseVerificationSnapshot = {
     oldestCheckedAt: string | null;
     maxAgeDays: number;
   };
+  laborComplianceCoverage: TaiwanLaborComplianceCoverageSummary;
   laborRuleChangeControl: {
     reason?: string;
     reviewStatus?: string;
@@ -272,6 +274,14 @@ export function buildDatabaseVerificationChecks(
       snapshot.legalSourceFreshness.staleVersionCount === 0 &&
       snapshot.legalSourceFreshness.invalidVersionCount === 0,
     `${snapshot.legalSourceFreshness.freshVersionCount}/${snapshot.legalSourceFreshness.activeVersionCount} active version(s) fresh; oldest ${snapshot.legalSourceFreshness.oldestCheckedAt ?? "missing"}; max age ${snapshot.legalSourceFreshness.maxAgeDays} day(s)`,
+  ));
+  checks.push(check(
+    "Taiwan compliance coverage",
+    snapshot.laborComplianceCoverage.status === "ready" &&
+      snapshot.laborComplianceCoverage.coveredCount === snapshot.laborComplianceCoverage.totalCount &&
+      snapshot.laborComplianceCoverage.blockedCount === 0 &&
+      snapshot.laborComplianceCoverage.needsReviewCount === 0,
+    `${snapshot.laborComplianceCoverage.coveredCount}/${snapshot.laborComplianceCoverage.totalCount} Taiwan compliance area(s) covered; ${snapshot.laborComplianceCoverage.blockedCount} blocked; ${snapshot.laborComplianceCoverage.needsReviewCount} need review${formatCoverageItems(snapshot.laborComplianceCoverage)}`,
   ));
   checks.push(check(
     "law rule change control",
@@ -559,6 +569,11 @@ function identityCoverage(privilegedUserIds: string[], externalIdentityUserIds: 
     configuredCount: configured.size,
     missingCount: privileged.size - configured.size,
   };
+}
+
+function formatCoverageItems(summary: TaiwanLaborComplianceCoverageSummary) {
+  const items = [...summary.blockedItems, ...summary.needsReviewItems];
+  return items.length ? `: ${items.join(", ")}` : ".";
 }
 
 function daysSince(value: Date | null) {

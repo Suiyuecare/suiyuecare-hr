@@ -147,6 +147,15 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     oldestCheckedAt: "2026-06-12",
     maxAgeDays: 180,
   },
+  laborComplianceCoverage: {
+    status: "ready",
+    coveredCount: 11,
+    needsReviewCount: 0,
+    blockedCount: 0,
+    totalCount: 11,
+    blockedItems: [],
+    needsReviewItems: [],
+  },
   laborRuleChangeControl: {
     reason: "Initial legal-approved Taiwan baseline.",
     reviewStatus: "approved",
@@ -676,6 +685,29 @@ describe("database verification checks", () => {
     expect(checks.find((item) => item.name === "legal source freshness")).toMatchObject({
       passed: false,
       detail: "2/3 active version(s) fresh; oldest 2025-01-01; max age 180 day(s)",
+    });
+  });
+
+  it("requires complete Taiwan compliance coverage before production verification passes", () => {
+    const checks = buildDatabaseVerificationChecks(
+      {
+        ...readySnapshot,
+        laborComplianceCoverage: {
+          status: "blocked",
+          coveredCount: 9,
+          needsReviewCount: 1,
+          blockedCount: 1,
+          totalCount: 11,
+          blockedItems: ["勞健保、勞退與補充保費"],
+          needsReviewItems: ["所得稅扣繳"],
+        },
+      },
+      "production",
+    );
+
+    expect(checks.find((item) => item.name === "Taiwan compliance coverage")).toMatchObject({
+      passed: false,
+      detail: "9/11 Taiwan compliance area(s) covered; 1 blocked; 1 need review: 勞健保、勞退與補充保費, 所得稅扣繳",
     });
   });
 
