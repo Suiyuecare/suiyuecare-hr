@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { getAuditDemoState, resetAuditDemoState } from "@/server/audit/demo-store";
 import {
   createCustomReportJob,
+  downloadReportArchive,
   getReportAdminWorkspace,
   resetReportDemoState,
   updateReportPermission,
@@ -158,5 +159,66 @@ describe("report builder foundation", () => {
       ]),
     );
     expect(JSON.stringify(getAuditDemoState().logs)).not.toContain("66000");
+  });
+
+  it("downloads manifest-only report archives with audit logs and no sensitive values", async () => {
+    const job = await createCustomReportJob(hrSession, {
+      title: "兩週試用人事準備度報表",
+      datasetCode: "people_readiness",
+      purpose: "labor_inspection",
+      periodStart: "2026-06-01",
+      periodEnd: "2026-06-30",
+      selectedFieldKeys: ["employee_no", "department", "hire_month", "labor_roster_status"],
+    });
+
+    const download = await downloadReportArchive(hrSession, job.archive.id);
+    const workspace = await getReportAdminWorkspace(hrSession);
+    const auditPayload = JSON.stringify(getAuditDemoState().logs);
+
+    expect(download.fileName).toMatch(/^hr-one-people_readiness-\d{8}-manifest\.csv$/);
+    expect(download.contentType).toBe("text/csv; charset=utf-8");
+    expect(download.body).toContain("content_hash");
+    expect(download.body).toContain(job.contentHash);
+    expect(download.body).toContain("raw_rows_included");
+    expect(download.body).toContain("sensitive_values_redacted");
+    expect(download.body).toContain("勞工名卡狀態");
+    expect(download.body).not.toContain("baseSalary");
+    expect(download.body).not.toContain("accountNumber");
+    expect(download.body).not.toContain("nationalId");
+    expect(download.body).not.toContain("A123456789");
+    expect(workspace.archives[0]).toMatchObject({
+      id: job.archive.id,
+      status: "downloaded",
+    });
+    expect(getAuditDemoState().logs[0]).toMatchObject({
+      action: "update",
+      entityType: "report_export_archive",
+      entityId: job.archive.id,
+    });
+    expect(getAuditDemoState().logs[0].metadataJson).toMatchObject({
+      downloadManifestOnly: true,
+      rawRowsIncluded: false,
+      sensitiveValuesRedacted: true,
+    });
+    expect(auditPayload).not.toContain("baseSalary");
+    expect(auditPayload).not.toContain("accountNumber");
+    expect(auditPayload).not.toContain("A123456789");
+  });
+
+  it("uses the permission matrix again before report archive download", async () => {
+    const job = await createCustomReportJob(hrSession, {
+      datasetCode: "people_readiness",
+      selectedFieldKeys: ["employee_no", "department"],
+    });
+
+    await updateReportPermission(hrSession, {
+      datasetCode: "people_readiness",
+      roleKey: "hr_admin",
+      accessLevel: "summary",
+      maskingMode: "masked",
+      exportAllowed: "false",
+    });
+
+    await expect(downloadReportArchive(hrSession, job.archive.id)).rejects.toThrow(/不能匯出/);
   });
 });

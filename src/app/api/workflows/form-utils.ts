@@ -30,6 +30,12 @@ export function combineDateAndTime(date: Date, time: string) {
 }
 
 export function parseNumber(value: FormDataEntryValue | null, fallback: number) {
+  if (value === null) {
+    return fallback;
+  }
+  if (typeof value === "string" && !value.trim()) {
+    return fallback;
+  }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 }

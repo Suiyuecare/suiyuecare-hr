@@ -92,6 +92,12 @@ export type ReportArchiveView = {
   createdAt: Date;
 };
 
+export type ReportArchiveDownload = {
+  fileName: string;
+  contentType: "text/csv; charset=utf-8";
+  body: string;
+};
+
 export type ReportAdminWorkspace = {
   datasets: ReportDatasetView[];
   permissions: ReportPermissionView[];
@@ -336,6 +342,22 @@ export async function updateReportPermission(
     return updateDbReportPermission(session, dataset, normalized);
   }
   return updateDemoReportPermission(session, dataset, normalized);
+}
+
+export async function downloadReportArchive(
+  session: SessionLike,
+  archiveId: string,
+): Promise<ReportArchiveDownload> {
+  assertPermission(session.role, "report:manage");
+  const normalizedArchiveId = archiveId.trim();
+  if (!normalizedArchiveId) {
+    throw new Error("請選擇有效的報表封存。");
+  }
+
+  if (canUseDatabase(session)) {
+    return downloadDbReportArchive(session, normalizedArchiveId);
+  }
+  return downloadDemoReportArchive(session, normalizedArchiveId);
 }
 
 export function resetReportDemoState() {
@@ -637,6 +659,119 @@ async function listDbReportArchives(session: SessionLike & { tenantId: string; c
   return records.map(mapDbArchive);
 }
 
+async function downloadDbReportArchive(
+  session: SessionLike & { tenantId: string; companyId: string },
+  archiveId: string,
+) {
+  const db = getDb();
+  const datasets = await getDbReportCatalog(session);
+  const permissions = await listDbReportPermissions(session, datasets);
+  const existing = await db.reportExportArchive.findFirst({
+    where: {
+      id: archiveId,
+      tenantId: session.tenantId,
+      companyId: session.companyId,
+    },
+    include: {
+      reportJob: {
+        include: {
+          dataset: true,
+        },
+      },
+    },
+  });
+  if (!existing) {
+    throw new Error("找不到報表封存。");
+  }
+
+  const dataset = findDataset(datasets, existing.reportJob.dataset.code);
+  const permission = findDatasetPermission(permissions, dataset, session.role);
+  assertDatasetPermission(permission, dataset, session.role);
+  const selectedFields = applyPermissionToFields(
+    permission,
+    normalizeSelectedFields(dataset, readStringArray(existing.reportJob.selectedFieldKeysJson)),
+  );
+  assertFieldsAllowed(session.role, selectedFields);
+
+  const now = new Date();
+  if (existing.downloadExpiresAt < now) {
+    if (existing.status !== "expired") {
+      await db.$transaction(async (tx) => {
+        const expired = await tx.reportExportArchive.update({
+          where: { id: existing.id },
+          data: { status: "expired" },
+        });
+        await writeAuditLog(tx, {
+          tenantId: session.tenantId,
+          companyId: session.companyId,
+          actorUserId: session.user?.id,
+          actorEmployeeId: session.employee?.id,
+          action: "update",
+          entityType: "report_export_archive",
+          entityId: expired.id,
+          before: {
+            status: existing.status,
+            downloadedAt: existing.downloadedAt,
+          },
+          after: {
+            status: expired.status,
+            downloadedAt: expired.downloadedAt,
+          },
+          metadata: archiveDownloadMetadata(dataset, existing.reportJob.id, expired.fileName, expired.contentHash),
+        });
+      });
+    }
+    throw new Error("報表封存下載期限已過，請重新產生。");
+  }
+
+  const updated = await db.$transaction(async (tx) => {
+    const record = await tx.reportExportArchive.update({
+      where: { id: existing.id },
+      data: {
+        status: "downloaded",
+        downloadedAt: now,
+      },
+    });
+    await writeAuditLog(tx, {
+      tenantId: session.tenantId,
+      companyId: session.companyId,
+      actorUserId: session.user?.id,
+      actorEmployeeId: session.employee?.id,
+      action: "update",
+      entityType: "report_export_archive",
+      entityId: record.id,
+      before: {
+        status: existing.status,
+        downloadedAt: existing.downloadedAt,
+      },
+      after: {
+        status: record.status,
+        downloadedAt: record.downloadedAt,
+      },
+      metadata: archiveDownloadMetadata(dataset, existing.reportJob.id, record.fileName, record.contentHash),
+    });
+    return record;
+  });
+
+  return buildDownloadFromReportJob({
+    ...mapDbJob(
+      {
+        ...existing.reportJob,
+        archives: [updated],
+      },
+      datasets,
+    ),
+    selectedFields: selectedFields.map((fieldItem) => ({
+      key: fieldItem.key,
+      label: fieldItem.label,
+      sensitivity: fieldItem.sensitivity,
+      maskingMode: fieldItem.maskingMode,
+    })),
+    maskedFieldCount: selectedFields.filter((fieldItem) => fieldItem.maskingMode !== "none").length,
+    archive: mapDbArchive(updated),
+  });
+}
+
 async function createDbReportJob(
   session: SessionLike & { tenantId: string; companyId: string },
   datasets: ReportDatasetView[],
@@ -901,6 +1036,86 @@ function createDemoReportJob(session: SessionLike, draft: ReportJobView) {
   return draft;
 }
 
+function downloadDemoReportArchive(session: SessionLike, archiveId: string) {
+  const state = getDemoState();
+  const archiveIndex = state.archives.findIndex((item) => item.id === archiveId);
+  const existingArchive = state.archives[archiveIndex];
+  const jobIndex = state.jobs.findIndex((item) => item.archive.id === archiveId);
+  const existingJob = state.jobs[jobIndex];
+  if (!existingArchive || !existingJob) {
+    throw new Error("找不到報表封存。");
+  }
+
+  const datasets = getDefaultCatalogViews();
+  const dataset = findDataset(datasets, existingJob.datasetCode);
+  const permissions = getDemoReportPermissions(datasets);
+  const permission = findDatasetPermission(permissions, dataset, session.role);
+  assertDatasetPermission(permission, dataset, session.role);
+  const selectedFields = applyPermissionToFields(
+    permission,
+    normalizeSelectedFields(dataset, existingJob.selectedFields.map((fieldItem) => fieldItem.key)),
+  );
+  assertFieldsAllowed(session.role, selectedFields);
+
+  const downloadedAt = new Date();
+  if (existingArchive.downloadExpiresAt < downloadedAt) {
+    const expiredArchive = { ...existingArchive, status: "expired" as const };
+    state.archives[archiveIndex] = expiredArchive;
+    state.jobs[jobIndex] = {
+      ...existingJob,
+      archive: expiredArchive,
+    };
+    writeReportArchiveDownloadDemoAuditLog(session, dataset, existingJob.id, existingArchive, expiredArchive);
+    throw new Error("報表封存下載期限已過，請重新產生。");
+  }
+
+  const updatedArchive = {
+    ...existingArchive,
+    status: "downloaded" as const,
+  };
+  const updatedJob = {
+    ...existingJob,
+    maskedFieldCount: selectedFields.filter((fieldItem) => fieldItem.maskingMode !== "none").length,
+    selectedFields: selectedFields.map((fieldItem) => ({
+      key: fieldItem.key,
+      label: fieldItem.label,
+      sensitivity: fieldItem.sensitivity,
+      maskingMode: fieldItem.maskingMode,
+    })),
+    archive: updatedArchive,
+  };
+  state.archives[archiveIndex] = updatedArchive;
+  state.jobs[jobIndex] = updatedJob;
+  writeReportArchiveDownloadDemoAuditLog(session, dataset, existingJob.id, existingArchive, updatedArchive);
+  return buildDownloadFromReportJob(updatedJob);
+}
+
+function writeReportArchiveDownloadDemoAuditLog(
+  session: SessionLike,
+  dataset: ReportDatasetView,
+  reportJobId: string,
+  beforeArchive: ReportArchiveView,
+  afterArchive: ReportArchiveView,
+) {
+  writeDemoAuditLog({
+    tenantId: session.tenantId ?? "demo-tenant",
+    companyId: session.companyId ?? "demo-company",
+    actorUserId: session.user?.id,
+    actorEmployeeId: session.employee?.id,
+    actorName: session.user?.displayName ?? session.employee?.displayName,
+    action: "update",
+    entityType: "report_export_archive",
+    entityId: afterArchive.id,
+    before: {
+      status: beforeArchive.status,
+    },
+    after: {
+      status: afterArchive.status,
+    },
+    metadata: archiveDownloadMetadata(dataset, reportJobId, afterArchive.fileName, afterArchive.contentHash),
+  });
+}
+
 function mapDbJob(
   record: {
     id: string;
@@ -986,7 +1201,10 @@ function mapDbArchive(record: {
     id: record.id,
     fileName: record.fileName,
     format: normalizeFormat(record.format),
-    status: normalizeArchiveStatus(record.status),
+    status:
+      record.downloadExpiresAt < new Date()
+        ? "expired"
+        : normalizeArchiveStatus(record.status),
     recordCount: record.recordCount,
     contentHash: record.contentHash,
     downloadExpiresAt: record.downloadExpiresAt,
@@ -1255,6 +1473,72 @@ function archiveMetadata(dataset: ReportDatasetView, fields: ReportFieldView[], 
     rawRowsIncluded: false,
     sensitiveValuesRedacted: true,
   };
+}
+
+function archiveDownloadMetadata(
+  dataset: Pick<ReportDatasetView, "code" | "category">,
+  reportJobId: string,
+  fileName: string,
+  contentHash: string,
+) {
+  return {
+    reportJobId,
+    datasetCode: dataset.code,
+    datasetCategory: dataset.category,
+    fileName,
+    contentHash,
+    downloadManifestOnly: true,
+    rawRowsIncluded: false,
+    sensitiveValuesRedacted: true,
+    salaryValuesIncluded: false,
+    bankAccountValuesIncluded: false,
+    nationalIdValuesIncluded: false,
+    healthValuesIncluded: false,
+    privateNotesIncluded: false,
+  };
+}
+
+function buildDownloadFromReportJob(job: ReportJobView): ReportArchiveDownload {
+  const rows = [
+    ["section", "label", "value", "note"],
+    ["archive", "file_name", job.archive.fileName, "manifest only"],
+    ["archive", "format", job.archive.format, ""],
+    ["archive", "status", job.archive.status, ""],
+    ["archive", "record_count", String(job.archive.recordCount), ""],
+    ["archive", "content_hash", job.archive.contentHash, ""],
+    ["archive", "download_expires_at", job.archive.downloadExpiresAt.toISOString(), ""],
+    ["job", "title", job.title, ""],
+    ["job", "dataset_code", job.datasetCode, ""],
+    ["job", "dataset_name", job.datasetName, ""],
+    ["job", "purpose", job.purpose, ""],
+    ["job", "period", job.periodLabel, ""],
+    ["policy", "manifest_only", "true", "raw report rows are not included"],
+    ["policy", "raw_rows_included", "false", ""],
+    ["policy", "sensitive_values_redacted", "true", ""],
+    ["policy", "salary_values_included", "false", ""],
+    ["policy", "bank_account_values_included", "false", ""],
+    ["policy", "national_id_values_included", "false", ""],
+    ["policy", "health_values_included", "false", ""],
+    ...job.selectedFields.map((fieldItem) => [
+      "field",
+      fieldItem.key,
+      fieldItem.label,
+      `${fieldItem.sensitivity}:${fieldItem.maskingMode}`,
+    ]),
+  ];
+  return {
+    fileName: manifestFileName(job.archive.fileName),
+    contentType: "text/csv; charset=utf-8",
+    body: rows.map((row) => row.map(csvCell).join(",")).join("\n"),
+  };
+}
+
+function manifestFileName(fileName: string) {
+  return fileName.replace(/\.(csv|xlsx)$/i, "-manifest.csv");
+}
+
+function csvCell(value: string) {
+  return `"${value.replaceAll("\"", "\"\"")}"`;
 }
 
 function normalizeTitle(value: string | null | undefined, fallback: string) {

@@ -919,6 +919,7 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
 
   await page.goto("/app");
   const leaveForm = page.getByRole("form", { name: "送出請假申請" });
+  await leaveForm.getByLabel("請假天數").fill("1");
   await leaveForm.getByLabel("請假原因").fill(leaveReason);
   await leaveForm.getByRole("button", { name: "送出請假" }).click();
   await expect(page.getByText(leaveReason)).toBeVisible();
@@ -1021,6 +1022,11 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   await expect(customReportJobs.getByText("兩週試用人事準備度報表")).toBeVisible();
   await expect(customReportJobs.getByText("遮罩封存", { exact: true })).toBeVisible();
   await expect(customReportJobs.getByText(/hash [a-f0-9]{10}/).first()).toBeVisible();
+  const reportArchives = page.getByLabel("報表封存清單");
+  await expect(reportArchives.getByRole("link", { name: "下載 manifest" }).first()).toBeVisible();
+  const reportManifestDownload = page.waitForEvent("download");
+  await reportArchives.getByRole("link", { name: "下載 manifest" }).first().click();
+  expect((await reportManifestDownload).suggestedFilename()).toMatch(/hr-one-people_readiness-\d{8}-manifest\.csv/);
   await expect(page.locator("body")).not.toContainText("baseSalary");
   await expect(page.locator("body")).not.toContainText("accountNumber");
   await expect(page.locator("body")).not.toContainText("nationalId");

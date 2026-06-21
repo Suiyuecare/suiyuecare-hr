@@ -299,7 +299,7 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
           <div className="section-heading">
             <div>
               <h2>封存清單</h2>
-              <p className="muted">封存只列 manifest metadata；實際檔案下載仍需後續接物件儲存與短效 URL。</p>
+              <p className="muted">下載只含 manifest metadata、欄位政策、hash 與安全聲明；不包含原始個資、薪資或銀行資料列。</p>
             </div>
             <span className="badge">{reportWorkspace.archives.length} 包</span>
           </div>
@@ -591,13 +591,23 @@ function ReportJobCard({ job }: { job: ReportJobView }) {
 }
 
 function ReportArchiveItem({ archive }: { archive: ReportArchiveView }) {
+  const statusLabel = archive.status === "downloaded" ? "已下載" : archive.status === "expired" ? "已到期" : "已產生";
   return (
     <li className="task report-archive-task">
       <span>
         <strong>{archive.fileName}</strong>
         <small>{archive.recordCount} 筆 · hash {archive.contentHash.slice(0, 10)} · 到期 {formatDateLabel(archive.downloadExpiresAt)}</small>
       </span>
-      <span className="badge">{archive.status === "downloaded" ? "已下載" : archive.status === "expired" ? "已到期" : "已產生"}</span>
+      <span className="report-archive-actions">
+        <span className={`badge ${archive.status === "expired" ? "danger" : archive.status === "downloaded" ? "done" : ""}`}>
+          {statusLabel}
+        </span>
+        {archive.status === "expired" ? null : (
+          <a className="button" href={`/api/reports/archives/${archive.id}/download`}>
+            下載 manifest
+          </a>
+        )}
+      </span>
     </li>
   );
 }
