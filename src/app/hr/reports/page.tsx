@@ -108,6 +108,15 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
         </section>
       ) : null}
 
+      {params.success === "report-review" ? (
+        <section className="report-alerts" aria-live="polite">
+          <div className="panel success-panel">
+            <strong>報表覆核已核准</strong>
+            <p>高敏報表已由第二位授權者核准，下載仍只提供 manifest metadata、欄位政策與內容 hash。</p>
+          </div>
+        </section>
+      ) : null}
+
       {params.error ? (
         <section className="report-alerts" aria-live="polite">
           <div className="panel danger-panel">
@@ -284,7 +293,12 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
           {reportWorkspace.jobs.length ? (
             <div className="report-job-list" aria-label="最近自訂報表">
               {reportWorkspace.jobs.map((job) => (
-                <ReportJobCard job={job} key={job.id} />
+                <ReportJobCard
+                  canManageReports={canManageReports}
+                  currentUserId={session.user?.id ?? null}
+                  job={job}
+                  key={job.id}
+                />
               ))}
             </div>
           ) : (
@@ -306,7 +320,11 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
           {reportWorkspace.archives.length ? (
             <ul className="task-list compact report-archive-list" aria-label="報表封存清單">
               {reportWorkspace.archives.map((archive) => (
-                <ReportArchiveItem archive={archive} key={archive.id} />
+                <ReportArchiveItem
+                  archive={archive}
+                  blockedByReview={reportWorkspace.jobs.some((job) => job.archive.id === archive.id && job.status === "pending_review")}
+                  key={archive.id}
+                />
               ))}
             </ul>
           ) : (
@@ -557,11 +575,23 @@ function ReportPermissionCard({
   );
 }
 
-function ReportJobCard({ job }: { job: ReportJobView }) {
+function ReportJobCard({
+  job,
+  canManageReports,
+  currentUserId,
+}: {
+  job: ReportJobView;
+  canManageReports: boolean;
+  currentUserId: string | null;
+}) {
+  const pendingReview = job.status === "pending_review" || job.review.status === "pending";
+  const selfReviewBlocked = pendingReview && currentUserId != null && currentUserId === job.review.requestedByUserId;
   return (
-    <article className="report-job-card">
+    <article className={`report-job-card ${pendingReview ? "warning" : ""}`}>
       <div>
-        <span className="badge done">遮罩封存</span>
+        <span className={`badge ${pendingReview ? "warning" : "done"}`}>
+          {pendingReview ? "待第二人覆核" : "遮罩封存"}
+        </span>
         <h3>{job.title}</h3>
         <p>{job.datasetName} · {purposeLabel(job.purpose)} · {job.periodLabel}</p>
       </div>
@@ -586,23 +616,58 @@ function ReportJobCard({ job }: { job: ReportJobView }) {
           </span>
         ))}
       </div>
+      {job.review.required ? (
+        <div className={`report-review-gate ${pendingReview ? "warning" : "done"}`}>
+          <strong>{pendingReview ? "下載前需要第二人覆核" : "第二人覆核已完成"}</strong>
+          <small>{job.review.reason}</small>
+          <small>覆核證據 hash · {job.review.evidenceHash.slice(0, 12)}</small>
+          {pendingReview ? (
+            <form action="/api/reports/review" method="post" className="mini-form compact-form">
+              <input type="hidden" name="jobId" value={job.id} />
+              <label>
+                覆核備註代碼
+                <input
+                  name="reviewerNote"
+                  placeholder={selfReviewBlocked ? "需另一位 Owner/HR 核准" : "例：REV-2026-06"}
+                  disabled={!canManageReports || selfReviewBlocked}
+                />
+              </label>
+              <button className="button primary" type="submit" disabled={!canManageReports || selfReviewBlocked}>
+                {selfReviewBlocked ? "等待第二人" : "核准報表覆核"}
+              </button>
+            </form>
+          ) : null}
+        </div>
+      ) : (
+        <div className="report-review-gate done">
+          <strong>不需雙人覆核</strong>
+          <small>{job.review.reason}</small>
+        </div>
+      )}
     </article>
   );
 }
 
-function ReportArchiveItem({ archive }: { archive: ReportArchiveView }) {
+function ReportArchiveItem({
+  archive,
+  blockedByReview,
+}: {
+  archive: ReportArchiveView;
+  blockedByReview: boolean;
+}) {
   const statusLabel = archive.status === "downloaded" ? "已下載" : archive.status === "expired" ? "已到期" : "已產生";
   return (
     <li className="task report-archive-task">
       <span>
         <strong>{archive.fileName}</strong>
         <small>{archive.recordCount} 筆 · hash {archive.contentHash.slice(0, 10)} · 到期 {formatDateLabel(archive.downloadExpiresAt)}</small>
+        {blockedByReview ? <small>待第二人覆核後才可下載 manifest。</small> : null}
       </span>
       <span className="report-archive-actions">
-        <span className={`badge ${archive.status === "expired" ? "danger" : archive.status === "downloaded" ? "done" : ""}`}>
-          {statusLabel}
+        <span className={`badge ${blockedByReview ? "warning" : archive.status === "expired" ? "danger" : archive.status === "downloaded" ? "done" : ""}`}>
+          {blockedByReview ? "待覆核" : statusLabel}
         </span>
-        {archive.status === "expired" ? null : (
+        {archive.status === "expired" || blockedByReview ? null : (
           <a className="button" href={`/api/reports/archives/${archive.id}/download`}>
             下載 manifest
           </a>
@@ -714,9 +779,15 @@ function buildNextStageItems() {
       tone: "warning",
     },
     {
-      title: "欄位級覆寫與雙人覆核",
-      detail: "下一步把目前資料集層級矩陣推進到單欄位例外、雙人覆核與到期自動回收。",
-      status: "覆核",
+      title: "高敏報表雙人覆核 Gate",
+      detail: "含個資、薪資、銀行、身分證或健康欄位的報表已需第二位授權者核准，下載仍只提供 manifest。",
+      status: "已上線",
+      tone: "done",
+    },
+    {
+      title: "欄位級覆寫與到期自動回收",
+      detail: "下一步把目前資料集層級矩陣推進到單欄位例外、期限到期自動回收與覆寫證據包。",
+      status: "覆寫",
       tone: "warning",
     },
     {

@@ -10952,6 +10952,11 @@ legend {
   box-shadow: var(--shadow);
 }
 
+.report-job-card.warning {
+  border-color: #fbbf24;
+  background: linear-gradient(180deg, #fffbeb 0%, #ffffff 100%);
+}
+
 .report-builder-card-header {
   display: grid;
   gap: 8px;
@@ -10973,6 +10978,38 @@ legend {
   font-size: 13px;
   font-weight: 780;
   line-height: 1.45;
+}
+
+.report-review-gate {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.report-review-gate.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.report-review-gate.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.report-review-gate strong {
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+.report-review-gate small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
 }
 
 .report-fieldset {

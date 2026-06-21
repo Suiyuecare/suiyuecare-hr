@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { getAuditDemoState, resetAuditDemoState } from "@/server/audit/demo-store";
 import {
+  approveReportJobReview,
   createCustomReportJob,
   downloadReportArchive,
   getReportAdminWorkspace,
@@ -14,6 +15,14 @@ const hrSession = {
   companyId: "demo-company",
   user: { id: "demo-user-hr", displayName: "林人資" },
   employee: { id: "demo-hr-employee", displayName: "林人資" },
+};
+
+const ownerSession = {
+  role: "owner" as const,
+  tenantId: "demo-tenant",
+  companyId: "demo-company",
+  user: { id: "demo-user-owner", displayName: "黃老闆" },
+  employee: { id: "demo-owner-employee", displayName: "黃老闆" },
 };
 
 const managerSession = {
@@ -45,8 +54,14 @@ describe("report builder foundation", () => {
     expect(job).toMatchObject({
       title: "E2E 人事準備度報表",
       datasetCode: "people_readiness",
+      status: "pending_review",
       rowCount: 25,
       maskedFieldCount: 1,
+      review: {
+        required: true,
+        status: "pending",
+        requestedByUserId: "demo-user-hr",
+      },
       archive: {
         status: "generated",
         recordCount: 25,
@@ -70,6 +85,10 @@ describe("report builder foundation", () => {
       nationalIdValuesIncluded: "[REDACTED]",
       healthValuesIncluded: "[REDACTED]",
       privateNotesIncluded: false,
+      review: expect.objectContaining({
+        required: true,
+        status: "pending",
+      }),
     });
     expect(auditPayload).not.toContain("baseSalary");
     expect(auditPayload).not.toContain("accountNumber");
@@ -171,10 +190,24 @@ describe("report builder foundation", () => {
       selectedFieldKeys: ["employee_no", "department", "hire_month", "labor_roster_status"],
     });
 
+    await expect(downloadReportArchive(hrSession, job.archive.id)).rejects.toThrow(/第二人覆核/);
+    await expect(approveReportJobReview(hrSession, { jobId: job.id })).rejects.toThrow(/不可由建立者自行核准/);
+    const approved = await approveReportJobReview(ownerSession, {
+      jobId: job.id,
+      reviewerNote: "REV-2026-06",
+    });
     const download = await downloadReportArchive(hrSession, job.archive.id);
     const workspace = await getReportAdminWorkspace(hrSession);
     const auditPayload = JSON.stringify(getAuditDemoState().logs);
 
+    expect(approved).toMatchObject({
+      status: "generated",
+      review: {
+        required: true,
+        status: "approved",
+        approvedByUserId: "demo-user-owner",
+      },
+    });
     expect(download.fileName).toMatch(/^hr-one-people_readiness-\d{8}-manifest\.csv$/);
     expect(download.contentType).toBe("text/csv; charset=utf-8");
     expect(download.body).toContain("content_hash");
@@ -195,6 +228,7 @@ describe("report builder foundation", () => {
       entityType: "report_export_archive",
       entityId: job.archive.id,
     });
+    expect(getAuditDemoState().logs.map((log) => log.action)).toContain("approve");
     expect(getAuditDemoState().logs[0].metadataJson).toMatchObject({
       downloadManifestOnly: true,
       rawRowsIncluded: false,

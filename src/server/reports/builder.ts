@@ -24,6 +24,7 @@ export type ReportFieldSensitivity =
 
 export type ReportMaskingMode = "none" | "masked" | "aggregate_only" | "blocked";
 export type ReportAccessLevel = "none" | "summary" | "detail" | "aggregate";
+export type ReportReviewStatus = "not_required" | "pending" | "approved";
 
 export type ReportDatasetDefinition = {
   code: string;
@@ -64,7 +65,7 @@ export type ReportJobView = {
   datasetCode: string;
   datasetName: string;
   purpose: string;
-  status: "generated" | "queued" | "failed";
+  status: "generated" | "queued" | "failed" | "pending_review";
   format: "csv" | "xlsx";
   periodLabel: string;
   selectedFields: Array<{
@@ -78,7 +79,18 @@ export type ReportJobView = {
   contentHash: string;
   expiresAt: Date;
   createdAt: Date;
+  review: ReportJobReviewView;
   archive: ReportArchiveView;
+};
+
+export type ReportJobReviewView = {
+  required: boolean;
+  status: ReportReviewStatus;
+  reason: string;
+  requestedByUserId: string | null;
+  approvedByUserId: string | null;
+  approvedAt: Date | null;
+  evidenceHash: string;
 };
 
 export type ReportArchiveView = {
@@ -147,6 +159,11 @@ export type UpdateReportPermissionInput = {
   maskingMode?: string | null;
   exportAllowed?: boolean | string | null;
   requiresReason?: boolean | string | null;
+};
+
+export type ApproveReportReviewInput = {
+  jobId?: string | null;
+  reviewerNote?: string | null;
 };
 
 type ReportDemoState = {
@@ -277,6 +294,7 @@ export async function createCustomReportJob(
   const purpose = normalizePurpose(input.purpose);
   const format = normalizeFormat(input.format);
   const maskedFieldCount = selectedFields.filter((field) => field.maskingMode !== "none").length;
+  const review = buildReportReviewPolicy(session, dataset, selectedFields, purpose);
   const contentHash = stableHash({
     tenantId: session.tenantId ?? "demo-tenant",
     companyId: session.companyId ?? "demo-company",
@@ -286,6 +304,8 @@ export async function createCustomReportJob(
     periodEnd: period.periodEnd?.toISOString() ?? null,
     rowCount,
     purpose,
+    reviewRequired: review.required,
+    reviewEvidenceHash: review.evidenceHash,
     rawSensitiveValuesIncluded: false,
   });
   const expiresAt = addDays(now, 7);
@@ -305,7 +325,7 @@ export async function createCustomReportJob(
     datasetCode: dataset.code,
     datasetName: dataset.name,
     purpose,
-    status: "generated",
+    status: review.required ? "pending_review" : "generated",
     format,
     periodLabel: formatPeriodLabel(period.periodStart, period.periodEnd),
     selectedFields: selectedFields.map((field) => ({
@@ -319,6 +339,7 @@ export async function createCustomReportJob(
     contentHash,
     expiresAt,
     createdAt: now,
+    review,
     archive,
   };
 
@@ -342,6 +363,19 @@ export async function updateReportPermission(
     return updateDbReportPermission(session, dataset, normalized);
   }
   return updateDemoReportPermission(session, dataset, normalized);
+}
+
+export async function approveReportJobReview(
+  session: SessionLike,
+  input: ApproveReportReviewInput,
+): Promise<ReportJobView> {
+  assertPermission(session.role, "report:manage");
+  const jobId = input.jobId?.trim();
+  if (!jobId) throw new Error("請選擇要覆核的報表。");
+  if (canUseDatabase(session)) {
+    return approveDbReportJobReview(session, jobId, input.reviewerNote);
+  }
+  return approveDemoReportJobReview(session, jobId, input.reviewerNote);
 }
 
 export async function downloadReportArchive(
@@ -676,6 +710,10 @@ async function downloadDbReportArchive(
       reportJob: {
         include: {
           dataset: true,
+          archives: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
         },
       },
     },
@@ -683,6 +721,7 @@ async function downloadDbReportArchive(
   if (!existing) {
     throw new Error("找不到報表封存。");
   }
+  assertReportJobReadyForDownload(mapDbJob(existing.reportJob, datasets));
 
   const dataset = findDataset(datasets, existing.reportJob.dataset.code);
   const permission = findDatasetPermission(permissions, dataset, session.role);
@@ -869,6 +908,73 @@ async function createDbReportJob(
   );
 }
 
+async function approveDbReportJobReview(
+  session: SessionLike & { tenantId: string; companyId: string },
+  jobId: string,
+  reviewerNote: string | null | undefined,
+) {
+  const db = getDb();
+  const datasets = await getDbReportCatalog(session);
+  const existing = await db.reportJob.findFirst({
+    where: {
+      id: jobId,
+      tenantId: session.tenantId,
+      companyId: session.companyId,
+    },
+    include: {
+      dataset: true,
+      archives: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
+  });
+  if (!existing) throw new Error("找不到待覆核報表。");
+  const existingView = mapDbJob(existing, datasets);
+  assertReportJobPendingReview(existingView, session);
+  const approvedReview = approveReportReview(existingView.review, session, reviewerNote);
+  const metadata = readMetadataObject(existing.metadataJson);
+  const updated = await db.$transaction(async (tx) => {
+    const record = await tx.reportJob.update({
+      where: { id: existing.id },
+      data: {
+        status: "generated",
+        metadataJson: {
+          ...metadata,
+          review: reportReviewMetadata(approvedReview),
+        } as Prisma.InputJsonValue,
+      },
+      include: {
+        dataset: true,
+        archives: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
+    });
+    await writeAuditLog(tx, {
+      tenantId: session.tenantId,
+      companyId: session.companyId,
+      actorUserId: session.user?.id,
+      actorEmployeeId: session.employee?.id,
+      action: "approve",
+      entityType: "report_job",
+      entityId: record.id,
+      before: {
+        status: existing.status,
+        review: existingView.review,
+      },
+      after: {
+        status: record.status,
+        review: approvedReview,
+      },
+      metadata: reportReviewAuditMetadata(existingView, approvedReview),
+    });
+    return record;
+  });
+  return mapDbJob(updated, datasets);
+}
+
 async function updateDbReportPermission(
   session: SessionLike & { tenantId: string; companyId: string },
   dataset: ReportDatasetView,
@@ -1045,6 +1151,7 @@ function downloadDemoReportArchive(session: SessionLike, archiveId: string) {
   if (!existingArchive || !existingJob) {
     throw new Error("找不到報表封存。");
   }
+  assertReportJobReadyForDownload(existingJob);
 
   const datasets = getDefaultCatalogViews();
   const dataset = findDataset(datasets, existingJob.datasetCode);
@@ -1090,6 +1197,45 @@ function downloadDemoReportArchive(session: SessionLike, archiveId: string) {
   return buildDownloadFromReportJob(updatedJob);
 }
 
+function approveDemoReportJobReview(
+  session: SessionLike,
+  jobId: string,
+  reviewerNote: string | null | undefined,
+) {
+  const state = getDemoState();
+  const jobIndex = state.jobs.findIndex((item) => item.id === jobId);
+  const existingJob = state.jobs[jobIndex];
+  if (!existingJob) throw new Error("找不到待覆核報表。");
+  assertReportJobPendingReview(existingJob, session);
+  const approvedReview = approveReportReview(existingJob.review, session, reviewerNote);
+  const updatedJob: ReportJobView = {
+    ...existingJob,
+    status: "generated",
+    review: approvedReview,
+  };
+  state.jobs[jobIndex] = updatedJob;
+  writeDemoAuditLog({
+    tenantId: session.tenantId ?? "demo-tenant",
+    companyId: session.companyId ?? "demo-company",
+    actorUserId: session.user?.id,
+    actorEmployeeId: session.employee?.id,
+    actorName: session.user?.displayName ?? session.employee?.displayName,
+    action: "approve",
+    entityType: "report_job",
+    entityId: updatedJob.id,
+    before: {
+      status: existingJob.status,
+      review: existingJob.review,
+    },
+    after: {
+      status: updatedJob.status,
+      review: updatedJob.review,
+    },
+    metadata: reportReviewAuditMetadata(updatedJob, approvedReview),
+  });
+  return updatedJob;
+}
+
 function writeReportArchiveDownloadDemoAuditLog(
   session: SessionLike,
   dataset: ReportDatasetView,
@@ -1132,6 +1278,8 @@ function mapDbJob(
     expiresAt: Date;
     createdAt: Date;
     dataset: { code: string; name: string };
+    requestedByUserId?: string | null;
+    metadataJson?: Prisma.JsonValue;
     archives: Array<{
       id: string;
       fileName: string;
@@ -1183,6 +1331,7 @@ function mapDbJob(
     contentHash: record.contentHash,
     expiresAt: record.expiresAt,
     createdAt: record.createdAt,
+    review: readReportReviewFromMetadata(record.metadataJson, record.status, record.requestedByUserId ?? null),
     archive,
   };
 }
@@ -1316,6 +1465,25 @@ function assertFieldsAllowed(role: RoleKey, fields: ReportFieldView[]) {
   }
 }
 
+function assertReportJobPendingReview(job: ReportJobView, session: SessionLike) {
+  if (!job.review.required || job.review.status !== "pending" || job.status !== "pending_review") {
+    throw new Error("這份報表不在待覆核狀態。");
+  }
+  const actorUserId = session.user?.id ?? null;
+  if (actorUserId && job.review.requestedByUserId && actorUserId === job.review.requestedByUserId) {
+    throw new Error("報表雙人覆核不可由建立者自行核准。");
+  }
+}
+
+function assertReportJobReadyForDownload(job: ReportJobView) {
+  if (job.status === "pending_review" || job.review.status === "pending") {
+    throw new Error("報表仍待第二人覆核，核准後才可下載 manifest。");
+  }
+  if (job.status !== "generated") {
+    throw new Error("報表尚未產生完成，請稍後再下載。");
+  }
+}
+
 async function estimateRowCount(session: SessionLike, datasetCode: string) {
   if (!canUseDatabase(session)) {
     if (datasetCode === "attendance_monthly") return 1;
@@ -1360,6 +1528,105 @@ function reportMetadata(dataset: ReportDatasetView, fields: ReportFieldView[], d
     nationalIdValuesIncluded: false,
     healthValuesIncluded: false,
     privateNotesIncluded: false,
+    review: reportReviewMetadata(draft.review),
+  };
+}
+
+function buildReportReviewPolicy(
+  session: SessionLike,
+  dataset: ReportDatasetView,
+  fields: ReportFieldView[],
+  purpose: string,
+): ReportJobReviewView {
+  const sensitiveFields = fields.filter((fieldItem) => requiresSecondReviewForField(fieldItem));
+  const required =
+    dataset.category === "payroll" ||
+    sensitiveFields.length > 0 ||
+    fields.some((fieldItem) => fieldItem.maskingMode === "aggregate_only");
+  const reason = required
+    ? [
+        dataset.category === "payroll" ? "薪資資料集" : null,
+        sensitiveFields.length ? `高敏欄位 ${sensitiveFields.map((fieldItem) => fieldItem.sensitivity).join("/")}` : null,
+        fields.some((fieldItem) => fieldItem.maskingMode === "aggregate_only") ? "只允許彙總輸出" : null,
+      ].filter(Boolean).join("；")
+    : "不含高敏欄位，依角色權限可直接產生 manifest。";
+  return {
+    required,
+    status: required ? "pending" : "not_required",
+    reason,
+    requestedByUserId: session.user?.id ?? null,
+    approvedByUserId: null,
+    approvedAt: null,
+    evidenceHash: stableHash({
+      datasetCode: dataset.code,
+      purpose,
+      selectedFieldKeys: fields.map((fieldItem) => fieldItem.key),
+      sensitivities: fields.map((fieldItem) => fieldItem.sensitivity),
+      maskingModes: fields.map((fieldItem) => fieldItem.maskingMode),
+      required,
+      reason,
+    }),
+  };
+}
+
+function requiresSecondReviewForField(fieldItem: Pick<ReportFieldView, "sensitivity">) {
+  return (
+    fieldItem.sensitivity === "personal" ||
+    fieldItem.sensitivity === "payroll" ||
+    fieldItem.sensitivity === "bank" ||
+    fieldItem.sensitivity === "national_id" ||
+    fieldItem.sensitivity === "health"
+  );
+}
+
+function approveReportReview(
+  review: ReportJobReviewView,
+  session: SessionLike,
+  reviewerNote: string | null | undefined,
+): ReportJobReviewView {
+  return {
+    ...review,
+    status: "approved",
+    approvedByUserId: session.user?.id ?? null,
+    approvedAt: new Date(),
+    evidenceHash: stableHash({
+      previousEvidenceHash: review.evidenceHash,
+      approvedByUserId: session.user?.id ?? null,
+      reviewerNoteHash: stableHash(normalizeReviewerNote(reviewerNote)),
+    }),
+  };
+}
+
+function normalizeReviewerNote(value: string | null | undefined) {
+  return value?.trim().slice(0, 120) || "approved";
+}
+
+function reportReviewMetadata(review: ReportJobReviewView) {
+  return {
+    required: review.required,
+    status: review.status,
+    reason: review.reason,
+    requestedByUserId: review.requestedByUserId,
+    approvedByUserId: review.approvedByUserId,
+    approvedAt: review.approvedAt?.toISOString() ?? null,
+    evidenceHash: review.evidenceHash,
+    rawSensitiveValuesIncluded: false,
+  };
+}
+
+function reportReviewAuditMetadata(job: ReportJobView, review: ReportJobReviewView) {
+  return {
+    reportJobId: job.id,
+    datasetCode: job.datasetCode,
+    reviewRequired: review.required,
+    reviewStatus: review.status,
+    reviewEvidenceHash: review.evidenceHash,
+    rawRowsIncluded: false,
+    sensitiveValuesRedacted: true,
+    salaryValuesIncluded: false,
+    bankAccountValuesIncluded: false,
+    nationalIdValuesIncluded: false,
+    healthValuesIncluded: false,
   };
 }
 
@@ -1609,6 +1876,53 @@ function readStringArray(value: Prisma.JsonValue) {
   return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
 }
 
+function readReportReviewFromMetadata(
+  metadataJson: Prisma.JsonValue | undefined,
+  status: string,
+  requestedByUserId: string | null,
+): ReportJobReviewView {
+  const metadata = readMetadataObject(metadataJson);
+  const review = readMetadataObject(metadata.review);
+  const required = readMetadataBoolean(review.required, status === "pending_review");
+  const reviewStatus = normalizeReviewStatus(review.status, required, status);
+  const approvedAt = readMetadataDate(review.approvedAt);
+  return {
+    required,
+    status: reviewStatus,
+    reason: readMetadataString(review.reason, required ? "高敏報表需要第二人覆核。" : "不需要第二人覆核。"),
+    requestedByUserId: readMetadataString(review.requestedByUserId, requestedByUserId) || null,
+    approvedByUserId: readMetadataString(review.approvedByUserId, null) || null,
+    approvedAt,
+    evidenceHash: readMetadataString(review.evidenceHash, stableHash({ required, reviewStatus, status })),
+  };
+}
+
+function readMetadataObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function readMetadataString(value: unknown, fallback: string | null): string {
+  return typeof value === "string" ? value : fallback ?? "";
+}
+
+function readMetadataBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function readMetadataDate(value: unknown): Date | null {
+  if (typeof value !== "string" || !value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function normalizeReviewStatus(value: unknown, required: boolean, jobStatus: string): ReportReviewStatus {
+  if (value === "pending" || value === "approved" || value === "not_required") return value;
+  if (jobStatus === "pending_review") return "pending";
+  return required ? "approved" : "not_required";
+}
+
 function normalizeValueType(value: string): ReportFieldDefinition["valueType"] {
   if (value === "number" || value === "date" || value === "percent" || value === "status") return value;
   return "string";
@@ -1633,6 +1947,7 @@ function normalizeMaskingMode(value: string): ReportMaskingMode {
 }
 
 function normalizeJobStatus(value: string): ReportJobView["status"] {
+  if (value === "pending_review") return "pending_review";
   if (value === "queued" || value === "failed") return value;
   return "generated";
 }
