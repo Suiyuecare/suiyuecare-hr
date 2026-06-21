@@ -22,6 +22,7 @@ import { evaluateTaiwanRuleEngineReadiness, type RuleEngineReadiness } from "@/s
 import type { TaiwanLaborStandardsConfig } from "@/server/rules/taiwan-labor-standards";
 import { getTaiwanLaborStandardsConfig } from "@/server/rules/settings";
 import {
+  evaluateLegalSourceAuthority,
   evaluateLegalSourceFreshness,
   validateTaiwanLaborStandardsRuleSet,
 } from "@/server/rules/validation";
@@ -139,6 +140,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
   });
   const laborRuleValidation = validateTaiwanLaborStandardsRuleSet(laborConfig);
   const legalSourceFreshness = evaluateLegalSourceFreshness(laborConfig.sources);
+  const legalSourceAuthority = evaluateLegalSourceAuthority(laborConfig.sources);
   const ruleEngineReadiness = await evaluateTaiwanRuleEngineReadiness(laborConfig);
 
   return buildLaunchReadinessReport({
@@ -158,6 +160,13 @@ export async function getLaunchReadinessReport(session: SessionLike) {
       totalSourceCount: legalSourceFreshness.totalSourceCount,
       oldestCheckedAt: legalSourceFreshness.oldestCheckedAt,
       maxAgeDays: legalSourceFreshness.maxAgeDays,
+    },
+    legalSourceAuthority: {
+      passed: legalSourceAuthority.passed,
+      trustedSourceCount: legalSourceAuthority.trustedSourceCount,
+      totalSourceCount: legalSourceAuthority.totalSourceCount,
+      untrustedSourceCount: legalSourceAuthority.untrustedSourceCount,
+      invalidUrlSourceCount: legalSourceAuthority.invalidUrlSourceCount,
     },
     ruleEngineReadiness,
     securitySettings,
@@ -208,6 +217,13 @@ export function buildLaunchReadinessReport(input: {
     totalSourceCount: number;
     oldestCheckedAt: string | null;
     maxAgeDays: number;
+  };
+  legalSourceAuthority?: {
+    passed: boolean;
+    trustedSourceCount: number;
+    totalSourceCount: number;
+    untrustedSourceCount: number;
+    invalidUrlSourceCount: number;
   };
   laborComplianceCoverageSummary?: TaiwanLaborComplianceCoverageSummary;
   ruleEngineReadiness?: RuleEngineReadiness;
@@ -269,6 +285,16 @@ export function buildLaunchReadinessReport(input: {
     oldestCheckedAt: null,
     maxAgeDays: 180,
   };
+  const legalSourceAuthority = input.legalSourceAuthority ?? (() => {
+    const evaluated = evaluateLegalSourceAuthority(input.laborConfig.sources);
+    return {
+      passed: evaluated.passed,
+      trustedSourceCount: evaluated.trustedSourceCount,
+      totalSourceCount: evaluated.totalSourceCount,
+      untrustedSourceCount: evaluated.untrustedSourceCount,
+      invalidUrlSourceCount: evaluated.invalidUrlSourceCount,
+    };
+  })();
   const ruleEngineReadiness = input.ruleEngineReadiness ?? {
     passed: true,
     passedCount: 0,
@@ -552,11 +578,14 @@ export function buildLaunchReadinessReport(input: {
         laborComplianceCoverageSummary.status === "ready" &&
         laborRuleValidation.passed &&
         legalSourceFreshness.passed &&
+        legalSourceAuthority.passed &&
         ruleEngineReadiness.passed
         ? "ready"
         : "blocked",
-      detail: `${input.activeRuleCount} active rule version(s); rule review status ${input.laborConfig.changeControl.reviewStatus}; coverage ${laborComplianceCoverageSummary.coveredCount}/${laborComplianceCoverageSummary.totalCount}; ${laborRuleValidation.passedCount}/${laborRuleValidation.fixtureCount} fixture(s) passed; executable engine ${ruleEngineReadiness.passedCount}/${ruleEngineReadiness.checkCount} check(s) passed; sources ${legalSourceFreshness.freshSourceCount}/${legalSourceFreshness.totalSourceCount} fresh, oldest ${legalSourceFreshness.oldestCheckedAt ?? "missing"}.`,
-      nextStep: laborComplianceCoverageSummary.status === "ready"
+      detail: `${input.activeRuleCount} active rule version(s); rule review status ${input.laborConfig.changeControl.reviewStatus}; coverage ${laborComplianceCoverageSummary.coveredCount}/${laborComplianceCoverageSummary.totalCount}; ${laborRuleValidation.passedCount}/${laborRuleValidation.fixtureCount} fixture(s) passed; executable engine ${ruleEngineReadiness.passedCount}/${ruleEngineReadiness.checkCount} check(s) passed; sources ${legalSourceFreshness.freshSourceCount}/${legalSourceFreshness.totalSourceCount} fresh, oldest ${legalSourceFreshness.oldestCheckedAt ?? "missing"}.${legalSourceAuthority.passed ? "" : ` official-source authority blocked: ${legalSourceAuthority.untrustedSourceCount} untrusted, ${legalSourceAuthority.invalidUrlSourceCount} invalid URL(s).`}`,
+      nextStep: !legalSourceAuthority.passed
+        ? "Replace every non-official or invalid legal source with an HTTPS official .gov.tw source, then create a reviewed rule version and rerun launch readiness."
+        : laborComplianceCoverageSummary.status === "ready"
         ? "Approve active Taiwan labor/payroll rule versions, pass validation fixtures, verify executable rule-engine checks, refresh official source review dates, and recalculate any payroll drafts flagged by change control."
         : `Complete Taiwan compliance coverage before launch: ${[
           ...laborComplianceCoverageSummary.blockedItems,

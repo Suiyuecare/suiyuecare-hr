@@ -329,6 +329,64 @@ describe("launch readiness", () => {
     });
   });
 
+  it("blocks launch when any active legal source is not an official HTTPS gov.tw URL", () => {
+    const laborConfig = structuredClone(defaultTaiwanLaborStandardsConfig);
+    laborConfig.sources.push({
+      id: "customer-private-legal-db",
+      title: "Private legal database should not be a launch source",
+      url: "https://example.com/private-law-database",
+      checkedAt: "2026-06-20",
+    });
+
+    const report = buildLaunchReadinessReport({
+      databaseConfigured: true,
+      employeeCount: 5,
+      auditCount: 8,
+      activeRuleCount: 3,
+      laborConfig,
+      laborRuleValidation: {
+        passed: true,
+        passedCount: 9,
+        fixtureCount: 9,
+      },
+      legalSourceFreshness: {
+        passed: true,
+        freshSourceCount: laborConfig.sources.length,
+        totalSourceCount: laborConfig.sources.length,
+        oldestCheckedAt: "2026-06-12",
+        maxAgeDays: 180,
+      },
+      ruleEngineReadiness: {
+        passed: true,
+        passedCount: 4,
+        checkCount: 4,
+        detail: "4 executable rule-engine check(s) passed.",
+      },
+      securitySettings: secureSettings,
+      fileStorageSettings: secureStorage,
+      notificationSettings,
+      privilegedSsoIdentityCoverage: {
+        total: 3,
+        linked: 3,
+      },
+      supportAccessGovernance: {
+        activeApprovedCount: 0,
+        activeUnapprovedCount: 0,
+        expiredStillApprovedCount: 0,
+      },
+      payrollPaymentSecurity: readyPaymentSecurity,
+      calendarReadiness: readyCalendar,
+      kpis: passingKpis,
+    });
+
+    expect(report.items.find((item) => item.id === "law_rules")).toMatchObject({
+      status: "blocked",
+      detail: expect.stringContaining("official-source authority blocked: 1 untrusted, 0 invalid URL(s)."),
+      nextStep: expect.stringContaining("HTTPS official .gov.tw source"),
+    });
+    expect(report.readyForSale).toBe(false);
+  });
+
   it("blocks launch when Taiwan compliance coverage matrix has source gaps", () => {
     const laborConfig = structuredClone(defaultTaiwanLaborStandardsConfig);
     laborConfig.sources = laborConfig.sources.filter((source) => source.id === "tw-minimum-wage-2026");
