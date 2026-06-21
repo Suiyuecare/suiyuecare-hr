@@ -416,6 +416,54 @@ describe("launch readiness", () => {
     });
   });
 
+  it("blocks launch when production access cutover is not ready", () => {
+    const report = buildLaunchReadinessReport({
+      databaseConfigured: true,
+      employeeCount: 5,
+      auditCount: 8,
+      activeRuleCount: 3,
+      laborConfig: defaultTaiwanLaborStandardsConfig,
+      securitySettings: secureSettings,
+      fileStorageSettings: secureStorage,
+      notificationSettings,
+      privilegedSsoIdentityCoverage: {
+        total: 3,
+        linked: 3,
+      },
+      supportAccessGovernance: {
+        activeApprovedCount: 0,
+        activeUnapprovedCount: 0,
+        expiredStillApprovedCount: 0,
+      },
+      accessCutoverReport: {
+        readyForProduction: false,
+        status: "blocked",
+        summary: "6/8 個正式登入 Gate 已就緒；1 個阻擋，1 個待處理。",
+        topTask: {
+          title: "正式瀏覽器 Session Cookie",
+          nextStep: "補齊 HR_ONE_WEB_SESSION_MAX_AGE_SECONDS 並確認 login URL。",
+          actionLabel: "檢查 env Gate",
+          actionHref: "/settings/readiness",
+        },
+      },
+      payrollPaymentSecurity: readyPaymentSecurity,
+      calendarReadiness: readyCalendar,
+      kpis: passingKpis,
+    });
+
+    expect(report.readyForSale).toBe(false);
+    expect(report.items.find((item) => item.id === "access_cutover")).toMatchObject({
+      status: "blocked",
+      detail: "6/8 個正式登入 Gate 已就緒；1 個阻擋，1 個待處理。 Top blocker: 正式瀏覽器 Session Cookie.",
+      nextStep: "補齊 HR_ONE_WEB_SESSION_MAX_AGE_SECONDS 並確認 login URL。",
+      actionHref: "/settings/readiness",
+    });
+    expect(report.setupSteps[1]).toMatchObject({
+      status: "blocked",
+      actionHref: "/settings/readiness",
+    });
+  });
+
   it("blocks launch when support access is unapproved or expired", () => {
     const report = buildLaunchReadinessReport({
       databaseConfigured: true,

@@ -335,6 +335,7 @@ test("Owner 可以檢查試用營運與上線 Gate", async ({ page }) => {
   await expect(foundationBoard.getByRole("heading", { name: "正式資料庫與租戶持久化" })).toBeVisible();
   await expect(foundationBoard.getByRole("heading", { name: "台灣法遵控制台與版本化規則" })).toBeVisible();
   await expect(foundationBoard.getByText(/驗收：\/api\/health\/ready/)).toBeVisible();
+  await expect(page.getByText("Production access cutover", { exact: true })).toBeVisible();
 
   await gotoAppPage(page, "/settings/pilot-operations");
   await expect(page.getByRole("heading", { name: "試用每日戰情" })).toBeVisible();

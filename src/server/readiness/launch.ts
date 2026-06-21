@@ -1,5 +1,6 @@
 import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { getUserAccessWorkspace } from "@/server/auth/access-management";
+import { buildAccessCutoverReport } from "@/server/auth/access-cutover";
 import { getCompanyCalendarWorkspace, type CompanyCalendarReadiness } from "@/server/calendar/company-calendar";
 import { getCompanyOverview } from "@/server/dashboard/queries";
 import { getLaborRosterWorkspace } from "@/server/employees/labor-roster";
@@ -72,6 +73,18 @@ export type LaunchSetupStep = {
   actionHref: string;
 };
 
+export type LaunchAccessCutoverSummary = {
+  readyForProduction: boolean;
+  status: LaunchReadinessStatus;
+  summary: string;
+  topTask: {
+    title: string;
+    nextStep: string;
+    actionLabel: string;
+    actionHref: string;
+  };
+};
+
 export async function getLaunchReadinessReport(session: SessionLike) {
   assertPermission(session.role, "settings:read");
   const [
@@ -117,6 +130,9 @@ export async function getLaunchReadinessReport(session: SessionLike) {
   const privilegedUsers = accessWorkspace.users.filter((user) =>
     user.roles.some((role) => role === "owner" || role === "hr_admin" || role === "manager"),
   );
+  const accessCutoverReport = buildAccessCutoverReport(accessWorkspace, {
+    supportAccessGovernance,
+  });
   const laborRuleValidation = validateTaiwanLaborStandardsRuleSet(laborConfig);
   const legalSourceFreshness = evaluateLegalSourceFreshness(laborConfig.sources);
   const ruleEngineReadiness = await evaluateTaiwanRuleEngineReadiness(laborConfig);
@@ -149,6 +165,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
       linked: privilegedUsers.filter((user) => user.externalIdentities.length > 0).length,
     },
     supportAccessGovernance,
+    accessCutoverReport,
     payrollPaymentSecurity,
     privacyReadiness: privacyWorkspace.readiness,
     trainingReadiness: trainingWorkspace.readiness,
@@ -203,6 +220,7 @@ export function buildLaunchReadinessReport(input: {
     activeUnapprovedCount: number;
     expiredStillApprovedCount: number;
   };
+  accessCutoverReport?: LaunchAccessCutoverSummary;
   payrollPaymentSecurity: {
     ready: boolean;
     detail: string;
@@ -234,6 +252,7 @@ export function buildLaunchReadinessReport(input: {
   const supportAccessReady =
     input.supportAccessGovernance.activeUnapprovedCount === 0 &&
     input.supportAccessGovernance.expiredStillApprovedCount === 0;
+  const accessCutoverReport = input.accessCutoverReport ?? defaultAccessCutoverSummary();
   const laborRuleValidation = input.laborRuleValidation ?? {
     passed: true,
     passedCount: 0,
@@ -373,6 +392,22 @@ export function buildLaunchReadinessReport(input: {
       nextStep: "Link every owner, HR admin, and manager to a stable OIDC issuer/subject identity before production verification.",
       actionLabel: "Open access",
       actionHref: "/settings/access",
+    },
+    {
+      id: "access_cutover",
+      area: "Security",
+      title: "Production access cutover",
+      status: accessCutoverReport.status,
+      detail: accessCutoverReport.readyForProduction
+        ? "正式登入切換 Gate 已通過；SSO、RBAC、薪資防漏、支援存取、demo auth 關閉與瀏覽器 session cookie posture 已可驗收。"
+        : `${accessCutoverReport.summary} Top blocker: ${accessCutoverReport.topTask.title}.`,
+      nextStep: accessCutoverReport.readyForProduction
+        ? "Keep running access review before each production pilot or customer launch."
+        : accessCutoverReport.topTask.nextStep,
+      actionLabel: accessCutoverReport.readyForProduction
+        ? "Review access gate"
+        : accessCutoverReport.topTask.actionLabel,
+      actionHref: accessCutoverReport.topTask.actionHref,
     },
     {
       id: "file_storage",
@@ -560,6 +595,20 @@ export function buildLaunchReadinessReport(input: {
   };
 }
 
+function defaultAccessCutoverSummary(): LaunchAccessCutoverSummary {
+  return {
+    readyForProduction: true,
+    status: "ready",
+    summary: "Access cutover not evaluated in this test context.",
+    topTask: {
+      title: "Access cutover",
+      nextStep: "Run the production access cutover gate from /settings/access.",
+      actionLabel: "Review access gate",
+      actionHref: "/settings/access",
+    },
+  };
+}
+
 function buildSetupSteps(items: LaunchReadinessItem[]): LaunchSetupStep[] {
   return [
     setupStep({
@@ -574,7 +623,7 @@ function buildSetupSteps(items: LaunchReadinessItem[]): LaunchSetupStep[] {
     setupStep({
       step: 2,
       title: "Harden access controls",
-      itemIds: ["security", "sso_identities", "support_access", "privacy"],
+      itemIds: ["security", "sso_identities", "access_cutover", "support_access", "privacy"],
       summary: "Configure SSO, MFA, password posture, session timeout, allowed domains, privileged SSO identity bindings, support access governance, and privacy controls.",
       actionLabel: "Configure access",
       actionHref: "/settings/access",

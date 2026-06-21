@@ -10,6 +10,7 @@ const readyLaunchIds = [
   "tenant_seed",
   "security",
   "sso_identities",
+  "access_cutover",
   "notifications",
   "privacy",
   "audit",
@@ -154,6 +155,29 @@ describe("beta pilot readiness", () => {
     });
     expect(report.phases[0]).toMatchObject({
       status: "blocked",
+    });
+  });
+
+  it("blocks the pilot when production access cutover is not ready", () => {
+    const report = buildBetaPilotReadinessReport({
+      employeeCount: 25,
+      managerCount: 1,
+      launchReport: readyLaunchReport([
+        {
+          id: "access_cutover",
+          status: "blocked",
+          detail: "正式瀏覽器 session cookie posture blocked.",
+        },
+      ]),
+      kpis: passingKpis,
+      payroll: readyPayroll,
+      flowEvidence: allFlowEvidence,
+    });
+
+    expect(report.readyForPilot).toBe(false);
+    expect(report.items.find((item) => item.id === "tenant_auth")).toMatchObject({
+      status: "blocked",
+      detail: expect.stringContaining("access_cutover: blocked"),
     });
   });
 
