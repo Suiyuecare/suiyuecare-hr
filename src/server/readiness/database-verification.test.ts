@@ -147,6 +147,13 @@ const readySnapshot: DatabaseVerificationSnapshot = {
     oldestCheckedAt: "2026-06-12",
     maxAgeDays: 180,
   },
+  legalSourceAuthority: {
+    activeVersionCount: 3,
+    trustedVersionCount: 3,
+    untrustedVersionCount: 0,
+    invalidUrlVersionCount: 0,
+    trustedHostPattern: "https://*.gov.tw",
+  },
   laborComplianceCoverage: {
     status: "ready",
     coveredCount: 11,
@@ -709,6 +716,27 @@ describe("database verification checks", () => {
     expect(checks.find((item) => item.name === "legal source freshness")).toMatchObject({
       passed: false,
       detail: "2/3 active version(s) fresh; oldest 2025-01-01; max age 180 day(s)",
+    });
+  });
+
+  it("requires official legal source hosts for active law rule versions", () => {
+    const checks = buildDatabaseVerificationChecks(
+      {
+        ...readySnapshot,
+        legalSourceAuthority: {
+          activeVersionCount: 3,
+          trustedVersionCount: 2,
+          untrustedVersionCount: 1,
+          invalidUrlVersionCount: 0,
+          trustedHostPattern: "https://*.gov.tw",
+        },
+      },
+      "production",
+    );
+
+    expect(checks.find((item) => item.name === "legal source authority")).toMatchObject({
+      passed: false,
+      detail: "2/3 active version(s) use https://*.gov.tw; 1 untrusted; 0 invalid URL",
     });
   });
 

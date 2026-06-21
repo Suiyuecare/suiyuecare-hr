@@ -306,6 +306,7 @@ async function buildSnapshot(
     : defaultTaiwanLaborStandardsConfig;
   const ruleValidation = summarizeRuleValidation(activeRuleVersions.map((version) => version.definitionJson));
   const legalSourceFreshness = summarizeLegalSourceFreshness(activeRuleVersions.map((version) => version.definitionJson));
+  const legalSourceAuthority = summarizeLegalSourceAuthority(activeRuleVersions.map((version) => version.definitionJson));
   const laborComplianceCoverage = laborSettingsVersion
     ? summarizeTaiwanLaborComplianceCoverage(buildTaiwanLaborComplianceCoverage(laborConfig))
     : missingTaiwanLaborComplianceCoverage();
@@ -459,6 +460,7 @@ async function buildSnapshot(
     ruleValidation,
     ruleEngineReadiness,
     legalSourceFreshness,
+    legalSourceAuthority,
     laborComplianceCoverage,
     laborRuleChangeControl: laborSettingsVersion ? readChangeControl(laborSettingsVersion.definitionJson) : null,
     securitySettings: securitySetting
@@ -636,6 +638,13 @@ function emptySnapshot(
       oldestCheckedAt: null,
       maxAgeDays: 180,
     },
+    legalSourceAuthority: {
+      activeVersionCount: 0,
+      trustedVersionCount: 0,
+      untrustedVersionCount: 0,
+      invalidUrlVersionCount: 0,
+      trustedHostPattern: "https://*.gov.tw",
+    },
     laborComplianceCoverage: missingTaiwanLaborComplianceCoverage(),
     laborRuleChangeControl: null,
     securitySettings: null,
@@ -767,6 +776,18 @@ function summarizeLegalSourceFreshness(definitions: unknown[]) {
   };
 }
 
+function summarizeLegalSourceAuthority(definitions: unknown[]) {
+  const summaries = definitions.map(readSourceAuthoritySummary);
+  const trustedHostPattern = summaries.find((summary) => summary)?.trustedHostPattern ?? "https://*.gov.tw";
+  return {
+    activeVersionCount: definitions.length,
+    trustedVersionCount: summaries.filter((summary) => summary?.passed).length,
+    untrustedVersionCount: summaries.filter((summary) => (summary?.untrustedSourceCount ?? 0) > 0).length,
+    invalidUrlVersionCount: summaries.filter((summary) => !summary || (summary.invalidUrlSourceCount ?? 0) > 0).length,
+    trustedHostPattern,
+  };
+}
+
 function missingTaiwanLaborComplianceCoverage(): TaiwanLaborComplianceCoverageSummary {
   return {
     status: "blocked",
@@ -777,6 +798,27 @@ function missingTaiwanLaborComplianceCoverage(): TaiwanLaborComplianceCoverageSu
     blockedItems: ["missing Taiwan labor settings rule version"],
     needsReviewItems: [],
   };
+}
+
+function readSourceAuthoritySummary(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const candidate = record.sourceAuthority;
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return null;
+  const summary = candidate as Record<string, unknown>;
+  if (
+    typeof summary.passed === "boolean" &&
+    typeof summary.untrustedSourceCount === "number" &&
+    typeof summary.invalidUrlSourceCount === "number"
+  ) {
+    return {
+      passed: summary.passed,
+      untrustedSourceCount: summary.untrustedSourceCount,
+      invalidUrlSourceCount: summary.invalidUrlSourceCount,
+      trustedHostPattern: typeof summary.trustedHostPattern === "string" ? summary.trustedHostPattern : "https://*.gov.tw",
+    };
+  }
+  return null;
 }
 
 function readSourceFreshnessSummary(value: unknown) {

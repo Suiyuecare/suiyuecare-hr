@@ -112,6 +112,13 @@ export type DatabaseVerificationSnapshot = {
     oldestCheckedAt: string | null;
     maxAgeDays: number;
   };
+  legalSourceAuthority: {
+    activeVersionCount: number;
+    trustedVersionCount: number;
+    untrustedVersionCount: number;
+    invalidUrlVersionCount: number;
+    trustedHostPattern: string;
+  };
   laborComplianceCoverage: TaiwanLaborComplianceCoverageSummary;
   laborRuleChangeControl: {
     reason?: string;
@@ -279,6 +286,14 @@ export function buildDatabaseVerificationChecks(
       snapshot.legalSourceFreshness.staleVersionCount === 0 &&
       snapshot.legalSourceFreshness.invalidVersionCount === 0,
     `${snapshot.legalSourceFreshness.freshVersionCount}/${snapshot.legalSourceFreshness.activeVersionCount} active version(s) fresh; oldest ${snapshot.legalSourceFreshness.oldestCheckedAt ?? "missing"}; max age ${snapshot.legalSourceFreshness.maxAgeDays} day(s)`,
+  ));
+  checks.push(check(
+    "legal source authority",
+    snapshot.legalSourceAuthority.activeVersionCount > 0 &&
+      snapshot.legalSourceAuthority.trustedVersionCount === snapshot.legalSourceAuthority.activeVersionCount &&
+      snapshot.legalSourceAuthority.untrustedVersionCount === 0 &&
+      snapshot.legalSourceAuthority.invalidUrlVersionCount === 0,
+    `${snapshot.legalSourceAuthority.trustedVersionCount}/${snapshot.legalSourceAuthority.activeVersionCount} active version(s) use ${snapshot.legalSourceAuthority.trustedHostPattern}; ${snapshot.legalSourceAuthority.untrustedVersionCount} untrusted; ${snapshot.legalSourceAuthority.invalidUrlVersionCount} invalid URL`,
   ));
   checks.push(check(
     "Taiwan compliance coverage",

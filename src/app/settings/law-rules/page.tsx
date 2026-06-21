@@ -185,7 +185,7 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
               <p>{item.legalBasis}</p>
               <div className="law-rule-coverage-meta">
                 <span>{item.configuredControlCount}/{item.controlCount} 控制項</span>
-                <span>{item.sourceIds.length - item.missingSourceIds.length}/{item.sourceIds.length} 來源</span>
+                <span>{item.sourceIds.length - item.missingSourceIds.length - item.untrustedSourceIds.length}/{item.sourceIds.length} 官方來源</span>
               </div>
               <small>{item.evidence}</small>
               {item.status !== "covered" ? <strong>{item.nextAction}</strong> : null}
@@ -255,7 +255,7 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
             <div>
               <h2>官方來源檢查</h2>
               <p className="muted">
-                來源必須定期檢查；超過 {center.sourceFreshness.maxAgeDays} 天或日期格式錯誤時，薪資與假勤規則會被標示為需審核。
+                來源必須是 HTTPS 官方 .gov.tw 網域且定期檢查；超過 {center.sourceFreshness.maxAgeDays} 天、日期格式錯誤或非官方來源會阻擋上線 Gate。
               </p>
             </div>
             <span className={`badge ${center.sourceFreshness.passed ? "" : "warning"}`}>
@@ -267,7 +267,7 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
               <span>本次檢查</span>
               <strong>{sourceReview.dueCount ? `${sourceReview.dueCount} 項需處理` : "來源皆有效"}</strong>
               <small>
-                {sourceReview.missingCount} 缺來源、{sourceReview.invalidCount} 日期錯誤、{sourceReview.staleCount} 過期。
+                {sourceReview.missingCount} 缺來源、{sourceReview.invalidCount} URL/日期錯誤、{sourceReview.untrustedCount} 非官方來源、{sourceReview.staleCount} 過期。
               </small>
             </div>
             <div>
@@ -287,7 +287,7 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
                 </div>
                 <strong>{queue.freshCount}/{queue.totalCount} 來源有效</strong>
                 <small>
-                  {queue.missingCount} 缺來源、{queue.invalidCount} 日期錯誤、{queue.staleCount} 過期。
+                  {queue.missingCount} 缺來源、{queue.invalidCount} URL/日期錯誤、{queue.untrustedCount} 非官方來源、{queue.staleCount} 過期。
                 </small>
                 <small>{queue.coverageTitles.length ? `影響：${queue.coverageTitles.slice(0, 3).join("、")}` : "目前沒有對應法遵領域。"}</small>
                 <p>{queue.nextAction}</p>
@@ -303,14 +303,14 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
                 <li className="task" key={source.id}>
                   <span>
                     <strong>{source.title}</strong>
-                    <small>{source.primaryOwner} · {source.id} · {source.url ?? "尚未設定 URL"}</small>
+                    <small>{source.primaryOwner} · {source.id} · {source.authorityHost ?? "未知主機"} · {source.url ?? "尚未設定 URL"}</small>
                     <small>
                       影響：{source.coverageTitles.length ? source.coverageTitles.join("、") : "尚未被覆蓋矩陣使用"}。
                       {source.ageDays != null ? `已複核 ${source.ageDays} 天。` : ""}
                     </small>
                   </span>
                   <span className="inline-actions">
-                    <span className={`badge ${source.status === "fresh" ? "" : source.status === "missing" || source.status === "invalid" ? "danger" : "warning"}`}>
+                    <span className={`badge ${source.status === "fresh" ? "" : source.status === "missing" || source.status === "invalid" || source.status === "untrusted" ? "danger" : "warning"}`}>
                       {sourceReviewStatusLabel(source.status)}
                     </span>
                     <span className="badge">{source.checkedAt ?? "未設定"}</span>
@@ -707,7 +707,8 @@ function coverageStatusLabel(status: LawRuleCenter["complianceCoverage"][number]
 
 function sourceReviewStatusLabel(status: LawRuleCenter["sourceReview"]["items"][number]["status"]) {
   if (status === "missing") return "缺來源";
-  if (status === "invalid") return "日期錯誤";
+  if (status === "invalid") return "URL/日期錯誤";
+  if (status === "untrusted") return "非官方";
   if (status === "stale") return "需複核";
   return "有效";
 }

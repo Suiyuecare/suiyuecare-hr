@@ -15,7 +15,9 @@ import {
 } from "./taiwan-labor-standards";
 import {
   buildRuleVersionTestCases,
+  evaluateLegalSourceAuthority,
   evaluateLegalSourceFreshness,
+  summarizeLegalSourceAuthority,
   readRuleValidationSummary,
   summarizeLegalSourceFreshness,
   validateTaiwanLaborStandardsRuleSet,
@@ -65,7 +67,7 @@ export type TaiwanLaborRuleCenterReadiness = {
 
 export type TaiwanLaborSourceOwner = "HR" | "Payroll" | "Owner";
 
-export type TaiwanLaborSourceReviewStatus = "fresh" | "stale" | "invalid" | "missing";
+export type TaiwanLaborSourceReviewStatus = "fresh" | "stale" | "invalid" | "untrusted" | "missing";
 
 export type TaiwanLaborSourceReviewItem = {
   id: string;
@@ -74,6 +76,7 @@ export type TaiwanLaborSourceReviewItem = {
   checkedAt: string | null;
   ageDays: number | null;
   status: TaiwanLaborSourceReviewStatus;
+  authorityHost: string | null;
   primaryOwner: TaiwanLaborSourceOwner;
   owners: TaiwanLaborSourceOwner[];
   coverageTitles: string[];
@@ -88,6 +91,7 @@ export type TaiwanLaborSourceReviewOwnerQueue = {
   freshCount: number;
   staleCount: number;
   invalidCount: number;
+  untrustedCount: number;
   missingCount: number;
   dueCount: number;
   sourceIds: string[];
@@ -103,6 +107,7 @@ export type TaiwanLaborSourceReviewSummary = {
   freshCount: number;
   staleCount: number;
   invalidCount: number;
+  untrustedCount: number;
   missingCount: number;
   dueCount: number;
   nextReviewDueAt: string | null;
@@ -123,6 +128,7 @@ export type TaiwanLaborComplianceCoverageItem = {
   sourceIds: string[];
   missingSourceIds: string[];
   staleSourceIds: string[];
+  untrustedSourceIds: string[];
   controlCount: number;
   configuredControlCount: number;
   controls: Array<{
@@ -189,6 +195,7 @@ export type TaiwanLaborRuleCenter = {
   config: TaiwanLaborStandardsConfig;
   validation: ReturnType<typeof validateTaiwanLaborStandardsRuleSet>;
   sourceFreshness: ReturnType<typeof evaluateLegalSourceFreshness>;
+  sourceAuthority: ReturnType<typeof evaluateLegalSourceAuthority>;
   sourceReview: TaiwanLaborSourceReviewSummary;
   complianceCoverage: TaiwanLaborComplianceCoverageItem[];
   complianceCoverageSummary: TaiwanLaborComplianceCoverageSummary;
@@ -291,8 +298,9 @@ export async function getTaiwanLaborRuleCenter(session?: SessionLike): Promise<T
   const config = await getTaiwanLaborStandardsConfig(session);
   const validation = validateTaiwanLaborStandardsRuleSet(config);
   const sourceFreshness = evaluateLegalSourceFreshness(config.sources);
-  const complianceCoverage = buildTaiwanLaborComplianceCoverage(config, sourceFreshness);
-  const sourceReview = buildTaiwanLaborSourceReview(config, sourceFreshness, complianceCoverage);
+  const sourceAuthority = evaluateLegalSourceAuthority(config.sources);
+  const complianceCoverage = buildTaiwanLaborComplianceCoverage(config, sourceFreshness, sourceAuthority);
+  const sourceReview = buildTaiwanLaborSourceReview(config, sourceFreshness, complianceCoverage, sourceAuthority);
   const complianceCoverageSummary = summarizeTaiwanLaborComplianceCoverage(complianceCoverage);
   const impactTasks = buildTaiwanLaborRuleImpactTasks(config, complianceCoverage);
   const versionHistory = session && canUseDatabase(session)
@@ -302,6 +310,7 @@ export async function getTaiwanLaborRuleCenter(session?: SessionLike): Promise<T
     config,
     validation,
     sourceFreshness,
+    sourceAuthority,
     versionHistory,
     complianceCoverageSummary,
   );
@@ -309,6 +318,7 @@ export async function getTaiwanLaborRuleCenter(session?: SessionLike): Promise<T
     config,
     validation,
     sourceFreshness,
+    sourceAuthority,
     complianceCoverageSummary,
     impactTasks,
     versionHistory,
@@ -318,6 +328,7 @@ export async function getTaiwanLaborRuleCenter(session?: SessionLike): Promise<T
     config,
     validation,
     sourceFreshness,
+    sourceAuthority,
     sourceReview,
     complianceCoverage,
     complianceCoverageSummary,
@@ -332,6 +343,7 @@ export function buildTaiwanLaborSourceReview(
   config: TaiwanLaborStandardsConfig,
   sourceFreshness = evaluateLegalSourceFreshness(config.sources),
   coverage = buildTaiwanLaborComplianceCoverage(config, sourceFreshness),
+  sourceAuthority = evaluateLegalSourceAuthority(config.sources),
 ): TaiwanLaborSourceReviewSummary {
   const checkedAtDate = new Date(`${sourceFreshness.checkedAt}T00:00:00.000Z`);
   const coverageBySourceId = new Map<string, string[]>();
@@ -354,11 +366,19 @@ export function buildTaiwanLaborSourceReview(
   const items: TaiwanLaborSourceReviewItem[] = config.sources.map((source) => {
     const sourceDate = parseDateOnly(source.checkedAt);
     const invalid = sourceFreshness.invalidSourceIds.includes(source.id) || !sourceDate;
+    const authorityInvalid = sourceAuthority.invalidUrlSourceIds.includes(source.id);
+    const authorityUntrusted = sourceAuthority.untrustedSourceIds.includes(source.id);
     const stale = sourceFreshness.staleSourceIds.includes(source.id);
     const ageDays = sourceDate
       ? Math.floor((checkedAtDate.getTime() - sourceDate.getTime()) / 86_400_000)
       : null;
-    const status: TaiwanLaborSourceReviewStatus = invalid ? "invalid" : stale ? "stale" : "fresh";
+    const status: TaiwanLaborSourceReviewStatus = invalid || authorityInvalid
+      ? "invalid"
+      : authorityUntrusted
+        ? "untrusted"
+        : stale
+          ? "stale"
+          : "fresh";
     const owners = sourceReviewOwnersForSource(source.id, ownersBySourceId);
     return {
       id: source.id,
@@ -367,6 +387,7 @@ export function buildTaiwanLaborSourceReview(
       checkedAt: source.checkedAt,
       ageDays,
       status,
+      authorityHost: sourceAuthority.sourceHosts[source.id] ?? null,
       primaryOwner: owners[0],
       owners,
       coverageTitles: coverageBySourceId.get(source.id) ?? [],
@@ -374,7 +395,9 @@ export function buildTaiwanLaborSourceReview(
         ? "下次例行複核前保持現有證據。"
         : status === "stale"
           ? "重新打開官方來源，確認條文或公告未變更，再更新複核日期。"
-          : "修正 checkedAt 日期格式後重新建立 rule version。",
+          : status === "untrusted"
+            ? "改用 HTTPS 官方 .gov.tw 來源後重新建立 rule version。"
+            : "修正 checkedAt 日期格式或來源 URL 後重新建立 rule version。",
     };
   });
 
@@ -386,6 +409,7 @@ export function buildTaiwanLaborSourceReview(
       checkedAt: null,
       ageDays: null,
       status: "missing",
+      authorityHost: null,
       primaryOwner: sourceReviewOwnersForSource(sourceId, ownersBySourceId)[0],
       owners: sourceReviewOwnersForSource(sourceId, ownersBySourceId),
       coverageTitles: coverageBySourceId.get(sourceId) ?? [],
@@ -396,19 +420,21 @@ export function buildTaiwanLaborSourceReview(
   const freshCount = items.filter((item) => item.status === "fresh").length;
   const staleCount = items.filter((item) => item.status === "stale").length;
   const invalidCount = items.filter((item) => item.status === "invalid").length;
+  const untrustedCount = items.filter((item) => item.status === "untrusted").length;
   const missingCount = items.filter((item) => item.status === "missing").length;
-  const dueCount = staleCount + invalidCount + missingCount;
+  const dueCount = staleCount + invalidCount + untrustedCount + missingCount;
   const validCheckedAtValues = items
     .filter((item) => item.status !== "missing" && item.checkedAt)
     .map((item) => item.checkedAt!)
     .sort();
 
   return {
-    status: missingCount || invalidCount ? "blocked" : staleCount ? "needs_review" : "ready",
+    status: missingCount || invalidCount || untrustedCount ? "blocked" : staleCount ? "needs_review" : "ready",
     totalCount: items.length,
     freshCount,
     staleCount,
     invalidCount,
+    untrustedCount,
     missingCount,
     dueCount,
     nextReviewDueAt: validCheckedAtValues.length
@@ -440,10 +466,11 @@ function buildTaiwanLaborSourceReviewOwnerQueues(
     const freshCount = ownerItems.filter((item) => item.status === "fresh").length;
     const staleCount = ownerItems.filter((item) => item.status === "stale").length;
     const invalidCount = ownerItems.filter((item) => item.status === "invalid").length;
+    const untrustedCount = ownerItems.filter((item) => item.status === "untrusted").length;
     const missingCount = ownerItems.filter((item) => item.status === "missing").length;
-    const dueCount = staleCount + invalidCount + missingCount;
+    const dueCount = staleCount + invalidCount + untrustedCount + missingCount;
     const status: TaiwanLaborRuleCenterReadiness["status"] =
-      missingCount || invalidCount ? "blocked" : staleCount ? "needs_review" : "ready";
+      missingCount || invalidCount || untrustedCount ? "blocked" : staleCount ? "needs_review" : "ready";
 
     return {
       owner,
@@ -453,11 +480,12 @@ function buildTaiwanLaborSourceReviewOwnerQueues(
       freshCount,
       staleCount,
       invalidCount,
+      untrustedCount,
       missingCount,
       dueCount,
       sourceIds: ownerItems.map((item) => item.id),
       coverageTitles: [...new Set(ownerItems.flatMap((item) => item.coverageTitles))],
-      nextAction: sourceReviewOwnerNextAction(owner, { staleCount, invalidCount, missingCount, dueCount }),
+      nextAction: sourceReviewOwnerNextAction(owner, { staleCount, invalidCount, untrustedCount, missingCount, dueCount }),
       actionLabel: dueCount ? "處理來源" : "保持追蹤",
       actionHref: dueCount ? "#source-review-workspace" : "#source-review",
     };
@@ -472,11 +500,11 @@ function sourceReviewOwnerLabel(owner: TaiwanLaborSourceOwner) {
 
 function sourceReviewOwnerNextAction(
   owner: TaiwanLaborSourceOwner,
-  counts: Pick<TaiwanLaborSourceReviewOwnerQueue, "staleCount" | "invalidCount" | "missingCount" | "dueCount">,
+  counts: Pick<TaiwanLaborSourceReviewOwnerQueue, "staleCount" | "invalidCount" | "untrustedCount" | "missingCount" | "dueCount">,
 ) {
   const label = sourceReviewOwnerLabel(owner);
-  if (counts.missingCount || counts.invalidCount) {
-    return `${label} 先補齊 ${counts.missingCount} 個缺來源與 ${counts.invalidCount} 個日期錯誤，再讓 Gate 重新檢查。`;
+  if (counts.missingCount || counts.invalidCount || counts.untrustedCount) {
+    return `${label} 先補齊 ${counts.missingCount} 個缺來源、${counts.invalidCount} 個 URL/日期錯誤與 ${counts.untrustedCount} 個非官方來源，再讓 Gate 重新檢查。`;
   }
   if (counts.staleCount) {
     return `${label} 本週複核 ${counts.staleCount} 個過期來源，確認官方公告或條文沒有影響現行版本。`;
@@ -488,6 +516,7 @@ export function buildTaiwanLaborLaunchGate(input: {
   config: TaiwanLaborStandardsConfig;
   validation: ReturnType<typeof validateTaiwanLaborStandardsRuleSet>;
   sourceFreshness: ReturnType<typeof evaluateLegalSourceFreshness>;
+  sourceAuthority: ReturnType<typeof evaluateLegalSourceAuthority>;
   complianceCoverageSummary: TaiwanLaborComplianceCoverageSummary;
   impactTasks: TaiwanLaborRuleImpactTask[];
   versionHistory: TaiwanLaborRuleVersionSummary[];
@@ -711,9 +740,10 @@ export function buildTaiwanLaborRuleImpactTasks(
 export function buildTaiwanLaborComplianceCoverage(
   config: TaiwanLaborStandardsConfig,
   sourceFreshness = evaluateLegalSourceFreshness(config.sources),
+  sourceAuthority = evaluateLegalSourceAuthority(config.sources),
 ): TaiwanLaborComplianceCoverageItem[] {
   return [
-    coverageItem(config, sourceFreshness, {
+    coverageItem(config, sourceFreshness, sourceAuthority, {
       id: "minimum_wage",
       title: "最低工資",
       legalBasis: "最低工資法與年度公告",
@@ -727,7 +757,7 @@ export function buildTaiwanLaborComplianceCoverage(
       evidence: `${formatMoneyForEvidence(config.minimumMonthlyWage)} / ${formatMoneyForEvidence(config.minimumHourlyWage)}`,
       nextAction: "確認年度最低工資公告與薪資 profile 檢查仍為最新版本。",
     }),
-    coverageItem(config, sourceFreshness, {
+    coverageItem(config, sourceFreshness, sourceAuthority, {
       id: "working_time",
       title: "正常工時與延長工時上限",
       legalBasis: "勞基法第 30、32 條",
@@ -742,7 +772,7 @@ export function buildTaiwanLaborComplianceCoverage(
       evidence: `${config.normalDailyMinutes / 60}h/day, ${config.normalWeeklyMinutes / 60}h/week`,
       nextAction: "複核工時上限與勞資會議加班上限，並同步排班與出勤異常 Gate。",
     }),
-    coverageItem(config, sourceFreshness, {
+    coverageItem(config, sourceFreshness, sourceAuthority, {
       id: "overtime_pay",
       title: "加班費與休息日出勤",
       legalBasis: "勞基法第 24、32、36 條",
@@ -756,7 +786,7 @@ export function buildTaiwanLaborComplianceCoverage(
       evidence: `${config.regularDayOvertimeTiers.length} regular tier(s), ${config.restDayOvertimeTiers.length} rest-day tier(s)`,
       nextAction: "用本版本規則重新試算未鎖定薪資草稿，避免加班費沿用舊倍率。",
     }),
-    coverageItem(config, sourceFreshness, {
+    coverageItem(config, sourceFreshness, sourceAuthority, {
       id: "rest_holiday_pay",
       title: "例假、休息日與國定假日",
       legalBasis: "勞基法第 36、37、39 條",
@@ -771,7 +801,7 @@ export function buildTaiwanLaborComplianceCoverage(
       evidence: `${config.requiredRegularLeaveDaysPerCycle} regular leave + ${config.requiredRestDaysPerCycle} rest day / ${config.restDayCycleDays} days`,
       nextAction: "確認公司行事曆、排班與假日出勤薪資倍率使用同一個版本來源。",
     }),
-    coverageItem(config, sourceFreshness, {
+    coverageItem(config, sourceFreshness, sourceAuthority, {
       id: "annual_leave",
       title: "特休與未休工資",
       legalBasis: "勞基法第 38 條、施行細則第 24-1 條",
@@ -785,7 +815,7 @@ export function buildTaiwanLaborComplianceCoverage(
       evidence: `${config.annualLeaveTiers.length} tier(s), cap ${config.annualLeaveTiers.at(-1)?.maxDays ?? "review"} day(s)`,
       nextAction: "用特休結算工作台複核到期提醒、結清與薪資項目，不讓 payroll 靜默加項。",
     }),
-    coverageItem(config, sourceFreshness, {
+    coverageItem(config, sourceFreshness, sourceAuthority, {
       id: "statutory_leave",
       title: "法定假別",
       legalBasis: "勞工請假規則、性別平等工作法",
@@ -799,7 +829,7 @@ export function buildTaiwanLaborComplianceCoverage(
       evidence: "Leave policy workspace controls statutory categories and review flags.",
       nextAction: "在假別政策工作台維持法定假別覆蓋，避免員工端流程變複雜。",
     }),
-    coverageItem(config, sourceFreshness, {
+    coverageItem(config, sourceFreshness, sourceAuthority, {
       id: "termination",
       title: "離職、預告與資遣",
       legalBasis: "勞基法第 16、17 條、勞退條例第 12 條",
@@ -814,7 +844,7 @@ export function buildTaiwanLaborComplianceCoverage(
       evidence: `${config.terminationCompliance.advanceNoticeTiers.length} notice tier(s); severance human review required`,
       nextAction: "離職流程需保留人工審核、服務證明、最終工資與特休結清證據。",
     }),
-    coverageItem(config, sourceFreshness, {
+    coverageItem(config, sourceFreshness, sourceAuthority, {
       id: "insurance_onboarding",
       title: "勞保、就保、職災加退保",
       legalBasis: "勞保局加退保時點、職災保險規則",
@@ -829,7 +859,7 @@ export function buildTaiwanLaborComplianceCoverage(
       evidence: `hire due ${config.statutoryOnboarding.laborInsuranceEnrollmentDueDaysFromHire} day(s), withdrawal ${config.statutoryOnboarding.insuranceWithdrawalDueDaysFromTermination} day(s)`,
       nextAction: "投保工作台需對每位在職員工保存 hash 證據並在上線 Gate 檢查覆蓋率。",
     }),
-    coverageItem(config, sourceFreshness, {
+    coverageItem(config, sourceFreshness, sourceAuthority, {
       id: "statutory_payroll",
       title: "勞健保、勞退與補充保費",
       legalBasis: "勞保、健保、職災保險與勞退級距",
@@ -849,7 +879,7 @@ export function buildTaiwanLaborComplianceCoverage(
       evidence: `${config.statutoryPayroll.laborInsuranceSalaryGrades.length}/${config.statutoryPayroll.healthInsuranceSalaryGrades.length}/${config.statutoryPayroll.laborPensionContributionGrades.length} grade rows`,
       nextAction: "薪資月結前檢查投保級距 override，低報風險只能由 HR/Payroll 人工處理。",
     }),
-    coverageItem(config, sourceFreshness, {
+    coverageItem(config, sourceFreshness, sourceAuthority, {
       id: "income_tax",
       title: "所得稅扣繳",
       legalBasis: "財政部扣繳與累進稅率來源",
@@ -863,7 +893,7 @@ export function buildTaiwanLaborComplianceCoverage(
       evidence: `${config.statutoryPayroll.incomeTaxWithholding.brackets.length} bracket(s), non-resident ${Math.round(config.statutoryPayroll.nonResidentIncomeTaxWithholdingRate * 100)}%`,
       nextAction: "薪資鎖定前保留扣繳試算與人工複核，不讓系統自動完成稅務判斷。",
     }),
-    coverageItem(config, sourceFreshness, {
+    coverageItem(config, sourceFreshness, sourceAuthority, {
       id: "filing_package",
       title: "法定申報與勞檢封存",
       legalBasis: "勞保、健保、勞退、所得稅申報包",
@@ -916,6 +946,7 @@ export async function updateTaiwanLaborStandardsConfig(
   };
   const validation = validateTaiwanLaborStandardsRuleSet(after);
   const sourceFreshness = evaluateLegalSourceFreshness(after.sources);
+  const sourceAuthority = evaluateLegalSourceAuthority(after.sources);
   assertRuleValidationPassed(validation);
   state.taiwanLaborStandards = {
     ...after,
@@ -951,6 +982,7 @@ export async function updateTaiwanLaborStandardsConfig(
       changeControl: state.taiwanLaborStandards.changeControl,
       validationSummary: summarizeRuleValidation(validation),
       sourceFreshness: summarizeLegalSourceFreshness(sourceFreshness),
+      sourceAuthority: summarizeLegalSourceAuthority(sourceAuthority),
       changedFields: getChangedFields(normalized),
     },
   });
@@ -1040,6 +1072,7 @@ async function getDbTaiwanLaborRuleVersionHistory(session: SessionLike) {
 function coverageItem(
   config: TaiwanLaborStandardsConfig,
   sourceFreshness: ReturnType<typeof evaluateLegalSourceFreshness>,
+  sourceAuthority: ReturnType<typeof evaluateLegalSourceAuthority>,
   definition: {
     id: string;
     title: string;
@@ -1057,11 +1090,15 @@ function coverageItem(
     sourceFreshness.staleSourceIds.includes(sourceId) ||
     sourceFreshness.invalidSourceIds.includes(sourceId)
   );
+  const untrustedSourceIds = definition.sourceIds.filter((sourceId) =>
+    sourceAuthority.untrustedSourceIds.includes(sourceId) ||
+    sourceAuthority.invalidUrlSourceIds.includes(sourceId)
+  );
   const controls = definition.controls.map(([label, configured]) => ({ label, configured }));
   const configuredControlCount = controls.filter((control) => control.configured).length;
   const hasControlGaps = configuredControlCount < controls.length;
   const status: TaiwanLaborComplianceCoverageStatus =
-    missingSourceIds.length > 0 || hasControlGaps
+    missingSourceIds.length > 0 || untrustedSourceIds.length > 0 || hasControlGaps
       ? "blocked"
       : staleSourceIds.length > 0 ||
           config.changeControl.reviewStatus !== "approved" ||
@@ -1078,12 +1115,13 @@ function coverageItem(
     sourceIds: definition.sourceIds,
     missingSourceIds,
     staleSourceIds,
+    untrustedSourceIds,
     controlCount: controls.length,
     configuredControlCount,
     controls,
     evidence: definition.evidence,
     nextAction: status === "blocked"
-      ? buildCoverageBlockedAction(definition, missingSourceIds, controls)
+      ? buildCoverageBlockedAction(definition, missingSourceIds, untrustedSourceIds, controls)
       : definition.nextAction,
   };
 }
@@ -1091,11 +1129,13 @@ function coverageItem(
 function buildCoverageBlockedAction(
   definition: { nextAction: string },
   missingSourceIds: string[],
+  untrustedSourceIds: string[],
   controls: Array<{ label: string; configured: boolean }>,
 ) {
   const missingControls = controls.filter((control) => !control.configured).map((control) => control.label);
   const actionParts = [
     missingSourceIds.length ? `補來源 ${missingSourceIds.join(", ")}` : null,
+    untrustedSourceIds.length ? `改用官方 HTTPS .gov.tw 來源 ${untrustedSourceIds.join(", ")}` : null,
     missingControls.length ? `補設定 ${missingControls.join("、")}` : null,
   ].filter((part): part is string => Boolean(part));
   return actionParts.length ? `${actionParts.join("；")}。${definition.nextAction}` : definition.nextAction;
@@ -1129,7 +1169,10 @@ function impactTask(
   const sourceStates = new Map<string, "covered" | "missing_or_stale">();
   for (const item of matched) {
     for (const sourceId of item.sourceIds) {
-      const sourceReady = !item.missingSourceIds.includes(sourceId) && !item.staleSourceIds.includes(sourceId);
+      const sourceReady =
+        !item.missingSourceIds.includes(sourceId) &&
+        !item.staleSourceIds.includes(sourceId) &&
+        !item.untrustedSourceIds.includes(sourceId);
       const previous = sourceStates.get(sourceId);
       sourceStates.set(sourceId, previous === "covered" || sourceReady ? "covered" : "missing_or_stale");
     }
@@ -1160,10 +1203,16 @@ function impactTask(
 function launchGateSourceStatus(input: {
   validation: ReturnType<typeof validateTaiwanLaborStandardsRuleSet>;
   sourceFreshness: ReturnType<typeof evaluateLegalSourceFreshness>;
+  sourceAuthority: ReturnType<typeof evaluateLegalSourceAuthority>;
   complianceCoverageSummary: TaiwanLaborComplianceCoverageSummary;
   versionHistory: TaiwanLaborRuleVersionSummary[];
 }): TaiwanLaborComplianceCoverageStatus {
-  if (!input.validation.passed || input.versionHistory.length === 0 || input.complianceCoverageSummary.blockedCount > 0) {
+  if (
+    !input.validation.passed ||
+    !input.sourceAuthority.passed ||
+    input.versionHistory.length === 0 ||
+    input.complianceCoverageSummary.blockedCount > 0
+  ) {
     return "blocked";
   }
   if (!input.sourceFreshness.passed || input.complianceCoverageSummary.needsReviewCount > 0) {
@@ -1221,6 +1270,7 @@ function buildRuleCenterReadiness(
   config: TaiwanLaborStandardsConfig,
   validation: ReturnType<typeof validateTaiwanLaborStandardsRuleSet>,
   sourceFreshness: ReturnType<typeof evaluateLegalSourceFreshness>,
+  sourceAuthority: ReturnType<typeof evaluateLegalSourceAuthority>,
   versionHistory: TaiwanLaborRuleVersionSummary[],
   complianceCoverageSummary: TaiwanLaborComplianceCoverageSummary = summarizeTaiwanLaborComplianceCoverage(
     buildTaiwanLaborComplianceCoverage(config, sourceFreshness),
@@ -1230,6 +1280,9 @@ function buildRuleCenterReadiness(
     !validation.passed ? "法規規則測試案例未全部通過" : null,
     complianceCoverageSummary.blockedCount > 0
       ? `台灣法遵覆蓋矩陣有 ${complianceCoverageSummary.blockedCount} 個阻擋項`
+      : null,
+    !sourceAuthority.passed
+      ? `官方來源可信度有 ${sourceAuthority.untrustedSourceCount + sourceAuthority.invalidUrlSourceCount} 個阻擋項`
       : null,
     versionHistory.length === 0 ? "缺少 rule_versions 版本紀錄" : null,
   ].filter((item): item is string => Boolean(item));
@@ -1257,6 +1310,7 @@ function buildRuleCenterReadiness(
         ? `複核法遵覆蓋矩陣警示項：${complianceCoverageSummary.needsReviewItems.join("、")}。`
         : null,
       !sourceFreshness.passed ? "更新官方來源檢查日與 URL，並由 HR/法務確認。" : null,
+      !sourceAuthority.passed ? "將法規來源改成 HTTPS 官方 .gov.tw 網域，再重新建立 rule version。" : null,
       config.changeControl.reviewStatus !== "approved" ? "補上審核人並將狀態改為已核准。" : null,
       config.changeControl.requiresPayrollRecalculation ? "重新試算尚未鎖定的薪資草稿。" : null,
       versionHistory.length === 0 ? "建立第一筆 rule_versions 紀錄。" : null,
@@ -1311,6 +1365,7 @@ async function updateDbTaiwanLaborStandardsConfig(
     };
     const validation = validateTaiwanLaborStandardsRuleSet(after);
     const sourceFreshness = evaluateLegalSourceFreshness(after.sources);
+    const sourceAuthority = evaluateLegalSourceAuthority(after.sources);
     assertRuleValidationPassed(validation);
     if (activeVersion) {
       await tx.ruleVersion.update({
@@ -1351,6 +1406,7 @@ async function updateDbTaiwanLaborStandardsConfig(
         changeControl: after.changeControl,
         validationSummary: summarizeRuleValidation(validation),
         sourceFreshness: summarizeLegalSourceFreshness(sourceFreshness),
+        sourceAuthority: summarizeLegalSourceAuthority(sourceAuthority),
         changedFields: getChangedFields(normalized),
       },
     });
@@ -1361,12 +1417,14 @@ async function updateDbTaiwanLaborStandardsConfig(
 function buildRuleDefinition(config: TaiwanLaborStandardsConfig) {
   const validation = validateTaiwanLaborStandardsRuleSet(config);
   const sourceFreshness = evaluateLegalSourceFreshness(config.sources);
+  const sourceAuthority = evaluateLegalSourceAuthority(config.sources);
   return {
     type: "taiwan_labor_standards_settings",
     taiwanLaborStandards: config,
     sources: config.sources,
     validationSummary: summarizeRuleValidation(validation),
     sourceFreshness: summarizeLegalSourceFreshness(sourceFreshness),
+    sourceAuthority: summarizeLegalSourceAuthority(sourceAuthority),
   };
 }
 

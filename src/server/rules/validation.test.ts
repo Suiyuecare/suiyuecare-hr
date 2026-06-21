@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defaultTaiwanLaborStandardsConfig } from "./taiwan-labor-standards";
 import {
+  evaluateLegalSourceAuthority,
   evaluateLegalSourceFreshness,
   validateTaiwanLaborStandardsRuleSet,
 } from "./validation";
@@ -72,6 +73,24 @@ describe("Taiwan labor rule validation", () => {
       invalidSourceCount: 1,
       staleSourceIds: ["old-source"],
       invalidSourceIds: ["bad-source"],
+    });
+  });
+
+  it("requires official HTTPS Taiwan government legal source hosts", () => {
+    const summary = evaluateLegalSourceAuthority([
+      { id: "moj", title: "MOJ", url: "https://law.moj.gov.tw/ENG/LawClass/LawAll.aspx?pcode=N0030001", checkedAt: "2026-06-13" },
+      { id: "mol", title: "MOL", url: "https://laws.mol.gov.tw/", checkedAt: "2026-06-13" },
+      { id: "private", title: "Private law database", url: "https://db.lawbank.com.tw/FLAW", checkedAt: "2026-06-13" },
+      { id: "plain", title: "Plain HTTP", url: "http://law.moj.gov.tw/ENG/LawClass/LawAll.aspx?pcode=N0030001", checkedAt: "2026-06-13" },
+      { id: "bad", title: "Bad URL", url: "not-a-url", checkedAt: "2026-06-13" },
+    ]);
+
+    expect(summary).toMatchObject({
+      passed: false,
+      trustedSourceCount: 2,
+      untrustedSourceIds: ["private"],
+      invalidUrlSourceIds: ["plain", "bad"],
+      trustedHostPattern: "https://*.gov.tw",
     });
   });
 });

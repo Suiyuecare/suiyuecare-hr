@@ -48,6 +48,19 @@ export type LegalSourceFreshnessSummary = {
   invalidSourceIds: string[];
 };
 
+export type LegalSourceAuthoritySummary = {
+  passed: boolean;
+  totalSourceCount: number;
+  trustedSourceCount: number;
+  untrustedSourceCount: number;
+  invalidUrlSourceCount: number;
+  trustedSourceIds: string[];
+  untrustedSourceIds: string[];
+  invalidUrlSourceIds: string[];
+  sourceHosts: Record<string, string | null>;
+  trustedHostPattern: string;
+};
+
 export function validateTaiwanLaborStandardsRuleSet(
   config: TaiwanLaborStandardsConfig,
   validatedAt = new Date().toISOString(),
@@ -170,6 +183,63 @@ export function summarizeLegalSourceFreshness(summary: LegalSourceFreshnessSumma
     maxAgeDays: summary.maxAgeDays,
     checkedAt: summary.checkedAt,
   };
+}
+
+export function evaluateLegalSourceAuthority(sources: LegalSource[]): LegalSourceAuthoritySummary {
+  const trustedSourceIds: string[] = [];
+  const untrustedSourceIds: string[] = [];
+  const invalidUrlSourceIds: string[] = [];
+  const sourceHosts: Record<string, string | null> = {};
+
+  for (const source of sources) {
+    const parsed = parseTrustedLegalSourceUrl(source.url);
+    sourceHosts[source.id] = parsed.host;
+    if (parsed.status === "trusted") {
+      trustedSourceIds.push(source.id);
+    } else if (parsed.status === "untrusted") {
+      untrustedSourceIds.push(source.id);
+    } else {
+      invalidUrlSourceIds.push(source.id);
+    }
+  }
+
+  return {
+    passed: sources.length > 0 && untrustedSourceIds.length === 0 && invalidUrlSourceIds.length === 0,
+    totalSourceCount: sources.length,
+    trustedSourceCount: trustedSourceIds.length,
+    untrustedSourceCount: untrustedSourceIds.length,
+    invalidUrlSourceCount: invalidUrlSourceIds.length,
+    trustedSourceIds,
+    untrustedSourceIds,
+    invalidUrlSourceIds,
+    sourceHosts,
+    trustedHostPattern: "https://*.gov.tw",
+  };
+}
+
+export function summarizeLegalSourceAuthority(summary: LegalSourceAuthoritySummary) {
+  return {
+    passed: summary.passed,
+    totalSourceCount: summary.totalSourceCount,
+    trustedSourceCount: summary.trustedSourceCount,
+    untrustedSourceCount: summary.untrustedSourceCount,
+    invalidUrlSourceCount: summary.invalidUrlSourceCount,
+    trustedHostPattern: summary.trustedHostPattern,
+  };
+}
+
+function parseTrustedLegalSourceUrl(value: string) {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    if (url.protocol !== "https:") return { status: "invalid_url" as const, host };
+    return {
+      status: host === "gov.tw" || host.endsWith(".gov.tw") ? "trusted" as const : "untrusted" as const,
+      host,
+    };
+  } catch {
+    return { status: "invalid_url" as const, host: null };
+  }
 }
 
 function validateMinimumWageBoundary(config: TaiwanLaborStandardsConfig): RuleValidationFixture {

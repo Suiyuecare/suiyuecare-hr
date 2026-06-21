@@ -331,6 +331,51 @@ describe("rule settings", () => {
     expect(JSON.stringify(center.impactTasks)).not.toMatch(/postgresql:\/\/|sb_publishable_|password|銀行帳號|身分證字號/);
   });
 
+  it("blocks rule center readiness when configured legal sources are not official government hosts", async () => {
+    await updateTaiwanLaborStandardsConfig(ownerSession, {
+      changeControl: {
+        reason: "HR pasted a private legal database URL during source review",
+        sourceUrl: "https://db.lawbank.com.tw/FLAW",
+        reviewedBy: "Payroll owner",
+        reviewStatus: "approved",
+        requiresPayrollRecalculation: false,
+      },
+      sources: getActiveTaiwanLaborStandardsConfig().sources.map((source) =>
+        source.id === "tw-lsa-article-24"
+          ? { ...source, url: "https://db.lawbank.com.tw/FLAW" }
+          : source
+      ),
+    });
+
+    const center = await getTaiwanLaborRuleCenter(ownerSession);
+    const overtime = center.complianceCoverage.find((item) => item.id === "overtime_pay");
+
+    expect(center.sourceAuthority).toMatchObject({
+      passed: false,
+      untrustedSourceIds: ["tw-lsa-article-24"],
+    });
+    expect(center.sourceReview).toMatchObject({
+      status: "blocked",
+      untrustedCount: 1,
+      dueCount: 1,
+    });
+    expect(center.sourceReview.items.find((source) => source.id === "tw-lsa-article-24")).toMatchObject({
+      status: "untrusted",
+      authorityHost: "db.lawbank.com.tw",
+    });
+    expect(overtime).toMatchObject({
+      status: "blocked",
+      untrustedSourceIds: ["tw-lsa-article-24"],
+    });
+    expect(center.launchGate.steps.find((step) => step.id === "source_version")).toMatchObject({
+      status: "blocked",
+    });
+    expect(center.readiness.blockers).toEqual(expect.arrayContaining([
+      "官方來源可信度有 1 個阻擋項",
+    ]));
+    expect(JSON.stringify(center.versionHistory)).not.toMatch(/銀行帳號|身分證字號|postgresql:\/\//);
+  });
+
   it("lets HR review configured legal sources without changing payroll parameters", async () => {
     await updateTaiwanLaborStandardsConfig(ownerSession, {
       changeControl: {
