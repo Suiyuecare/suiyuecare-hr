@@ -4,6 +4,7 @@ import { hasPermission } from "@/server/auth/rbac";
 import { getBetaPilotReadinessReport } from "@/server/readiness/beta-pilot";
 import type { BetaPilotCheckpointStatus, BetaPilotEvidenceType } from "@/server/readiness/beta-pilot-checkpoints";
 import { getBetaPilotTrialWorkspace } from "@/server/readiness/beta-pilot-trial-run";
+import { buildSaleReadinessRoadmap } from "@/server/readiness/commercialization-roadmap";
 import { getLaunchReadinessReport } from "@/server/readiness/launch";
 
 type SearchParams = Promise<{ error?: string; success?: string }>;
@@ -23,9 +24,14 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
   const report = await getLaunchReadinessReport(session);
   const betaPilot = await getBetaPilotReadinessReport(session, report);
   const trialWorkspace = await getBetaPilotTrialWorkspace(session, betaPilot);
+  const saleRoadmap = buildSaleReadinessRoadmap({
+    launchReport: report,
+    betaPilot,
+    trialWorkspace,
+  });
 
   return (
-    <main className="page">
+    <main className="page settings-control-page">
       <section className="page-header">
         <h1>上線與試用準備度</h1>
         <p>把 HR One 從展示環境推進到 20-50 人、2 週可試用的客戶導入狀態。</p>
@@ -61,6 +67,57 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
           </p>
         </div>
       ) : null}
+
+      <section className="settings-control-hero" aria-label="販售上線戰情室">
+        <div className="settings-control-hero-main">
+          <div className="settings-control-hero-topline">
+            <span className="muted">Owner / HR 下一階段路線圖</span>
+            <span className={`badge ${saleRoadmap.readyForSale ? "" : saleRoadmap.blockedCount ? "danger" : "warning"}`}>
+              {saleRoadmap.readyForSale ? "可販售" : `${saleRoadmap.blockedCount} 個階段阻擋`}
+            </span>
+          </div>
+          <h1>販售上線戰情室</h1>
+          <p>
+            {saleRoadmap.summary}
+            {" "}
+            系統會把 production DB、Finance-style 體驗、真實 20-50 人試用、台灣法遵、薪資月結與商務證據包排成同一條路線。
+          </p>
+          <div className="settings-control-hero-actions">
+            <a className="button primary" href={saleRoadmap.currentStage.actionHref}>
+              {saleRoadmap.currentStage.actionLabel}
+            </a>
+            <a className="button" href="/settings/production-database">
+              修正式資料庫 Gate
+            </a>
+            <a className="button" href="/hr/kpis">
+              查看販售 KPI
+            </a>
+          </div>
+        </div>
+        <aside className={`settings-control-focus ${roadmapTone(saleRoadmap.currentStage.status)}`}>
+          <span className="muted">今日最重要</span>
+          <strong>
+            第 {saleRoadmap.currentStage.step} 階段 · {saleRoadmap.currentStage.title}
+          </strong>
+          <p>{saleRoadmap.currentStage.nextStep}</p>
+          <span className={`badge ${badgeClass(saleRoadmap.currentStage.status)}`}>
+            {roadmapStatusLabel(saleRoadmap.currentStage.status)}
+          </span>
+        </aside>
+      </section>
+
+      <section className="settings-signal-board sale-roadmap-grid" aria-label="下一階段販售路線圖">
+        {saleRoadmap.stages.map((stage) => (
+          <a className={`settings-signal-card ${roadmapTone(stage.status)}`} href={stage.actionHref} key={stage.id}>
+            <span>
+              第 {stage.step} 階段 · {stage.owner}
+            </span>
+            <strong>{stage.title}</strong>
+            <small>{stage.signal}</small>
+            <small>{stage.kpiTarget}</small>
+          </a>
+        ))}
+      </section>
 
       <section className="grid">
         <div className="panel span-3 metric">
@@ -510,6 +567,18 @@ function badgeClass(status: string) {
 function statusLabel(status: string) {
   if (status === "action_required") return "Action required";
   return status;
+}
+
+function roadmapStatusLabel(status: string) {
+  if (status === "ready") return "已就緒";
+  if (status === "blocked") return "阻擋";
+  return "需處理";
+}
+
+function roadmapTone(status: string) {
+  if (status === "blocked") return "danger";
+  if (status === "action_required") return "warning";
+  return "done";
 }
 
 function readinessStatusLabel(status: string) {

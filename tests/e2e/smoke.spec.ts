@@ -282,6 +282,16 @@ test("Owner 可以檢查試用營運與上線 Gate", async ({ page }) => {
   await gotoAppPage(page, "/app");
   await switchDemoRole(page, "owner");
 
+  await gotoAppPage(page, "/settings/readiness");
+  await expect(page.getByRole("heading", { name: "販售上線戰情室" })).toBeVisible();
+  await expect(page.getByText("Owner / HR 下一階段路線圖")).toBeVisible();
+  const saleRoadmap = page.getByLabel("下一階段販售路線圖");
+  await expect(saleRoadmap.getByText("修好正式環境與租戶基礎")).toBeVisible();
+  await expect(saleRoadmap.getByText("收斂 Finance-style 前後台體驗")).toBeVisible();
+  await expect(saleRoadmap.getByText("匯入 20-50 人真實試用資料")).toBeVisible();
+  await expect(saleRoadmap.getByText("完成薪資月結與台灣法遵閉環")).toBeVisible();
+  await expect(saleRoadmap.getByText("整理可販售證據與商務交付")).toBeVisible();
+
   await gotoAppPage(page, "/settings/pilot-operations");
   await expect(page.getByRole("heading", { name: "試用每日戰情" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "今日任務板" })).toBeVisible();

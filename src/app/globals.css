@@ -3633,6 +3633,10 @@ legend {
   margin: 0 0 14px;
 }
 
+.sale-roadmap-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .settings-signal-card {
   display: grid;
   align-content: start;
