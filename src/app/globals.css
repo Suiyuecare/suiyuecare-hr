@@ -4866,6 +4866,95 @@ legend {
   width: 100%;
 }
 
+.law-rule-impact-panel {
+  margin-bottom: 14px;
+}
+
+.law-rule-impact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.law-rule-impact-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 326px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.law-rule-impact-card.ready {
+  border-color: #bbf7d0;
+  background: #f8fffb;
+}
+
+.law-rule-impact-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.law-rule-impact-card.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.law-rule-impact-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.law-rule-impact-card h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 19px;
+  font-weight: 1000;
+  line-height: 1.16;
+}
+
+.law-rule-impact-card p,
+.law-rule-impact-card small,
+.law-rule-impact-card strong {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.44;
+}
+
+.law-rule-impact-card strong {
+  color: var(--foreground);
+}
+
+.law-rule-impact-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.law-rule-impact-tags span {
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--muted);
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.law-rule-impact-card .button {
+  align-self: end;
+  justify-self: start;
+  margin-top: auto;
+}
+
 .law-rule-coverage-panel {
   margin-bottom: 14px;
 }
@@ -11034,6 +11123,7 @@ legend {
   .law-rules-hero,
   .law-rule-signal-board,
   .law-rule-governance-grid,
+  .law-rule-impact-grid,
   .hr-monthly-hero,
   .hr-monthly-signal-board,
   .employee-command-grid,
@@ -11446,6 +11536,7 @@ legend {
   .law-rules-focus,
   .law-rule-signal-card,
   .law-rule-governance-card,
+  .law-rule-impact-card,
   .hr-monthly-hero-focus,
   .hr-monthly-signal-card,
   .offboarding-command-grid .settings-command-card,

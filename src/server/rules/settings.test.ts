@@ -163,6 +163,15 @@ describe("rule settings", () => {
       "income_tax",
       "filing_package",
     ]);
+    expect(initial.impactTasks.map((task) => task.id)).toEqual([
+      "payroll_recalculation",
+      "attendance_worktime_gate",
+      "leave_calendar_gate",
+      "termination_insurance_gate",
+      "employee_policy_rollout",
+      "audit_filing_package",
+    ]);
+    expect(initial.impactTasks.every((task) => task.status === "covered")).toBe(true);
     expect(initial.versionHistory).toEqual([
       expect.objectContaining({
         version: expect.stringContaining("2026.01"),
@@ -190,6 +199,11 @@ describe("rule settings", () => {
       "台灣法遵覆蓋矩陣有 11 項需複核",
       "薪資草稿需重新試算檢查",
     ]));
+    expect(draft.impactTasks.find((task) => task.id === "payroll_recalculation")).toMatchObject({
+      status: "needs_review",
+      actionHref: "/hr",
+    });
+    expect(draft.impactTasks.find((task) => task.id === "payroll_recalculation")?.nextAction).toContain("重新試算");
     expect(draft.versionHistory).toHaveLength(2);
     expect(draft.versionHistory[0]).toMatchObject({
       status: "active",
@@ -232,10 +246,19 @@ describe("rule settings", () => {
       status: "blocked",
       missingSourceIds: ["tw-lsa-article-30", "tw-lsa-article-32"],
     });
+    expect(center.impactTasks.find((task) => task.id === "attendance_worktime_gate")).toMatchObject({
+      status: "blocked",
+      sourceCoverage: {
+        covered: 0,
+        total: 6,
+      },
+    });
+    expect(center.impactTasks.find((task) => task.id === "attendance_worktime_gate")?.nextAction).toContain("先補齊阻擋的法遵覆蓋");
     expect(center.readiness).toMatchObject({
       status: "blocked",
       blockers: expect.arrayContaining(["台灣法遵覆蓋矩陣有 10 個阻擋項"]),
     });
+    expect(JSON.stringify(center.impactTasks)).not.toMatch(/postgresql:\/\/|sb_publishable_|password|銀行帳號|身分證字號/);
   });
 
   it("versions statutory filing package mappings without code changes", async () => {

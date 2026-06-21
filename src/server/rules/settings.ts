@@ -93,12 +93,30 @@ export type TaiwanLaborComplianceCoverageSummary = {
   needsReviewItems: string[];
 };
 
+export type TaiwanLaborRuleImpactTask = {
+  id: string;
+  title: string;
+  owner: "HR" | "Payroll" | "HR + Payroll" | "Owner";
+  status: TaiwanLaborComplianceCoverageStatus;
+  affectedWorkflows: string[];
+  trigger: string;
+  evidence: string;
+  nextAction: string;
+  actionLabel: string;
+  actionHref: string;
+  sourceCoverage: {
+    covered: number;
+    total: number;
+  };
+};
+
 export type TaiwanLaborRuleCenter = {
   config: TaiwanLaborStandardsConfig;
   validation: ReturnType<typeof validateTaiwanLaborStandardsRuleSet>;
   sourceFreshness: ReturnType<typeof evaluateLegalSourceFreshness>;
   complianceCoverage: TaiwanLaborComplianceCoverageItem[];
   complianceCoverageSummary: TaiwanLaborComplianceCoverageSummary;
+  impactTasks: TaiwanLaborRuleImpactTask[];
   versionHistory: TaiwanLaborRuleVersionSummary[];
   readiness: TaiwanLaborRuleCenterReadiness;
 };
@@ -192,6 +210,7 @@ export async function getTaiwanLaborRuleCenter(session?: SessionLike): Promise<T
   const sourceFreshness = evaluateLegalSourceFreshness(config.sources);
   const complianceCoverage = buildTaiwanLaborComplianceCoverage(config, sourceFreshness);
   const complianceCoverageSummary = summarizeTaiwanLaborComplianceCoverage(complianceCoverage);
+  const impactTasks = buildTaiwanLaborRuleImpactTasks(config, complianceCoverage);
   const versionHistory = session && canUseDatabase(session)
     ? await getDbTaiwanLaborRuleVersionHistory(session)
     : getRuleSettingsDemoState().versionHistory;
@@ -202,6 +221,7 @@ export async function getTaiwanLaborRuleCenter(session?: SessionLike): Promise<T
     sourceFreshness,
     complianceCoverage,
     complianceCoverageSummary,
+    impactTasks,
     versionHistory,
     readiness: buildRuleCenterReadiness(
       config,
@@ -211,6 +231,91 @@ export async function getTaiwanLaborRuleCenter(session?: SessionLike): Promise<T
       complianceCoverageSummary,
     ),
   };
+}
+
+export function buildTaiwanLaborRuleImpactTasks(
+  config: TaiwanLaborStandardsConfig,
+  coverage: TaiwanLaborComplianceCoverageItem[] = buildTaiwanLaborComplianceCoverage(config),
+): TaiwanLaborRuleImpactTask[] {
+  const coverageById = new Map(coverage.map((item) => [item.id, item]));
+  return [
+    impactTask(config, coverageById, {
+      id: "payroll_recalculation",
+      title: "薪資月結與未鎖定草稿",
+      owner: "Payroll",
+      coverageIds: ["minimum_wage", "overtime_pay", "statutory_payroll", "income_tax", "filing_package"],
+      affectedWorkflows: ["薪資試算", "加班費", "勞健保/勞退", "所得稅扣繳", "薪資單釋出"],
+      trigger: config.changeControl.requiresPayrollRecalculation
+        ? "目前版本標記既有薪資草稿需重新試算。"
+        : "規則來源與薪資參數變更時需確認未鎖定薪資是否仍使用舊版本。",
+      evidence: "Payroll run recalculation report, payroll item ruleVersionId, payslip self-only access smoke.",
+      nextAction: config.changeControl.requiresPayrollRecalculation
+        ? "先重新試算尚未鎖定的薪資草稿，確認加班費、扣繳、投保級距與薪資單皆引用目前 rule version。"
+        : "月結前保留薪資試算與 rule version 證據；若規則有變更，先重算再鎖定。",
+      actionLabel: "回月結試算",
+      actionHref: "/hr",
+    }),
+    impactTask(config, coverageById, {
+      id: "attendance_worktime_gate",
+      title: "出勤、排班與加班 Gate",
+      owner: "HR",
+      coverageIds: ["working_time", "overtime_pay", "rest_holiday_pay"],
+      affectedWorkflows: ["打卡", "排班", "加班申請", "出勤異常", "工時約定"],
+      trigger: "工時上限、休息日、例假或加班倍率變更時，會影響打卡異常、加班警示與排班合法性。",
+      evidence: "Worktime compliance scan, attendance exception queue, labor-management agreement evidence.",
+      nextAction: "重跑工時法遵掃描，確認 8/40、12 小時、一個月 46/54 小時與三個月 138 小時 Gate 仍正確。",
+      actionLabel: "掃描工時法遵",
+      actionHref: "/hr/worktime-compliance",
+    }),
+    impactTask(config, coverageById, {
+      id: "leave_calendar_gate",
+      title: "假別、特休與公司行事曆",
+      owner: "HR",
+      coverageIds: ["annual_leave", "statutory_leave", "rest_holiday_pay"],
+      affectedWorkflows: ["員工請假", "特休給假", "特休結清", "國定假日", "補班日"],
+      trigger: "特休級距、法定假別、國定假日或補假來源變更時，會影響員工手機請假與薪資結清。",
+      evidence: "Leave policy review, annual leave grant batch, company calendar official-source review.",
+      nextAction: "重新檢查假別政策、年度行事曆、特休給假與未休工資結清，員工請假仍需維持三步內完成。",
+      actionLabel: "檢查假別政策",
+      actionHref: "/hr/leave-policies",
+    }),
+    impactTask(config, coverageById, {
+      id: "termination_insurance_gate",
+      title: "離職、投保與最後薪資",
+      owner: "HR + Payroll",
+      coverageIds: ["termination", "insurance_onboarding", "statutory_payroll", "annual_leave"],
+      affectedWorkflows: ["離職交接", "最終工資", "特休結清", "勞健保退保", "服務證明"],
+      trigger: "預告期、資遣費、投保加退保期限或特休結清規則變更時，離職流程必須人工複核。",
+      evidence: "Offboarding task completion, insurance withdrawal evidence hash, unused leave settlement draft.",
+      nextAction: "重跑離職交接與法定投保檢查，確認最終工資、退保、特休結清與服務證明都有負責人。",
+      actionLabel: "開啟離職交接",
+      actionHref: "/hr/offboarding",
+    }),
+    impactTask(config, coverageById, {
+      id: "employee_policy_rollout",
+      title: "員工政策公告與規章確認",
+      owner: "HR",
+      coverageIds: ["working_time", "statutory_leave", "annual_leave", "rest_holiday_pay"],
+      affectedWorkflows: ["公告", "工作規則", "員工確認", "訓練任務"],
+      trigger: "法規規則變更若影響員工權益，必須用公告、工作規則或訓練任務讓員工確認。",
+      evidence: "Announcement receipt, work-rule acknowledgement, first-week training completion evidence.",
+      nextAction: "發布安全摘要公告或更新工作規則，避免員工只在請假或薪資單頁才看到規則變更。",
+      actionLabel: "發布公告",
+      actionHref: "/hr/announcements",
+    }),
+    impactTask(config, coverageById, {
+      id: "audit_filing_package",
+      title: "勞檢、申報與 Audit 證據包",
+      owner: "Owner",
+      coverageIds: ["filing_package", "statutory_payroll", "income_tax", "insurance_onboarding"],
+      affectedWorkflows: ["工資清冊", "薪資匯出", "法定申報", "audit package", "證據包交付"],
+      trigger: "申報表、級距或扣繳來源變更時，下載封存與勞檢資料必須有 hash-only 證據。",
+      evidence: "Payroll export manifest, statutory filing package mapping, audit evidence package.",
+      nextAction: "確認薪資封存、申報包欄位、audit log 與證據包都不包含原始敏感資料或完整付款資訊。",
+      actionLabel: "開啟稽核證據",
+      actionHref: "/settings/audit",
+    }),
+  ];
 }
 
 export function buildTaiwanLaborComplianceCoverage(
@@ -552,6 +657,66 @@ function buildCoverageBlockedAction(
     missingControls.length ? `補設定 ${missingControls.join("、")}` : null,
   ].filter((part): part is string => Boolean(part));
   return actionParts.length ? `${actionParts.join("；")}。${definition.nextAction}` : definition.nextAction;
+}
+
+function impactTask(
+  config: TaiwanLaborStandardsConfig,
+  coverageById: Map<string, TaiwanLaborComplianceCoverageItem>,
+  definition: {
+    id: string;
+    title: string;
+    owner: TaiwanLaborRuleImpactTask["owner"];
+    coverageIds: string[];
+    affectedWorkflows: string[];
+    trigger: string;
+    evidence: string;
+    nextAction: string;
+    actionLabel: string;
+    actionHref: string;
+  },
+): TaiwanLaborRuleImpactTask {
+  const matched = definition.coverageIds.map((id) => coverageById.get(id)).filter(isDefined);
+  const status: TaiwanLaborComplianceCoverageStatus =
+    matched.some((item) => item.status === "blocked")
+      ? "blocked"
+      : matched.some((item) => item.status === "needs_review") ||
+          config.changeControl.reviewStatus !== "approved" ||
+          config.changeControl.requiresPayrollRecalculation
+        ? "needs_review"
+        : "covered";
+  const sourceStates = new Map<string, "covered" | "missing_or_stale">();
+  for (const item of matched) {
+    for (const sourceId of item.sourceIds) {
+      const sourceReady = !item.missingSourceIds.includes(sourceId) && !item.staleSourceIds.includes(sourceId);
+      const previous = sourceStates.get(sourceId);
+      sourceStates.set(sourceId, previous === "covered" || sourceReady ? "covered" : "missing_or_stale");
+    }
+  }
+  const coveredSources = [...sourceStates.values()].filter((state) => state === "covered").length;
+  const totalSources = sourceStates.size;
+
+  return {
+    id: definition.id,
+    title: definition.title,
+    owner: definition.owner,
+    status,
+    affectedWorkflows: definition.affectedWorkflows,
+    trigger: definition.trigger,
+    evidence: definition.evidence,
+    nextAction: status === "blocked"
+      ? `先補齊阻擋的法遵覆蓋：${matched.filter((item) => item.status === "blocked").map((item) => item.title).join("、")}。${definition.nextAction}`
+      : definition.nextAction,
+    actionLabel: definition.actionLabel,
+    actionHref: definition.actionHref,
+    sourceCoverage: {
+      covered: coveredSources,
+      total: totalSources,
+    },
+  };
+}
+
+function isDefined<T>(value: T | undefined | null): value is T {
+  return value != null;
 }
 
 function formatMoneyForEvidence(value: number) {

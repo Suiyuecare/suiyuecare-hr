@@ -81,6 +81,45 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
         ))}
       </section>
 
+      <section className="panel span-12 law-rule-impact-panel" id="rule-impact" aria-label="法規異動影響清單">
+        <div className="section-heading">
+          <div>
+            <h2>法規異動影響清單</h2>
+            <p className="muted">
+              HR 更新來源或規則後，先看這裡決定要重跑哪個流程；薪資、假勤、出勤、離職、公告與稽核都必須有可追溯證據。
+            </p>
+          </div>
+          <span className={`badge ${center.impactTasks.some((task) => task.status === "blocked") ? "danger" : center.impactTasks.some((task) => task.status === "needs_review") ? "warning" : "done"}`}>
+            {center.impactTasks.filter((task) => task.status !== "covered").length} 項待處理
+          </span>
+        </div>
+        <div className="law-rule-impact-grid">
+          {center.impactTasks.map((task) => (
+            <article className={`law-rule-impact-card ${coverageTone(task.status)}`} key={task.id}>
+              <div className="law-rule-impact-card-top">
+                <span className="eyebrow">{task.owner}</span>
+                <span className={`badge ${task.status === "covered" ? "done" : task.status === "blocked" ? "danger" : "warning"}`}>
+                  {coverageStatusLabel(task.status)}
+                </span>
+              </div>
+              <h3>{task.title}</h3>
+              <p>{task.trigger}</p>
+              <div className="law-rule-impact-tags">
+                {task.affectedWorkflows.map((workflow) => (
+                  <span key={workflow}>{workflow}</span>
+                ))}
+              </div>
+              <small>驗收：{task.evidence}</small>
+              <small>來源：{task.sourceCoverage.covered}/{task.sourceCoverage.total}</small>
+              <strong>{task.nextAction}</strong>
+              <Link className="button" href={task.actionHref}>
+                {task.actionLabel}
+              </Link>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="panel span-12 law-rule-coverage-panel" id="compliance-coverage" aria-label="台灣法遵覆蓋矩陣">
         <div className="section-heading">
           <div>
