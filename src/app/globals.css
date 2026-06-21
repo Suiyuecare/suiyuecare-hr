@@ -5532,6 +5532,157 @@ legend {
   line-height: 1.45;
 }
 
+.production-database-page {
+  max-width: 1280px;
+}
+
+.production-database-hero .hr-monthly-hero-focus.ready {
+  border-color: rgba(187, 247, 208, 0.46);
+  background: rgba(21, 128, 61, 0.16);
+}
+
+.production-database-hero .hr-monthly-hero-focus .button {
+  width: 100%;
+  margin-top: auto;
+}
+
+.production-database-signal-board .hr-monthly-signal-card small {
+  overflow-wrap: anywhere;
+}
+
+.production-database-command-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.production-database-command-grid .settings-command-card {
+  min-height: 286px;
+}
+
+.production-database-gate.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.production-database-gate.danger {
+  border-color: #fecaca;
+  background: #fff7ed;
+}
+
+.production-database-check-list {
+  gap: 12px;
+}
+
+.production-database-task {
+  align-items: flex-start;
+}
+
+.production-database-task > span:first-child {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.production-database-task.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.production-database-task.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.production-database-task.danger {
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.production-database-diagnostic-grid,
+.production-database-pooler-grid,
+.production-database-track-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.production-database-diagnostic-grid,
+.production-database-pooler-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.production-database-track-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.production-database-mini-card,
+.production-database-track {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.production-database-mini-card.ready,
+.production-database-track.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.production-database-mini-card.warning,
+.production-database-track.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.production-database-mini-card h3,
+.production-database-track h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 1000;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
+.production-database-mini-card p,
+.production-database-track p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .production-database-command-grid,
+  .production-database-diagnostic-grid,
+  .production-database-pooler-grid,
+  .production-database-track-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .production-database-page .section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .production-database-page .button {
+    width: 100%;
+  }
+
+  .production-database-command-grid .settings-command-card,
+  .production-database-mini-card,
+  .production-database-track {
+    min-height: auto;
+  }
+}
+
 @media (max-width: 760px) {
   .training-center-command-grid,
   .training-center-guardrail-grid {

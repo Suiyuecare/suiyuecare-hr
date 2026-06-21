@@ -339,9 +339,14 @@ test("Owner 可以檢查試用營運與上線 Gate", async ({ page }) => {
 
   await gotoAppPage(page, "/settings/production-database");
   await expect(page.getByRole("heading", { name: "正式環境資料庫 Gate" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /Production database/ })).toBeVisible();
+  await expect(page.getByLabel("正式環境資料庫 Gate").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("正式資料庫訊號板").getByText("Database ping", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("資料庫修復作業卡").getByRole("heading", { name: "Key 存在不等於可用" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Production database 仍阻擋試用開跑" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Runtime env 診斷" })).toBeVisible();
   await expect(page.getByLabel("Runtime env redacted 診斷")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Vercel env 現況" })).toBeVisible();
+  await expect(page.getByText("DATABASE_URL key 已存在仍不代表值正確")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Supabase Transaction Pooler 形狀" })).toBeVisible();
   const poolerShape = page.getByLabel("Supabase transaction pooler 安全形狀");
   await expect(poolerShape.getByText("aws-0-ap-northeast-2.pooler.supabase.com")).toBeVisible();

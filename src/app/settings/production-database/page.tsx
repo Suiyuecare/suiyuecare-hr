@@ -9,7 +9,18 @@ import {
   type ProductionDatabaseRemediationStep,
 } from "@/server/readiness/production-database-remediation";
 
-const poolerHandoffCommand = "printf '%s' \"$SUPABASE_TRANSACTION_POOLER_DATABASE_URL\" | pnpm vercel:database-url-handoff -- --env-file=.env.vercel.production --output=/tmp/hr-one-vercel-database-url-handoff.md";
+const teamId = "team_LGag47eU8tKbsK6ixAmVa5Uq";
+const projectId = "prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N";
+const poolerHandoffCommand =
+  "printf '%s' \"$SUPABASE_TRANSACTION_POOLER_DATABASE_URL\" | pnpm vercel:database-url-handoff -- --env-file=.env.vercel.production --output=/tmp/hr-one-vercel-database-url-handoff.md";
+const poolerDraftCommand =
+  "printf '%s' \"$SUPABASE_TRANSACTION_POOLER_DATABASE_URL\" | pnpm vercel:refresh-production-env-draft -- --env-file=.env.vercel.production --database-url-stdin --apply";
+const vercelEnvListCommand =
+  `pnpm dlx vercel@latest env ls production --format json --scope ${teamId}`;
+const vercelEnvApplyCommand =
+  "pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --method=cli";
+const productionDeployCommand =
+  `pnpm dlx vercel@latest --prod --scope ${teamId}`;
 
 export default async function ProductionDatabasePage() {
   const session = await getDemoSession();
@@ -28,51 +39,123 @@ export default async function ProductionDatabasePage() {
     appUrl: "https://hr.suiyuecare.com",
     expectedHost: "hr.suiyuecare.com",
   });
+  const focus = buildDatabaseFocus(report);
+  const databaseReady = checkPassed(report, "production database");
+  const environmentReady = checkPassed(report, "production environment");
+  const overallReady = checkPassed(report, "overall readiness");
+  const demoAuthOff = checkPassed(report, "demo auth disabled");
 
   return (
-    <main className="page">
-      <section className="page-header">
-        <h1>正式環境資料庫 Gate</h1>
-        <p>20-50 人兩週試用前，正式站必須能從 Vercel runtime 連到 Supabase PostgreSQL；這裡只顯示狀態與修復路線，不顯示任何 secret。</p>
+    <main className="page production-database-page">
+      <section className="hr-monthly-hero production-database-hero" aria-label="正式環境資料庫 Gate">
+        <div className="hr-monthly-hero-main">
+          <div className="hr-monthly-hero-topline">
+            <span className="eyebrow">Owner 上線 Gate · Vercel / Supabase</span>
+            <span className={`badge ${report.status === "ready" ? "done" : "danger"}`}>
+              {report.status === "ready" ? "可開跑" : "阻擋販售"}
+            </span>
+          </div>
+          <h1>正式環境資料庫 Gate</h1>
+          <p>
+            20-50 人兩週試用前，正式站必須從 Vercel runtime 連上 Supabase PostgreSQL。
+            這裡只顯示 redacted 診斷、修復路線與安全命令，不顯示任何密碼、完整資料庫 URL 或員工資料。
+          </p>
+          <div className="hr-monthly-hero-actions">
+            <Link className="button primary" href="#production-database-fix">
+              修復路線
+            </Link>
+            <Link className="button" href="#production-database-pooler">
+              Pooler 形狀
+            </Link>
+            <Link className="button" href="/settings/pilot-go-no-go">
+              Go/No-Go
+            </Link>
+            <Link className="button" href="/settings/readiness">
+              上線戰情室
+            </Link>
+          </div>
+        </div>
+
+        <aside className={`hr-monthly-hero-focus ${focus.tone}`} aria-label="今日先處理">
+          <span className="eyebrow">今日先處理</span>
+          <strong>{focus.title}</strong>
+          <p>{focus.copy}</p>
+          <small>{focus.meta}</small>
+          <div className="hr-monthly-focus-footer">
+            <a className="button primary" href={focus.href}>
+              {focus.action}
+            </a>
+          </div>
+        </aside>
+      </section>
+
+      <section className="hr-monthly-signal-board production-database-signal-board" aria-label="正式資料庫訊號板">
+        <SignalCard label="Live readiness" value={overallReady ? "OK" : "FAIL"} detail={report.readinessUrl} tone={overallReady ? "done" : "danger"} />
+        <SignalCard label="Production env" value={environmentReady ? "OK" : "FAIL"} detail={report.environmentDetail} tone={environmentReady ? "done" : "danger"} />
+        <SignalCard label="Database ping" value={databaseReady ? "OK" : "FAIL"} detail={report.databaseDetail} tone={databaseReady ? "done" : "danger"} />
+        <SignalCard label="Demo auth" value={demoAuthOff ? "OFF" : "RISK"} detail="正式 runtime 不可開 demo auth" tone={demoAuthOff ? "done" : "danger"} />
+      </section>
+
+      <section className="settings-command-grid production-database-command-grid" aria-label="資料庫修復作業卡">
+        <article className={`settings-command-card ${report.status === "ready" ? "ready" : "danger"}`}>
+          <span className="eyebrow">Hard Gate</span>
+          <h2>Production database {report.status === "ready" ? "已可用" : "仍阻擋"}</h2>
+          <p>{report.summary}</p>
+          <a className="button" href="#production-database-diagnosis">
+            看診斷
+          </a>
+        </article>
+        <article className="settings-command-card warning">
+          <span className="eyebrow">Vercel Secret</span>
+          <h2>Key 存在不等於可用</h2>
+          <p>Vercel CLI 可以列出 key，但 sensitive value 不能被 pull 回來驗值；仍要靠 live ready 與 redeploy 後的 gate 判斷。</p>
+          <a className="button" href="#production-database-vercel">
+            看命令
+          </a>
+        </article>
+        <article className={`settings-command-card ${report.rootCause === "supabase_direct_network" ? "danger" : "ready"}`}>
+          <span className="eyebrow">Supabase</span>
+          <h2>改用 Transaction Pooler</h2>
+          <p>Vercel/serverless 不應依賴 Supabase direct host；建議用 port 6543 pooler 並加上 Prisma pooler 參數。</p>
+          <a className="button" href="#production-database-pooler">
+            看安全形狀
+          </a>
+        </article>
+        <article className="settings-command-card warning">
+          <span className="eyebrow">Deploy</span>
+          <h2>改 env 後要重部署</h2>
+          <p>Production env 寫入後，不會自動修復既有 lambda runtime；必須 redeploy，再跑 health ready 與 pilot gate。</p>
+          <a className="button" href="#production-database-commands">
+            看必跑命令
+          </a>
+        </article>
       </section>
 
       <section className="grid">
-        <section className={`panel span-12 risk-box ${report.status === "ready" ? "success-box" : "danger-box"}`}>
+        <section
+          className={`panel span-12 production-database-gate ${report.status === "ready" ? "ready" : "danger"}`}
+          id="production-database-diagnosis"
+          aria-label="Production database diagnosis"
+        >
           <div className="section-heading">
             <div>
               <h2>{report.status === "ready" ? "Production database 已可用" : "Production database 仍阻擋試用開跑"}</h2>
-              <p className="muted">{report.summary}</p>
+              <p className="muted">
+                根因：{rootCauseLabel(report.rootCause)} · 產生時間 {formatDateTime(report.generatedAt)}
+              </p>
             </div>
-            <span className={`badge ${report.status === "ready" ? "" : "danger"}`}>
+            <span className={`badge ${report.status === "ready" ? "done" : "danger"}`}>
               {rootCauseLabel(report.rootCause)}
             </span>
           </div>
-        </section>
-
-        <MetricCard label="Live readiness" value={report.gate.checks.find((check) => check.name === "overall readiness")?.passed ? "OK" : "FAIL"} danger={!report.gate.checks.find((check) => check.name === "overall readiness")?.passed} />
-        <MetricCard label="Production env" value={report.gate.checks.find((check) => check.name === "production environment")?.passed ? "OK" : "FAIL"} danger={!report.gate.checks.find((check) => check.name === "production environment")?.passed} />
-        <MetricCard label="Database ping" value={report.gate.checks.find((check) => check.name === "production database")?.passed ? "OK" : "FAIL"} danger={!report.gate.checks.find((check) => check.name === "production database")?.passed} />
-        <MetricCard label="Demo auth" value={report.gate.checks.find((check) => check.name === "demo auth disabled")?.passed ? "OFF" : "RISK"} danger={!report.gate.checks.find((check) => check.name === "demo auth disabled")?.passed} />
-        <MetricCard label="Runtime env" value={report.envDraft ? envDraftStatusLabel(report.envDraft.status) : "未讀"} danger={report.envDraft?.status !== "ready"} />
-
-        <section className="panel span-7">
-          <div className="section-heading">
-            <div>
-              <h2>目前診斷</h2>
-              <p className="muted">來源：{report.readinessUrl}；產生時間 {formatDateTime(report.generatedAt)}</p>
-            </div>
-            <Link className="button" href="/settings/pilot-go-no-go">
-              回 Go/No-Go
-            </Link>
-          </div>
-          <ul className="task-list">
+          <ul className="task-list production-database-check-list">
             {report.gate.checks.map((check) => (
-              <li className="task" key={check.name}>
+              <li className={`task production-database-task ${check.passed ? "done" : "danger"}`} key={check.name}>
                 <span>
                   <strong>{gateCheckLabel(check.name)}</strong>
                   <small>{check.detail}</small>
                 </span>
-                <span className={`badge ${check.passed ? "" : "danger"}`}>
+                <span className={`badge ${check.passed ? "done" : "danger"}`}>
                   {check.passed ? "通過" : "阻擋"}
                 </span>
               </li>
@@ -80,30 +163,19 @@ export default async function ProductionDatabasePage() {
           </ul>
         </section>
 
-        <section className="panel span-5">
-          <h2>下一步</h2>
-          <ul className="task-list">
-            {report.nextActions.map((action) => (
-              <li className="task" key={action}>
-                <span>{action}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="panel span-12">
+        <section className="panel span-7">
           <div className="section-heading">
             <div>
               <h2>Runtime env 診斷</h2>
-              <p className="muted">從目前執行此頁面的 server runtime 產生，不顯示 DATABASE_URL、密碼或 secret，只顯示連線形狀與失敗檢查。</p>
+              <p className="muted">從目前執行此頁面的 server runtime 產生，只顯示連線形狀與失敗檢查。</p>
             </div>
-            <span className={`badge ${report.envDraft?.status === "ready" ? "" : "danger"}`}>
+            <span className={`badge ${report.envDraft?.status === "ready" ? "done" : "danger"}`}>
               {report.envDraft ? envDraftStatusLabel(report.envDraft.status) : "未附加"}
             </span>
           </div>
           {report.envDraft ? (
-            <div className="invite-prep-grid" aria-label="Runtime env redacted 診斷">
-              <article className={`invite-prep-card ${report.envDraft.status === "ready" ? "ready" : ""}`}>
+            <div className="production-database-diagnostic-grid" aria-label="Runtime env redacted 診斷">
+              <article className={`production-database-mini-card ${report.envDraft.status === "ready" ? "ready" : "warning"}`}>
                 <span className="badge">DB shape</span>
                 <h3>{report.envDraft.databaseUrlShape}</h3>
                 <p>{report.envDraft.source}</p>
@@ -128,7 +200,7 @@ export default async function ProductionDatabasePage() {
                   </li>
                 </ul>
               </article>
-              <article className="invite-prep-card">
+              <article className="production-database-mini-card">
                 <span className="badge warning">下一步</span>
                 <h3>修到這些項目歸零</h3>
                 <ul className="task-list">
@@ -148,16 +220,52 @@ export default async function ProductionDatabasePage() {
           )}
         </section>
 
-        <section className="panel span-12">
+        <section className="panel span-5" id="production-database-vercel">
+          <div className="section-heading">
+            <div>
+              <h2>Vercel env 現況</h2>
+              <p className="muted">CLI 可確認 key inventory；sensitive value 會被 Vercel 保護，不可用 pull 驗明文。</p>
+            </div>
+            <span className="badge warning">secret-safe</span>
+          </div>
+          <ul className="task-list">
+            <li className="task production-database-task warning">
+              <span>
+                <strong>Project</strong>
+                <small>{projectId}</small>
+              </span>
+            </li>
+            <li className="task production-database-task warning">
+              <span>
+                <strong>Team</strong>
+                <small>{teamId}</small>
+              </span>
+            </li>
+            <li className="task production-database-task warning">
+              <span>
+                <strong>Key inventory</strong>
+                <small>{vercelEnvListCommand}</small>
+              </span>
+            </li>
+            <li className="task production-database-task danger">
+              <span>
+                <strong>判斷準則</strong>
+                <small>DATABASE_URL key 已存在仍不代表值正確；以 /api/health/ready 與 production gate 通過為準。</small>
+              </span>
+            </li>
+          </ul>
+        </section>
+
+        <section className="panel span-12" id="production-database-pooler">
           <div className="section-heading">
             <div>
               <h2>Supabase Transaction Pooler 形狀</h2>
-              <p className="muted">這裡只列安全欄位，協助 Owner 在 Vercel Production 填入正確 server-only DATABASE_URL；密碼仍只從 Supabase Connect 或密碼管理器取得。</p>
+              <p className="muted">只列安全欄位，協助 Owner 在 Vercel Production 填入正確 server-only DATABASE_URL；密碼仍只從 Supabase Connect 或密碼管理器取得。</p>
             </div>
             <span className="badge done">不含密碼</span>
           </div>
-          <div className="invite-prep-grid" aria-label="Supabase transaction pooler 安全形狀">
-            <article className="invite-prep-card ready">
+          <div className="production-database-pooler-grid" aria-label="Supabase transaction pooler 安全形狀">
+            <article className="production-database-mini-card ready">
               <span className="badge">Project</span>
               <h3>{report.supabasePooler.projectRef}</h3>
               <p>Region {report.supabasePooler.region}</p>
@@ -182,7 +290,7 @@ export default async function ProductionDatabasePage() {
                 </li>
               </ul>
             </article>
-            <article className="invite-prep-card">
+            <article className="production-database-mini-card">
               <span className="badge warning">Prisma params</span>
               <h3>必要 query 參數</h3>
               <ul className="task-list">
@@ -202,24 +310,24 @@ export default async function ProductionDatabasePage() {
           </div>
         </section>
 
-        <section className="panel span-12">
+        <section className="panel span-12" id="production-database-fix">
           <div className="section-heading">
             <div>
               <h2>修復路線</h2>
               <p className="muted">選一條路線修正 Vercel Production env，修完後必須 redeploy，再跑 production gate。</p>
             </div>
           </div>
-          <div className="invite-prep-grid" aria-label="正式環境資料庫修復路線">
+          <div className="production-database-track-grid" aria-label="正式環境資料庫修復路線">
             {report.tracks.map((track) => (
-              <article className={`invite-prep-card ${track.recommended ? "ready" : ""}`} key={track.id}>
-                <span className={`badge ${track.recommended ? "" : "warning"}`}>
+              <article className={`production-database-track ${track.recommended ? "ready" : "warning"}`} key={track.id}>
+                <span className={`badge ${track.recommended ? "done" : "warning"}`}>
                   {track.recommended ? "建議" : "備選"}
                 </span>
                 <h3>{track.title}</h3>
                 <p>{track.detail}</p>
                 <ul className="task-list">
                   {track.steps.map((step) => (
-                    <li className="task" key={step.id}>
+                    <li className={`task production-database-task ${step.status === "done" ? "done" : step.status === "blocked" ? "danger" : "warning"}`} key={step.id}>
                       <span>
                         <strong>{step.title}</strong>
                         <small>{step.detail}</small>
@@ -236,41 +344,36 @@ export default async function ProductionDatabasePage() {
           </div>
         </section>
 
-        <section className="panel span-7">
-          <h2>必跑命令</h2>
+        <section className="panel span-7" id="production-database-commands">
+          <div className="section-heading">
+            <div>
+              <h2>必跑命令</h2>
+              <p className="muted">命令只接受 secret from stdin 或在 Vercel 端寫入；不要把完整 DATABASE_URL 貼到聊天或文件。</p>
+            </div>
+            <span className="badge">operator</span>
+          </div>
           <ul className="task-list">
-            <li className="task">
-              <span>
-                <strong>Pooler handoff</strong>
-                <small>{poolerHandoffCommand}</small>
-              </span>
-            </li>
-            <li className="task">
-              <span>
-                <strong>Production health</strong>
-                <small>curl -fsS https://hr.suiyuecare.com/api/health/ready</small>
-              </span>
-            </li>
-            <li className="task">
-              <span>
-                <strong>Production pilot gate</strong>
-                <small>pnpm pilot:gate:production -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com</small>
-              </span>
-            </li>
-            <li className="task">
-              <span>
-                <strong>Full Go/No-Go</strong>
-                <small>pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --tenant-slug=&lt;customer-slug&gt;</small>
-              </span>
-            </li>
+            <CommandTask title="Pooler handoff" command={poolerHandoffCommand} />
+            <CommandTask title="更新本地 env 草稿" command={poolerDraftCommand} />
+            <CommandTask title="寫入 Vercel Production env" command={vercelEnvApplyCommand} />
+            <CommandTask title="重新部署 Production" command={productionDeployCommand} />
+            <CommandTask title="Production health" command="curl -fsS https://hr.suiyuecare.com/api/health/ready" />
+            <CommandTask title="Production pilot gate" command="pnpm pilot:gate:production -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com" />
+            <CommandTask title="Full Go/No-Go" command="pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --tenant-slug=<customer-slug>" />
           </ul>
         </section>
 
         <section className="panel span-5">
-          <h2>隱私護欄</h2>
+          <div className="section-heading">
+            <div>
+              <h2>隱私護欄</h2>
+              <p className="muted">這個 Gate 本身也不能成為 secret 或員工資料外洩來源。</p>
+            </div>
+            <span className="badge done">redacted</span>
+          </div>
           <ul className="task-list">
             {report.privacyGuardrails.map((guardrail) => (
-              <li className="task" key={guardrail}>
+              <li className="task production-database-task" key={guardrail}>
                 <span>{guardrail}</span>
               </li>
             ))}
@@ -281,14 +384,80 @@ export default async function ProductionDatabasePage() {
   );
 }
 
-function MetricCard({ label, value, danger }: { label: string; value: string; danger: boolean }) {
+function SignalCard({
+  detail,
+  label,
+  tone,
+  value,
+}: {
+  detail: string;
+  label: string;
+  tone: "danger" | "done" | "warning";
+  value: string;
+}) {
   return (
-    <div className="panel span-3 metric">
-      <span className="muted">{label}</span>
+    <article className={`hr-monthly-signal-card ${tone}`}>
+      <span>{label}</span>
       <strong>{value}</strong>
-      <span className={`badge ${danger ? "danger" : ""}`}>{danger ? "blocked" : "ready"}</span>
-    </div>
+      <small>{detail}</small>
+    </article>
   );
+}
+
+function CommandTask({ command, title }: { command: string; title: string }) {
+  return (
+    <li className="task production-database-task warning">
+      <span>
+        <strong>{title}</strong>
+        <small>{command}</small>
+      </span>
+    </li>
+  );
+}
+
+function buildDatabaseFocus(report: ProductionDatabaseRemediationReport) {
+  if (report.status === "ready") {
+    return {
+      action: "前往 Go/No-Go",
+      copy: "Production database gate 已通過，可以進入真實 tenant 匯入、邀請 readiness 與完整 Go/No-Go。",
+      href: "/settings/pilot-go-no-go",
+      meta: "Health ready 已通過，仍需保存 redacted evidence。",
+      title: "正式資料庫已可用",
+      tone: "ready",
+    } as const;
+  }
+  if (report.rootCause === "supabase_direct_network") {
+    return {
+      action: "看 Pooler 形狀",
+      copy: "目前正式站仍使用 Supabase direct host 或等效連線，Vercel/serverless 需要 transaction pooler 或 IPv4 add-on。",
+      href: "#production-database-pooler",
+      meta: "建議路線：transaction pooler + pgbouncer=true + connection_limit=1 + schema=hr_one。",
+      title: "先修 DATABASE_URL",
+      tone: "danger",
+    } as const;
+  }
+  if (report.rootCause === "environment_configuration") {
+    return {
+      action: "看 env 診斷",
+      copy: "Production env 尚未通過完整檢查，需補齊 DB、OIDC、vault/KMS、備份或 rate limit 設定。",
+      href: "#production-database-diagnosis",
+      meta: report.environmentDetail,
+      title: "Production env 未完成",
+      tone: "warning",
+    } as const;
+  }
+  return {
+    action: "看修復路線",
+    copy: "先依 live health、runtime env 診斷與 Vercel runtime logs 定位，再套用修復路線。",
+    href: "#production-database-fix",
+    meta: `Root cause: ${rootCauseLabel(report.rootCause)}`,
+    title: "Gate 還沒放行",
+    tone: "warning",
+  } as const;
+}
+
+function checkPassed(report: ProductionDatabaseRemediationReport, name: string) {
+  return Boolean(report.gate.checks.find((check) => check.name === name)?.passed);
 }
 
 function rootCauseLabel(rootCause: ProductionDatabaseRemediationReport["rootCause"]) {
@@ -326,7 +495,7 @@ function stepStatusLabel(status: ProductionDatabaseRemediationStep["status"]) {
 function stepBadgeClass(status: ProductionDatabaseRemediationStep["status"]) {
   if (status === "blocked") return "danger";
   if (status === "todo") return "warning";
-  return "";
+  return "done";
 }
 
 function envDraftStatusLabel(status: ProductionDatabaseEnvDraftReport["status"]) {
