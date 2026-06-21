@@ -17,6 +17,7 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
   const ruleSignals = buildRuleSignals(center);
   const governanceCards = buildRuleGovernanceCards(center);
   const coverageSummary = center.complianceCoverageSummary;
+  const launchGate = center.launchGate;
 
   return (
     <main className="page law-rules-page">
@@ -60,6 +61,34 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
             <strong>{signal.value}</strong>
             <small>{signal.detail}</small>
           </Link>
+        ))}
+      </section>
+
+      <section className="law-rule-launch-gate" aria-label="台灣法遵上線 Gate">
+        <div className={`law-rule-launch-copy ${toneFromReadiness(launchGate.status)}`}>
+          <span>台灣法遵上線 Gate</span>
+          <strong>{launchGate.headline}</strong>
+          <small>
+            {launchGate.readyCount}/{launchGate.totalCount} 步完成；{launchGate.blockedCount} 個阻擋、{launchGate.needsReviewCount} 個需複核。
+            {launchGate.nextAction}
+          </small>
+        </div>
+        {launchGate.steps.map((step) => (
+          <article className={`law-rule-launch-step ${coverageTone(step.status)}`} key={step.id}>
+            <div className="law-rule-launch-step-top">
+              <span>{step.step} · {step.owner}</span>
+              <span className={`badge ${step.status === "covered" ? "done" : step.status === "blocked" ? "danger" : "warning"}`}>
+                {coverageStatusLabel(step.status)}
+              </span>
+            </div>
+            <h2>{step.title}</h2>
+            <p>{step.detail}</p>
+            <small>{step.metric}</small>
+            <small>證據：{step.evidence}</small>
+            <Link className="button" href={step.actionHref}>
+              {step.actionLabel}
+            </Link>
+          </article>
         ))}
       </section>
 

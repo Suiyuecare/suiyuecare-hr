@@ -110,6 +110,31 @@ export type TaiwanLaborRuleImpactTask = {
   };
 };
 
+export type TaiwanLaborLaunchGateStep = {
+  id: string;
+  step: string;
+  title: string;
+  owner: "HR" | "Payroll" | "HR + Payroll" | "Owner";
+  status: TaiwanLaborComplianceCoverageStatus;
+  metric: string;
+  detail: string;
+  evidence: string;
+  nextAction: string;
+  actionLabel: string;
+  actionHref: string;
+};
+
+export type TaiwanLaborLaunchGate = {
+  status: TaiwanLaborRuleCenterReadiness["status"];
+  headline: string;
+  readyCount: number;
+  needsReviewCount: number;
+  blockedCount: number;
+  totalCount: number;
+  nextAction: string;
+  steps: TaiwanLaborLaunchGateStep[];
+};
+
 export type TaiwanLaborRuleCenter = {
   config: TaiwanLaborStandardsConfig;
   validation: ReturnType<typeof validateTaiwanLaborStandardsRuleSet>;
@@ -117,6 +142,7 @@ export type TaiwanLaborRuleCenter = {
   complianceCoverage: TaiwanLaborComplianceCoverageItem[];
   complianceCoverageSummary: TaiwanLaborComplianceCoverageSummary;
   impactTasks: TaiwanLaborRuleImpactTask[];
+  launchGate: TaiwanLaborLaunchGate;
   versionHistory: TaiwanLaborRuleVersionSummary[];
   readiness: TaiwanLaborRuleCenterReadiness;
 };
@@ -214,6 +240,21 @@ export async function getTaiwanLaborRuleCenter(session?: SessionLike): Promise<T
   const versionHistory = session && canUseDatabase(session)
     ? await getDbTaiwanLaborRuleVersionHistory(session)
     : getRuleSettingsDemoState().versionHistory;
+  const readiness = buildRuleCenterReadiness(
+    config,
+    validation,
+    sourceFreshness,
+    versionHistory,
+    complianceCoverageSummary,
+  );
+  const launchGate = buildTaiwanLaborLaunchGate({
+    config,
+    validation,
+    sourceFreshness,
+    complianceCoverageSummary,
+    impactTasks,
+    versionHistory,
+  });
 
   return {
     config,
@@ -222,14 +263,148 @@ export async function getTaiwanLaborRuleCenter(session?: SessionLike): Promise<T
     complianceCoverage,
     complianceCoverageSummary,
     impactTasks,
+    launchGate,
     versionHistory,
-    readiness: buildRuleCenterReadiness(
-      config,
-      validation,
-      sourceFreshness,
-      versionHistory,
-      complianceCoverageSummary,
-    ),
+    readiness,
+  };
+}
+
+export function buildTaiwanLaborLaunchGate(input: {
+  config: TaiwanLaborStandardsConfig;
+  validation: ReturnType<typeof validateTaiwanLaborStandardsRuleSet>;
+  sourceFreshness: ReturnType<typeof evaluateLegalSourceFreshness>;
+  complianceCoverageSummary: TaiwanLaborComplianceCoverageSummary;
+  impactTasks: TaiwanLaborRuleImpactTask[];
+  versionHistory: TaiwanLaborRuleVersionSummary[];
+}): TaiwanLaborLaunchGate {
+  const impactSummary = summarizeImpactTaskStatuses(input.impactTasks);
+  const payrollImpact = input.impactTasks.find((task) => task.id === "payroll_recalculation");
+  const employeeRolloutImpact = input.impactTasks.find((task) => task.id === "employee_policy_rollout");
+  const auditPackageImpact = input.impactTasks.find((task) => task.id === "audit_filing_package");
+
+  const steps: TaiwanLaborLaunchGateStep[] = [
+    {
+      id: "source_version",
+      step: "01",
+      title: "來源與版本",
+      owner: "Owner",
+      status: launchGateSourceStatus(input),
+      metric: `${input.sourceFreshness.freshSourceCount}/${input.sourceFreshness.totalSourceCount} 來源`,
+      detail: input.validation.passed
+        ? "官方來源、rule version 與測試案例是薪資、假勤、出勤共用的基礎。"
+        : "法規規則測試未通過時，不可進入正式上線或薪資鎖定。",
+      evidence: "rule_versions.definitionJson, validationSummary, legal source checkedAt",
+      nextAction: input.validation.passed
+        ? "確認所有來源仍在有效期限內，且版本歷史可追溯。"
+        : "修正法規規則設定並重新儲存，直到測試案例全數通過。",
+      actionLabel: "檢查來源",
+      actionHref: "#source-review",
+    },
+    {
+      id: "human_review",
+      step: "02",
+      title: "人工審核",
+      owner: "HR",
+      status: input.config.changeControl.reviewStatus === "approved" && input.config.changeControl.reviewedBy
+        ? "covered"
+        : "needs_review",
+      metric: input.config.changeControl.reviewStatus === "approved" ? "已核准" : "待審核",
+      detail: "法規版本可以由 HR 調整，但必須知道誰審核、何時審核、是否影響既有薪資草稿。",
+      evidence: "changeControl.reviewedBy, reviewedAt, reviewStatus",
+      nextAction: input.config.changeControl.reviewStatus === "approved" && input.config.changeControl.reviewedBy
+        ? "保留審核紀錄，月結前確認未被新版本取代。"
+        : "補上審核人，並由 HR 或法務負責人核准目前版本。",
+      actionLabel: "補審核",
+      actionHref: "#source-review",
+    },
+    {
+      id: "payroll_recalculation",
+      step: "03",
+      title: "薪資重算",
+      owner: "Payroll",
+      status: input.config.changeControl.requiresPayrollRecalculation
+        ? "needs_review"
+        : payrollImpact?.status ?? "covered",
+      metric: input.config.changeControl.requiresPayrollRecalculation ? "需要重算" : "可月結",
+      detail: "規則異動後，未鎖定薪資草稿必須重新試算，薪資項目要能追到目前 rule version。",
+      evidence: payrollImpact?.evidence ?? "payroll item ruleVersionId and recalculation report",
+      nextAction: input.config.changeControl.requiresPayrollRecalculation
+        ? "重新試算未鎖定薪資草稿，再確認加班費、投保、扣繳與薪資單。"
+        : "薪資草稿目前不需因規則變更重算；鎖定前仍要保留 rule version 證據。",
+      actionLabel: "回月結試算",
+      actionHref: "/hr",
+    },
+    {
+      id: "workflow_impact",
+      step: "04",
+      title: "流程影響",
+      owner: "HR + Payroll",
+      status: impactSummary.blockedCount
+        ? "blocked"
+        : impactSummary.needsReviewCount
+          ? "needs_review"
+          : "covered",
+      metric: `${impactSummary.readyCount}/${impactSummary.totalCount} 流程`,
+      detail: "法規異動會牽動出勤、排班、加班、請假、離職、薪資與申報包，不能只看單一頁面。",
+      evidence: "impact task coverage, affected workflows, workflow smoke tests",
+      nextAction: impactSummary.blockedCount
+        ? "先處理阻擋的影響流程，再開放正式上線或薪資鎖定。"
+        : impactSummary.needsReviewCount
+          ? "複核所有需處理的影響流程，並保留每個工作台的處理證據。"
+          : "影響流程均已覆蓋；下次法規異動時重新掃描。",
+      actionLabel: "看影響清單",
+      actionHref: "#rule-impact",
+    },
+    {
+      id: "employee_rollout",
+      step: "05",
+      title: "員工政策公告",
+      owner: "HR",
+      status: employeeRolloutImpact?.status ?? "covered",
+      metric: `${employeeRolloutImpact?.affectedWorkflows.length ?? 0} 個流程`,
+      detail: "影響員工權益的規則變更，要透過公告、工作規則或訓練任務讓員工確認。",
+      evidence: employeeRolloutImpact?.evidence ?? "announcement receipt and work-rule acknowledgement",
+      nextAction: employeeRolloutImpact?.status === "covered"
+        ? "維持公告與工作規則確認證據，避免員工只在薪資單頁才知道變更。"
+        : "發布政策摘要公告或更新工作規則，並追蹤員工確認。",
+      actionLabel: "發布公告",
+      actionHref: "/hr/announcements",
+    },
+    {
+      id: "audit_package",
+      step: "06",
+      title: "稽核證據包",
+      owner: "Owner",
+      status: auditPackageImpact?.status ?? "covered",
+      metric: `${input.versionHistory.length} 版本`,
+      detail: "上線前要能交付 hash-only 證據包，證明薪資、法規、申報與 audit 沒有外洩敏感資料。",
+      evidence: auditPackageImpact?.evidence ?? "audit evidence package and payroll export manifest",
+      nextAction: auditPackageImpact?.status === "covered"
+        ? "保留上線證據包，正式客戶導入前重新產生一次。"
+        : "補齊薪資封存、申報包欄位、audit log 與證據包。",
+      actionLabel: "查看稽核",
+      actionHref: "/settings/audit",
+    },
+  ];
+  const blockedCount = steps.filter((step) => step.status === "blocked").length;
+  const needsReviewCount = steps.filter((step) => step.status === "needs_review").length;
+  const readyCount = steps.length - blockedCount - needsReviewCount;
+  const firstOpenStep = steps.find((step) => step.status !== "covered");
+  const status: TaiwanLaborLaunchGate["status"] = blockedCount ? "blocked" : needsReviewCount ? "needs_review" : "ready";
+
+  return {
+    status,
+    headline: status === "ready"
+      ? "台灣法遵 Gate 已可支援月結與試用上線"
+      : status === "blocked"
+        ? "台灣法遵 Gate 阻擋正式上線"
+        : "台灣法遵 Gate 需要月結前複核",
+    readyCount,
+    needsReviewCount,
+    blockedCount,
+    totalCount: steps.length,
+    nextAction: firstOpenStep?.nextAction ?? "維持來源、版本、薪資重算與 audit 證據；下次法規異動時重新跑 Gate。",
+    steps,
   };
 }
 
@@ -712,6 +887,32 @@ function impactTask(
       covered: coveredSources,
       total: totalSources,
     },
+  };
+}
+
+function launchGateSourceStatus(input: {
+  validation: ReturnType<typeof validateTaiwanLaborStandardsRuleSet>;
+  sourceFreshness: ReturnType<typeof evaluateLegalSourceFreshness>;
+  complianceCoverageSummary: TaiwanLaborComplianceCoverageSummary;
+  versionHistory: TaiwanLaborRuleVersionSummary[];
+}): TaiwanLaborComplianceCoverageStatus {
+  if (!input.validation.passed || input.versionHistory.length === 0 || input.complianceCoverageSummary.blockedCount > 0) {
+    return "blocked";
+  }
+  if (!input.sourceFreshness.passed || input.complianceCoverageSummary.needsReviewCount > 0) {
+    return "needs_review";
+  }
+  return "covered";
+}
+
+function summarizeImpactTaskStatuses(tasks: TaiwanLaborRuleImpactTask[]) {
+  const blockedCount = tasks.filter((task) => task.status === "blocked").length;
+  const needsReviewCount = tasks.filter((task) => task.status === "needs_review").length;
+  return {
+    blockedCount,
+    needsReviewCount,
+    readyCount: tasks.length - blockedCount - needsReviewCount,
+    totalCount: tasks.length,
   };
 }
 

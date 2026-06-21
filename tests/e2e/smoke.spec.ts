@@ -215,6 +215,10 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByLabel("法規規則訊號板").getByText("規則健康度")).toBeVisible();
   await expect(page.getByLabel("法規規則訊號板").getByText("官方來源")).toBeVisible();
   await expect(page.getByLabel("法規規則訊號板").getByText("法遵覆蓋")).toBeVisible();
+  await expect(page.getByLabel("台灣法遵上線 Gate")).toContainText("台灣法遵上線 Gate");
+  await expect(page.getByLabel("台灣法遵上線 Gate").getByRole("heading", { name: "來源與版本" })).toBeVisible();
+  await expect(page.getByLabel("台灣法遵上線 Gate").getByRole("heading", { name: "薪資重算" })).toBeVisible();
+  await expect(page.getByLabel("台灣法遵上線 Gate").getByRole("heading", { name: "稽核證據包" })).toBeVisible();
   await expect(page.getByLabel("法規治理作業區").getByRole("heading", { name: "官方來源與檢查日" })).toBeVisible();
   await expect(page.getByLabel("法規治理作業區").getByRole("heading", { name: "薪資、工時與假勤參數" })).toBeVisible();
   await expect(page.getByLabel("法規異動影響清單").getByRole("heading", { name: "法規異動影響清單" })).toBeVisible();

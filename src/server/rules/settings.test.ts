@@ -150,6 +150,22 @@ describe("rule settings", () => {
       blockedCount: 0,
       totalCount: 11,
     });
+    expect(initial.launchGate).toMatchObject({
+      status: "ready",
+      readyCount: 6,
+      needsReviewCount: 0,
+      blockedCount: 0,
+      totalCount: 6,
+      headline: "台灣法遵 Gate 已可支援月結與試用上線",
+    });
+    expect(initial.launchGate.steps.map((step) => step.id)).toEqual([
+      "source_version",
+      "human_review",
+      "payroll_recalculation",
+      "workflow_impact",
+      "employee_rollout",
+      "audit_package",
+    ]);
     expect(initial.complianceCoverage.map((item) => item.id)).toEqual([
       "minimum_wage",
       "working_time",
@@ -194,6 +210,17 @@ describe("rule settings", () => {
     const draft = await getTaiwanLaborRuleCenter(ownerSession);
 
     expect(draft.readiness.status).toBe("needs_review");
+    expect(draft.launchGate).toMatchObject({
+      status: "needs_review",
+      readyCount: 0,
+      needsReviewCount: 6,
+      blockedCount: 0,
+    });
+    expect(draft.launchGate.steps.find((step) => step.id === "payroll_recalculation")).toMatchObject({
+      status: "needs_review",
+      metric: "需要重算",
+      actionHref: "/hr",
+    });
     expect(draft.readiness.warnings).toEqual(expect.arrayContaining([
       "目前版本尚待法務或人資負責人審核",
       "台灣法遵覆蓋矩陣有 11 項需複核",
@@ -254,6 +281,15 @@ describe("rule settings", () => {
       },
     });
     expect(center.impactTasks.find((task) => task.id === "attendance_worktime_gate")?.nextAction).toContain("先補齊阻擋的法遵覆蓋");
+    expect(center.launchGate).toMatchObject({
+      status: "blocked",
+      blockedCount: 5,
+    });
+    expect(center.launchGate.steps.find((step) => step.id === "source_version")).toMatchObject({
+      status: "blocked",
+      metric: "1/1 來源",
+      actionHref: "#source-review",
+    });
     expect(center.readiness).toMatchObject({
       status: "blocked",
       blockers: expect.arrayContaining(["台灣法遵覆蓋矩陣有 10 個阻擋項"]),

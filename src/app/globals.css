@@ -5187,6 +5187,130 @@ legend {
   background: #f0fdf4;
 }
 
+.law-rule-launch-gate {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.08fr) repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  align-items: stretch;
+  margin: 0 0 14px;
+}
+
+.law-rule-launch-copy,
+.law-rule-launch-step {
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.law-rule-launch-copy {
+  display: grid;
+  grid-row: span 2;
+  align-content: center;
+  gap: 8px;
+  min-height: 228px;
+  border: 1px solid rgba(30, 41, 59, 0.14);
+  background: var(--command-bg);
+  color: #ffffff;
+  padding: 16px;
+}
+
+.law-rule-launch-copy.warning {
+  border-color: rgba(253, 232, 188, 0.48);
+  background: linear-gradient(135deg, #111827 0%, #2a1d0f 72%, #78350f 100%);
+}
+
+.law-rule-launch-copy.danger {
+  border-color: rgba(254, 202, 202, 0.5);
+  background: linear-gradient(135deg, #111827 0%, #2b1111 72%, #7f1d1d 100%);
+}
+
+.law-rule-launch-copy span {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.law-rule-launch-copy strong {
+  color: #ffffff;
+  font-size: 23px;
+  font-weight: 1000;
+  line-height: 1.08;
+}
+
+.law-rule-launch-copy small {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.5;
+}
+
+.law-rule-launch-step {
+  display: grid;
+  grid-template-rows: auto auto minmax(50px, auto) auto auto auto;
+  align-content: start;
+  gap: 8px;
+  min-height: 228px;
+  border: 1px solid var(--panel-border);
+  background: #ffffff;
+  padding: 14px;
+}
+
+.law-rule-launch-step.ready {
+  border-color: #bbf7d0;
+  background: #f8fffb;
+}
+
+.law-rule-launch-step.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.law-rule-launch-step.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.law-rule-launch-step-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.law-rule-launch-step-top span:first-child {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.law-rule-launch-step h2 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 1000;
+  line-height: 1.15;
+}
+
+.law-rule-launch-step p,
+.law-rule-launch-step small {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.42;
+}
+
+.law-rule-launch-step small:first-of-type {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.law-rule-launch-step .button {
+  align-self: end;
+  width: 100%;
+  margin-top: auto;
+}
+
 .law-rule-governance-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -11762,6 +11886,7 @@ legend {
   .salary-profile-violation-task,
   .law-rules-hero,
   .law-rule-signal-board,
+  .law-rule-launch-gate,
   .law-rule-governance-grid,
   .law-rule-impact-grid,
   .hr-monthly-hero,
@@ -11959,6 +12084,10 @@ legend {
 
   .law-rules-hero-actions .button {
     width: 100%;
+  }
+
+  .law-rule-launch-copy {
+    grid-row: auto;
   }
 
   .company-setup-guardrails .section-heading {
@@ -12196,6 +12325,8 @@ legend {
   .settings-command-card,
   .law-rules-focus,
   .law-rule-signal-card,
+  .law-rule-launch-copy,
+  .law-rule-launch-step,
   .law-rule-governance-card,
   .law-rule-impact-card,
   .hr-monthly-hero-focus,
