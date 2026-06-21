@@ -6,6 +6,7 @@ import type { BetaPilotCheckpointStatus, BetaPilotEvidenceType } from "@/server/
 import { getBetaPilotTrialWorkspace } from "@/server/readiness/beta-pilot-trial-run";
 import { buildSaleReadinessRoadmap } from "@/server/readiness/commercialization-roadmap";
 import { getLaunchReadinessReport } from "@/server/readiness/launch";
+import { getOperationalMaintenanceReport } from "@/server/readiness/maintenance";
 
 type SearchParams = Promise<{ error?: string; success?: string }>;
 
@@ -21,7 +22,10 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
       </main>
     );
   }
-  const report = await getLaunchReadinessReport(session);
+  const [report, maintenanceReport] = await Promise.all([
+    getLaunchReadinessReport(session),
+    getOperationalMaintenanceReport(session),
+  ]);
   const betaPilot = await getBetaPilotReadinessReport(session, report);
   const trialWorkspace = await getBetaPilotTrialWorkspace(session, betaPilot);
   const saleRoadmap = buildSaleReadinessRoadmap({
@@ -184,6 +188,56 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
               </a>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="panel span-12 sale-foundation-board" aria-label="正式營運維護看板">
+        <div className="section-heading">
+          <div>
+            <h2>正式營運維護看板</h2>
+            <p className="muted">
+              把 Cron scope、報表匯出佇列、到期封存、AI Copilot 暫存結果與 hash-only audit 放在同一張維護卡，避免正式試用時靠人工猜狀態。
+            </p>
+          </div>
+          <span className={`badge ${badgeClass(maintenanceReport.status)}`}>
+            {roadmapStatusLabel(maintenanceReport.status)}
+          </span>
+        </div>
+        <div className={`panel-subtle ${maintenanceReport.status === "blocked" ? "danger-panel" : maintenanceReport.status === "action_required" ? "warning-panel" : ""}`}>
+          <strong>{maintenanceReport.readyForAutomatedMaintenance ? "維護自動化可用" : "維護 Gate 尚未放行"}</strong>
+          <span className="muted">{maintenanceReport.summary}</span>
+          <span className="muted">
+            維護入口：{maintenanceReport.routePath} · 最後產生 {formatDateTime(maintenanceReport.generatedAt)}
+          </span>
+        </div>
+        <div className="sale-foundation-grid">
+          {maintenanceReport.signals.map((signal) => (
+            <article className={`sale-foundation-card ${roadmapTone(signal.status)}`} key={signal.id}>
+              <div className="sale-foundation-card-topline">
+                <span className="eyebrow">Maintenance</span>
+                <span className={`badge ${badgeClass(signal.status)}`}>
+                  {roadmapStatusLabel(signal.status)}
+                </span>
+              </div>
+              <h3>{signal.title}</h3>
+              <p>{signal.detail}</p>
+              <strong>{signal.metric}</strong>
+              <small>下一步：{signal.nextStep}</small>
+              <a className="button" href={signal.actionHref}>
+                {signal.actionLabel}
+              </a>
+            </article>
+          ))}
+        </div>
+        <div className="inline-actions">
+          <a className="button" href="/settings/audit">
+            查看維護 audit
+          </a>
+          <form action={maintenanceReport.routePath} method="post" className="compact-form">
+            <button className="button primary" type="submit" disabled={!hasPermission(session.role, "report:manage")}>
+              執行維護
+            </button>
+          </form>
         </div>
       </section>
 
