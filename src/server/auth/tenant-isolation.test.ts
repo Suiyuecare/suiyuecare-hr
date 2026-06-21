@@ -1,63 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
-
-const apiRouteFiles = findFiles(join(process.cwd(), "src/app/api"), (file) => file.endsWith("/route.ts"));
-
-const demoOnlyRoutePatterns = [
-  "/src/app/api/demo/reset/route.ts",
-  "/src/app/api/demo/switch-role/route.ts",
-];
-const publicOperationalRoutePatterns = [
-  "/src/app/api/health/live/route.ts",
-  "/src/app/api/health/ready/route.ts",
-];
-const authBootstrapRoutePatterns = [
-  "/src/app/api/auth/session/route.ts",
-];
-const publicRoutePatterns = [...demoOnlyRoutePatterns, ...publicOperationalRoutePatterns, ...authBootstrapRoutePatterns];
+import { buildTenantIsolationGuardrailReport } from "./tenant-isolation";
 
 describe("tenant isolation guardrails", () => {
   it("requires tenant session guards on non-demo API routes", () => {
-    const unguardedRoutes = apiRouteFiles
-      .filter((file) => !publicRoutePatterns.some((pattern) => file.endsWith(pattern)))
-      .filter((file) => !readFileSync(file, "utf8").includes("requireTenantSession"));
+    const report = buildTenantIsolationGuardrailReport();
 
-    expect(unguardedRoutes.map((file) => relative(process.cwd(), file))).toEqual([]);
+    expect(report.tenantScopedRouteCount).toBeGreaterThan(0);
+    expect(report.guardedTenantRouteCount).toBe(report.tenantScopedRouteCount);
+    expect(report.unguardedRoutePaths).toEqual([]);
   });
 
   it("keeps API routes from bypassing service-layer tenant scoping with direct DB imports", () => {
-    const directDbRoutes = apiRouteFiles
-      .filter((file) => !publicRoutePatterns.some((pattern) => file.endsWith(pattern)))
-      .filter((file) => /@\/server\/db\/client|getDb\(/.test(readFileSync(file, "utf8")));
+    const report = buildTenantIsolationGuardrailReport();
 
-    expect(directDbRoutes.map((file) => relative(process.cwd(), file))).toEqual([]);
+    expect(report.directDbRoutePaths).toEqual([]);
+    expect(report.directDbRouteCount).toBe(0);
   });
 
   it("requires DB fallback helpers to check tenant and company context together", () => {
-    const serverFiles = findFiles(
-      join(process.cwd(), "src/server"),
-      (file) => file.endsWith(".ts") && !file.endsWith(".test.ts"),
-    );
-    const unsafeFallbacks = serverFiles.filter((file) => {
-      const source = readFileSync(file, "utf8");
-      if (!source.includes("function canUseDatabase")) return false;
-      return !/process\.env\.DATABASE_URL\s*&&\s*session\.tenantId\s*&&\s*session\.companyId/.test(source);
-    });
+    const report = buildTenantIsolationGuardrailReport();
 
-    expect(unsafeFallbacks.map((file) => relative(process.cwd(), file))).toEqual([]);
+    expect(report.unsafeFallbackPaths).toEqual([]);
+    expect(report.unsafeFallbackCount).toBe(0);
+  });
+
+  it("summarizes tenant boundary status for production access readiness", () => {
+    const report = buildTenantIsolationGuardrailReport();
+
+    expect(report.status).toBe("ready");
+    expect(report.signal).toContain("tenant APIs guarded");
+    expect(report.topFailure).toBeNull();
+    expect(report.checks.every((check) => check.status === "ready")).toBe(true);
   });
 });
-
-function findFiles(root: string, predicate: (file: string) => boolean) {
-  const results: string[] = [];
-  for (const entry of readdirSync(root)) {
-    const fullPath = join(root, entry);
-    if (statSync(fullPath).isDirectory()) {
-      results.push(...findFiles(fullPath, predicate));
-    } else if (predicate(fullPath)) {
-      results.push(fullPath);
-    }
-  }
-  return results.sort();
-}

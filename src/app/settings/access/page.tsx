@@ -112,7 +112,7 @@ export default async function AccessSettingsPage({ searchParams }: { searchParam
             <span className="muted">Production cutover</span>
             <h2>正式登入切換 Gate</h2>
             <p className="muted">
-              這裡把 SSO、RBAC、員工帳號覆蓋、薪資防漏、支援存取與 demo auth 關閉整理成同一張上線看板；只顯示數量、狀態與 hash-only 證據需求。
+              這裡把 SSO、RBAC、API 租戶隔離、員工帳號覆蓋、薪資防漏、支援存取與 demo auth 關閉整理成同一張上線看板；只顯示數量、狀態與 hash-only 證據需求。
             </p>
           </div>
           <span className={`badge ${accessStatusBadgeClass(accessCutover.status)}`}>

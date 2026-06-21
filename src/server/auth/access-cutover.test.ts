@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { UserAccessEmployeeOption, UserAccessRow, UserAccessWorkspace } from "./access-management";
 import { buildAccessCutoverReport } from "./access-cutover";
 import type { RoleKey } from "./rbac";
+import type { TenantIsolationGuardrailReport } from "./tenant-isolation";
 
 const now = new Date("2026-06-22T01:00:00.000Z");
 const readyEnv = {
@@ -15,6 +16,7 @@ describe("access production cutover report", () => {
   it("blocks production cutover when demo auth is still available", () => {
     const report = buildAccessCutoverReport(readyWorkspace(), {
       supportAccessGovernance: readySupportAccessGovernance(),
+      tenantIsolationGuardrail: readyTenantIsolationGuardrail(),
       env: readyEnv,
       demoAuthRuntime: {
         allowed: true,
@@ -53,6 +55,7 @@ describe("access production cutover report", () => {
         activeUnapprovedCount: 1,
         expiredStillApprovedCount: 1,
       },
+      tenantIsolationGuardrail: readyTenantIsolationGuardrail(),
       env: readyEnv,
       demoAuthRuntime: {
         allowed: false,
@@ -70,6 +73,7 @@ describe("access production cutover report", () => {
   it("blocks production cutover when the browser session cookie posture is unsafe", () => {
     const report = buildAccessCutoverReport(readyWorkspace(), {
       supportAccessGovernance: readySupportAccessGovernance(),
+      tenantIsolationGuardrail: readyTenantIsolationGuardrail(),
       env: {
         HR_ONE_AUTH_SESSION_SOURCE: "demo",
         HR_ONE_ENCRYPTION_KEY: "replace-with-at-least-32-random-characters",
@@ -93,9 +97,56 @@ describe("access production cutover report", () => {
     });
   });
 
+  it("blocks production cutover when tenant API guard coverage has a gap", () => {
+    const report = buildAccessCutoverReport(readyWorkspace(), {
+      supportAccessGovernance: readySupportAccessGovernance(),
+      tenantIsolationGuardrail: readyTenantIsolationGuardrail({
+        status: "blocked",
+        signal: "1 tenant boundary gap(s)",
+        guardedTenantRouteCount: 81,
+        unguardedRoutePaths: ["/src/app/api/payroll/example/route.ts"],
+        checks: [
+          {
+            id: "api_route_guard_coverage",
+            title: "API route tenant session guard coverage",
+            status: "blocked",
+            detail: "81/82 tenant API route(s) call requireTenantSession.",
+            nextStep: "Add requireTenantSession to: /src/app/api/payroll/example/route.ts.",
+          },
+          ...readyTenantIsolationGuardrail().checks.slice(1),
+        ],
+        topFailure: {
+          id: "api_route_guard_coverage",
+          title: "API route tenant session guard coverage",
+          status: "blocked",
+          detail: "81/82 tenant API route(s) call requireTenantSession.",
+          nextStep: "Add requireTenantSession to: /src/app/api/payroll/example/route.ts.",
+        },
+      }),
+      env: readyEnv,
+      demoAuthRuntime: {
+        allowed: false,
+        reason: "Demo auth is disabled when HR_ONE_AUTH_SESSION_SOURCE=oidc.",
+      },
+    });
+
+    expect(report.readyForProduction).toBe(false);
+    expect(report.topTask.id).toBe("tenant_api_boundary");
+    expect(report.tasks.find((task) => task.id === "tenant_api_boundary")).toMatchObject({
+      status: "blocked",
+      signal: "1 tenant boundary gap(s)",
+      nextStep: "Add requireTenantSession to: /src/app/api/payroll/example/route.ts.",
+    });
+    expect(report.metrics.find((metric) => metric.label === "租戶 API 邊界")).toMatchObject({
+      value: "阻擋",
+      status: "blocked",
+    });
+  });
+
   it("marks the cutover ready only when all production access gates pass", () => {
     const report = buildAccessCutoverReport(readyWorkspace(), {
       supportAccessGovernance: readySupportAccessGovernance(),
+      tenantIsolationGuardrail: readyTenantIsolationGuardrail(),
       env: readyEnv,
       demoAuthRuntime: {
         allowed: false,
@@ -114,6 +165,10 @@ describe("access production cutover report", () => {
     expect(report.tasks.find((task) => task.id === "browser_session_cookie")).toMatchObject({
       status: "ready",
       signal: "加密 HttpOnly session ready",
+    });
+    expect(report.tasks.find((task) => task.id === "tenant_api_boundary")).toMatchObject({
+      status: "ready",
+      signal: "82/82 tenant APIs guarded",
     });
   });
 });
@@ -182,5 +237,50 @@ function readySupportAccessGovernance() {
     activeApprovedCount: 0,
     activeUnapprovedCount: 0,
     expiredStillApprovedCount: 0,
+  };
+}
+
+function readyTenantIsolationGuardrail(
+  overrides: Partial<TenantIsolationGuardrailReport> = {},
+): TenantIsolationGuardrailReport {
+  const checks: TenantIsolationGuardrailReport["checks"] = [
+    {
+      id: "api_route_guard_coverage",
+      title: "API route tenant session guard coverage",
+      status: "ready",
+      detail: "82/82 tenant API route(s) call requireTenantSession.",
+      nextStep: "Keep every non-public API route behind requireTenantSession.",
+    },
+    {
+      id: "api_route_no_direct_db",
+      title: "API routes use service-layer scoped data access",
+      status: "ready",
+      detail: "0 tenant API route(s) import the DB client directly or call getDb().",
+      nextStep: "Keep API routes thin and route all persistence through tenant-scoped services.",
+    },
+    {
+      id: "database_fallback_scope",
+      title: "Database fallback helpers require tenant and company together",
+      status: "ready",
+      detail: "0 canUseDatabase helper(s) skip tenant/company context checks.",
+      nextStep: "Keep DB fallback helpers fail-closed unless tenant and company context are both present.",
+    },
+  ];
+
+  return {
+    status: "ready",
+    signal: "82/82 tenant APIs guarded",
+    apiRouteCount: 86,
+    publicRouteCount: 4,
+    tenantScopedRouteCount: 82,
+    guardedTenantRouteCount: 82,
+    directDbRouteCount: 0,
+    unsafeFallbackCount: 0,
+    unguardedRoutePaths: [],
+    directDbRoutePaths: [],
+    unsafeFallbackPaths: [],
+    checks,
+    topFailure: null,
+    ...overrides,
   };
 }

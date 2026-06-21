@@ -2,6 +2,10 @@ import { canViewPayrollRun, canViewPayslip } from "@/server/payroll/service";
 import { isSafeAuthLoginUrl } from "./login-url";
 import { getDemoAuthRuntimeStatus, type DemoAuthRuntimeStatus } from "./demo-mode";
 import { roleKeys, type RoleKey } from "./rbac";
+import {
+  buildTenantIsolationGuardrailReport,
+  type TenantIsolationGuardrailReport,
+} from "./tenant-isolation";
 import type { UserAccessWorkspace } from "./access-management";
 
 export type AccessCutoverStatus = "ready" | "action_required" | "blocked";
@@ -10,6 +14,7 @@ export type AccessCutoverTask = {
   id:
     | "production_sso_policy"
     | "browser_session_cookie"
+    | "tenant_api_boundary"
     | "privileged_sso_identity"
     | "employee_user_link_coverage"
     | "role_coverage"
@@ -72,6 +77,7 @@ export function buildAccessCutoverReport(
     supportAccessGovernance?: AccessCutoverSupportGovernance;
     demoAuthRuntime?: DemoAuthRuntimeStatus;
     env?: Record<string, string | undefined>;
+    tenantIsolationGuardrail?: TenantIsolationGuardrailReport;
   } = {},
 ): AccessCutoverReport {
   const activeUsers = workspace.users.filter((user) => user.status !== "suspended");
@@ -86,6 +92,7 @@ export function buildAccessCutoverReport(
   const payrollBoundary = evaluatePayrollBoundary();
   const demoAuthRuntime = options.demoAuthRuntime ?? getDemoAuthRuntimeStatus(options.env);
   const sessionCookiePosture = evaluateSessionCookiePosture(options.env);
+  const tenantIsolationGuardrail = options.tenantIsolationGuardrail ?? buildTenantIsolationGuardrailReport();
   const supportGovernance = options.supportAccessGovernance;
 
   const tasks: AccessCutoverTask[] = [
@@ -130,6 +137,23 @@ export function buildAccessCutoverReport(
       nextStep: sessionCookiePosture.nextStep,
       actionLabel: "檢查 env Gate",
       actionHref: "/settings/readiness",
+    },
+    {
+      id: "tenant_api_boundary",
+      title: "API 租戶隔離與服務層邊界",
+      owner: "Engineering",
+      status: tenantIsolationGuardrail.status,
+      signal: tenantIsolationGuardrail.signal,
+      detail:
+        "所有非公開 API route 都必須先通過 requireTenantSession；route 不可直接碰 DB，資料存取要進入已依 tenant/company scope 的 service layer。",
+      acceptanceEvidence:
+        `${tenantIsolationGuardrail.guardedTenantRouteCount}/${tenantIsolationGuardrail.tenantScopedRouteCount} tenant API routes guarded; ` +
+        `${tenantIsolationGuardrail.directDbRouteCount} direct DB route(s); ${tenantIsolationGuardrail.unsafeFallbackCount} unsafe DB fallback helper(s).`,
+      nextStep: tenantIsolationGuardrail.topFailure
+        ? tenantIsolationGuardrail.topFailure.nextStep
+        : "新增或修改 API route 時同步跑 tenant isolation guardrail，確保跨租戶資料邊界維持 0 缺口。",
+      actionLabel: tenantIsolationGuardrail.topFailure ? "修正 API 邊界" : "查看 API 邊界",
+      actionHref: "#tenant_api_boundary",
     },
     {
       id: "privileged_sso_identity",
@@ -266,6 +290,12 @@ export function buildAccessCutoverReport(
         value: sessionCookiePosture.status === "ready" ? "已加固" : sessionCookiePosture.status === "blocked" ? "阻擋" : "待補",
         detail: sessionCookiePosture.signal,
         status: sessionCookiePosture.status,
+      },
+      {
+        label: "租戶 API 邊界",
+        value: tenantIsolationGuardrail.status === "ready" ? "已覆蓋" : "阻擋",
+        detail: `${tenantIsolationGuardrail.guardedTenantRouteCount}/${tenantIsolationGuardrail.tenantScopedRouteCount} guarded`,
+        status: tenantIsolationGuardrail.status,
       },
       {
         label: "高權限 SSO",

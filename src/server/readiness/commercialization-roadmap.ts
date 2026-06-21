@@ -227,7 +227,7 @@ function buildBlockerRadar(tasks: SaleReadinessFoundationTask[]): SaleReadinessB
       sourceTaskId: "identity_rbac_sso_boundary",
       title: "正式登入、RBAC 與薪資防漏",
       saleImpact: "未通過時無法證明 Owner、HR、主管、員工與支援存取的資料邊界，薪資資料風險過高。",
-      evidenceNeeded: "SSO metadata、privileged subject hash bindings、preflight access review、unauthorized payroll access KPI = 0。",
+      evidenceNeeded: "SSO metadata、privileged subject hash bindings、tenant API boundary guardrail、preflight access review、unauthorized payroll access KPI = 0。",
     },
     {
       sourceTaskId: "real_pilot_import_pipeline",
@@ -323,7 +323,7 @@ function buildFoundationTasks(
       title: "正式登入、RBAC 與權限防漏",
       owner: "Owner + HR",
       outcome: "Owner、HR、主管、員工都用正式身份登入，薪資、個資、支援存取與跨租戶資料邊界可被測試證明。",
-      acceptanceEvidence: "SSO metadata、privileged issuer/subject bindings、preflight access review、unauthorized payroll access KPI、support access review。",
+      acceptanceEvidence: "SSO metadata、privileged issuer/subject bindings、tenant API boundary guardrail、preflight access review、unauthorized payroll access KPI、support access review。",
       launchItems: sources.launchItems,
       pilotItems: sources.pilotItems,
       launchIds: ["security", "sso_identities", "support_access", "privacy"],
