@@ -124,6 +124,8 @@ export type ReportAdminWorkspace = {
     archiveCount: number;
     blockedSensitiveFieldCount: number;
     fieldOverrideCount: number;
+    expiringPermissionCount: number;
+    expiredPermissionCount: number;
   };
 };
 
@@ -140,6 +142,7 @@ export type ReportPermissionView = {
   fieldKey: string | null;
   fieldLabel: string | null;
   fieldSensitivity: ReportFieldSensitivity | null;
+  expiresAt: Date | null;
   updatedAt: Date;
 };
 
@@ -161,6 +164,7 @@ export type UpdateReportPermissionInput = {
   maskingMode?: string | null;
   exportAllowed?: boolean | string | null;
   requiresReason?: boolean | string | null;
+  expiresAt?: string | Date | null;
 };
 
 export type ApproveReportReviewInput = {
@@ -254,6 +258,7 @@ export async function getReportAdminWorkspace(session: SessionLike): Promise<Rep
     ? await listDbReportArchives(session)
     : getDemoState().archives;
   const fieldCount = datasets.reduce((sum, dataset) => sum + dataset.fields.length, 0);
+  const now = new Date();
   return {
     datasets,
     permissions,
@@ -269,7 +274,11 @@ export async function getReportAdminWorkspace(session: SessionLike): Promise<Rep
       blockedSensitiveFieldCount: datasets
         .flatMap((dataset) => dataset.fields)
         .filter((field) => field.maskingMode === "blocked" || !field.exportable).length,
-      fieldOverrideCount: permissions.filter((permission) => permission.fieldKey != null).length,
+      fieldOverrideCount: permissions.filter((permission) =>
+        permission.fieldKey != null && !isReportPermissionExpired(permission, now)
+      ).length,
+      expiringPermissionCount: permissions.filter((permission) => isReportPermissionExpiringSoon(permission, now)).length,
+      expiredPermissionCount: permissions.filter((permission) => isReportPermissionExpired(permission, now)).length,
     },
   };
 }
@@ -462,6 +471,7 @@ export function defaultReportPermissionFor(
       fieldKey: null,
       fieldLabel: null,
       fieldSensitivity: null,
+      expiresAt: null,
     };
   }
   if (roleKey === "manager") {
@@ -477,6 +487,7 @@ export function defaultReportPermissionFor(
       fieldKey: null,
       fieldLabel: null,
       fieldSensitivity: null,
+      expiresAt: null,
     };
   }
   return {
@@ -491,6 +502,7 @@ export function defaultReportPermissionFor(
     fieldKey: null,
     fieldLabel: null,
     fieldSensitivity: null,
+    expiresAt: null,
   };
 }
 
@@ -1007,6 +1019,7 @@ async function updateDbReportPermission(
       maskingMode: input.maskingMode,
       exportAllowed: input.exportAllowed,
       requiresReason: input.requiresReason,
+      expiresAt: input.expiresAt,
     };
     const record = existing
       ? await tx.reportPermission.update({
@@ -1042,6 +1055,7 @@ async function updateDbReportPermission(
             maskingMode: existing.maskingMode,
             exportAllowed: existing.exportAllowed,
             requiresReason: existing.requiresReason,
+            expiresAt: existing.expiresAt?.toISOString() ?? null,
           }
         : null,
       after: {
@@ -1052,6 +1066,7 @@ async function updateDbReportPermission(
         maskingMode: record.maskingMode,
         exportAllowed: record.exportAllowed,
         requiresReason: record.requiresReason,
+        expiresAt: record.expiresAt?.toISOString() ?? null,
       },
       metadata: permissionMetadata(dataset, field, input),
     });
@@ -1088,6 +1103,7 @@ function updateDemoReportPermission(
     fieldKey: field?.key ?? null,
     fieldLabel: field?.label ?? null,
     fieldSensitivity: field?.sensitivity ?? null,
+    expiresAt: input.expiresAt,
     updatedAt: new Date(),
   };
   if (index >= 0) {
@@ -1383,6 +1399,7 @@ function mapDbPermission(record: {
   maskingMode: string;
   exportAllowed: boolean;
   requiresReason: boolean;
+  expiresAt: Date | null;
   updatedAt: Date;
   dataset: {
     code: string;
@@ -1408,6 +1425,7 @@ function mapDbPermission(record: {
     fieldKey: record.field?.key ?? null,
     fieldLabel: record.field?.label ?? null,
     fieldSensitivity: record.field ? normalizeSensitivity(record.field.sensitivity) : null,
+    expiresAt: record.expiresAt,
     updatedAt: record.updatedAt,
   };
 }
@@ -1432,11 +1450,13 @@ function findDatasetPermission(
   dataset: ReportDatasetView,
   roleKey: RoleKey,
 ) {
+  const now = new Date();
   return permissions.find(
     (permission) =>
       permission.datasetCode === dataset.code &&
       permission.roleKey === roleKey &&
-      permission.fieldKey === null,
+      permission.fieldKey === null &&
+      !isReportPermissionExpired(permission, now),
   ) ?? {
     id: `default-${dataset.code}-${roleKey}`,
     ...defaultReportPermissionFor(dataset, roleKey),
@@ -1449,12 +1469,14 @@ function findFieldPermissions(
   dataset: ReportDatasetView,
   roleKey: RoleKey,
 ) {
+  const now = new Date();
   return new Map(
     permissions
       .filter((permission) =>
         permission.datasetCode === dataset.code &&
         permission.roleKey === roleKey &&
-        permission.fieldKey != null,
+        permission.fieldKey != null &&
+        !isReportPermissionExpired(permission, now),
       )
       .map((permission) => [permission.fieldKey!, permission]),
   );
@@ -1504,6 +1526,20 @@ function applyPermissionsToFields(
     ),
     exportable: fieldItem.exportable && (fieldPermissions.get(fieldItem.key)?.exportAllowed ?? true),
   }));
+}
+
+function isReportPermissionExpired(permission: ReportPermissionView, now = new Date()) {
+  return permission.expiresAt != null && permission.expiresAt <= now;
+}
+
+function isReportPermissionExpiringSoon(permission: ReportPermissionView, now = new Date()) {
+  return permission.expiresAt != null &&
+    permission.expiresAt > now &&
+    isDateWithinDays(permission.expiresAt, now, 14);
+}
+
+function isDateWithinDays(date: Date, now: Date, days: number) {
+  return date.getTime() - now.getTime() <= days * 86_400_000;
 }
 
 function assertFieldsAllowed(role: RoleKey, fields: ReportFieldView[]) {
@@ -1688,6 +1724,7 @@ type NormalizedReportPermissionInput = {
   maskingMode: ReportMaskingMode;
   exportAllowed: boolean;
   requiresReason: boolean;
+  expiresAt: Date | null;
 };
 
 function normalizePermissionInput(
@@ -1703,12 +1740,14 @@ function normalizePermissionInput(
   const exportAllowed = canExportRole && readBoolean(input.exportAllowed, defaults.exportAllowed) && isFieldExportableByPolicy(field);
   const accessLevel = normalizeAccessForDataset(dataset, roleKey, requestedAccessLevel, exportAllowed);
   const maskingMode = normalizeMaskingForDataset(dataset, field, roleKey, requestedMaskingMode, exportAllowed);
+  const expiresAt = normalizePermissionExpiresAt(input.expiresAt);
   return {
     roleKey,
     accessLevel,
     maskingMode,
     exportAllowed,
     requiresReason: exportAllowed ? readBoolean(input.requiresReason, true) : true,
+    expiresAt,
   };
 }
 
@@ -1770,6 +1809,15 @@ function readBoolean(value: boolean | string | null | undefined, fallback: boole
   return fallback;
 }
 
+function normalizePermissionExpiresAt(value: string | Date | null | undefined) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("請輸入有效的報表權限到期時間。");
+  }
+  return date;
+}
+
 function permissionMetadata(
   dataset: ReportDatasetView,
   field: ReportFieldView | null,
@@ -1786,6 +1834,8 @@ function permissionMetadata(
     maskingMode: input.maskingMode,
     exportAllowed: input.exportAllowed,
     requiresReason: input.requiresReason,
+    expiresAt: input.expiresAt?.toISOString() ?? null,
+    expiresSoon: input.expiresAt ? isDateWithinDays(input.expiresAt, new Date(), 14) : false,
     fieldLevelOverride: field != null,
     rawSensitiveValuesIncluded: false,
   };

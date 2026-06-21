@@ -227,6 +227,73 @@ describe("report builder foundation", () => {
     expect(JSON.stringify(getAuditDemoState().logs)).not.toContain("A123456789");
   });
 
+  it("auto-recovers expired report permission overrides while keeping audit evidence", async () => {
+    const expiredAt = new Date(Date.now() - 86_400_000);
+    const futureExpiresAt = new Date(Date.now() + 7 * 86_400_000);
+
+    const expiredOverride = await updateReportPermission(hrSession, {
+      datasetCode: "people_readiness",
+      fieldKey: "hire_month",
+      roleKey: "hr_admin",
+      accessLevel: "detail",
+      maskingMode: "aggregate_only",
+      exportAllowed: "true",
+      requiresReason: "true",
+      expiresAt: expiredAt,
+    });
+    const expiredWorkspace = await getReportAdminWorkspace(hrSession);
+    const recoveredJob = await createCustomReportJob(hrSession, {
+      datasetCode: "people_readiness",
+      selectedFieldKeys: ["employee_no", "hire_month"],
+    });
+
+    expect(expiredOverride).toMatchObject({
+      fieldKey: "hire_month",
+      expiresAt: expiredAt,
+    });
+    expect(expiredWorkspace.summary.expiredPermissionCount).toBe(1);
+    expect(expiredWorkspace.summary.fieldOverrideCount).toBe(0);
+    expect(recoveredJob.selectedFields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "hire_month", maskingMode: "masked" }),
+      ]),
+    );
+
+    const activeOverride = await updateReportPermission(hrSession, {
+      datasetCode: "people_readiness",
+      fieldKey: "hire_month",
+      roleKey: "hr_admin",
+      accessLevel: "detail",
+      maskingMode: "aggregate_only",
+      exportAllowed: "true",
+      requiresReason: "true",
+      expiresAt: futureExpiresAt,
+    });
+    const activeWorkspace = await getReportAdminWorkspace(hrSession);
+    const activeJob = await createCustomReportJob(hrSession, {
+      datasetCode: "people_readiness",
+      selectedFieldKeys: ["employee_no", "hire_month"],
+    });
+
+    expect(activeOverride).toMatchObject({
+      fieldKey: "hire_month",
+      expiresAt: futureExpiresAt,
+    });
+    expect(activeWorkspace.summary.fieldOverrideCount).toBe(1);
+    expect(activeWorkspace.summary.expiringPermissionCount).toBe(1);
+    expect(activeWorkspace.summary.expiredPermissionCount).toBe(0);
+    expect(activeJob.selectedFields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "hire_month", maskingMode: "aggregate_only" }),
+      ]),
+    );
+    expect(getAuditDemoState().logs.some((log) =>
+      log.entityType === "report_permission" &&
+      log.metadataJson.fieldKey === "hire_month" &&
+      log.metadataJson.expiresAt === futureExpiresAt.toISOString(),
+    )).toBe(true);
+  });
+
   it("allows payroll fields only as aggregate metadata for payroll-authorized HR", async () => {
     const job = await createCustomReportJob(hrSession, {
       title: "薪資月結狀態報表",

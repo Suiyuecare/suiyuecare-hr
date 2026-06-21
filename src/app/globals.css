@@ -11174,6 +11174,11 @@ legend {
   background: #fffbeb;
 }
 
+.report-permission-card.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
 .report-permission-card-head {
   display: grid;
   gap: 8px;

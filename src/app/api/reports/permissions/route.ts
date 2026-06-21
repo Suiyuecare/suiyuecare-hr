@@ -14,6 +14,7 @@ export async function POST(request: Request) {
       maskingMode: readString(formData.get("maskingMode")),
       exportAllowed: readString(formData.get("exportAllowed")),
       requiresReason: readString(formData.get("requiresReason")),
+      expiresAt: readString(formData.get("expiresAt")),
     });
     return NextResponse.redirect(
       new URL("/hr/reports?success=report-permission#report-permissions", request.url),

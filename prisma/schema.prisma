@@ -248,12 +248,14 @@ model ReportPermission {
   maskingMode    String         @default("masked")
   exportAllowed  Boolean        @default(false)
   requiresReason Boolean        @default(true)
+  expiresAt      DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
   @@index([tenantId, companyId, roleKey])
   @@index([tenantId, companyId, datasetId])
   @@index([tenantId, companyId, fieldId])
+  @@index([tenantId, companyId, expiresAt])
 }
 
 model ReportJob {

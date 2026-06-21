@@ -1322,10 +1322,12 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   const hrPeoplePermissionForm = page.getByRole("form", { name: "人資 人事準備度 報表權限" });
   await hrPeoplePermissionForm.getByLabel("欄位覆寫").selectOption("hire_month");
   await hrPeoplePermissionForm.getByLabel("遮罩模式").selectOption("aggregate_only");
+  await hrPeoplePermissionForm.getByLabel("有效期限").fill("2099-12-31T23:59");
   await hrPeoplePermissionForm.getByRole("button", { name: "儲存權限" }).click();
   await expect(page).toHaveURL(/\/hr\/reports\?success=report-permission#report-permissions$/);
   await expect(page.getByRole("form", { name: "人資 人事準備度 到職月份 報表權限" })).toBeVisible();
   await expect(page.getByRole("form", { name: "人資 人事準備度 到職月份 報表權限" }).getByText("欄位級覆寫")).toBeVisible();
+  await expect(page.getByRole("form", { name: "人資 人事準備度 到職月份 報表權限" }).getByLabel("有效期限")).toHaveValue("2099-12-31T23:59");
   const customReportForm = page.getByRole("form", { name: "人事準備度自訂報表" });
   await customReportForm.getByLabel("報表名稱").fill("兩週試用人事準備度報表");
   await customReportForm.getByLabel("用途").selectOption("labor_inspection");

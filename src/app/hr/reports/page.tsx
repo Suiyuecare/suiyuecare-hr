@@ -103,7 +103,7 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
         <section className="report-alerts" aria-live="polite">
           <div className="panel success-panel">
             <strong>報表權限已更新</strong>
-            <p>已寫入角色、資料集、匯出、遮罩與用途理由設定；變更會留下 audit log，敏感欄位仍受硬性保護。</p>
+            <p>已寫入角色、資料集、欄位、匯出、遮罩、用途理由與有效期限；過期權限會自動回到安全預設，敏感欄位仍受硬性保護。</p>
           </div>
         </section>
       ) : null}
@@ -213,7 +213,9 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
               <strong>{reportWorkspace.summary.datasetCount} 個資料集 / {reportWorkspace.summary.fieldCount} 個欄位</strong>
               <small>
                 {reportWorkspace.summary.blockedSensitiveFieldCount} 個敏感欄位預設不可匯出；
-                {reportWorkspace.summary.fieldOverrideCount} 個欄位覆寫；每次建立都寫入 audit log。
+                {reportWorkspace.summary.fieldOverrideCount} 個有效欄位覆寫；
+                {reportWorkspace.summary.expiringPermissionCount} 個即將到期；
+                {reportWorkspace.summary.expiredPermissionCount} 個已自動回收。
               </small>
             </div>
           </div>
@@ -513,18 +515,22 @@ function ReportPermissionCard({
   const canExportRole = permission.roleKey === "owner" || permission.roleKey === "hr_admin";
   const payrollGuarded = permission.datasetCategory === "payroll";
   const fieldScoped = permission.fieldKey != null;
+  const now = new Date();
+  const expired = permission.expiresAt != null && permission.expiresAt <= now;
+  const expiringSoon = permission.expiresAt != null && permission.expiresAt > now && daysUntil(permission.expiresAt, now) <= 14;
+  const cardTone = expired ? "danger" : permission.exportAllowed ? "ready" : "warning";
   return (
     <form
       action="/api/reports/permissions"
       method="post"
-      className={`report-permission-card ${permission.exportAllowed ? "ready" : "warning"}`}
+      className={`report-permission-card ${cardTone}`}
       aria-label={`${roleLabel(permission.roleKey)} ${permission.datasetName}${permission.fieldLabel ? ` ${permission.fieldLabel}` : ""} 報表權限`}
     >
       <input type="hidden" name="datasetCode" value={permission.datasetCode} />
       <input type="hidden" name="roleKey" value={permission.roleKey} />
       <div className="report-permission-card-head">
-        <span className={`badge ${permission.exportAllowed ? "done" : "warning"}`}>
-          {fieldScoped ? "欄位覆寫" : permission.exportAllowed ? "可匯出" : "不可匯出"}
+        <span className={`badge ${expired ? "danger" : permission.exportAllowed ? "done" : "warning"}`}>
+          {expired ? "已回收" : fieldScoped ? "欄位覆寫" : permission.exportAllowed ? "可匯出" : "不可匯出"}
         </span>
         <div>
           <h3>{roleLabel(permission.roleKey)}</h3>
@@ -584,11 +590,23 @@ function ReportPermissionCard({
             <option value="false">不強制</option>
           </select>
         </label>
+        <label>
+          有效期限
+          <input
+            name="expiresAt"
+            type="datetime-local"
+            defaultValue={formatDateTimeLocal(permission.expiresAt)}
+            disabled={!canManageReports}
+          />
+        </label>
       </div>
       <div className="report-permission-guardrails">
         {fieldScoped ? <span>欄位級覆寫</span> : <span>資料集層級</span>}
         <span>{maskingLabel(permission.maskingMode)}</span>
         <span>{accessLevelLabel(permission.accessLevel)}</span>
+        <span>{permission.expiresAt ? `期限 ${formatDateTimeLabel(permission.expiresAt)}` : "無期限"}</span>
+        {expired ? <span>已到期自動回收</span> : null}
+        {expiringSoon ? <span>14 天內到期</span> : null}
         {permission.fieldSensitivity ? <span>{sensitivityLabel(permission.fieldSensitivity)}</span> : null}
         {payrollGuarded ? <span>薪資資料集強制彙總</span> : null}
         {!canExportRole ? <span>此角色不可建立匯出</span> : null}
@@ -817,8 +835,14 @@ function buildNextStageItems() {
     },
     {
       title: "到期自動回收",
-      detail: "下一步把欄位例外與下載權限加上期限、到期自動回收與覆寫證據包。",
-      status: "回收",
+      detail: "報表權限與單欄位覆寫已可設定期限；過期後保留證據但不再參與匯出判斷。",
+      status: "已上線",
+      tone: "done",
+    },
+    {
+      title: "短效下載 URL 與背景佇列",
+      detail: "下一步把 manifest 匯出改成背景工作、短效物件儲存 URL、失敗重試與到期清理排程。",
+      status: "佇列",
       tone: "warning",
     },
     {
@@ -907,11 +931,34 @@ function formatDateLabel(value: Date) {
   }).format(value);
 }
 
+function formatDateTimeLabel(value: Date) {
+  return new Intl.DateTimeFormat("zh-TW", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Taipei",
+  }).format(value);
+}
+
+function formatDateTimeLocal(value: Date | null) {
+  if (!value) return "";
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return [
+    value.getFullYear(),
+    pad(value.getMonth() + 1),
+    pad(value.getDate()),
+  ].join("-") + `T${pad(value.getHours())}:${pad(value.getMinutes())}`;
+}
+
+function daysUntil(value: Date, now: Date) {
+  return Math.ceil((value.getTime() - now.getTime()) / 86_400_000);
+}
+
 function localizeReportError(error: string) {
   if (/report:manage/i.test(error)) return "目前角色沒有建立自訂報表的權限。";
   if (/不可匯出/.test(error)) return error;
   if (/薪資/.test(error)) return "薪資報表欄位需要薪資管理權限，且只能輸出遮罩或彙總。";
   if (/結束日期/.test(error)) return "報表結束日期不可早於開始日期。";
+  if (/到期時間/.test(error)) return "請輸入有效的報表權限到期時間。";
   if (/資料集|欄位/.test(error)) return "請選擇有效資料集與該資料集底下的欄位。";
   return "請確認資料集、欄位、用途與期間後再試一次。";
 }
