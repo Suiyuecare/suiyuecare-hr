@@ -466,6 +466,34 @@ export default async function HrDashboardPage() {
             </div>
           </section>
 
+          <section className="payroll-legal-gate" aria-label="薪資法遵鎖薪 Gate">
+            <div className={`payroll-legal-gate-copy ${payroll.checklist.legalGate.status === "blocked" ? "danger" : "ready"}`}>
+              <span>薪資法遵鎖薪 Gate</span>
+              <strong>{payroll.checklist.legalGate.headline}</strong>
+              <small>
+                {payroll.checklist.legalGate.readyCount}/{payroll.checklist.legalGate.totalCount} 步可用；
+                {payroll.checklist.legalGate.blockedCount} 個阻擋。{payroll.checklist.legalGate.nextAction}
+              </small>
+            </div>
+            {payroll.checklist.legalGate.steps.map((step) => (
+              <article className={`payroll-legal-gate-step ${payrollGateTone(step.status)}`} key={step.id}>
+                <div className="payroll-legal-gate-step-top">
+                  <span>{step.step}</span>
+                  <span className={`badge ${step.status === "done" ? "done" : step.status === "blocked" ? "danger" : "warning"}`}>
+                    {labelPayrollGateStatus(step.status)}
+                  </span>
+                </div>
+                <h3>{step.title}</h3>
+                <p>{translatePayrollDetail(step.detail)}</p>
+                <small>{step.metric}</small>
+                <small>證據：{translatePayrollGateEvidence(step.evidence)}</small>
+                <a className="button" href={step.actionHref}>
+                  {step.actionLabel}
+                </a>
+              </article>
+            ))}
+          </section>
+
           <div className="action-row payroll-actions">
             <form action="/api/payroll/create" method="post">
               <button className="button primary" type="submit">
@@ -1179,6 +1207,30 @@ function translatePayrollDetail(detail: string) {
     "Release after lock.": "鎖定後才能發布。",
   };
   return labels[detail] ?? detail;
+}
+
+function payrollGateTone(status: string) {
+  if (status === "done") return "ready";
+  if (status === "blocked") return "danger";
+  return "warning";
+}
+
+function labelPayrollGateStatus(status: string) {
+  if (status === "done") return "已完成";
+  if (status === "blocked") return "阻擋";
+  return "可處理";
+}
+
+function translatePayrollGateEvidence(evidence: string) {
+  const labels: Record<string, string> = {
+    "payrollRun.ruleVersionId, payrollItem.ruleVersionId": "薪資批次與薪資項目的規則版本",
+    "attendance exceptions, approval inbox, payroll blockers": "出勤異常、簽核 Inbox 與月結阻擋項",
+    "payroll item count, statutory payroll metadata, ruleVersionId": "薪資項目數、法定扣繳 metadata 與規則版本",
+    "payroll confirmation audit log": "人資確認 audit log",
+    "payroll lock audit log, adjustment flow": "薪資鎖定 audit log 與調整流程",
+    "payslip self-access smoke, unauthorized payroll access test": "本人薪資單讀取與未授權存取測試",
+  };
+  return labels[evidence] ?? evidence;
 }
 
 function labelStatus(status: string) {

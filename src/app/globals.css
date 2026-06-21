@@ -1091,6 +1091,124 @@ textarea {
   background: #fef2f2;
 }
 
+.payroll-legal-gate {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.95fr) repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.payroll-legal-gate-copy,
+.payroll-legal-gate-step {
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.payroll-legal-gate-copy {
+  display: grid;
+  grid-row: span 2;
+  align-content: center;
+  gap: 8px;
+  min-height: 226px;
+  border: 1px solid rgba(30, 41, 59, 0.14);
+  background: var(--command-bg);
+  color: #ffffff;
+  padding: 16px;
+}
+
+.payroll-legal-gate-copy.danger {
+  border-color: rgba(254, 202, 202, 0.5);
+  background: linear-gradient(135deg, #111827 0%, #2b1111 72%, #7f1d1d 100%);
+}
+
+.payroll-legal-gate-copy span {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.payroll-legal-gate-copy strong {
+  color: #ffffff;
+  font-size: 23px;
+  font-weight: 1000;
+  line-height: 1.08;
+}
+
+.payroll-legal-gate-copy small {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.5;
+}
+
+.payroll-legal-gate-step {
+  display: grid;
+  grid-template-rows: auto auto minmax(52px, auto) auto auto auto;
+  align-content: start;
+  gap: 8px;
+  min-height: 226px;
+  border: 1px solid var(--panel-border);
+  background: #ffffff;
+  padding: 14px;
+}
+
+.payroll-legal-gate-step.ready {
+  border-color: #bbf7d0;
+  background: #f8fffb;
+}
+
+.payroll-legal-gate-step.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.payroll-legal-gate-step.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.payroll-legal-gate-step-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.payroll-legal-gate-step-top span:first-child {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.payroll-legal-gate-step h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 1000;
+  line-height: 1.15;
+}
+
+.payroll-legal-gate-step p,
+.payroll-legal-gate-step small {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.42;
+}
+
+.payroll-legal-gate-step small:first-of-type {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.payroll-legal-gate-step .button {
+  align-self: end;
+  width: 100%;
+  margin-top: auto;
+}
+
 .payroll-track {
   grid-template-columns: repeat(7, minmax(112px, 1fr));
 }
@@ -11928,6 +12046,7 @@ legend {
   .inbox-workspace,
   .payroll-day7-guide,
   .payroll-runway,
+  .payroll-legal-gate,
   .pilot-invite-flow,
   .invite-prep-grid,
   .go-no-go-check-grid,
@@ -12115,6 +12234,10 @@ legend {
 
   .payroll-import-page .section-heading .button {
     width: 100%;
+  }
+
+  .payroll-legal-gate-copy {
+    grid-row: auto;
   }
 
   .report-workspace-page .section-heading {
@@ -12343,6 +12466,8 @@ legend {
   .hr-close-command-card,
   .payroll-day7-action,
   .payroll-runway-stage,
+  .payroll-legal-gate-copy,
+  .payroll-legal-gate-step,
   .invite-prep-card,
   .go-no-go-check-card,
   .pilot-invite-flow .close-step {

@@ -393,6 +393,21 @@ describe("payroll close checks", () => {
 
     expect(checklist.steps).toHaveLength(7);
     expect(checklist.canLock).toBe(true);
+    expect(checklist.legalGate).toMatchObject({
+      status: "ready",
+      readyCount: 6,
+      blockedCount: 0,
+      totalCount: 6,
+      headline: "薪資法遵 Gate 已可進入鎖定或發布",
+    });
+    expect(checklist.legalGate.steps.map((step) => step.id)).toEqual([
+      "rule_version",
+      "attendance_approvals",
+      "calculation_draft",
+      "hr_confirmation",
+      "lock_guard",
+      "release_access",
+    ]);
   });
 
   it("blocks lock when a payroll draft uses an outdated rule version that requires recalculation", () => {
@@ -425,6 +440,15 @@ describe("payroll close checks", () => {
     expect(ruleReview.needsRecalculation).toBe(true);
     expect(checklist.canCalculate).toBe(true);
     expect(checklist.canLock).toBe(false);
+    expect(checklist.legalGate).toMatchObject({
+      status: "blocked",
+      blockedCount: 4,
+    });
+    expect(checklist.legalGate.steps.find((step) => step.id === "rule_version")).toMatchObject({
+      status: "blocked",
+      metric: "2026.01-old-draft",
+      actionHref: "/settings/law-rules",
+    });
     expect(checklist.steps.find((step) => step.step === 6)).toMatchObject({
       status: "blocked",
     });
@@ -459,5 +483,21 @@ describe("payroll close checks", () => {
     expect(ruleReview.needsRecalculation).toBe(false);
     expect(ruleReview.blocksLock).toBe(true);
     expect(ruleReview.detail).toContain("pending legal review");
+    expect(
+      closeChecklist({
+        attendanceComplete: true,
+        pendingApprovalCount: 0,
+        exceptionCount: 0,
+        calculated: true,
+        exceptionsReviewed: true,
+        confirmed: true,
+        locked: false,
+        released: false,
+        ruleReview,
+      }).legalGate.steps.find((step) => step.id === "hr_confirmation"),
+    ).toMatchObject({
+      status: "blocked",
+      actionLabel: "人資確認",
+    });
   });
 });

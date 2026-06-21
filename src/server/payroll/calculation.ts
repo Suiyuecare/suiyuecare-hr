@@ -247,8 +247,10 @@ export function closeChecklist(input: {
     input.pendingApprovalCount +
     input.exceptionCount;
   const lockBlockerCount = operationalBlockerCount + (ruleReview.blocksLock ? 1 : 0);
+  const legalGate = buildPayrollLegalGate({ ...input, ruleReview });
   return {
     ruleReview,
+    legalGate,
     canCalculate:
       input.attendanceComplete &&
       input.pendingApprovalCount === 0 &&
@@ -306,6 +308,122 @@ export function closeChecklist(input: {
         detail: input.released ? "Payslips released." : "Release after lock.",
       },
     ] as const,
+  };
+}
+
+function buildPayrollLegalGate(input: {
+  attendanceComplete: boolean;
+  pendingApprovalCount: number;
+  exceptionCount: number;
+  calculated: boolean;
+  exceptionsReviewed: boolean;
+  confirmed: boolean;
+  locked: boolean;
+  released: boolean;
+  ruleReview: PayrollCloseChecklist["ruleReview"];
+}): PayrollCloseChecklist["legalGate"] {
+  const steps: PayrollCloseChecklist["legalGate"]["steps"] = [
+    {
+      id: "rule_version",
+      step: "01",
+      title: "法規版本",
+      status: input.ruleReview.blocksLock ? "blocked" : input.ruleReview.payrollRuleVersionId ? "done" : "ready",
+      metric: input.ruleReview.payrollRuleVersionId ?? "尚未試算",
+      detail: input.ruleReview.blocksLock
+        ? input.ruleReview.detail
+        : "薪資草稿必須綁定已審核的台灣法規與薪資規則版本。",
+      evidence: "payrollRun.ruleVersionId, payrollItem.ruleVersionId",
+      actionLabel: input.ruleReview.payrollRuleVersionId ? "檢查法規規則" : "先試算草稿",
+      actionHref: input.ruleReview.payrollRuleVersionId ? "/settings/law-rules" : "/hr",
+    },
+    {
+      id: "attendance_approvals",
+      step: "02",
+      title: "出勤與簽核",
+      status: input.attendanceComplete && input.pendingApprovalCount === 0 && input.exceptionCount === 0
+        ? "done"
+        : "blocked",
+      metric: `${input.exceptionCount} 異常 / ${input.pendingApprovalCount} 簽核`,
+      detail: "漏打卡、待簽核、出勤異常都會影響加班費、請假扣薪與薪資鎖定。",
+      evidence: "attendance exceptions, approval inbox, payroll blockers",
+      actionLabel: input.attendanceComplete ? "開啟簽核 Inbox" : "處理出勤異常",
+      actionHref: input.attendanceComplete ? "/manager/inbox" : "/hr/attendance-exceptions",
+    },
+    {
+      id: "calculation_draft",
+      step: "03",
+      title: "試算草稿",
+      status: input.calculated && !input.ruleReview.needsRecalculation
+        ? "done"
+        : input.attendanceComplete && input.pendingApprovalCount === 0 && input.exceptionCount === 0
+          ? "ready"
+          : "blocked",
+      metric: input.calculated ? "已試算" : "尚未試算",
+      detail: input.ruleReview.needsRecalculation
+        ? "法規版本異動後，未鎖定薪資草稿必須重新試算。"
+        : "試算會產生 payroll items，但 HR 尚未確認前不能鎖定或發布。",
+      evidence: "payroll item count, statutory payroll metadata, ruleVersionId",
+      actionLabel: "試算草稿",
+      actionHref: "/hr",
+    },
+    {
+      id: "hr_confirmation",
+      step: "04",
+      title: "HR 人工確認",
+      status: input.confirmed && input.exceptionsReviewed && !input.ruleReview.blocksLock
+        ? "done"
+        : input.calculated && !input.ruleReview.blocksLock
+          ? "ready"
+          : "blocked",
+      metric: input.confirmed ? "已確認" : "待確認",
+      detail: "HR 必須確認例外、加扣項、特休結清與法規版本；系統不可靜默替 HR 做薪資決策。",
+      evidence: "payroll confirmation audit log",
+      actionLabel: "人資確認",
+      actionHref: "/hr",
+    },
+    {
+      id: "lock_guard",
+      step: "05",
+      title: "鎖定防線",
+      status: input.locked ? "done" : input.confirmed && !input.ruleReview.blocksLock ? "ready" : "blocked",
+      metric: input.locked ? "已鎖定" : "未鎖定",
+      detail: "鎖定後不可直接改薪資；任何修正必須走明確調整單與 audit log。",
+      evidence: "payroll lock audit log, adjustment flow",
+      actionLabel: "鎖定薪資",
+      actionHref: "/hr",
+    },
+    {
+      id: "release_access",
+      step: "06",
+      title: "薪資單權限",
+      status: input.released
+        ? "done"
+        : input.locked || (input.confirmed && !input.ruleReview.blocksLock)
+          ? "ready"
+          : "blocked",
+      metric: input.released ? "已發布" : "未發布",
+      detail: "發布後員工只能看本人薪資單；主管預設不能看部屬薪資。",
+      evidence: "payslip self-access smoke, unauthorized payroll access test",
+      actionLabel: input.locked ? "發布薪資單" : "查看權限",
+      actionHref: input.locked ? "/hr" : "/settings/access",
+    },
+  ];
+  const blockedCount = steps.filter((step) => step.status === "blocked").length;
+  const readyCount = steps.length - blockedCount;
+  const firstBlockedStep = steps.find((step) => step.status === "blocked");
+
+  return {
+    status: blockedCount ? "blocked" : "ready",
+    headline: blockedCount
+      ? "薪資鎖定前仍有法遵 Gate 未完成"
+      : "薪資法遵 Gate 已可進入鎖定或發布",
+    readyCount,
+    blockedCount,
+    totalCount: steps.length,
+    nextAction: firstBlockedStep
+      ? firstBlockedStep.detail
+      : "保留 rule version、HR 確認、鎖定與薪資單權限證據。",
+    steps,
   };
 }
 

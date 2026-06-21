@@ -1254,6 +1254,9 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   await expect(page.getByLabel("出勤日清路線").getByText("03 安全建議")).toBeVisible();
   await expect(page.getByText("Day 7 月結預演")).toBeVisible();
   await expect(page.getByText("薪資資料不在摘要外洩")).toBeVisible();
+  await expect(page.getByLabel("薪資法遵鎖薪 Gate")).toContainText("薪資法遵鎖薪 Gate");
+  await expect(page.getByLabel("薪資法遵鎖薪 Gate").getByRole("heading", { name: "法規版本" })).toBeVisible();
+  await expect(page.getByLabel("薪資法遵鎖薪 Gate").getByRole("heading", { name: "薪資單權限" })).toBeVisible();
 
   await page.goto("/hr/attendance-exceptions");
   await expect(page.getByRole("heading", { name: "出勤異常處理工作台" })).toBeVisible();

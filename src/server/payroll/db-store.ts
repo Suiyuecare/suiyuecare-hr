@@ -53,6 +53,7 @@ export async function getDbPayrollDashboard(session: SessionLike) {
       pendingApprovalCount: run?.pendingApprovalCount ?? 0,
       exceptionCount: run?.exceptionCount ?? 0,
       ruleReview: checklist.ruleReview,
+      legalGate: checklist.legalGate,
       canCalculate: checklist.canCalculate,
       canLock: checklist.canLock,
       steps: [...checklist.steps],

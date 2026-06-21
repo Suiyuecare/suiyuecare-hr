@@ -90,6 +90,25 @@ export type PayrollCloseChecklist = {
     blocksLock: boolean;
     detail: string;
   };
+  legalGate: {
+    status: "ready" | "blocked";
+    headline: string;
+    readyCount: number;
+    blockedCount: number;
+    totalCount: number;
+    nextAction: string;
+    steps: Array<{
+      id: string;
+      step: string;
+      title: string;
+      status: "done" | "blocked" | "ready";
+      metric: string;
+      detail: string;
+      evidence: string;
+      actionLabel: string;
+      actionHref: string;
+    }>;
+  };
   canCalculate: boolean;
   canLock: boolean;
   steps: Array<{

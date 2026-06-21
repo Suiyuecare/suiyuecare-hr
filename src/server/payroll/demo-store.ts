@@ -99,10 +99,11 @@ export function getDemoPayrollChecklist(): PayrollCloseChecklist {
     pendingApprovalCount: base.pendingApprovalCount,
     exceptionCount: base.exceptionCount,
     canCalculate: checklist.canCalculate,
-      canLock: checklist.canLock,
-      ruleReview: checklist.ruleReview,
-      steps: [...checklist.steps],
-    };
+    canLock: checklist.canLock,
+    ruleReview: checklist.ruleReview,
+    legalGate: checklist.legalGate,
+    steps: [...checklist.steps],
+  };
 }
 
 export function createDemoPayrollRun() {
