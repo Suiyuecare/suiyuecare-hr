@@ -40,6 +40,42 @@ export type FileStorageSettings = {
 
 export type FileStorageSettingsInput = Partial<FileStorageSettings>;
 
+export type FileStorageLifecycleInput = {
+  provider: FileStorageProvider | string;
+  bucketName: string;
+  verificationStatus: FileStorageSettings["verificationStatus"] | string;
+} & Pick<
+  FileStorageSettings,
+  | "kmsKeyRef"
+  | "lifecyclePolicyRef"
+  | "malwareScanningRequired"
+  | "signedUrlTtlMinutes"
+  | "retentionDays"
+  | "lastVerifiedAt"
+>;
+
+export type FileStorageLifecycleReadinessCheck = {
+  id: string;
+  title: string;
+  detail: string;
+  ready: boolean;
+  tone: "ready" | "warning" | "danger";
+};
+
+export type FileStorageLifecycleReadiness = {
+  ready: boolean;
+  status: "ready" | "blocked";
+  title: string;
+  detail: string;
+  minimumRetentionDays: number;
+  maximumSignedUrlTtlMinutes: number;
+  checks: FileStorageLifecycleReadinessCheck[];
+  gaps: string[];
+};
+
+export const productionFileStorageMinimumRetentionDays = 1825;
+export const productionFileStorageMaximumSignedUrlTtlMinutes = 15;
+
 export type ObjectReservationInput = {
   employeeId: string;
   fileName: string;
@@ -226,11 +262,16 @@ function updateDemoSettings(
 }
 
 function auditMetadata(before: FileStorageSettings, after: FileStorageSettings) {
+  const lifecycleReadiness = evaluateFileStorageLifecycleReadiness(after);
   return {
     changedFields: changedFields(before, after),
     objectBytesIncluded: false,
     malwareScanningRequired: after.malwareScanningRequired,
     lifecyclePolicyConfigured: Boolean(after.lifecyclePolicyRef),
+    lifecycleReadinessStatus: lifecycleReadiness.status,
+    lifecycleGapCount: lifecycleReadiness.gaps.length,
+    retentionDays: after.retentionDays,
+    signedUrlTtlMinutes: after.signedUrlTtlMinutes,
     providerChanged: before.provider !== after.provider,
     verificationStatus: after.verificationStatus,
   };
@@ -316,15 +357,126 @@ function writeRecord(settings: FileStorageSettings) {
   };
 }
 
-export function isProductionStorageVerified(settings: FileStorageSettings) {
-  return (
-    settings.provider !== "demo_object_storage" &&
-    Boolean(settings.kmsKeyRef) &&
-    Boolean(settings.lifecyclePolicyRef) &&
-    settings.malwareScanningRequired &&
-    settings.verificationStatus === "verified" &&
-    Boolean(settings.lastVerifiedAt)
-  );
+export function evaluateFileStorageLifecycleReadiness(
+  settings: FileStorageLifecycleInput,
+): FileStorageLifecycleReadiness {
+  const reference = evaluateLifecyclePolicyReference(settings);
+  const verificationStatus = normalizeVerificationStatus(settings.verificationStatus, "unverified");
+  const checks: FileStorageLifecycleReadinessCheck[] = [
+    {
+      id: "provider",
+      title: "非示範供應商",
+      detail: settings.provider === "demo_object_storage"
+        ? "目前仍是示範物件儲存，正式客戶文件不可上線。"
+        : `目前使用 ${settings.provider}，可進一步驗證正式 bucket policy。`,
+      ready: settings.provider !== "demo_object_storage",
+      tone: settings.provider === "demo_object_storage" ? "danger" : "ready",
+    },
+    {
+      id: "kms",
+      title: "KMS 或 vault 參照",
+      detail: settings.kmsKeyRef
+        ? "已保存金鑰參照，未保存密鑰本體。"
+        : "缺少 KMS/vault 參照，正式文件加密證據不足。",
+      ready: Boolean(settings.kmsKeyRef),
+      tone: settings.kmsKeyRef ? "ready" : "danger",
+    },
+    {
+      id: "lifecycle_policy",
+      title: "Provider lifecycle policy",
+      detail: reference.detail,
+      ready: reference.ready,
+      tone: reference.ready ? "ready" : "danger",
+    },
+    {
+      id: "retention_days",
+      title: "保存期限至少五年",
+      detail: settings.retentionDays >= productionFileStorageMinimumRetentionDays
+        ? `${settings.retentionDays} 天，足以支撐五年勞檢與文件保存基準。`
+        : `${settings.retentionDays} 天，低於 ${productionFileStorageMinimumRetentionDays} 天正式上線基準。`,
+      ready: settings.retentionDays >= productionFileStorageMinimumRetentionDays,
+      tone: settings.retentionDays >= productionFileStorageMinimumRetentionDays ? "ready" : "danger",
+    },
+    {
+      id: "signed_url_ttl",
+      title: "短效簽名 URL",
+      detail: settings.signedUrlTtlMinutes <= productionFileStorageMaximumSignedUrlTtlMinutes
+        ? `${settings.signedUrlTtlMinutes} 分鐘，符合正式下載最小暴露原則。`
+        : `${settings.signedUrlTtlMinutes} 分鐘，超過 ${productionFileStorageMaximumSignedUrlTtlMinutes} 分鐘上限。`,
+      ready: settings.signedUrlTtlMinutes >= 1 &&
+        settings.signedUrlTtlMinutes <= productionFileStorageMaximumSignedUrlTtlMinutes,
+      tone: settings.signedUrlTtlMinutes >= 1 &&
+        settings.signedUrlTtlMinutes <= productionFileStorageMaximumSignedUrlTtlMinutes ? "ready" : "danger",
+    },
+    {
+      id: "malware_scan",
+      title: "惡意程式掃描",
+      detail: settings.malwareScanningRequired
+        ? "掃描已設為必須，文件可保留掃描狀態與證據。"
+        : "掃描尚未強制，文件金庫不能作為正式證據入口。",
+      ready: settings.malwareScanningRequired,
+      tone: settings.malwareScanningRequired ? "ready" : "danger",
+    },
+    {
+      id: "verification",
+      title: "正式驗證證據",
+      detail: verificationStatus === "verified" && settings.lastVerifiedAt
+        ? `已於 ${settings.lastVerifiedAt.toISOString().slice(0, 10)} 驗證。`
+        : "尚未寫入通過的外部驗證測試證據。",
+      ready: verificationStatus === "verified" && Boolean(settings.lastVerifiedAt),
+      tone: verificationStatus === "verified" && settings.lastVerifiedAt ? "ready" : "danger",
+    },
+  ];
+  const gaps = checks.filter((check) => !check.ready).map((check) => check.title);
+  const firstFailedCheck = checks.find((check) => !check.ready);
+  return {
+    ready: gaps.length === 0,
+    status: gaps.length === 0 ? "ready" : "blocked",
+    title: gaps.length === 0 ? "正式 lifecycle policy 已就緒" : "正式 lifecycle policy 尚未就緒",
+    detail: gaps.length === 0
+      ? "正式文件儲存已具備 provider lifecycle policy、五年保存、短效簽名 URL、KMS、掃描與驗證證據。"
+      : `仍需補齊：${gaps.slice(0, 3).join("、")}${gaps.length > 3 ? `等 ${gaps.length} 項` : ""}。${firstFailedCheck?.detail ?? ""}`,
+    minimumRetentionDays: productionFileStorageMinimumRetentionDays,
+    maximumSignedUrlTtlMinutes: productionFileStorageMaximumSignedUrlTtlMinutes,
+    checks,
+    gaps,
+  };
+}
+
+export function isProductionStorageVerified(settings: FileStorageLifecycleInput) {
+  return evaluateFileStorageLifecycleReadiness(settings).ready;
+}
+
+function evaluateLifecyclePolicyReference(settings: FileStorageLifecycleInput) {
+  const ref = settings.lifecyclePolicyRef?.trim();
+  if (!ref) {
+    return { ready: false, detail: "缺少 bucket lifecycle policy 參照。" };
+  }
+  const lowerRef = ref.toLowerCase();
+  const lowerBucket = settings.bucketName.trim().toLowerCase();
+  if (/(secret|token|password|credential|private[_-]?key|access[_-]?key|sk[_-])/i.test(ref)) {
+    return { ready: false, detail: "lifecycle 參照疑似包含密鑰或 token，請改用外部證據編號。" };
+  }
+  if (!/(lifecycle|retention|archive|保留|封存|保存)/i.test(ref)) {
+    return { ready: false, detail: "參照需能看出 lifecycle、retention 或 archive policy 證據。" };
+  }
+  if (!lowerBucket || !lowerRef.includes(lowerBucket)) {
+    return { ready: false, detail: "參照需包含正式 bucket 名稱，才能綁定外部 provider policy。" };
+  }
+  if (settings.provider !== "custom" && settings.provider !== "demo_object_storage") {
+    const providerAliases: Record<string, string[]> = {
+      s3: ["s3://", "aws://"],
+      r2: ["r2://", "cloudflare-r2://"],
+      gcs: ["gcs://", "gs://"],
+      azure_blob: ["azure://", "azure-blob://", "azblob://"],
+      supabase_storage: ["supabase://", "supabase-storage://"],
+    };
+    const aliases = providerAliases[settings.provider] ?? [`${settings.provider}://`];
+    if (!aliases.some((alias) => lowerRef.startsWith(alias))) {
+      return { ready: false, detail: `參照需使用 ${settings.provider} provider scheme 或正式供應商證據 URI。` };
+    }
+  }
+  return { ready: true, detail: "已保存 provider lifecycle policy 參照，且參照綁定正式 bucket。" };
 }
 
 function normalizeProvider(value: unknown, fallback: FileStorageProvider): FileStorageProvider {

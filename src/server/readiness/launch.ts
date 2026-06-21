@@ -6,7 +6,11 @@ import { getCompanyOverview } from "@/server/dashboard/queries";
 import { getLaborRosterWorkspace } from "@/server/employees/labor-roster";
 import { getOffboardingWorkspace, type OffboardingReadiness } from "@/server/employees/offboarding";
 import type { FileStorageSettings } from "@/server/files/storage";
-import { getFileStorageSettings, isProductionStorageVerified } from "@/server/files/storage";
+import {
+  evaluateFileStorageLifecycleReadiness,
+  getFileStorageSettings,
+  isProductionStorageVerified,
+} from "@/server/files/storage";
 import { getIncidentWorkspace, type IncidentReadiness } from "@/server/incidents/workplace";
 import { getHrOneKpis, summarizeHrOneKpis, type HrOneKpi } from "@/server/kpis/hr-one";
 import type { NotificationChannelSettings } from "@/server/notifications/service";
@@ -273,6 +277,7 @@ export function buildLaunchReadinessReport(input: {
   };
   const laborComplianceCoverageSummary = input.laborComplianceCoverageSummary ??
     summarizeTaiwanLaborComplianceCoverage(buildTaiwanLaborComplianceCoverage(input.laborConfig));
+  const fileStorageLifecycleReadiness = evaluateFileStorageLifecycleReadiness(input.fileStorageSettings);
   const calendarReadiness = input.calendarReadiness ?? {
     ready: true,
     calendarYear: new Date().getFullYear(),
@@ -414,9 +419,9 @@ export function buildLaunchReadinessReport(input: {
       area: "Security",
       title: "Document storage",
       status: isProductionStorageVerified(input.fileStorageSettings) ? "ready" : "blocked",
-      detail: input.fileStorageSettings.provider === "demo_object_storage"
-        ? "Document storage is still configured for demo object storage."
-        : `Storage provider ${input.fileStorageSettings.provider}; KMS ${input.fileStorageSettings.kmsKeyRef ? "configured" : "missing"}; lifecycle ${input.fileStorageSettings.lifecyclePolicyRef ? "configured" : "missing"}; verification ${input.fileStorageSettings.verificationStatus}.`,
+      detail: fileStorageLifecycleReadiness.ready
+        ? fileStorageLifecycleReadiness.detail
+        : `${input.fileStorageSettings.provider}; ${fileStorageLifecycleReadiness.detail}`,
       nextStep: "Configure production object storage, KMS reference, lifecycle policy, retention, signed URL TTL, malware scanning, and verification evidence.",
       actionLabel: "Configure storage",
       actionHref: "/settings/file-storage",

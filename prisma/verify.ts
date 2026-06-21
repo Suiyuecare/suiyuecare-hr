@@ -476,9 +476,12 @@ async function buildSnapshot(
     fileStorageSettings: fileStorageSetting
       ? {
           provider: fileStorageSetting.provider,
+          bucketName: fileStorageSetting.bucketName,
           kmsKeyRef: fileStorageSetting.kmsKeyRef,
           lifecyclePolicyRef: fileStorageSetting.lifecyclePolicyRef,
           malwareScanningRequired: fileStorageSetting.malwareScanningRequired,
+          signedUrlTtlMinutes: fileStorageSetting.signedUrlTtlMinutes,
+          retentionDays: fileStorageSetting.retentionDays,
           verificationStatus: fileStorageSetting.verificationStatus,
           lastVerifiedAt: fileStorageSetting.lastVerifiedAt,
         }

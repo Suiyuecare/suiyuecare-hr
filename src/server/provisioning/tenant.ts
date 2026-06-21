@@ -1,6 +1,7 @@
 import { Prisma, PrismaClient, type RoleKey } from "@prisma/client";
 import { writeAuditLog } from "@/server/audit/audit";
 import { stableHash } from "@/server/audit/redaction";
+import { evaluateFileStorageLifecycleReadiness } from "@/server/files/storage";
 import { taiwanStatutoryLeaveRequirements } from "@/server/leave/statutory";
 import { defaultTaiwanLaborStandardsConfig } from "@/server/rules/taiwan-labor-standards";
 import {
@@ -79,6 +80,20 @@ export function validateTenantProvisioningInput(input: TenantProvisioningInput) 
   if (!input.storageBucket.trim()) errors.push("storageBucket is required");
   if (!input.storageKmsKeyRef.trim()) errors.push("storageKmsKeyRef is required");
   if (!input.storageLifecyclePolicyRef.trim()) errors.push("storageLifecyclePolicyRef is required");
+  const lifecyclePolicyCheck = evaluateFileStorageLifecycleReadiness({
+    provider: input.storageProvider,
+    bucketName: input.storageBucket,
+    kmsKeyRef: input.storageKmsKeyRef || "pending-kms",
+    lifecyclePolicyRef: input.storageLifecyclePolicyRef,
+    malwareScanningRequired: true,
+    signedUrlTtlMinutes: 10,
+    retentionDays: 2555,
+    verificationStatus: "verified",
+    lastVerifiedAt: new Date("2026-01-01T00:00:00.000Z"),
+  }).checks.find((check) => check.id === "lifecycle_policy");
+  if (input.storageLifecyclePolicyRef.trim() && !lifecyclePolicyCheck?.ready) {
+    errors.push(`storageLifecyclePolicyRef is not a verifiable provider lifecycle reference: ${lifecyclePolicyCheck?.detail ?? "invalid"}`);
+  }
   return errors;
 }
 

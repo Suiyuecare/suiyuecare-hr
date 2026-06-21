@@ -58,6 +58,17 @@ describe("tenant provisioning validation", () => {
     expect(errors).toContain("storageLifecyclePolicyRef is required");
   });
 
+  it("rejects lifecycle references that are not bound to the storage bucket", () => {
+    const errors = validateTenantProvisioningInput({
+      ...validInput,
+      storageLifecyclePolicyRef: "bucket-lifecycle/hr-documents-7y",
+    });
+
+    expect(errors).toEqual(expect.arrayContaining([
+      expect.stringContaining("storageLifecyclePolicyRef is not a verifiable provider lifecycle reference"),
+    ]));
+  });
+
   it("hashes only non-secret provisioning posture fields", () => {
     const hash = buildProvisioningInputHash(validInput);
 

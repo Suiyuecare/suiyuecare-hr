@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 import { dashboardPathForRole, hasPermission } from "@/server/auth/rbac";
 import { getDemoSession } from "@/server/auth/session";
 import {
+  evaluateFileStorageLifecycleReadiness,
   getFileStorageSettings,
   isProductionStorageVerified,
+  type FileStorageLifecycleReadiness,
   type FileStorageProvider,
   type FileStorageSettings,
 } from "@/server/files/storage";
@@ -56,9 +58,11 @@ export default async function FileStorageSettingsPage({ searchParams }: { search
   }
 
   const settings = await getFileStorageSettings(session);
-  const focus = buildFileStorageFocus(settings);
-  const setupCards = buildFileStorageCards(settings);
-  const checklist = buildFileStorageChecklist(settings);
+  const lifecycleReadiness = evaluateFileStorageLifecycleReadiness(settings);
+  const lifecyclePolicyReady = lifecycleReadiness.checks.find((check) => check.id === "lifecycle_policy")?.ready;
+  const focus = buildFileStorageFocus(settings, lifecycleReadiness);
+  const setupCards = buildFileStorageCards(settings, lifecycleReadiness);
+  const checklist = buildFileStorageChecklist(lifecycleReadiness);
   const canWrite = hasPermission(session.role, "settings:write");
 
   return (
@@ -127,9 +131,9 @@ export default async function FileStorageSettingsPage({ searchParams }: { search
           <strong>{settings.kmsKeyRef ? "已設定" : "缺少 KMS"}</strong>
           <small>{settings.kmsKeyRef ? maskReference(settings.kmsKeyRef) : "正式文件需有加密金鑰參照，密鑰本體不得進入 HR One。"}</small>
         </article>
-        <article className={`settings-signal-card ${settings.lifecyclePolicyRef ? "done" : "danger"}`}>
+        <article className={`settings-signal-card ${lifecyclePolicyReady ? "done" : "danger"}`}>
           <span>Lifecycle policy</span>
-          <strong>{settings.lifecyclePolicyRef ? "已設定" : "缺少政策"}</strong>
+          <strong>{lifecyclePolicyReady ? "可驗證" : "待複核"}</strong>
           <small>{settings.lifecyclePolicyRef ? maskReference(settings.lifecyclePolicyRef) : "正式 bucket 需有保留、封存或刪除策略證據參照。"}</small>
         </article>
         <article className={`settings-signal-card ${settings.malwareScanningRequired ? "done" : "danger"}`}>
@@ -140,7 +144,7 @@ export default async function FileStorageSettingsPage({ searchParams }: { search
         <article className={`settings-signal-card ${isProductionStorageVerified(settings) ? "done" : "warning"}`}>
           <span>上線閘門</span>
           <strong>{isProductionStorageVerified(settings) ? "正式儲存已驗證" : "尚未通過"}</strong>
-          <small>{settings.lastVerifiedAt ? `最近驗證 ${formatDate(settings.lastVerifiedAt)}` : "需要外部驗證測試與驗證紀錄。"}</small>
+          <small>{isProductionStorageVerified(settings) ? `最近驗證 ${formatDate(settings.lastVerifiedAt!)}` : lifecycleReadiness.detail}</small>
         </article>
       </section>
 
@@ -274,7 +278,9 @@ export default async function FileStorageSettingsPage({ searchParams }: { search
 
             <fieldset className="form-card file-storage-fieldset" disabled={!canWrite}>
               <legend>3. 上線閘門與證據</legend>
-              <p className="muted">驗證備註請只放 ticket、測試結果或證據摘要；不要貼存取金鑰、密鑰、員工姓名、薪資、身分證、銀行帳號或私密人事內容。</p>
+              <p className="muted">
+                驗證備註請只放 ticket、測試結果或證據摘要；正式 Gate 需要至少 {lifecycleReadiness.minimumRetentionDays} 天保存與 {lifecycleReadiness.maximumSignedUrlTtlMinutes} 分鐘內的短效簽名 URL。不要貼存取金鑰、密鑰、員工姓名、薪資、身分證、銀行帳號或私密人事內容。
+              </p>
               <ul className="task-list file-storage-checklist">
                 {checklist.map((item) => (
                   <li className="task" key={item.title}>
@@ -312,7 +318,7 @@ export default async function FileStorageSettingsPage({ searchParams }: { search
   );
 }
 
-function buildFileStorageFocus(settings: FileStorageSettings) {
+function buildFileStorageFocus(settings: FileStorageSettings, lifecycleReadiness: FileStorageLifecycleReadiness) {
   if (settings.provider === "demo_object_storage") {
     return {
       badge: "示範儲存",
@@ -346,23 +352,49 @@ function buildFileStorageFocus(settings: FileStorageSettings) {
     };
   }
 
-  if (!settings.lifecyclePolicyRef) {
+  const lifecyclePolicyCheck = lifecycleReadiness.checks.find((check) => check.id === "lifecycle_policy");
+  if (!lifecyclePolicyCheck?.ready) {
     return {
       badge: "缺少 lifecycle",
       tone: "danger" as const,
       title: "補 bucket lifecycle 證據",
-      detail: "保留天數只是在 HR One 的政策；正式儲存還要能證明供應商 bucket 已設定封存、保留或刪除規則。",
+      detail: lifecyclePolicyCheck?.detail ?? "正式儲存需要可追溯的 provider lifecycle policy。",
       href: "#file-storage-form",
       label: "補 lifecycle",
     };
   }
 
-  if (settings.verificationStatus !== "verified" || !settings.lastVerifiedAt) {
+  const retentionCheck = lifecycleReadiness.checks.find((check) => check.id === "retention_days");
+  if (!retentionCheck?.ready) {
+    return {
+      badge: "保留期不足",
+      tone: "danger" as const,
+      title: "調整文件保存期限",
+      detail: retentionCheck?.detail ?? "正式文件至少要能保留五年，支撐勞檢與客戶合約證據。",
+      href: "#file-storage-form",
+      label: "補保存期限",
+    };
+  }
+
+  const signedUrlCheck = lifecycleReadiness.checks.find((check) => check.id === "signed_url_ttl");
+  if (!signedUrlCheck?.ready) {
+    return {
+      badge: "URL 太長效",
+      tone: "danger" as const,
+      title: "縮短簽名 URL",
+      detail: signedUrlCheck?.detail ?? "正式下載連結需要短效，降低文件外流風險。",
+      href: "#file-storage-form",
+      label: "調整 TTL",
+    };
+  }
+
+  const verificationCheck = lifecycleReadiness.checks.find((check) => check.id === "verification");
+  if (!verificationCheck?.ready) {
     return {
       badge: "待驗證測試",
       tone: "warning" as const,
       title: "補外部驗證證據",
-      detail: "儲存策略已接近完成，但還需要簽名 URL、KMS、掃描與保留期限的驗證測試證據。",
+      detail: verificationCheck?.detail ?? "儲存策略已接近完成，但還需要簽名 URL、KMS、掃描與保留期限的驗證測試證據。",
       href: "#file-storage-form",
       label: "補驗證",
     };
@@ -378,7 +410,7 @@ function buildFileStorageFocus(settings: FileStorageSettings) {
   };
 }
 
-function buildFileStorageCards(settings: FileStorageSettings) {
+function buildFileStorageCards(settings: FileStorageSettings, lifecycleReadiness: FileStorageLifecycleReadiness) {
   return [
     {
       stage: "步驟 1",
@@ -410,13 +442,13 @@ function buildFileStorageCards(settings: FileStorageSettings) {
     },
     {
       stage: "步驟 3",
-      title: "保留期限",
-      status: `${settings.retentionDays} 天`,
-      badgeClass: settings.retentionDays >= 1825 ? "" : "warning",
-      tone: settings.retentionDays >= 1825 ? "ready" : "warning",
-      detail: "員工文件、工資清冊、勞檢證據與交接紀錄需要可追溯保存；過短保留期會影響勞檢準備。",
+      title: "Lifecycle 與保留",
+      status: lifecycleReadiness.ready ? "可驗證" : `${lifecycleReadiness.gaps.length} 缺口`,
+      badgeClass: lifecycleReadiness.ready ? "" : "danger",
+      tone: lifecycleReadiness.ready ? "ready" : "danger",
+      detail: lifecycleReadiness.detail,
       href: "#file-storage-form",
-      actionLabel: "檢查期限",
+      actionLabel: "檢查政策",
       links: [
         { href: "/hr/documents", label: "文件保留" },
         { href: "/settings/audit", label: "稽核紀錄" },
@@ -439,34 +471,12 @@ function buildFileStorageCards(settings: FileStorageSettings) {
   ];
 }
 
-function buildFileStorageChecklist(settings: FileStorageSettings) {
-  return [
-    {
-      title: "非示範供應商",
-      detail: settings.provider === "demo_object_storage" ? "目前仍是示範儲存，不可販售上線。" : `目前使用 ${providerLabel(settings.provider)}。`,
-      ready: settings.provider !== "demo_object_storage",
-    },
-    {
-      title: "KMS 或 vault 參照",
-      detail: settings.kmsKeyRef ? "已保存金鑰參照，未保存密鑰。" : "缺少 KMS/vault 參照。",
-      ready: Boolean(settings.kmsKeyRef),
-    },
-    {
-      title: "Lifecycle policy 證據",
-      detail: settings.lifecyclePolicyRef ? "已保存 bucket lifecycle 參照。" : "缺少保留、封存或刪除策略參照。",
-      ready: Boolean(settings.lifecyclePolicyRef),
-    },
-    {
-      title: "惡意程式掃描",
-      detail: settings.malwareScanningRequired ? "掃描為必須，文件可保留掃描狀態。" : "掃描尚未強制。",
-      ready: settings.malwareScanningRequired,
-    },
-    {
-      title: "正式驗證證據",
-      detail: settings.verificationStatus === "verified" && settings.lastVerifiedAt ? `最近驗證 ${formatDate(settings.lastVerifiedAt)}。` : "尚未寫入通過的驗證測試證據。",
-      ready: settings.verificationStatus === "verified" && Boolean(settings.lastVerifiedAt),
-    },
-  ];
+function buildFileStorageChecklist(lifecycleReadiness: FileStorageLifecycleReadiness) {
+  return lifecycleReadiness.checks.map((check) => ({
+    title: check.title,
+    detail: check.detail,
+    ready: check.ready,
+  }));
 }
 
 function providerLabel(provider: FileStorageProvider) {

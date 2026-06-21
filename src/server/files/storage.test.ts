@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { getAuditDemoState, resetAuditDemoState } from "@/server/audit/demo-store";
 import {
+  evaluateFileStorageLifecycleReadiness,
   getFileStorageSettings,
   isProductionStorageVerified,
   reserveObjectForUpload,
@@ -75,9 +76,40 @@ describe("file storage settings", () => {
     expect(getAuditDemoState().logs[0].metadataJson).toMatchObject({
       objectBytesIncluded: false,
       malwareScanningRequired: true,
+      lifecycleReadinessStatus: "ready",
+      lifecycleGapCount: 0,
       providerChanged: true,
       verificationStatus: "verified",
     });
+  });
+
+  it("blocks production readiness for weak lifecycle posture", async () => {
+    const settings = await updateFileStorageSettings(ownerSession, {
+      provider: "s3",
+      bucketName: "hrone-prod-docs",
+      region: "ap-northeast-1",
+      basePrefix: "tenant-a/hr",
+      kmsKeyRef: "alias/hr-one-documents",
+      lifecyclePolicyRef: "storage-lifecycle/hr-documents-7y",
+      malwareScanningRequired: true,
+      signedUrlTtlMinutes: 60,
+      retentionDays: 365,
+      verificationStatus: "verified",
+      verificationNote: "External provider smoke test passed.",
+    });
+    const readiness = evaluateFileStorageLifecycleReadiness(settings);
+
+    expect(isProductionStorageVerified(settings)).toBe(false);
+    expect(readiness).toMatchObject({
+      ready: false,
+      status: "blocked",
+      gaps: expect.arrayContaining([
+        "Provider lifecycle policy",
+        "保存期限至少五年",
+        "短效簽名 URL",
+      ]),
+    });
+    expect(readiness.detail).toContain("仍需補齊");
   });
 
   it("reserves object keys using configured storage policy", async () => {

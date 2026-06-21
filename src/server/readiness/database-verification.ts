@@ -9,6 +9,7 @@ import type { PayrollRecordkeepingReadinessReport } from "@/server/payroll/recor
 import type { PayrollInsuranceGradeReadinessReport } from "@/server/payroll/insurance-grade-readiness";
 import type { RuleEngineReadiness } from "@/server/rules/interfaces";
 import type { TaiwanLaborComplianceCoverageSummary } from "@/server/rules/settings";
+import { evaluateFileStorageLifecycleReadiness } from "@/server/files/storage";
 
 export type DatabaseVerificationMode = "demo" | "production";
 
@@ -129,9 +130,12 @@ export type DatabaseVerificationSnapshot = {
   } | null;
   fileStorageSettings: {
     provider: string;
+    bucketName: string;
     kmsKeyRef: string | null;
     lifecyclePolicyRef: string | null;
     malwareScanningRequired: boolean;
+    signedUrlTtlMinutes: number;
+    retentionDays: number;
     verificationStatus: string;
     lastVerifiedAt: Date | null;
   } | null;
@@ -404,15 +408,10 @@ function buildProductionChecks(snapshot: DatabaseVerificationSnapshot): Database
     snapshot.securitySettings.ssoClientId &&
     snapshot.securitySettings.ssoJwksUrl,
   );
-  const productionStorageReady = Boolean(
-    snapshot.fileStorageSettings &&
-    snapshot.fileStorageSettings.provider !== "demo_object_storage" &&
-    snapshot.fileStorageSettings.kmsKeyRef &&
-    snapshot.fileStorageSettings.lifecyclePolicyRef &&
-    snapshot.fileStorageSettings.malwareScanningRequired &&
-    snapshot.fileStorageSettings.verificationStatus === "verified" &&
-    snapshot.fileStorageSettings.lastVerifiedAt,
-  );
+  const fileStorageLifecycleReadiness = snapshot.fileStorageSettings
+    ? evaluateFileStorageLifecycleReadiness(snapshot.fileStorageSettings)
+    : null;
+  const productionStorageReady = Boolean(fileStorageLifecycleReadiness?.ready);
   const missingSensitiveAuditEntityTypes = requiredSensitiveOnboardingAuditEntityTypes.filter(
     (entityType) => !snapshot.auditEntityTypes.includes(entityType),
   );
@@ -502,7 +501,7 @@ function buildProductionChecks(snapshot: DatabaseVerificationSnapshot): Database
       "production document storage",
       productionStorageReady,
       snapshot.fileStorageSettings
-        ? `${snapshot.fileStorageSettings.provider}; lifecycle ${snapshot.fileStorageSettings.lifecyclePolicyRef ? "configured" : "missing"}; verification ${snapshot.fileStorageSettings.verificationStatus}`
+        ? fileStorageLifecycleReadiness?.detail ?? "missing lifecycle readiness"
         : "missing",
     ),
     check(

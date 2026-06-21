@@ -173,9 +173,12 @@ const readySnapshot: DatabaseVerificationSnapshot = {
   },
   fileStorageSettings: {
     provider: "s3",
+    bucketName: "customer-docs",
     kmsKeyRef: "alias/hr-one-documents",
     lifecyclePolicyRef: "s3://customer-docs?lifecycle=hr-documents-7y",
     malwareScanningRequired: true,
+    signedUrlTtlMinutes: 10,
+    retentionDays: 2555,
     verificationStatus: "verified",
     lastVerifiedAt: new Date("2026-06-12T00:00:00.000Z"),
   },
@@ -303,6 +306,24 @@ describe("database verification checks", () => {
     expect(checks.find((item) => item.name === "production SSO")).toMatchObject({ passed: false });
     expect(checks.find((item) => item.name === "production document storage")).toMatchObject({ passed: false });
     expect(checks.find((item) => item.name === "external notifications")).toMatchObject({ passed: false });
+  });
+
+  it("requires document storage lifecycle references to bind to the provider bucket", () => {
+    const checks = buildDatabaseVerificationChecks(
+      {
+        ...readySnapshot,
+        fileStorageSettings: {
+          ...readySnapshot.fileStorageSettings!,
+          lifecyclePolicyRef: "storage-lifecycle/hr-documents-7y",
+        },
+      },
+      "production",
+    );
+
+    expect(checks.find((item) => item.name === "production document storage")).toMatchObject({
+      passed: false,
+      detail: expect.stringContaining("參照需包含正式 bucket 名稱"),
+    });
   });
 
   it("requires privileged production users to have stable SSO identity bindings", () => {
