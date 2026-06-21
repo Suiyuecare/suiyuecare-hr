@@ -210,6 +210,8 @@ describe("pilot doctor", () => {
     const missingAfterBootstrap = [
       "DATABASE_URL",
       "HR_ONE_OBJECT_STORAGE_SECRET_REF",
+      "HR_ONE_OBJECT_STORAGE_KMS_KEY_REF",
+      "HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF",
       "HR_ONE_RATE_LIMIT_SECRET_REF",
       "HR_ONE_BACKUP_ENCRYPTION_KEY_REF",
       "HR_ONE_BACKUP_RESTORE_TESTED_AT",
@@ -244,7 +246,7 @@ describe("pilot doctor", () => {
       "Optionally run pnpm vercel:bootstrap-known-env -- --env-file=.env.vercel.production to prefill safe known Production env values; it will not write DATABASE_URL, vault refs, or restore-drill evidence.",
     );
     expect(report.nextActions).toContain(
-      "Known Vercel bootstrap env values are already present; fill remaining operator-managed Production values: DATABASE_URL, HR_ONE_OBJECT_STORAGE_SECRET_REF, HR_ONE_RATE_LIMIT_SECRET_REF, HR_ONE_BACKUP_ENCRYPTION_KEY_REF, HR_ONE_BACKUP_RESTORE_TESTED_AT.",
+      "Known Vercel bootstrap env values are already present; fill remaining operator-managed Production values: DATABASE_URL, HR_ONE_OBJECT_STORAGE_SECRET_REF, HR_ONE_OBJECT_STORAGE_KMS_KEY_REF, HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF, HR_ONE_RATE_LIMIT_SECRET_REF, HR_ONE_BACKUP_ENCRYPTION_KEY_REF, HR_ONE_BACKUP_RESTORE_TESTED_AT.",
     );
   });
 

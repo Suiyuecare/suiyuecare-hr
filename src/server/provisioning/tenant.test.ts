@@ -25,6 +25,7 @@ const validInput: TenantProvisioningInput = {
   storageRegion: "ap-northeast-1",
   storageBasePrefix: "hr-one/customer-a",
   storageKmsKeyRef: "alias/customer-a-hrone",
+  storageLifecyclePolicyRef: "s3://customer-a-hrone-documents?lifecycle=hr-documents-7y",
   notificationChannel: "email",
 };
 
@@ -44,6 +45,7 @@ describe("tenant provisioning validation", () => {
       ssoIssuerUrl: "http://login.example.com",
       ssoJwksUrl: "http://login.example.com/keys",
       storageKmsKeyRef: "",
+      storageLifecyclePolicyRef: "",
     });
 
     expect(errors).toContain("tenantSlug cannot be the demo slug");
@@ -53,6 +55,7 @@ describe("tenant provisioning validation", () => {
     expect(errors).toContain("ssoIssuerUrl must be an https URL");
     expect(errors).toContain("ssoJwksUrl must be an https URL");
     expect(errors).toContain("storageKmsKeyRef is required");
+    expect(errors).toContain("storageLifecyclePolicyRef is required");
   });
 
   it("hashes only non-secret provisioning posture fields", () => {
@@ -61,5 +64,6 @@ describe("tenant provisioning validation", () => {
     expect(hash).toHaveLength(64);
     expect(hash).not.toContain(validInput.ssoClientId);
     expect(hash).not.toContain(validInput.storageKmsKeyRef);
+    expect(hash).not.toContain(validInput.storageLifecyclePolicyRef);
   });
 });

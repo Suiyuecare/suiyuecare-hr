@@ -780,6 +780,7 @@ model CompanyFileStorageSetting {
   region                  String?
   basePrefix              String
   kmsKeyRef               String?
+  lifecyclePolicyRef      String?
   malwareScanningRequired Boolean   @default(true)
   signedUrlTtlMinutes     Int       @default(10)
   maxFileSizeMb           Int       @default(25)

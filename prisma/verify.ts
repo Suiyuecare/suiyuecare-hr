@@ -477,6 +477,7 @@ async function buildSnapshot(
       ? {
           provider: fileStorageSetting.provider,
           kmsKeyRef: fileStorageSetting.kmsKeyRef,
+          lifecyclePolicyRef: fileStorageSetting.lifecyclePolicyRef,
           malwareScanningRequired: fileStorageSetting.malwareScanningRequired,
           verificationStatus: fileStorageSetting.verificationStatus,
           lastVerifiedAt: fileStorageSetting.lastVerifiedAt,

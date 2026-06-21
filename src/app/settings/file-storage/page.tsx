@@ -38,6 +38,11 @@ const providerOptions: Array<{ value: FileStorageProvider; label: string; detail
     detail: "適合 Microsoft 365、Entra ID 與 Azure 客戶。",
   },
   {
+    value: "supabase_storage",
+    label: "Supabase Storage",
+    detail: "適合已使用 Supabase PostgreSQL 的部署，仍需 bucket policy、KMS 與 lifecycle 證據。",
+  },
+  {
     value: "custom",
     label: "自訂供應商",
     detail: "需由工程與資安確認簽名 URL、掃描與保留策略。",
@@ -122,6 +127,11 @@ export default async function FileStorageSettingsPage({ searchParams }: { search
           <strong>{settings.kmsKeyRef ? "已設定" : "缺少 KMS"}</strong>
           <small>{settings.kmsKeyRef ? maskReference(settings.kmsKeyRef) : "正式文件需有加密金鑰參照，密鑰本體不得進入 HR One。"}</small>
         </article>
+        <article className={`settings-signal-card ${settings.lifecyclePolicyRef ? "done" : "danger"}`}>
+          <span>Lifecycle policy</span>
+          <strong>{settings.lifecyclePolicyRef ? "已設定" : "缺少政策"}</strong>
+          <small>{settings.lifecyclePolicyRef ? maskReference(settings.lifecyclePolicyRef) : "正式 bucket 需有保留、封存或刪除策略證據參照。"}</small>
+        </article>
         <article className={`settings-signal-card ${settings.malwareScanningRequired ? "done" : "danger"}`}>
           <span>惡意程式掃描</span>
           <strong>{settings.malwareScanningRequired ? "必須" : "未強制"}</strong>
@@ -205,6 +215,14 @@ export default async function FileStorageSettingsPage({ searchParams }: { search
                 <label>
                   KMS 金鑰參照
                   <input name="kmsKeyRef" defaultValue={settings.kmsKeyRef ?? ""} placeholder="alias/hr-one-documents" />
+                </label>
+                <label>
+                  Lifecycle policy 參照
+                  <input
+                    name="lifecyclePolicyRef"
+                    defaultValue={settings.lifecyclePolicyRef ?? ""}
+                    placeholder="bucket-lifecycle/hr-documents-7y"
+                  />
                 </label>
               </div>
             </fieldset>
@@ -328,6 +346,17 @@ function buildFileStorageFocus(settings: FileStorageSettings) {
     };
   }
 
+  if (!settings.lifecyclePolicyRef) {
+    return {
+      badge: "缺少 lifecycle",
+      tone: "danger" as const,
+      title: "補 bucket lifecycle 證據",
+      detail: "保留天數只是在 HR One 的政策；正式儲存還要能證明供應商 bucket 已設定封存、保留或刪除規則。",
+      href: "#file-storage-form",
+      label: "補 lifecycle",
+    };
+  }
+
   if (settings.verificationStatus !== "verified" || !settings.lastVerifiedAt) {
     return {
       badge: "待驗證測試",
@@ -399,7 +428,7 @@ function buildFileStorageCards(settings: FileStorageSettings) {
       status: settings.verificationStatus === "verified" ? "已驗證" : "未通過",
       badgeClass: settings.verificationStatus === "verified" ? "" : "warning",
       tone: settings.verificationStatus === "verified" ? "ready" : "warning",
-      detail: "上線前要證明簽名 URL、讀寫、掃描、KMS 與保留期限都能運作，且證據不含敏感原文。",
+      detail: "上線前要證明簽名 URL、讀寫、掃描、KMS、lifecycle 與保留期限都能運作，且證據不含敏感原文。",
       href: "#file-storage-form",
       actionLabel: "寫入證據",
       links: [
@@ -421,6 +450,11 @@ function buildFileStorageChecklist(settings: FileStorageSettings) {
       title: "KMS 或 vault 參照",
       detail: settings.kmsKeyRef ? "已保存金鑰參照，未保存密鑰。" : "缺少 KMS/vault 參照。",
       ready: Boolean(settings.kmsKeyRef),
+    },
+    {
+      title: "Lifecycle policy 證據",
+      detail: settings.lifecyclePolicyRef ? "已保存 bucket lifecycle 參照。" : "缺少保留、封存或刪除策略參照。",
+      ready: Boolean(settings.lifecyclePolicyRef),
     },
     {
       title: "惡意程式掃描",

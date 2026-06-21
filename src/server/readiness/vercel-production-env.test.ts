@@ -25,7 +25,12 @@ const productionEnv = {
   CRON_SECRET: "cron-secret-with-at-least-32-characters",
   HR_ONE_CRON_TENANT_ID: "tenant_suiyuecare_prod",
   HR_ONE_CRON_COMPANY_ID: "company_suiyuecare_prod",
+  HR_ONE_OBJECT_STORAGE_PROVIDER: "s3",
+  HR_ONE_OBJECT_STORAGE_BUCKET: "customer-hrone-documents",
   HR_ONE_OBJECT_STORAGE_SECRET_REF: "vault://customer/hrone/storage",
+  HR_ONE_OBJECT_STORAGE_KMS_KEY_REF: "alias/customer-hrone-documents",
+  HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF: "s3://customer-hrone-documents/lifecycle/hr-documents-7y",
+  HR_ONE_OBJECT_STORAGE_SIGNED_URL_MAX_TTL_SECONDS: "600",
   HR_ONE_AUTH_PROVIDER: "entra_id",
   HR_ONE_AUTH_SESSION_SOURCE: "oidc",
   HR_ONE_AUTH_ISSUER_URL: "https://login.customer.co/customer/v2.0",
@@ -147,6 +152,9 @@ describe("Vercel production env bootstrap", () => {
     expect(keys).toContain("CRON_SECRET");
     expect(keys).toContain("HR_ONE_CRON_TENANT_ID");
     expect(keys).toContain("HR_ONE_CRON_COMPANY_ID");
+    expect(keys).toContain("HR_ONE_OBJECT_STORAGE_PROVIDER");
+    expect(keys).toContain("HR_ONE_OBJECT_STORAGE_BUCKET");
+    expect(keys).toContain("HR_ONE_OBJECT_STORAGE_SIGNED_URL_MAX_TTL_SECONDS");
     expect(keys).not.toContain("DATABASE_URL");
     expect(keys).not.toContain("HR_ONE_OBJECT_STORAGE_SECRET_REF");
     expect(plan.skippedPlaceholderKeys).toEqual([
@@ -155,10 +163,12 @@ describe("Vercel production env bootstrap", () => {
     ]);
     expect(plan.operatorManagedKeys).toEqual([
       "HR_ONE_BACKUP_ENCRYPTION_KEY_REF",
+      "HR_ONE_OBJECT_STORAGE_KMS_KEY_REF",
+      "HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF",
       "HR_ONE_OBJECT_STORAGE_SECRET_REF",
       "HR_ONE_RATE_LIMIT_SECRET_REF",
     ]);
-    expect(summary).toContain("32 bootstrap variable(s): 4 sensitive, 28 encrypted");
+    expect(summary).toContain("35 bootstrap variable(s): 4 sensitive, 31 encrypted");
   });
 
   it("does not include generated secret values in known-env command text", () => {

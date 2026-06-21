@@ -38,8 +38,11 @@ const minimumRateLimitWindowSeconds = 10;
 const maximumRateLimitWindowSeconds = 3_600;
 const minimumRateLimitMaxRequests = 10;
 const maximumRateLimitMaxRequests = 10_000;
+const minimumObjectStorageSignedUrlTtlSeconds = 60;
+const maximumObjectStorageSignedUrlTtlSeconds = 7_200;
 const allowedDeploymentTargets = new Set(["vercel", "self_hosted", "other"]);
 const allowedDatabaseProviders = new Set(["supabase_postgres", "managed_postgres", "rds", "cloud_sql", "neon", "other"]);
+const allowedObjectStorageProviders = new Set(["s3", "r2", "gcs", "azure_blob", "supabase_storage", "custom"]);
 const allowedRateLimitProviders = new Set([
   "cloudflare",
   "edge",
@@ -94,6 +97,8 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
   const rateLimitWindowSeconds = readInteger(env, "HR_ONE_RATE_LIMIT_WINDOW_SECONDS");
   const rateLimitMaxRequests = readInteger(env, "HR_ONE_RATE_LIMIT_MAX_REQUESTS");
   const externalRateLimitProvider = rateLimitProvider === "external_http";
+  const objectStorageProvider = read(env, "HR_ONE_OBJECT_STORAGE_PROVIDER");
+  const objectStorageSignedUrlTtlSeconds = readInteger(env, "HR_ONE_OBJECT_STORAGE_SIGNED_URL_MAX_TTL_SECONDS");
 
   return [
     check(
@@ -199,7 +204,32 @@ function buildProductionChecks(env: Record<string, string | undefined>, now: Dat
     secretCheck(env, "CRON_SECRET"),
     scheduledJobScopeCheck(env, "scheduled job tenant scope", "HR_ONE_CRON_TENANT_ID", "HR_ONE_MAINTENANCE_TENANT_ID"),
     scheduledJobScopeCheck(env, "scheduled job company scope", "HR_ONE_CRON_COMPANY_ID", "HR_ONE_MAINTENANCE_COMPANY_ID"),
+    check(
+      "object storage provider",
+      Boolean(objectStorageProvider && allowedObjectStorageProviders.has(objectStorageProvider)),
+      objectStorageProvider
+        ? allowedObjectStorageProviders.has(objectStorageProvider)
+          ? `${objectStorageProvider} configured`
+          : "invalid HR_ONE_OBJECT_STORAGE_PROVIDER"
+        : "missing HR_ONE_OBJECT_STORAGE_PROVIDER",
+    ),
+    check(
+      "object storage bucket",
+      hasDeployableName(read(env, "HR_ONE_OBJECT_STORAGE_BUCKET")),
+      deployableNameDetail(read(env, "HR_ONE_OBJECT_STORAGE_BUCKET"), "HR_ONE_OBJECT_STORAGE_BUCKET", "bucket configured"),
+    ),
     referenceCheck(env, "HR_ONE_OBJECT_STORAGE_SECRET_REF"),
+    referenceCheck(env, "HR_ONE_OBJECT_STORAGE_KMS_KEY_REF"),
+    referenceCheck(env, "HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF"),
+    check(
+      "object storage signed URL ceiling",
+      objectStorageSignedUrlTtlSeconds !== null &&
+        objectStorageSignedUrlTtlSeconds >= minimumObjectStorageSignedUrlTtlSeconds &&
+        objectStorageSignedUrlTtlSeconds <= maximumObjectStorageSignedUrlTtlSeconds,
+      objectStorageSignedUrlTtlSeconds !== null
+        ? `${objectStorageSignedUrlTtlSeconds} second(s) configured`
+        : "missing HR_ONE_OBJECT_STORAGE_SIGNED_URL_MAX_TTL_SECONDS",
+    ),
     check(
       "auth provider",
       Boolean(read(env, "HR_ONE_AUTH_PROVIDER")),
@@ -442,6 +472,15 @@ function referenceCheck(env: Record<string, string | undefined>, key: string) {
     Boolean(value && !hasWeakValue(value) && value.length >= 8),
     value ? "vault/reference configured" : `missing ${key}`,
   );
+}
+
+function hasDeployableName(value: string | null) {
+  return Boolean(value && value.length >= 3 && value.length <= 120 && !hasWeakValue(value));
+}
+
+function deployableNameDetail(value: string | null, key: string, configured: string) {
+  if (!value) return `missing ${key}`;
+  return hasDeployableName(value) ? configured : `invalid ${key}`;
 }
 
 function scheduledJobScopeCheck(

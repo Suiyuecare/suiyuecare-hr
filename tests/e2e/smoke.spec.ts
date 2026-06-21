@@ -577,6 +577,7 @@ test("Owner 可以用中文文件儲存工作台通過正式儲存 Gate", async 
   await wizard.getByLabel("區域").fill("apac");
   await wizard.getByLabel("基礎路徑前綴").fill("hr-one/suiyuecare");
   await wizard.getByLabel("KMS 金鑰參照").fill("vault://suiyuecare/hr-one/document-storage-key");
+  await wizard.getByLabel("Lifecycle policy 參照").fill("bucket-lifecycle/hr-documents-7y");
   await wizard.getByLabel("簽名 URL 有效分鐘數").fill("8");
   await wizard.getByLabel("檔案大小上限 MB").fill("20");
   await wizard.getByLabel("保留天數").fill("2555");
@@ -589,7 +590,12 @@ test("Owner 可以用中文文件儲存工作台通過正式儲存 Gate", async 
   await expect(page.getByText("文件儲存設定已儲存")).toBeVisible();
   await expect(page.getByLabel("文件儲存訊號板").getByText("Cloudflare R2")).toBeVisible();
   await expect(page.getByLabel("文件儲存訊號板").getByText("正式儲存已驗證")).toBeVisible();
-  await expect(page.getByLabel("文件儲存訊號板").getByText("已設定")).toBeVisible();
+  await expect(
+    page.getByLabel("文件儲存訊號板").getByRole("article").filter({ hasText: "KMS 參照" }).getByText("已設定"),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("文件儲存訊號板").getByRole("article").filter({ hasText: "Lifecycle policy" }).getByText("已設定"),
+  ).toBeVisible();
   await expect(page.locator("body")).not.toContainText("storage-secret-not-rendered");
   await expect(page.locator("body")).not.toContainText("demo_object_storage://");
   await expect(page.locator("body")).not.toContainText("baseSalary");

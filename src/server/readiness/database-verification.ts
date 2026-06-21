@@ -130,6 +130,7 @@ export type DatabaseVerificationSnapshot = {
   fileStorageSettings: {
     provider: string;
     kmsKeyRef: string | null;
+    lifecyclePolicyRef: string | null;
     malwareScanningRequired: boolean;
     verificationStatus: string;
     lastVerifiedAt: Date | null;
@@ -407,6 +408,7 @@ function buildProductionChecks(snapshot: DatabaseVerificationSnapshot): Database
     snapshot.fileStorageSettings &&
     snapshot.fileStorageSettings.provider !== "demo_object_storage" &&
     snapshot.fileStorageSettings.kmsKeyRef &&
+    snapshot.fileStorageSettings.lifecyclePolicyRef &&
     snapshot.fileStorageSettings.malwareScanningRequired &&
     snapshot.fileStorageSettings.verificationStatus === "verified" &&
     snapshot.fileStorageSettings.lastVerifiedAt,
@@ -500,7 +502,7 @@ function buildProductionChecks(snapshot: DatabaseVerificationSnapshot): Database
       "production document storage",
       productionStorageReady,
       snapshot.fileStorageSettings
-        ? `${snapshot.fileStorageSettings.provider}; verification ${snapshot.fileStorageSettings.verificationStatus}`
+        ? `${snapshot.fileStorageSettings.provider}; lifecycle ${snapshot.fileStorageSettings.lifecyclePolicyRef ? "configured" : "missing"}; verification ${snapshot.fileStorageSettings.verificationStatus}`
         : "missing",
     ),
     check(

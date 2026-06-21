@@ -381,8 +381,8 @@ export function buildLaunchReadinessReport(input: {
       status: isProductionStorageVerified(input.fileStorageSettings) ? "ready" : "blocked",
       detail: input.fileStorageSettings.provider === "demo_object_storage"
         ? "Document storage is still configured for demo object storage."
-        : `Storage provider ${input.fileStorageSettings.provider}; KMS ${input.fileStorageSettings.kmsKeyRef ? "configured" : "missing"}; verification ${input.fileStorageSettings.verificationStatus}.`,
-      nextStep: "Configure production object storage, KMS reference, retention, signed URL TTL, malware scanning, and verification evidence.",
+        : `Storage provider ${input.fileStorageSettings.provider}; KMS ${input.fileStorageSettings.kmsKeyRef ? "configured" : "missing"}; lifecycle ${input.fileStorageSettings.lifecyclePolicyRef ? "configured" : "missing"}; verification ${input.fileStorageSettings.verificationStatus}.`,
+      nextStep: "Configure production object storage, KMS reference, lifecycle policy, retention, signed URL TTL, malware scanning, and verification evidence.",
       actionLabel: "Configure storage",
       actionHref: "/settings/file-storage",
     },

@@ -174,6 +174,7 @@ const readySnapshot: DatabaseVerificationSnapshot = {
   fileStorageSettings: {
     provider: "s3",
     kmsKeyRef: "alias/hr-one-documents",
+    lifecyclePolicyRef: "s3://customer-docs?lifecycle=hr-documents-7y",
     malwareScanningRequired: true,
     verificationStatus: "verified",
     lastVerifiedAt: new Date("2026-06-12T00:00:00.000Z"),
@@ -251,6 +252,7 @@ describe("database verification checks", () => {
           ...readySnapshot.fileStorageSettings!,
           provider: "demo_object_storage",
           kmsKeyRef: null,
+          lifecyclePolicyRef: null,
           verificationStatus: "unverified",
           lastVerifiedAt: null,
         },
@@ -285,6 +287,7 @@ describe("database verification checks", () => {
           ...readySnapshot.fileStorageSettings!,
           provider: "demo_object_storage",
           kmsKeyRef: null,
+          lifecyclePolicyRef: null,
           verificationStatus: "unverified",
           lastVerifiedAt: null,
         },

@@ -275,6 +275,7 @@ async function main() {
       region: "tw-demo",
       basePrefix: "hr-one",
       kmsKeyRef: null,
+      lifecyclePolicyRef: null,
       malwareScanningRequired: true,
       signedUrlTtlMinutes: 10,
       maxFileSizeMb: 25,

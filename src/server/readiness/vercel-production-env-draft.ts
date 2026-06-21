@@ -43,6 +43,7 @@ const defaultSupabaseAuthJwksUrl = `${defaultSupabaseAuthIssuerUrl}/.well-known/
 const defaultAuthLoginUrl = `${defaultAppUrl}/auth/sign-in`;
 const defaultPilotTenantId = "tenant_suiyuecare_pilot";
 const defaultPilotCompanyId = "company_suiyuecare_pilot";
+const defaultObjectStorageBucket = "suiyuecare-hrone-documents";
 
 const refreshableKnownValueKeys = new Set([
   "HR_ONE_ENV",
@@ -64,6 +65,9 @@ const refreshableKnownValueKeys = new Set([
   "HR_ONE_AUTH_DEFAULT_COMPANY",
   "HR_ONE_CRON_TENANT_ID",
   "HR_ONE_CRON_COMPANY_ID",
+  "HR_ONE_OBJECT_STORAGE_PROVIDER",
+  "HR_ONE_OBJECT_STORAGE_BUCKET",
+  "HR_ONE_OBJECT_STORAGE_SIGNED_URL_MAX_TTL_SECONDS",
   "HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS",
   "HR_ONE_AI_PROVIDER",
   "HR_ONE_AI_PROMPT_STORAGE",
@@ -108,7 +112,12 @@ export function buildVercelProductionEnvDraftValues(options: VercelProductionEnv
     ["HR_ONE_ENCRYPTION_KEY", secret()],
     ["HR_ONE_AUDIT_LOG_SIGNING_KEY", secret()],
     ["CRON_SECRET", secret()],
+    ["HR_ONE_OBJECT_STORAGE_PROVIDER", "supabase_storage"],
+    ["HR_ONE_OBJECT_STORAGE_BUCKET", defaultObjectStorageBucket],
     ["HR_ONE_OBJECT_STORAGE_SECRET_REF", "vault://suiyuecare/hr-one/storage"],
+    ["HR_ONE_OBJECT_STORAGE_KMS_KEY_REF", "vault://suiyuecare/hr-one/document-storage-key"],
+    ["HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF", `supabase://${defaultObjectStorageBucket}/lifecycle/hr-documents-7y`],
+    ["HR_ONE_OBJECT_STORAGE_SIGNED_URL_MAX_TTL_SECONDS", "600"],
     ["HR_ONE_AUTH_PROVIDER", "supabase_auth"],
     ["HR_ONE_AUTH_SESSION_SOURCE", "oidc"],
     ["HR_ONE_AUTH_ISSUER_URL", defaultSupabaseAuthIssuerUrl],

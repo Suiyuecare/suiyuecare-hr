@@ -12,6 +12,7 @@ export async function POST(request: Request) {
       region: readString(formData.get("region")),
       basePrefix: readString(formData.get("basePrefix")),
       kmsKeyRef: readString(formData.get("kmsKeyRef")),
+      lifecyclePolicyRef: readString(formData.get("lifecyclePolicyRef")),
       malwareScanningRequired: formData.get("malwareScanningRequired") === "on",
       signedUrlTtlMinutes: readNumber(formData.get("signedUrlTtlMinutes")),
       maxFileSizeMb: readNumber(formData.get("maxFileSizeMb")),
@@ -46,6 +47,14 @@ function readNumber(value: FormDataEntryValue | null) {
 
 function readProvider(value: FormDataEntryValue | null): FileStorageProvider | undefined {
   const provider = readString(value);
-  const providers: FileStorageProvider[] = ["demo_object_storage", "s3", "r2", "gcs", "azure_blob", "custom"];
+  const providers: FileStorageProvider[] = [
+    "demo_object_storage",
+    "s3",
+    "r2",
+    "gcs",
+    "azure_blob",
+    "supabase_storage",
+    "custom",
+  ];
   return providers.includes(provider as FileStorageProvider) ? provider as FileStorageProvider : undefined;
 }

@@ -10,6 +10,7 @@ const secureStorage = {
   bucketName: "hrone-prod-docs",
   region: "ap-northeast-1",
   kmsKeyRef: "alias/hr-one-documents",
+  lifecyclePolicyRef: "s3://hrone-prod-docs?lifecycle=hr-documents-7y",
   malwareScanningRequired: true,
   verificationStatus: "verified" as const,
   lastVerifiedAt: new Date("2026-06-12T00:00:00.000Z"),

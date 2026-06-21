@@ -25,11 +25,12 @@ export type TenantProvisioningInput = {
   ssoIssuerUrl: string;
   ssoClientId: string;
   ssoJwksUrl: string;
-  storageProvider: "s3" | "gcs" | "r2";
+  storageProvider: "s3" | "gcs" | "r2" | "supabase_storage";
   storageBucket: string;
   storageRegion?: string | null;
   storageBasePrefix?: string | null;
   storageKmsKeyRef: string;
+  storageLifecyclePolicyRef: string;
   notificationChannel: "email" | "line" | "slack" | "teams";
 };
 
@@ -77,6 +78,7 @@ export function validateTenantProvisioningInput(input: TenantProvisioningInput) 
   if (!input.ssoJwksUrl.startsWith("https://")) errors.push("ssoJwksUrl must be an https URL");
   if (!input.storageBucket.trim()) errors.push("storageBucket is required");
   if (!input.storageKmsKeyRef.trim()) errors.push("storageKmsKeyRef is required");
+  if (!input.storageLifecyclePolicyRef.trim()) errors.push("storageLifecyclePolicyRef is required");
   return errors;
 }
 
@@ -233,6 +235,7 @@ async function createFoundationSettings(
         region: input.storageRegion ?? null,
         basePrefix: input.storageBasePrefix ?? `hr-one/${input.tenantSlug}`,
         kmsKeyRef: input.storageKmsKeyRef,
+        lifecyclePolicyRef: input.storageLifecyclePolicyRef,
         malwareScanningRequired: true,
         signedUrlTtlMinutes: 10,
         maxFileSizeMb: 25,

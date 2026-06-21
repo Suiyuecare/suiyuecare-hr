@@ -29,8 +29,8 @@ function parseArgs(args: string[]): TenantProvisioningInput {
     throw new Error("--notification-channel must be email, line, slack, or teams");
   }
   const storageProvider = readRequired(args, "--storage-provider");
-  if (!["s3", "gcs", "r2"].includes(storageProvider)) {
-    throw new Error("--storage-provider must be s3, gcs, or r2");
+  if (!["s3", "gcs", "r2", "supabase_storage"].includes(storageProvider)) {
+    throw new Error("--storage-provider must be s3, gcs, r2, or supabase_storage");
   }
   return {
     tenantName: readRequired(args, "--tenant-name"),
@@ -52,6 +52,7 @@ function parseArgs(args: string[]): TenantProvisioningInput {
     storageRegion: readOptional(args, "--storage-region"),
     storageBasePrefix: readOptional(args, "--storage-base-prefix"),
     storageKmsKeyRef: readRequired(args, "--storage-kms-key-ref"),
+    storageLifecyclePolicyRef: readRequired(args, "--storage-lifecycle-policy-ref"),
     notificationChannel: notificationChannel as TenantProvisioningInput["notificationChannel"],
   };
 }

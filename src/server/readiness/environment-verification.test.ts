@@ -19,7 +19,12 @@ const productionEnv = {
   CRON_SECRET: "cron-secret-with-at-least-32-characters",
   HR_ONE_CRON_TENANT_ID: "tenant_suiyuecare_prod",
   HR_ONE_CRON_COMPANY_ID: "company_suiyuecare_prod",
+  HR_ONE_OBJECT_STORAGE_PROVIDER: "s3",
+  HR_ONE_OBJECT_STORAGE_BUCKET: "customer-hrone-documents",
   HR_ONE_OBJECT_STORAGE_SECRET_REF: "vault://customer/hrone/storage",
+  HR_ONE_OBJECT_STORAGE_KMS_KEY_REF: "alias/customer-hrone-documents",
+  HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF: "s3://customer-hrone-documents/lifecycle/hr-documents-7y",
+  HR_ONE_OBJECT_STORAGE_SIGNED_URL_MAX_TTL_SECONDS: "600",
   HR_ONE_AUTH_PROVIDER: "entra_id",
   HR_ONE_AUTH_SESSION_SOURCE: "oidc",
   HR_ONE_AUTH_ISSUER_URL: "https://login.customer.co/customer/v2.0",
@@ -165,6 +170,41 @@ describe("environment verification", () => {
     expect(report.checks.find((item) => item.name === "scheduled job company scope")).toMatchObject({
       passed: true,
       detail: "HR_ONE_MAINTENANCE_COMPANY_ID configured; prefer HR_ONE_CRON_COMPANY_ID",
+    });
+  });
+
+  it("requires production object storage provider, bucket, lifecycle, and signed URL posture", () => {
+    const report = buildEnvironmentVerificationReport(
+      {
+        ...productionEnv,
+        HR_ONE_OBJECT_STORAGE_PROVIDER: "demo_object_storage",
+        HR_ONE_OBJECT_STORAGE_BUCKET: "demo-bucket",
+        HR_ONE_OBJECT_STORAGE_KMS_KEY_REF: "",
+        HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF: "",
+        HR_ONE_OBJECT_STORAGE_SIGNED_URL_MAX_TTL_SECONDS: "20",
+      },
+      "production",
+      new Date("2026-06-12T00:00:00.000Z"),
+    );
+
+    expect(environmentVerificationPassed(report)).toBe(false);
+    expect(report.checks.find((item) => item.name === "object storage provider")).toMatchObject({
+      passed: false,
+      detail: "invalid HR_ONE_OBJECT_STORAGE_PROVIDER",
+    });
+    expect(report.checks.find((item) => item.name === "object storage bucket")).toMatchObject({
+      passed: false,
+      detail: "invalid HR_ONE_OBJECT_STORAGE_BUCKET",
+    });
+    expect(report.checks.find((item) => item.name === "HR_ONE_OBJECT_STORAGE_KMS_KEY_REF")).toMatchObject({
+      passed: false,
+    });
+    expect(report.checks.find((item) => item.name === "HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF")).toMatchObject({
+      passed: false,
+    });
+    expect(report.checks.find((item) => item.name === "object storage signed URL ceiling")).toMatchObject({
+      passed: false,
+      detail: "20 second(s) configured",
     });
   });
 

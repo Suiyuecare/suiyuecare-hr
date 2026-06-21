@@ -12,7 +12,14 @@ type SessionLike = {
   employee?: { id: string; displayName: string } | null;
 };
 
-export type FileStorageProvider = "demo_object_storage" | "s3" | "r2" | "gcs" | "azure_blob" | "custom";
+export type FileStorageProvider =
+  | "demo_object_storage"
+  | "s3"
+  | "r2"
+  | "gcs"
+  | "azure_blob"
+  | "supabase_storage"
+  | "custom";
 
 export type FileStorageSettings = {
   provider: FileStorageProvider;
@@ -20,6 +27,7 @@ export type FileStorageSettings = {
   region: string | null;
   basePrefix: string;
   kmsKeyRef: string | null;
+  lifecyclePolicyRef: string | null;
   malwareScanningRequired: boolean;
   signedUrlTtlMinutes: number;
   maxFileSizeMb: number;
@@ -62,6 +70,7 @@ export const defaultFileStorageSettings: FileStorageSettings = {
   region: "tw-demo",
   basePrefix: "hr-one",
   kmsKeyRef: null,
+  lifecyclePolicyRef: null,
   malwareScanningRequired: true,
   signedUrlTtlMinutes: 10,
   maxFileSizeMb: 25,
@@ -221,6 +230,7 @@ function auditMetadata(before: FileStorageSettings, after: FileStorageSettings) 
     changedFields: changedFields(before, after),
     objectBytesIncluded: false,
     malwareScanningRequired: after.malwareScanningRequired,
+    lifecyclePolicyConfigured: Boolean(after.lifecyclePolicyRef),
     providerChanged: before.provider !== after.provider,
     verificationStatus: after.verificationStatus,
   };
@@ -233,6 +243,9 @@ function normalizeSettings(input: FileStorageSettingsInput, before: FileStorageS
     region: input.region === undefined ? before.region : cleanOptional(input.region),
     basePrefix: cleanPrefix(input.basePrefix, before.basePrefix),
     kmsKeyRef: input.kmsKeyRef === undefined ? before.kmsKeyRef : cleanOptional(input.kmsKeyRef),
+    lifecyclePolicyRef: input.lifecyclePolicyRef === undefined
+      ? before.lifecyclePolicyRef
+      : cleanOptional(input.lifecyclePolicyRef),
     malwareScanningRequired: input.malwareScanningRequired ?? before.malwareScanningRequired,
     signedUrlTtlMinutes: clampInteger(input.signedUrlTtlMinutes, before.signedUrlTtlMinutes, 1, 120),
     maxFileSizeMb: clampInteger(input.maxFileSizeMb, before.maxFileSizeMb, 1, 100),
@@ -254,6 +267,7 @@ function readRecord(record: {
   region: string | null;
   basePrefix: string;
   kmsKeyRef: string | null;
+  lifecyclePolicyRef: string | null;
   malwareScanningRequired: boolean;
   signedUrlTtlMinutes: number;
   maxFileSizeMb: number;
@@ -269,6 +283,7 @@ function readRecord(record: {
     region: record.region,
     basePrefix: record.basePrefix,
     kmsKeyRef: record.kmsKeyRef,
+    lifecyclePolicyRef: record.lifecyclePolicyRef,
     malwareScanningRequired: record.malwareScanningRequired,
     signedUrlTtlMinutes: record.signedUrlTtlMinutes,
     maxFileSizeMb: record.maxFileSizeMb,
@@ -289,6 +304,7 @@ function writeRecord(settings: FileStorageSettings) {
     region: settings.region,
     basePrefix: settings.basePrefix,
     kmsKeyRef: settings.kmsKeyRef,
+    lifecyclePolicyRef: settings.lifecyclePolicyRef,
     malwareScanningRequired: settings.malwareScanningRequired,
     signedUrlTtlMinutes: settings.signedUrlTtlMinutes,
     maxFileSizeMb: settings.maxFileSizeMb,
@@ -304,6 +320,7 @@ export function isProductionStorageVerified(settings: FileStorageSettings) {
   return (
     settings.provider !== "demo_object_storage" &&
     Boolean(settings.kmsKeyRef) &&
+    Boolean(settings.lifecyclePolicyRef) &&
     settings.malwareScanningRequired &&
     settings.verificationStatus === "verified" &&
     Boolean(settings.lastVerifiedAt)
@@ -311,7 +328,15 @@ export function isProductionStorageVerified(settings: FileStorageSettings) {
 }
 
 function normalizeProvider(value: unknown, fallback: FileStorageProvider): FileStorageProvider {
-  const providers: FileStorageProvider[] = ["demo_object_storage", "s3", "r2", "gcs", "azure_blob", "custom"];
+  const providers: FileStorageProvider[] = [
+    "demo_object_storage",
+    "s3",
+    "r2",
+    "gcs",
+    "azure_blob",
+    "supabase_storage",
+    "custom",
+  ];
   return providers.includes(value as FileStorageProvider) ? value as FileStorageProvider : fallback;
 }
 
