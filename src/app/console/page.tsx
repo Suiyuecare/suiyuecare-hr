@@ -308,12 +308,51 @@ function ConsoleReadinessRadarBoard({ radar }: { radar: ConsoleReadinessRadar })
         </div>
       ) : null}
 
+      {radar.actionQueue.length > 0 ? <ConsoleReadinessActionQueue radar={radar} /> : null}
+
       <div className="console-readiness-radar-grid" aria-label="模組缺口清單">
         {radar.items.map((item) => (
           <RadarItemCard item={item} key={item.moduleId} />
         ))}
       </div>
     </section>
+  );
+}
+
+function ConsoleReadinessActionQueue({ radar }: { radar: ConsoleReadinessRadar }) {
+  return (
+    <div className="console-readiness-action-queue" aria-label="阻擋處理順序">
+      <div className="console-readiness-action-head">
+        <div>
+          <span className="muted">Fix order</span>
+          <strong>阻擋處理順序</strong>
+          <small>先處理會卡正式試用、薪資月結或稽核交付的項目；清單只顯示聚合狀態與安全摘要。</small>
+        </div>
+        <span>{radar.actionQueue.length} 個優先動作</span>
+      </div>
+      <ol className="console-readiness-action-list">
+        {radar.actionQueue.map((action, index) => (
+          <li className={`console-readiness-action-item ${toneClass(action.tone)}`} key={action.id}>
+            <span className="console-readiness-action-index">{String(index + 1).padStart(2, "0")}</span>
+            <div className="console-readiness-action-copy">
+              <span>
+                {action.moduleTitle} · {actionSourceLabel(action.source)}
+              </span>
+              <strong>{action.title}</strong>
+              <small>{action.detail}</small>
+            </div>
+            <div className="console-readiness-action-controls">
+              <span className={`badge ${action.tone === "danger" ? "danger" : action.tone === "warning" ? "warning" : ""}`}>
+                {toneLabel(action.tone)}
+              </span>
+              <Link className="button primary" href={action.href}>
+                {action.actionLabel}
+              </Link>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -475,4 +514,10 @@ function toneLabel(tone: ConsoleReadinessRadarItem["tone"]) {
   if (tone === "danger") return "阻擋";
   if (tone === "warning") return "待收斂";
   return "可用";
+}
+
+function actionSourceLabel(source: ConsoleReadinessRadar["actionQueue"][number]["source"]) {
+  if (source === "live_gate") return "上線 Gate";
+  if (source === "audit_evidence") return "稽核證據";
+  return "模組任務";
 }

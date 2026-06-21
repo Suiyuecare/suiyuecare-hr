@@ -141,7 +141,7 @@ describe("console modules", () => {
   });
 
   it("folds live launch readiness and audit evidence into the sale-ready radar", () => {
-    const hrRadar = getConsoleReadinessRadar("hr_admin", {
+    const sources = {
       launchReadiness: {
         readyForSale: false,
         readyCount: 7,
@@ -190,7 +190,9 @@ describe("console modules", () => {
           generatedAt: new Date("2026-06-22T00:00:00.000Z"),
         },
       },
-    });
+    } satisfies Parameters<typeof getConsoleReadinessRadar>[1];
+    const hrRadar = getConsoleReadinessRadar("hr_admin", sources);
+    const managerRadar = getConsoleReadinessRadar("manager", sources);
 
     const company = hrRadar.items.find((item) => item.moduleId === "company");
     const payroll = hrRadar.items.find((item) => item.moduleId === "payroll");
@@ -213,5 +215,22 @@ describe("console modules", () => {
     expect(payroll?.topRisks).toEqual(expect.arrayContaining(["發薪付款安全：阻擋"]));
     expect(reports?.topRisks).toEqual(expect.arrayContaining(["勞檢證據包：1 個覆蓋缺口"]));
     expect(announcements?.topRisks).toEqual(expect.arrayContaining(["通知管道：待收斂"]));
+    expect(hrRadar.actionQueue[0]).toMatchObject({
+      id: "live-database",
+      moduleId: "company",
+      moduleTitle: "公司管理",
+      title: "正式資料庫",
+      href: "/settings/production-database",
+      actionLabel: "修正式資料庫",
+      tone: "danger",
+      source: "live_gate",
+    });
+    expect(hrRadar.actionQueue.map((item) => item.title)).toEqual(
+      expect.arrayContaining(["發薪付款安全", "勞檢證據包", "通知管道"]),
+    );
+    expect(hrRadar.actionQueue.map((item) => item.detail).join(" ")).not.toContain("DATABASE_URL is not configured.");
+    expect(hrRadar.actionQueue.map((item) => item.detail).join(" ")).not.toContain("Vault reference missing.");
+    expect(managerRadar.actionQueue.some((item) => item.moduleId === "payroll")).toBe(false);
+    expect(managerRadar.actionQueue.map((item) => item.title)).not.toContain("發薪付款安全");
   });
 });

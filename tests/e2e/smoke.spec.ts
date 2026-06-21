@@ -125,6 +125,11 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByLabel("缺口摘要").getByText("阻擋模組")).toBeVisible();
   await expect(page.getByLabel("真實營運訊號").getByText("上線 Gate")).toBeVisible();
   await expect(page.getByLabel("真實營運訊號").getByText("Audit evidence")).toBeVisible();
+  await expect(page.getByLabel("阻擋處理順序").getByText("正式資料庫", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("阻擋處理順序").getByRole("link", { name: "修正式資料庫" })).toHaveAttribute(
+    "href",
+    "/settings/production-database",
+  );
   await expect(page.getByLabel("模組缺口清單").getByText("公司管理", { exact: true })).toBeVisible();
   await expect(page.getByLabel("模組缺口清單").getByText("正式資料庫：阻擋")).toBeVisible();
 

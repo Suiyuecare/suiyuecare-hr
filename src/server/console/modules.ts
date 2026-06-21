@@ -69,6 +69,20 @@ export type ConsoleReadinessRadarItem = {
   nextAction: ConsoleLink;
 };
 
+export type ConsoleReadinessActionSource = "live_gate" | "audit_evidence" | "module_task";
+
+export type ConsoleReadinessActionQueueItem = {
+  id: string;
+  moduleId: string;
+  moduleTitle: string;
+  title: string;
+  detail: string;
+  href: string;
+  actionLabel: string;
+  tone: ConsoleTone;
+  source: ConsoleReadinessActionSource;
+};
+
 export type ConsoleReadinessRadarLiveGateSummary = {
   readyForSale: boolean;
   readyCount: number;
@@ -93,6 +107,7 @@ export type ConsoleReadinessRadar = {
   liveGateSummary: ConsoleReadinessRadarLiveGateSummary | null;
   auditEvidenceSummary: ConsoleReadinessRadarAuditSummary | null;
   nextAction: ConsoleReadinessRadarItem | null;
+  actionQueue: ConsoleReadinessActionQueueItem[];
   items: ConsoleReadinessRadarItem[];
 };
 
@@ -870,8 +885,10 @@ export function getConsoleReadinessRadar(
   role: RoleKey,
   sources: ConsoleReadinessRadarSources = {},
 ): ConsoleReadinessRadar {
+  const visibleModules = getConsoleModules(role);
   const sourceSignals = buildSourceSignals(sources);
-  const items = getConsoleModules(role)
+  const auditEvidenceSummary = buildAuditEvidenceSummary(sources.auditEvidence);
+  const items = visibleModules
     .map((consoleModule) => {
       const detail = getConsoleModuleDetail(role, consoleModule.id);
       if (!detail) return null;
@@ -946,8 +963,9 @@ export function getConsoleReadinessRadar(
         blockedCount: sources.launchReadiness.blockedCount,
       }
       : null,
-    auditEvidenceSummary: buildAuditEvidenceSummary(sources.auditEvidence),
+    auditEvidenceSummary,
     nextAction: items[0] ?? null,
+    actionQueue: buildActionQueue(role, visibleModules, sources, auditEvidenceSummary),
     items,
   };
 }
@@ -988,6 +1006,97 @@ function toneRank(tone: ConsoleTone) {
   if (tone === "danger") return 0;
   if (tone === "warning") return 1;
   return 2;
+}
+
+function actionSourceRank(source: ConsoleReadinessActionSource) {
+  if (source === "live_gate") return 0;
+  if (source === "audit_evidence") return 1;
+  return 2;
+}
+
+function buildActionQueue(
+  role: RoleKey,
+  visibleModules: ConsoleModule[],
+  sources: ConsoleReadinessRadarSources,
+  auditEvidenceSummary: ConsoleReadinessRadarAuditSummary | null,
+) {
+  const modulesById = new Map(visibleModules.map((module) => [module.id, module]));
+  const queue: ConsoleReadinessActionQueueItem[] = [];
+
+  for (const item of sources.launchReadiness?.items ?? []) {
+    const tone = launchStatusTone(item.status);
+    if (tone === "ready") continue;
+
+    const moduleId = (launchItemModuleIds[item.id] ?? []).find((candidateId) => modulesById.has(candidateId));
+    if (!moduleId) continue;
+
+    const consoleModule = modulesById.get(moduleId);
+    if (!consoleModule) continue;
+
+    queue.push({
+      id: `live-${item.id}`,
+      moduleId,
+      moduleTitle: consoleModule.title,
+      title: launchItemLabel(item.id, item.title),
+      detail: launchActionDetail(item.id, item.status),
+      href: launchItemHref(item.id, item.actionHref),
+      actionLabel: launchItemActionLabel(item.id, item.actionLabel),
+      tone,
+      source: "live_gate",
+    });
+  }
+
+  const reportsModule = modulesById.get("reports");
+  if (reportsModule && auditEvidenceSummary && auditEvidenceSummary.status !== "ready") {
+    queue.push({
+      id: "audit-evidence",
+      moduleId: "reports",
+      moduleTitle: reportsModule.title,
+      title: "勞檢證據包",
+      detail: auditEvidenceActionDetail(auditEvidenceSummary),
+      href: "/settings/audit",
+      actionLabel: "產生稽核證據",
+      tone: auditEvidenceSummary.status,
+      source: "audit_evidence",
+    });
+  }
+
+  for (const consoleModule of visibleModules) {
+    const detail = getConsoleModuleDetail(role, consoleModule.id);
+    const task =
+      detail?.tasks.find((candidate) => candidate.tone === "danger") ??
+      detail?.tasks.find((candidate) => candidate.tone === "warning");
+    if (!task) continue;
+
+    queue.push({
+      id: `module-${consoleModule.id}-${task.href}`,
+      moduleId: consoleModule.id,
+      moduleTitle: consoleModule.title,
+      title: task.title,
+      detail: task.detail,
+      href: task.href,
+      actionLabel: task.status,
+      tone: task.tone,
+      source: "module_task",
+    });
+  }
+
+  const seen = new Set<string>();
+  return queue
+    .sort((left, right) => {
+      const sourceDelta = actionSourceRank(left.source) - actionSourceRank(right.source);
+      if (sourceDelta !== 0) return sourceDelta;
+      const toneDelta = toneRank(left.tone) - toneRank(right.tone);
+      if (toneDelta !== 0) return toneDelta;
+      return left.moduleTitle.localeCompare(right.moduleTitle, "zh-Hant");
+    })
+    .filter((item) => {
+      const key = `${item.moduleId}:${item.href}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 6);
 }
 
 function buildSourceSignals(sources: ConsoleReadinessRadarSources) {
@@ -1063,6 +1172,16 @@ function auditEvidenceSignalTitle(summary: ConsoleReadinessRadarAuditSummary) {
   return `勞檢證據包：${summary.recordCount} 筆 evidence 已封存`;
 }
 
+function auditEvidenceActionDetail(summary: ConsoleReadinessRadarAuditSummary) {
+  if (!summary.latestGeneratedAt) {
+    return "尚未產生勞檢證據包；先建立 hash-only 證據封存，再做試用或客戶交付。";
+  }
+  if (summary.warningCount > 0) {
+    return `${summary.warningCount} 個稽核覆蓋缺口需要補齊；先處理缺口後再交付證據包。`;
+  }
+  return "勞檢證據包已建立；確認下載、保存期限與權限紀錄仍有效。";
+}
+
 function launchStatusTone(status: "ready" | "action_required" | "blocked"): ConsoleTone {
   if (status === "blocked") return "danger";
   if (status === "action_required") return "warning";
@@ -1085,6 +1204,67 @@ function launchItemHref(id: string, fallback: string) {
 
 function launchItemActionLabel(id: string, fallback: string) {
   return launchItemActionLabels[id] ?? fallback;
+}
+
+function launchActionDetail(id: string, status: "ready" | "action_required" | "blocked") {
+  if (id === "database") {
+    return "正式站還不能穩定讀寫 PostgreSQL；先修 Vercel/Supabase 連線，再重新跑 production Gate。";
+  }
+  if (id === "tenant_seed") {
+    return "正式租戶或員工主檔仍不完整；先用匯入預檢補齊部門、主管線與必要欄位。";
+  }
+  if (id === "operational_resilience") {
+    return "備份、還原或 RTO/RPO 證據還不足；先補還原演練與安全保存證據。";
+  }
+  if (id === "subscription") {
+    return "商務訂閱或合約狀態尚未完成；先確認方案、座位數與付款模式。";
+  }
+  if (id === "security" || id === "sso_identities") {
+    return "登入、MFA 或特權 SSO 綁定仍未通過；先完成正式身份治理再邀請員工。";
+  }
+  if (id === "file_storage") {
+    return "正式文件儲存 Gate 未完成；先補 provider、bucket、KMS 與 smoke test 證據。";
+  }
+  if (id === "support_access") {
+    return "支援存取治理仍有缺口；先確認 ticket、scope、期限與撤銷紀錄。";
+  }
+  if (id === "privacy") {
+    return "個資治理或資料主體流程仍需收斂；先補用途、保存與員工告知證據。";
+  }
+  if (id === "offboarding") {
+    return "離職、權限移除或最終工資流程尚未完整；先補 HR 可執行的離職 Gate。";
+  }
+  if (id === "work_rules") {
+    return "公司工作規則或員工確認證據不足；先發布規章並收齊手機確認紀錄。";
+  }
+  if (id === "labor_roster") {
+    return "勞工名卡欄位或保存證據仍有缺口；先補第 7 條必要欄位與 HR 複核。";
+  }
+  if (id === "training") {
+    return "到職訓練或第一週教學證據不足；先補 10 分鐘內可完成的員工任務。";
+  }
+  if (id === "incidents") {
+    return "職場事件處理流程尚未通過；先確認受理、分派、證據與保密權限。";
+  }
+  if (id === "notifications") {
+    return "外部通知尚未完整啟用；先確認站內、Email 或通訊軟體的發送設定。";
+  }
+  if (id === "payment_security") {
+    return "發薪付款 Gate 未通過；先補 vault/KMS、銀行檔格式與下載稽核設定。";
+  }
+  if (id === "calendar") {
+    return "台灣行事曆或補班日審核未完成；先補官方來源、HR 複核與月結護欄。";
+  }
+  if (id === "law_rules") {
+    return "台灣法規規則來源或版本未通過；先補來源審核、rule_versions 與測試 fixture。";
+  }
+  if (id === "audit") {
+    return "Audit evidence 尚未完整；先建立封存摘要與覆蓋檢查，再進入正式試用。";
+  }
+  if (id === "kpis") {
+    return "贏面 KPI 尚未全數達標；先查看任務完成率、月結效率與資料安全缺口。";
+  }
+  return `${launchStatusLabel(status)}項目需要處理；此清單只顯示聚合狀態，不回顯個資、薪資或內部備註。`;
 }
 
 const launchItemModuleIds: Record<string, string[]> = {
