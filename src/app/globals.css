@@ -3764,6 +3764,63 @@ legend {
   color: var(--accent-strong);
 }
 
+.incident-command-grid .settings-command-card {
+  min-height: 268px;
+}
+
+.incident-queue-list {
+  gap: 12px;
+}
+
+.incident-queue-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.88fr);
+  align-items: start;
+  gap: 14px;
+}
+
+.incident-queue-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.incident-queue-card.danger {
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
+.incident-queue-card.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.incident-queue-summary {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.incident-update-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  width: 100%;
+}
+
+.incident-update-form input,
+.incident-update-form select,
+.incident-update-form .button {
+  min-height: 40px;
+}
+
+.incident-update-form input[aria-label^="改善措施"] {
+  grid-column: 1 / -1;
+}
+
+.incident-update-form .button {
+  grid-column: 1 / -1;
+}
+
 .access-control-page {
   max-width: 1280px;
 }
@@ -9252,7 +9309,9 @@ legend {
   .console-search > div,
   .console-module-main,
   .console-pinned ul,
-  .quick-approval-row {
+  .quick-approval-row,
+  .incident-queue-card,
+  .incident-update-form {
     grid-template-columns: 1fr;
   }
 

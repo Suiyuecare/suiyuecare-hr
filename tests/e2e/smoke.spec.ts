@@ -918,6 +918,48 @@ test("HR 可以用中文文件金庫釋出員工文件", async ({ page }) => {
   await expect(page.locator("body")).not.toContainText("demo_object_storage://");
 });
 
+test("員工可以用中文回報職場事件且 HR 可以結案", async ({ page }) => {
+  await page.goto("/app");
+
+  await gotoAppPage(page, "/app/incidents");
+  await expect(page.getByRole("heading", { name: "職場事件回報" })).toBeVisible();
+  await expect(page.getByLabel("事件回報訊號板").getByText("回報入口")).toBeVisible();
+  const reportForm = page.getByRole("form", { name: "三步事件回報" });
+  await reportForm.getByLabel("類型").selectOption("safety_hazard");
+  await reportForm.getByLabel("風險程度").selectOption("high");
+  await reportForm.getByLabel("發生時間").fill(formatDatetimeLocal(new Date("2026-06-16T09:30:00")));
+  await reportForm.getByLabel("地點").fill("E2E 茶水間");
+  await reportForm.getByLabel("發生經過").fill("E2E 地面濕滑，已放置提醒牌，請 HR 協助追蹤改善。");
+  await reportForm.getByRole("button", { name: "送出回報" }).click();
+  await expect(page).toHaveURL(/\/app\/incidents$/);
+  await expect(page.getByRole("heading", { name: "我的回報" })).toBeVisible();
+  const myReports = page.locator("#my-incident-reports");
+  await expect(myReports.getByText("安全危害")).toBeVisible();
+  await expect(myReports.getByText("已送出", { exact: true })).toBeVisible();
+
+  await switchDemoRole(page, "hr_admin");
+  await gotoAppPage(page, "/hr/incidents");
+  await expect(page.getByRole("heading", { name: "職場事件處理台" })).toBeVisible();
+  await expect(page.getByLabel("事件風險訊號板").getByText("開放事件")).toBeVisible();
+  await expect(page.getByLabel("事件處理作業區").getByRole("heading", { name: "調查與改善措施閉環" })).toBeVisible();
+
+  const settingsForm = page.getByRole("form", { name: "三步事件處理設定" });
+  await settingsForm.getByLabel("複核狀態").selectOption("verified");
+  await settingsForm.getByRole("button", { name: "儲存事件處理設定" }).click();
+  await expect(page).toHaveURL(/\/hr\/incidents$/);
+  await expect(page.getByText("已複核").first()).toBeVisible();
+
+  const queue = page.locator("#incident-queue");
+  await expect(queue.getByText("安全危害")).toBeVisible();
+  const incidentForm = queue.getByRole("form", { name: /處理事件 安全危害/ }).first();
+  await incidentForm.getByLabel(/狀態/).selectOption("closed");
+  await incidentForm.getByLabel(/改善措施/).fill("E2E 已完成現場巡檢與防滑提醒");
+  await incidentForm.getByRole("button", { name: "更新處理" }).click();
+  await expect(page).toHaveURL(/\/hr\/incidents$/);
+  await expect(queue.locator(".incident-queue-summary").getByText(/高風險 · 已結案/)).toBeVisible();
+  await expect(queue.getByText(/改善措施：E2E 已完成現場巡檢/)).toBeVisible();
+});
+
 test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   test.setTimeout(300_000);
   const leaveReason = "E2E 兩週試用請假流程";
