@@ -5963,6 +5963,97 @@ legend {
   min-height: 286px;
 }
 
+.production-database-launch-checklist {
+  border-color: #111827;
+  background: #111827;
+}
+
+.production-database-launch-checklist .section-heading h2,
+.production-database-launch-checklist .section-heading .muted {
+  color: #ffffff;
+}
+
+.production-database-checklist-flow {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.production-database-checklist-item {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: flex-start;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 12px;
+}
+
+.production-database-checklist-item.done {
+  border-left-color: #4ade80;
+}
+
+.production-database-checklist-item.todo {
+  border-left-color: #facc15;
+}
+
+.production-database-checklist-item.blocked {
+  border-left-color: #fb7185;
+}
+
+.production-database-checklist-index {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.production-database-checklist-item > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.production-database-checklist-item h3 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.production-database-checklist-item p,
+.production-database-checklist-item small {
+  margin: 0;
+  color: #e2e8f0;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.production-database-checklist-item code {
+  display: block;
+  border-radius: 7px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #e5e7eb;
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .production-database-gate.ready {
   border-color: #bbf7d0;
   background: #f0fdf4;
@@ -6069,6 +6160,10 @@ legend {
   .production-database-diagnostic-grid,
   .production-database-pooler-grid,
   .production-database-track-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .production-database-checklist-item {
     grid-template-columns: 1fr;
   }
 

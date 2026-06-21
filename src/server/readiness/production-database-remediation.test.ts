@@ -86,6 +86,20 @@ describe("production database remediation", () => {
       host: "aws-0-ap-northeast-2.pooler.supabase.com",
       requiredQueryParams: ["pgbouncer=true", "connection_limit=1", "schema=hr_one"],
     });
+    expect(report.launchChecklist).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "pooler-handoff",
+          status: "blocked",
+          evidence: "hr-one-vercel-database-url-handoff.md",
+        }),
+        expect.objectContaining({
+          id: "health-ready",
+          status: "blocked",
+          command: "curl -fsS https://hr.suiyuecare.com/api/health/ready",
+        }),
+      ]),
+    );
 
     const markdown = formatProductionDatabaseRemediationMarkdown(report);
     expect(markdown).toContain("## Local Env Draft");
@@ -94,6 +108,8 @@ describe("production database remediation", () => {
     expect(markdown).toContain("Host: aws-0-ap-northeast-2.pooler.supabase.com");
     expect(markdown).toContain("Username: postgres.aruncclorusswpfnpgsn");
     expect(markdown).toContain("Required params: pgbouncer=true, connection_limit=1, schema=hr_one");
+    expect(markdown).toContain("## Launch Checklist");
+    expect(markdown).toContain("pooler URL redacted handoff");
 
     const serialized = JSON.stringify(report);
     expect(serialized).not.toContain("postgresql://");
@@ -226,6 +242,13 @@ describe("production database remediation", () => {
     expect(report.rootCause).toBe("ready");
     expect(report.gate.status).toBe("ready");
     expect(report.nextActions[0]).toContain("Production database gate 已通過");
+    expect(report.launchChecklist).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "health-ready", status: "done" }),
+        expect.objectContaining({ id: "production-tenant-verify", status: "todo" }),
+        expect.objectContaining({ id: "pilot-go-no-go", status: "todo" }),
+      ]),
+    );
   });
 
   it("fails closed when live readiness cannot be fetched", async () => {

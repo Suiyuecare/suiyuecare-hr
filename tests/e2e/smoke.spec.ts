@@ -358,6 +358,11 @@ test("Owner 可以檢查試用營運與上線 Gate", async ({ page }) => {
   await expect(page.getByLabel("Runtime env redacted 診斷")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Vercel env 現況" })).toBeVisible();
   await expect(page.getByText("DATABASE_URL key 已存在仍不代表值正確")).toBeVisible();
+  const launchChecklist = page.getByLabel("正式資料庫開跑核對單");
+  await expect(launchChecklist.getByRole("heading", { name: "開跑前核對單" })).toBeVisible();
+  await expect(launchChecklist.getByRole("heading", { name: "產生 pooler URL redacted handoff" })).toBeVisible();
+  await expect(launchChecklist.getByRole("heading", { name: "確認 live /api/health/ready" })).toBeVisible();
+  await expect(launchChecklist.locator("small", { hasText: "hr-one-vercel-database-url-handoff.md" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Supabase Transaction Pooler 形狀" })).toBeVisible();
   const poolerShape = page.getByLabel("Supabase transaction pooler 安全形狀");
   await expect(poolerShape.getByText("aws-0-ap-northeast-2.pooler.supabase.com")).toBeVisible();

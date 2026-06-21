@@ -324,6 +324,7 @@ function productionDatabaseReport(options: {
     },
     databaseDetail: options.status === "ready" ? "database ping succeeded" : "database ping failed",
     environmentDetail: options.status === "ready" ? "production environment posture verified" : "production environment verification failed",
+    launchChecklist: [],
     tracks: [],
     nextActions,
     privacyGuardrails: [],

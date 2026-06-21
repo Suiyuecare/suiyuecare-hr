@@ -36,6 +36,15 @@ export type ProductionDatabaseRemediationStep = {
   status: "done" | "blocked" | "todo";
 };
 
+export type ProductionDatabaseLaunchChecklistItem = {
+  id: string;
+  title: string;
+  detail: string;
+  evidence: string;
+  command?: string;
+  status: "done" | "blocked" | "todo";
+};
+
 export type ProductionDatabaseRemediationTrack = {
   id: "transaction_pooler" | "ipv4_addon" | "verification";
   title: string;
@@ -56,6 +65,7 @@ export type ProductionDatabaseRemediationReport = {
   supabasePooler: SupabaseTransactionPoolerTemplate;
   databaseDetail: string;
   environmentDetail: string;
+  launchChecklist: ProductionDatabaseLaunchChecklistItem[];
   tracks: ProductionDatabaseRemediationTrack[];
   nextActions: string[];
   privacyGuardrails: string[];
@@ -231,6 +241,7 @@ export function buildProductionDatabaseRemediationReport(
     environmentDetail,
   });
   const status = gate.status === "ready" && rootCause === "ready" ? "ready" : "blocked";
+  const launchChecklist = buildLaunchChecklist(rootCause, gate, envDraft);
   const tracks = buildTracks(rootCause);
   const nextActions = buildNextActions(rootCause, gate, envDraft);
 
@@ -246,6 +257,7 @@ export function buildProductionDatabaseRemediationReport(
     supabasePooler,
     databaseDetail,
     environmentDetail,
+    launchChecklist,
     tracks,
     nextActions,
     privacyGuardrails: [
@@ -303,6 +315,13 @@ export function formatProductionDatabaseRemediationMarkdown(
     "## Next Actions",
     "",
     ...formatList(report.nextActions),
+    "",
+    "## Launch Checklist",
+    "",
+    ...report.launchChecklist.map((item) => {
+      const command = item.command ? ` Command: ${redactSensitiveDetail(item.command)}` : "";
+      return `- [${item.status.toUpperCase()}] ${item.title}: ${redactSensitiveDetail(item.detail)} Evidence: ${redactSensitiveDetail(item.evidence)}.${command}`;
+    }),
     "",
     "## Privacy Guardrails",
     "",
@@ -429,6 +448,84 @@ function buildTracks(rootCause: ProductionDatabaseRootCause): ProductionDatabase
   ];
 }
 
+function buildLaunchChecklist(
+  rootCause: ProductionDatabaseRootCause,
+  gate: ProductionPilotGateReport,
+  envDraft: ProductionDatabaseEnvDraftReport | null,
+) {
+  const productionEnvironmentPassed = gateCheckPassed(gate, "production environment");
+  const productionDatabasePassed = gateCheckPassed(gate, "production database");
+  const overallReady = gate.status === "ready" && rootCause === "ready";
+  const envDraftReady = envDraft?.status === "ready";
+  const envDraftHasTransactionPooler = envDraft?.databaseConnectionPosture === "supabase-pooler-transaction";
+  const envDraftBlocked = envDraft?.status === "blocked" || envDraft?.status === "missing";
+  const databaseNetworkBlocked =
+    rootCause === "supabase_direct_network" ||
+    rootCause === "pooler_configuration" ||
+    rootCause === "missing_database_url";
+
+  return [
+    checklistItem({
+      id: "pooler-handoff",
+      title: "產生 pooler URL redacted handoff",
+      detail: "由 Owner 從 stdin 提供真正的 Supabase transaction pooler URL，系統只保存連線形狀、key 名稱與下一步，不保存密碼或完整 URL。",
+      evidence: "hr-one-vercel-database-url-handoff.md",
+      command:
+        "printf '%s' \"$SUPABASE_TRANSACTION_POOLER_DATABASE_URL\" | pnpm vercel:database-url-handoff -- --env-file=.env.vercel.production --output=/tmp/hr-one-vercel-database-url-handoff.md",
+      status: envDraftReady && envDraftHasTransactionPooler ? "done" : databaseNetworkBlocked || envDraftBlocked ? "blocked" : "todo",
+    }),
+    checklistItem({
+      id: "vercel-env-write",
+      title: "寫入 Vercel Production env",
+      detail: "先 dry-run，再把 server-only DATABASE_URL 與正式 env 寫入 Vercel Production；不可使用 NEXT_PUBLIC_ 前綴，也不可把 secret 貼到文件。",
+      evidence: "Vercel Production env inventory plus redacted apply summary",
+      command: "pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --method=cli",
+      status: productionEnvironmentPassed ? "done" : envDraftReady ? "todo" : "blocked",
+    }),
+    checklistItem({
+      id: "production-redeploy",
+      title: "重新部署 Production",
+      detail: "Production env 寫入後必須 redeploy，讓 Vercel serverless runtime 拿到新的 DATABASE_URL 與正式設定。",
+      evidence: "Vercel production deployment URL and deployment timestamp",
+      command: "pnpm dlx vercel@latest --prod --scope team_LGag47eU8tKbsK6ixAmVa5Uq",
+      status: productionEnvironmentPassed && productionDatabasePassed ? "done" : productionEnvironmentPassed ? "todo" : "blocked",
+    }),
+    checklistItem({
+      id: "health-ready",
+      title: "確認 live /api/health/ready",
+      detail: "正式站 readiness 必須回 ok，且 payload 只含 redacted health 狀態，不含 database URL、薪資、身分證、銀行或健康資料。",
+      evidence: "hr.suiyuecare.com /api/health/ready response",
+      command: "curl -fsS https://hr.suiyuecare.com/api/health/ready",
+      status: overallReady ? "done" : databaseNetworkBlocked || rootCause === "environment_configuration" ? "blocked" : "todo",
+    }),
+    checklistItem({
+      id: "production-tenant-verify",
+      title: "驗證正式 tenant 與 hr_one schema",
+      detail: "Production database 連線通過後，跑 tenant/company/roles/rules/payroll/audit 覆蓋檢查，確認不是 demo fallback。",
+      evidence: "db:verify:production redacted report",
+      command: "pnpm db:verify:production -- --tenant-slug=<customer-slug>",
+      status: overallReady ? "todo" : "blocked",
+    }),
+    checklistItem({
+      id: "pilot-go-no-go",
+      title: "跑完整 pilot Go/No-Go",
+      detail: "完成正式資料庫、匯入預檢、邀請 readiness、workflow readiness、evidence scan 後，才可發第一封真實員工邀請。",
+      evidence: "hr-one-pilot-go-no-go.md and invitation-release report",
+      command: "pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --tenant-slug=<customer-slug>",
+      status: overallReady ? "todo" : "blocked",
+    }),
+  ];
+}
+
+function checklistItem(item: ProductionDatabaseLaunchChecklistItem): ProductionDatabaseLaunchChecklistItem {
+  return {
+    ...item,
+    detail: redactSensitiveDetail(item.detail),
+    evidence: redactSensitiveDetail(item.evidence),
+    command: item.command ? redactSensitiveDetail(item.command) : undefined,
+  };
+}
+
 function buildNextActions(
   rootCause: ProductionDatabaseRootCause,
   gate: ProductionPilotGateReport,
@@ -533,6 +630,10 @@ function summaryForRootCause(rootCause: ProductionDatabaseRootCause) {
     unknown: "Production readiness 仍 blocked，需要看 live health 與 runtime logs 定位。",
   };
   return labels[rootCause];
+}
+
+function gateCheckPassed(gate: ProductionPilotGateReport, name: string) {
+  return Boolean(gate.checks.find((check) => check.name === name)?.passed);
 }
 
 function step(

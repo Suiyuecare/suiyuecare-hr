@@ -132,6 +132,35 @@ export default async function ProductionDatabasePage() {
       </section>
 
       <section className="grid">
+        <section className="panel span-12 production-database-launch-checklist" aria-label="正式資料庫開跑核對單">
+          <div className="section-heading">
+            <div>
+              <h2>開跑前核對單</h2>
+              <p className="muted">照這條順序收斂 production database，所有證據都只能是 redacted 或 hash-only。</p>
+            </div>
+            <span className={`badge ${report.status === "ready" ? "done" : "danger"}`}>
+              {report.launchChecklist.filter((item) => item.status === "done").length}/{report.launchChecklist.length}
+            </span>
+          </div>
+          <ol className="production-database-checklist-flow">
+            {report.launchChecklist.map((item, index) => (
+              <li className={`production-database-checklist-item ${item.status}`} key={item.id}>
+                <span className="production-database-checklist-index">{String(index + 1).padStart(2, "0")}</span>
+                <div>
+                  <span className="eyebrow">{checklistStatusLabel(item.status)}</span>
+                  <h3>{item.title}</h3>
+                  <p>{item.detail}</p>
+                  <small>證據：{item.evidence}</small>
+                  {item.command ? <code>{item.command}</code> : null}
+                </div>
+                <span className={`badge ${stepBadgeClass(item.status)}`}>
+                  {stepStatusLabel(item.status)}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
         <section
           className={`panel span-12 production-database-gate ${report.status === "ready" ? "ready" : "danger"}`}
           id="production-database-diagnosis"
@@ -516,6 +545,12 @@ function databasePostureLabel(posture: ProductionDatabaseEnvDraftReport["databas
     not_checked: "未檢查",
   };
   return labels[posture];
+}
+
+function checklistStatusLabel(status: ProductionDatabaseRemediationStep["status"]) {
+  if (status === "done") return "已完成";
+  if (status === "blocked") return "目前阻擋";
+  return "下一步";
 }
 
 function formatDateTime(value: string) {
