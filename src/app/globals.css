@@ -5990,6 +5990,78 @@ legend {
   line-height: 1.16;
 }
 
+.law-source-owner-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.law-source-owner-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 210px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.law-source-owner-card.ready {
+  border-color: #bbf7d0;
+  background: #f8fffb;
+}
+
+.law-source-owner-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.law-source-owner-card.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.law-source-owner-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.law-source-owner-card-top span:first-child,
+.law-source-owner-card small,
+.law-source-owner-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.42;
+}
+
+.law-source-owner-card-top span:first-child {
+  font-weight: 1000;
+}
+
+.law-source-owner-card strong {
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 1000;
+  line-height: 1.16;
+}
+
+.law-source-owner-card p {
+  color: var(--foreground);
+}
+
+.law-source-owner-card .button {
+  align-self: end;
+  width: 100%;
+  margin-top: auto;
+}
+
 .law-source-review-form {
   display: grid;
   gap: 12px;
@@ -12552,6 +12624,7 @@ legend {
   .law-rule-launch-gate,
   .law-rule-governance-grid,
   .law-rule-impact-grid,
+  .law-source-owner-board,
   .law-source-review-summary,
   .hr-monthly-hero,
   .hr-monthly-signal-board,

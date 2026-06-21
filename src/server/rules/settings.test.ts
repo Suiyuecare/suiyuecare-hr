@@ -156,6 +156,15 @@ describe("rule settings", () => {
       status: "fresh",
       coverageTitles: expect.arrayContaining(["加班費與休息日出勤"]),
     });
+    expect(initial.sourceReview.items.find((source) => source.id === "tw-lsa-article-32")).toMatchObject({
+      primaryOwner: "HR",
+      owners: ["HR", "Payroll"],
+    });
+    expect(initial.sourceReview.ownerQueues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ owner: "HR", status: "ready", dueCount: 0, missingCount: 0 }),
+      expect.objectContaining({ owner: "Payroll", status: "ready", dueCount: 0, missingCount: 0 }),
+      expect.objectContaining({ owner: "Owner", status: "ready", dueCount: 0, missingCount: 0 }),
+    ]));
     expect(initial.complianceCoverageSummary).toMatchObject({
       status: "ready",
       coveredCount: 11,
@@ -311,6 +320,14 @@ describe("rule settings", () => {
       missingCount: 18,
       dueCount: 18,
     });
+    expect(center.sourceReview.ownerQueues.find((queue) => queue.owner === "HR")).toMatchObject({
+      status: "blocked",
+      missingCount: expect.any(Number),
+    });
+    expect(center.sourceReview.ownerQueues.find((queue) => queue.owner === "Payroll")).toMatchObject({
+      status: "blocked",
+      missingCount: expect.any(Number),
+    });
     expect(JSON.stringify(center.impactTasks)).not.toMatch(/postgresql:\/\/|sb_publishable_|password|銀行帳號|身分證字號/);
   });
 
@@ -332,6 +349,7 @@ describe("rule settings", () => {
 
     expect(stale.sourceReview.status).toBe("needs_review");
     expect(stale.sourceReview.staleCount).toBe(stale.config.sources.length);
+    expect(stale.sourceReview.ownerQueues.every((queue) => queue.status === "needs_review")).toBe(true);
 
     const reviewed = await reviewTaiwanLaborLegalSources(ownerSession, {
       reviewedBy: "Legal reviewer",
@@ -363,6 +381,10 @@ describe("rule settings", () => {
     expect(center.sourceReview.items.find((source) => source.id === "tw-lsa-article-32")).toMatchObject({
       checkedAt: "2025-12-01",
       status: "stale",
+    });
+    expect(center.sourceReview.ownerQueues.find((queue) => queue.owner === "Payroll")).toMatchObject({
+      status: "needs_review",
+      staleCount: expect.any(Number),
     });
     expect(auditPayload).not.toContain("raw private legal note should not be stored");
   });

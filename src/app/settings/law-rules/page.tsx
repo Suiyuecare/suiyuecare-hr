@@ -267,13 +267,34 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
               <small>來源檢查週期：{sourceReview.maxAgeDays} 天。</small>
             </div>
           </div>
+          <div className="law-source-owner-board" aria-label="來源責任佇列">
+            {sourceReview.ownerQueues.map((queue) => (
+              <article className={`law-source-owner-card ${toneFromReadiness(queue.status)}`} key={queue.owner}>
+                <div className="law-source-owner-card-top">
+                  <span>{queue.label}</span>
+                  <span className={`badge ${queue.status === "ready" ? "done" : queue.status === "blocked" ? "danger" : "warning"}`}>
+                    {queue.dueCount ? `${queue.dueCount} 待處理` : "無缺口"}
+                  </span>
+                </div>
+                <strong>{queue.freshCount}/{queue.totalCount} 來源有效</strong>
+                <small>
+                  {queue.missingCount} 缺來源、{queue.invalidCount} 日期錯誤、{queue.staleCount} 過期。
+                </small>
+                <small>{queue.coverageTitles.length ? `影響：${queue.coverageTitles.slice(0, 3).join("、")}` : "目前沒有對應法遵領域。"}</small>
+                <p>{queue.nextAction}</p>
+                <Link className="button" href={queue.actionHref}>
+                  {queue.actionLabel}
+                </Link>
+              </article>
+            ))}
+          </div>
           <ul className="task-list">
             {sourceReview.items.map((source) => {
               return (
                 <li className="task" key={source.id}>
                   <span>
                     <strong>{source.title}</strong>
-                    <small>{source.id} · {source.url ?? "尚未設定 URL"}</small>
+                    <small>{source.primaryOwner} · {source.id} · {source.url ?? "尚未設定 URL"}</small>
                     <small>
                       影響：{source.coverageTitles.length ? source.coverageTitles.join("、") : "尚未被覆蓋矩陣使用"}。
                       {source.ageDays != null ? `已複核 ${source.ageDays} 天。` : ""}

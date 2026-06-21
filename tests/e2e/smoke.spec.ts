@@ -271,6 +271,10 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByLabel("台灣法遵覆蓋矩陣").getByRole("heading", { name: "最低工資" })).toBeVisible();
   await expect(page.getByLabel("台灣法遵覆蓋矩陣").getByRole("heading", { name: "勞健保、勞退與補充保費" })).toBeVisible();
   await expect(page.getByLabel("來源複核摘要")).toBeVisible();
+  await expect(page.getByLabel("來源責任佇列").getByText("HR", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("來源責任佇列").getByText("薪資", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("來源責任佇列").getByText("Owner", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("來源責任佇列").getByText("來源有效").first()).toBeVisible();
   await expect(page.getByRole("form", { name: "來源複核工作台" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "來源更新精靈" })).toBeVisible();
   await expect(page.getByText("最低月薪")).toBeVisible();

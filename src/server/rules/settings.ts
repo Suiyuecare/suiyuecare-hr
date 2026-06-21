@@ -63,6 +63,8 @@ export type TaiwanLaborRuleCenterReadiness = {
   nextActions: string[];
 };
 
+export type TaiwanLaborSourceOwner = "HR" | "Payroll" | "Owner";
+
 export type TaiwanLaborSourceReviewStatus = "fresh" | "stale" | "invalid" | "missing";
 
 export type TaiwanLaborSourceReviewItem = {
@@ -72,8 +74,27 @@ export type TaiwanLaborSourceReviewItem = {
   checkedAt: string | null;
   ageDays: number | null;
   status: TaiwanLaborSourceReviewStatus;
+  primaryOwner: TaiwanLaborSourceOwner;
+  owners: TaiwanLaborSourceOwner[];
   coverageTitles: string[];
   nextAction: string;
+};
+
+export type TaiwanLaborSourceReviewOwnerQueue = {
+  owner: TaiwanLaborSourceOwner;
+  label: string;
+  status: TaiwanLaborRuleCenterReadiness["status"];
+  totalCount: number;
+  freshCount: number;
+  staleCount: number;
+  invalidCount: number;
+  missingCount: number;
+  dueCount: number;
+  sourceIds: string[];
+  coverageTitles: string[];
+  nextAction: string;
+  actionLabel: string;
+  actionHref: string;
 };
 
 export type TaiwanLaborSourceReviewSummary = {
@@ -88,6 +109,7 @@ export type TaiwanLaborSourceReviewSummary = {
   maxAgeDays: number;
   checkedAt: string;
   items: TaiwanLaborSourceReviewItem[];
+  ownerQueues: TaiwanLaborSourceReviewOwnerQueue[];
 };
 
 export type TaiwanLaborComplianceCoverageStatus = "covered" | "needs_review" | "blocked";
@@ -316,12 +338,16 @@ export function buildTaiwanLaborSourceReview(
 ): TaiwanLaborSourceReviewSummary {
   const checkedAtDate = new Date(`${sourceFreshness.checkedAt}T00:00:00.000Z`);
   const coverageBySourceId = new Map<string, string[]>();
+  const ownersBySourceId = new Map<string, Set<TaiwanLaborSourceOwner>>();
   const missingSourceIds = new Set<string>();
   for (const item of coverage) {
     for (const sourceId of item.sourceIds) {
       const titles = coverageBySourceId.get(sourceId) ?? [];
       titles.push(item.title);
       coverageBySourceId.set(sourceId, titles);
+      const owners = ownersBySourceId.get(sourceId) ?? new Set<TaiwanLaborSourceOwner>();
+      owners.add(item.owner);
+      ownersBySourceId.set(sourceId, owners);
     }
     for (const sourceId of item.missingSourceIds) {
       missingSourceIds.add(sourceId);
@@ -336,6 +362,7 @@ export function buildTaiwanLaborSourceReview(
       ? Math.floor((checkedAtDate.getTime() - sourceDate.getTime()) / 86_400_000)
       : null;
     const status: TaiwanLaborSourceReviewStatus = invalid ? "invalid" : stale ? "stale" : "fresh";
+    const owners = sourceReviewOwnersForSource(source.id, ownersBySourceId);
     return {
       id: source.id,
       title: source.title,
@@ -343,6 +370,8 @@ export function buildTaiwanLaborSourceReview(
       checkedAt: source.checkedAt,
       ageDays,
       status,
+      primaryOwner: owners[0],
+      owners,
       coverageTitles: coverageBySourceId.get(source.id) ?? [],
       nextAction: status === "fresh"
         ? "下次例行複核前保持現有證據。"
@@ -360,6 +389,8 @@ export function buildTaiwanLaborSourceReview(
       checkedAt: null,
       ageDays: null,
       status: "missing",
+      primaryOwner: sourceReviewOwnersForSource(sourceId, ownersBySourceId)[0],
+      owners: sourceReviewOwnersForSource(sourceId, ownersBySourceId),
       coverageTitles: coverageBySourceId.get(sourceId) ?? [],
       nextAction: "補上官方來源 URL、標題與複核日期，否則台灣法遵 Gate 會阻擋上線。",
     });
@@ -389,7 +420,71 @@ export function buildTaiwanLaborSourceReview(
     maxAgeDays: sourceFreshness.maxAgeDays,
     checkedAt: sourceFreshness.checkedAt,
     items,
+    ownerQueues: buildTaiwanLaborSourceReviewOwnerQueues(items),
   };
+}
+
+const sourceReviewOwnerOrder: TaiwanLaborSourceOwner[] = ["HR", "Payroll", "Owner"];
+
+function sourceReviewOwnersForSource(
+  sourceId: string,
+  ownersBySourceId: Map<string, Set<TaiwanLaborSourceOwner>>,
+): TaiwanLaborSourceOwner[] {
+  const owners = ownersBySourceId.get(sourceId);
+  if (!owners || owners.size === 0) return ["HR"];
+  return sourceReviewOwnerOrder.filter((owner) => owners.has(owner));
+}
+
+function buildTaiwanLaborSourceReviewOwnerQueues(
+  items: TaiwanLaborSourceReviewItem[],
+): TaiwanLaborSourceReviewOwnerQueue[] {
+  return sourceReviewOwnerOrder.map((owner) => {
+    const ownerItems = items.filter((item) => item.owners.includes(owner));
+    const freshCount = ownerItems.filter((item) => item.status === "fresh").length;
+    const staleCount = ownerItems.filter((item) => item.status === "stale").length;
+    const invalidCount = ownerItems.filter((item) => item.status === "invalid").length;
+    const missingCount = ownerItems.filter((item) => item.status === "missing").length;
+    const dueCount = staleCount + invalidCount + missingCount;
+    const status: TaiwanLaborRuleCenterReadiness["status"] =
+      missingCount || invalidCount ? "blocked" : staleCount ? "needs_review" : "ready";
+
+    return {
+      owner,
+      label: sourceReviewOwnerLabel(owner),
+      status,
+      totalCount: ownerItems.length,
+      freshCount,
+      staleCount,
+      invalidCount,
+      missingCount,
+      dueCount,
+      sourceIds: ownerItems.map((item) => item.id),
+      coverageTitles: [...new Set(ownerItems.flatMap((item) => item.coverageTitles))],
+      nextAction: sourceReviewOwnerNextAction(owner, { staleCount, invalidCount, missingCount, dueCount }),
+      actionLabel: dueCount ? "處理來源" : "保持追蹤",
+      actionHref: dueCount ? "#source-review-workspace" : "#source-review",
+    };
+  });
+}
+
+function sourceReviewOwnerLabel(owner: TaiwanLaborSourceOwner) {
+  if (owner === "Payroll") return "薪資";
+  if (owner === "Owner") return "Owner";
+  return "HR";
+}
+
+function sourceReviewOwnerNextAction(
+  owner: TaiwanLaborSourceOwner,
+  counts: Pick<TaiwanLaborSourceReviewOwnerQueue, "staleCount" | "invalidCount" | "missingCount" | "dueCount">,
+) {
+  const label = sourceReviewOwnerLabel(owner);
+  if (counts.missingCount || counts.invalidCount) {
+    return `${label} 先補齊 ${counts.missingCount} 個缺來源與 ${counts.invalidCount} 個日期錯誤，再讓 Gate 重新檢查。`;
+  }
+  if (counts.staleCount) {
+    return `${label} 本週複核 ${counts.staleCount} 個過期來源，確認官方公告或條文沒有影響現行版本。`;
+  }
+  return `${label} 目前沒有來源缺口；維持例行複核與 hash-only 證據。`;
 }
 
 export function buildTaiwanLaborLaunchGate(input: {
