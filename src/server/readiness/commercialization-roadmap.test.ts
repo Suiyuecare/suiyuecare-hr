@@ -95,7 +95,7 @@ describe("sale readiness commercialization roadmap", () => {
     });
 
     const complianceTask = roadmap.foundationTasks.find((task) => task.id === "taiwan_compliance_control_plane");
-    expect(roadmap.foundationTasks).toHaveLength(7);
+    expect(roadmap.foundationTasks).toHaveLength(8);
     expect(complianceTask).toMatchObject({
       status: "blocked",
       owner: "HR",
@@ -113,6 +113,34 @@ describe("sale readiness commercialization roadmap", () => {
     expect(JSON.stringify(roadmap.blockerRadar)).not.toMatch(/postgresql:\/\/|sb_publishable_|password|銀行帳號|身分證字號/);
   });
 
+  it("treats operational maintenance as a sale-readiness blocker when cleanup automation is open", () => {
+    const roadmap = buildSaleReadinessRoadmap({
+      launchReport: launchReport({
+        operational_maintenance: {
+          status: "action_required",
+          detail: "3 expired AI result(s) need cleanup.",
+          nextStep: "Run maintenance and verify hash-only audit evidence.",
+          actionLabel: "Open maintenance board",
+          actionHref: "/settings/readiness#operational-maintenance",
+        },
+      }),
+      betaPilot: betaPilotReport(),
+      trialWorkspace: trialWorkspace(),
+    });
+
+    const maintenanceTask = roadmap.foundationTasks.find((task) => task.id === "operational_maintenance_automation");
+    expect(maintenanceTask).toMatchObject({
+      status: "action_required",
+      owner: "HR + Engineering",
+      actionHref: "/settings/readiness#operational-maintenance",
+    });
+    expect(maintenanceTask?.acceptanceEvidence).toContain("AI cleanup aggregate counts");
+    expect(roadmap.blockerRadar.find((item) => item.id === "operational_maintenance_automation")).toMatchObject({
+      severity: "needs_work",
+      title: "正式維護、報表封存與 AI 暫存清理",
+    });
+  });
+
   it("requires launch, pilot, and trial readiness before marking the system sale-ready", () => {
     const roadmap = buildSaleReadinessRoadmap({
       launchReport: launchReport(),
@@ -123,7 +151,7 @@ describe("sale readiness commercialization roadmap", () => {
     expect(roadmap.readyForSale).toBe(true);
     expect(roadmap.stages.every((stage) => stage.status === "ready")).toBe(true);
     expect(roadmap.foundationTasks.every((task) => task.status === "ready")).toBe(true);
-    expect(roadmap.blockerRadar).toHaveLength(7);
+    expect(roadmap.blockerRadar).toHaveLength(8);
     expect(roadmap.blockerRadar.every((item) => item.severity === "cleared")).toBe(true);
     expect(JSON.stringify(roadmap)).not.toMatch(/postgresql:\/\/|sb_publishable_|password|銀行帳號|身分證字號/);
   });
@@ -140,6 +168,7 @@ function launchReport(overrides: Record<string, Partial<LaunchReadinessItem>> = 
     "sso_identities",
     "file_storage",
     "operational_resilience",
+    "operational_maintenance",
     "kpis",
     "notifications",
     "law_rules",

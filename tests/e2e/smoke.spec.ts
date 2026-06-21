@@ -387,6 +387,7 @@ test("Owner 可以檢查試用營運與上線 Gate", async ({ page }) => {
   await expect(maintenanceBoard.getByRole("heading", { name: "報表維護與封存清理" })).toBeVisible();
   await expect(maintenanceBoard.getByRole("heading", { name: "AI Copilot 暫存結果清理" })).toBeVisible();
   await expect(maintenanceBoard.getByRole("button", { name: "執行維護" })).toBeVisible();
+  await expect(page.getByText("Operational maintenance automation", { exact: true })).toBeVisible();
   await expect(page.getByText("Production access cutover", { exact: true })).toBeVisible();
 
   await gotoAppPage(page, "/settings/pilot-operations");

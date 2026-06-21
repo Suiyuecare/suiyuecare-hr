@@ -17,6 +17,10 @@ import type { NotificationChannelSettings } from "@/server/notifications/service
 import { getNotificationSettings } from "@/server/notifications/service";
 import { getPayrollPaymentSecurityReadiness } from "@/server/payroll/payment-security";
 import { getPrivacyWorkspace, type PrivacyReadiness } from "@/server/privacy/governance";
+import {
+  getOperationalMaintenanceReport,
+  type OperationalMaintenanceReport,
+} from "@/server/readiness/maintenance";
 import { getOperationalResilienceReadiness } from "@/server/readiness/operational-resilience";
 import { evaluateTaiwanRuleEngineReadiness, type RuleEngineReadiness } from "@/server/rules/interfaces";
 import type { TaiwanLaborStandardsConfig } from "@/server/rules/taiwan-labor-standards";
@@ -110,6 +114,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     offboardingWorkspace,
     workRulesWorkspace,
     laborRosterWorkspace,
+    operationalMaintenance,
     kpis,
   ] = await Promise.all([
     getCompanyOverview(),
@@ -129,6 +134,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     getOffboardingWorkspace(session),
     getWorkRulesWorkspace(session),
     getLaborRosterWorkspace(session),
+    getOperationalMaintenanceReport(session),
     getHrOneKpis(),
   ]);
 
@@ -196,6 +202,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
         .filter((profile) => profile.status !== "complete" || profile.verificationStatus !== "verified")
         .map((profile) => profile.employeeName),
     },
+    operationalMaintenance,
     kpis,
   });
 }
@@ -260,6 +267,10 @@ export function buildLaunchReadinessReport(input: {
     detail: string;
     missing: string[];
   };
+  operationalMaintenance?: Pick<
+    OperationalMaintenanceReport,
+    "status" | "readyForAutomatedMaintenance" | "summary" | "routePath" | "signals"
+  >;
   kpis: HrOneKpi[];
 }): LaunchReadinessReport {
   const kpiSummary = summarizeHrOneKpis(input.kpis);
@@ -348,6 +359,8 @@ export function buildLaunchReadinessReport(input: {
     detail: "Labor roster readiness not evaluated in this test context.",
     missing: [],
   };
+  const operationalMaintenance = input.operationalMaintenance ?? defaultOperationalMaintenanceSummary();
+  const openMaintenanceSignal = operationalMaintenance.signals.find((signal) => signal.status !== "ready") ?? null;
   const items: LaunchReadinessItem[] = [
     {
       id: "database",
@@ -380,6 +393,22 @@ export function buildLaunchReadinessReport(input: {
       nextStep: "Configure backups, encrypted retention, and a recent passed restore drill before production launch.",
       actionLabel: "Configure resilience",
       actionHref: "/settings/operational-resilience",
+    },
+    {
+      id: "operational_maintenance",
+      area: "Operations",
+      title: "Operational maintenance automation",
+      status: operationalMaintenance.status,
+      detail: operationalMaintenance.summary,
+      nextStep: operationalMaintenance.readyForAutomatedMaintenance
+        ? "Keep scheduled maintenance, report cleanup, AI retention cleanup, and hash-only audit evidence healthy before each pilot or customer launch."
+        : openMaintenanceSignal?.nextStep ?? "Clear operational maintenance gaps before production pilot or sale.",
+      actionLabel: operationalMaintenance.readyForAutomatedMaintenance
+        ? "Open maintenance board"
+        : openMaintenanceSignal?.actionLabel ?? "Open maintenance board",
+      actionHref: operationalMaintenance.readyForAutomatedMaintenance
+        ? "/settings/readiness#operational-maintenance"
+        : openMaintenanceSignal?.actionHref ?? "/settings/readiness#operational-maintenance",
     },
     {
       id: "subscription",
@@ -648,8 +677,8 @@ function buildSetupSteps(items: LaunchReadinessItem[]): LaunchSetupStep[] {
     setupStep({
       step: 1,
       title: "Create durable tenant foundation",
-      itemIds: ["database", "tenant_seed", "subscription", "operational_resilience"],
-      summary: "Migrate, seed or import, confirm commercial terms, configure backup/restore evidence, then run production tenant verification before onboarding employees.",
+      itemIds: ["database", "tenant_seed", "subscription", "operational_resilience", "operational_maintenance"],
+      summary: "Migrate, seed or import, confirm commercial terms, configure backup/restore and scheduled maintenance evidence, then run production tenant verification before onboarding employees.",
       actionLabel: "Start database setup",
       actionHref: "/settings/readiness#database-setup",
       items,
@@ -691,6 +720,19 @@ function buildSetupSteps(items: LaunchReadinessItem[]): LaunchSetupStep[] {
       items,
     }),
   ];
+}
+
+function defaultOperationalMaintenanceSummary(): Pick<
+  OperationalMaintenanceReport,
+  "status" | "readyForAutomatedMaintenance" | "summary" | "routePath" | "signals"
+> {
+  return {
+    status: "ready",
+    readyForAutomatedMaintenance: true,
+    summary: "Operational maintenance readiness not evaluated in this test context.",
+    routePath: "/api/reports/maintenance/run",
+    signals: [],
+  };
 }
 
 function setupStep(input: {

@@ -97,10 +97,10 @@ export function buildSaleReadinessRoadmap(input: RoadmapInput): SaleReadinessRoa
           ? "production DB 未連通"
           : "仍在 demo / local 模式",
       summary:
-        "先讓 Vercel、Supabase、PostgreSQL persistence、SSO、正式檔案儲存與備份還原一起過 Gate，避免拿 demo 狀態邀請客戶。",
+        "先讓 Vercel、Supabase、PostgreSQL persistence、SSO、正式檔案儲存、備份還原與維護排程一起過 Gate，避免拿 demo 狀態邀請客戶。",
       launchItems,
       pilotItems,
-      launchIds: ["database", "tenant_seed", "security", "sso_identities", "file_storage", "operational_resilience"],
+      launchIds: ["database", "tenant_seed", "security", "sso_identities", "file_storage", "operational_resilience", "operational_maintenance"],
       extraStatus: input.trialWorkspace.persistence.readyForLiveTrial ? "ready" : "blocked",
       extraNextStep: input.trialWorkspace.persistence.readyForLiveTrial
         ? null
@@ -259,6 +259,12 @@ function buildBlockerRadar(tasks: SaleReadinessFoundationTask[]): SaleReadinessB
       saleImpact: "未通過時銷售只能靠口頭承諾，無法交付訂閱、KPI、資安、audit、試用與 Day 14 結案證據。",
       evidenceNeeded: "subscription readiness、pilot evidence package、invitation release、Day 14 completion review、privacy scan hashes。",
     },
+    {
+      sourceTaskId: "operational_maintenance_automation",
+      title: "正式維護、報表封存與 AI 暫存清理",
+      saleImpact: "未通過時正式試用期間的報表佇列、到期封存、AI 暫存結果與維護 audit 無法被 Owner/HR 追蹤。",
+      evidenceNeeded: "Cron secret/scope、report queue/archive cleanup counts、AI temporary result cleanup、hash-only maintenance audit。",
+    },
   ];
 
   return specs
@@ -297,11 +303,11 @@ function buildFoundationTasks(
       priority: 1,
       title: "正式資料庫與租戶持久化",
       owner: "Engineering",
-      outcome: "正式站不再依賴 demo fallback，Vercel runtime 能連上 Supabase PostgreSQL，並可驗證正式 customer tenant。",
-      acceptanceEvidence: "/api/health/ready = ok、production database gate ready、db:verify:production report、redacted env handoff。",
+      outcome: "正式站不再依賴 demo fallback，Vercel runtime 能連上 Supabase PostgreSQL，並可驗證正式 customer tenant 與維護排程 scope。",
+      acceptanceEvidence: "/api/health/ready = ok、production database gate ready、db:verify:production report、redacted env handoff、maintenance scope ready。",
       launchItems: sources.launchItems,
       pilotItems: sources.pilotItems,
-      launchIds: ["database", "tenant_seed", "operational_resilience"],
+      launchIds: ["database", "tenant_seed", "operational_resilience", "operational_maintenance"],
       extraStatus: input.trialWorkspace.persistence.readyForLiveTrial ? "ready" : "blocked",
       extraNextStep: input.trialWorkspace.persistence.readyForLiveTrial
         ? null
@@ -411,6 +417,21 @@ function buildFoundationTasks(
       fallbackAction: {
         label: "整理試用證據包",
         href: "/settings/pilot-evidence",
+      },
+    }),
+    foundationTask({
+      id: "operational_maintenance_automation",
+      priority: 8,
+      title: "正式維護與清理自動化",
+      owner: "HR + Engineering",
+      outcome: "Owner/HR 能在 readiness 看到 Cron scope、報表佇列/封存、AI 暫存清理與 hash-only 維護 audit，而不是靠工程師查 log。",
+      acceptanceEvidence: "maintenance readiness ready、Cron tenant/company scope、report cleanup aggregate counts、AI cleanup aggregate counts、hash-only audit evidence。",
+      launchItems: sources.launchItems,
+      pilotItems: sources.pilotItems,
+      launchIds: ["operational_maintenance"],
+      fallbackAction: {
+        label: "查看維護看板",
+        href: "/settings/readiness#operational-maintenance",
       },
     }),
   ];

@@ -191,7 +191,7 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
         </div>
       </section>
 
-      <section className="panel span-12 sale-foundation-board" aria-label="正式營運維護看板">
+      <section className="panel span-12 sale-foundation-board" id="operational-maintenance" aria-label="正式營運維護看板">
         <div className="section-heading">
           <div>
             <h2>正式營運維護看板</h2>

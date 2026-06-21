@@ -882,6 +882,62 @@ describe("launch readiness", () => {
     });
   });
 
+  it("blocks launch when operational maintenance automation is not ready", () => {
+    const report = buildLaunchReadinessReport({
+      databaseConfigured: true,
+      employeeCount: 5,
+      auditCount: 8,
+      activeRuleCount: 3,
+      laborConfig: defaultTaiwanLaborStandardsConfig,
+      securitySettings: secureSettings,
+      fileStorageSettings: secureStorage,
+      notificationSettings,
+      privilegedSsoIdentityCoverage: {
+        total: 3,
+        linked: 3,
+      },
+      supportAccessGovernance: {
+        activeApprovedCount: 0,
+        activeUnapprovedCount: 0,
+        expiredStillApprovedCount: 0,
+      },
+      payrollPaymentSecurity: readyPaymentSecurity,
+      operationalMaintenance: {
+        status: "action_required",
+        readyForAutomatedMaintenance: false,
+        summary: "1 個維護項目需處理；清完後再把證據納入試用與販售 Gate。",
+        routePath: "/api/reports/maintenance/run",
+        signals: [
+          {
+            id: "ai_result_retention",
+            title: "AI Copilot 暫存結果清理",
+            status: "action_required",
+            metric: "3 待清 / 5 暫存",
+            detail: "Copilot UI 結果只保留 24 小時。",
+            nextStep: "執行維護 route 清掉過期 Copilot 結果，確認 audit 不含 AI 原文。",
+            actionLabel: "開啟 AI Copilot",
+            actionHref: "/hr/copilot",
+          },
+        ],
+      },
+      calendarReadiness: readyCalendar,
+      kpis: passingKpis,
+    });
+
+    expect(report.readyForSale).toBe(false);
+    expect(report.items.find((item) => item.id === "operational_maintenance")).toMatchObject({
+      status: "action_required",
+      title: "Operational maintenance automation",
+      actionHref: "/hr/copilot",
+      nextStep: "執行維護 route 清掉過期 Copilot 結果，確認 audit 不含 AI 原文。",
+    });
+    expect(report.setupSteps[0]).toMatchObject({
+      status: "action_required",
+      actionHref: "/hr/copilot",
+    });
+    expect(JSON.stringify(report)).not.toMatch(/postgresql:\/\/|身分證字號|銀行帳號/);
+  });
+
   it("marks a fully configured workspace ready for sale", () => {
     const report = buildLaunchReadinessReport({
       databaseConfigured: true,
