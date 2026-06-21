@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { filterConsoleModules, getConsoleModuleDetail, getConsoleModules, hasConsoleModuleDefinition } from "./modules";
+import {
+  filterConsoleModules,
+  getConsoleModuleDetail,
+  getConsoleModules,
+  getConsoleReadinessRadar,
+  hasConsoleModuleDefinition,
+} from "./modules";
 
 describe("console modules", () => {
   it("keeps employee role out of management console modules", () => {
@@ -103,5 +109,34 @@ describe("console modules", () => {
     expect(managerPayrollDetail).toBeNull();
     expect(attendanceDetail?.module.title).toBe("出勤管理");
     expect(attendanceDetail?.setupLinks.some((link) => link.label === "工時合規")).toBe(true);
+  });
+
+  it("builds a role-filtered sale-ready radar without leaking restricted payroll modules", () => {
+    const hrRadar = getConsoleReadinessRadar("hr_admin");
+    const managerRadar = getConsoleReadinessRadar("manager");
+    const employeeRadar = getConsoleReadinessRadar("employee");
+
+    expect(hrRadar.totalModules).toBeGreaterThan(0);
+    expect(hrRadar.blockerModules).toBeGreaterThan(0);
+    expect(hrRadar.blockerSignals).toBeGreaterThan(0);
+    expect(hrRadar.nextAction?.tone).toBe("danger");
+    expect(hrRadar.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          moduleId: "company",
+          title: "公司管理",
+          topRisks: expect.arrayContaining(["檢查正式環境資料庫 Gate"]),
+        }),
+        expect.objectContaining({
+          moduleId: "payroll",
+          title: "薪資管理",
+        }),
+      ]),
+    );
+
+    expect(managerRadar.items.some((item) => item.moduleId === "payroll")).toBe(false);
+    expect(managerRadar.items.some((item) => item.moduleId === "attendance")).toBe(true);
+    expect(employeeRadar.totalModules).toBe(0);
+    expect(employeeRadar.nextAction).toBeNull();
   });
 });

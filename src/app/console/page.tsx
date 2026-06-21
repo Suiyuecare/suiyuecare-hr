@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { hasPermission } from "@/server/auth/rbac";
 import { getDemoSession } from "@/server/auth/session";
-import { filterConsoleModules, getConsoleModules } from "@/server/console/modules";
+import {
+  filterConsoleModules,
+  getConsoleModules,
+  getConsoleReadinessRadar,
+  type ConsoleReadinessRadar,
+  type ConsoleReadinessRadarItem,
+} from "@/server/console/modules";
 import {
   getPilotOperationsReport,
   type PilotOperationsPhase,
@@ -18,6 +24,7 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
   const session = await getDemoSession();
   const allModules = getConsoleModules(session.role);
   const modules = filterConsoleModules(allModules, query);
+  const readinessRadar = getConsoleReadinessRadar(session.role);
   const pilotOperations = hasPermission(session.role, "settings:read")
     ? await getPilotOperationsReport(session)
     : null;
@@ -81,6 +88,8 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
       </section>
 
       {pilotOperations ? <PilotGateBoard report={pilotOperations} /> : null}
+
+      {!query.trim() && readinessRadar.items.length > 0 ? <ConsoleReadinessRadarBoard radar={readinessRadar} /> : null}
 
       <section className="pilot-operating-strip" aria-label="兩週試用核心流程">
         <Link href="/app">
@@ -228,6 +237,83 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
   );
 }
 
+function ConsoleReadinessRadarBoard({ radar }: { radar: ConsoleReadinessRadar }) {
+  const nextAction = radar.nextAction;
+
+  return (
+    <section className="console-readiness-radar" aria-label="上線缺口雷達">
+      <div className="console-readiness-radar-head">
+        <div>
+          <span className="muted">Sale-ready radar</span>
+          <h2>上線缺口雷達</h2>
+          <p>把各後台模組的 KPI、今日任務與法遵護欄彙整成一張工作圖，先補會阻擋試用、販售或月結的缺口。</p>
+        </div>
+        {nextAction ? (
+          <Link className={`console-readiness-next ${toneClass(nextAction.tone)}`} href={nextAction.nextAction.href}>
+            <span>下一個最重要動作</span>
+            <strong>{nextAction.title}</strong>
+            <small>{nextAction.nextAction.label}</small>
+          </Link>
+        ) : null}
+      </div>
+
+      <div className="console-readiness-metrics" aria-label="缺口摘要">
+        <RadarMetric label="可見模組" value={radar.totalModules} tone="ready" />
+        <RadarMetric label="阻擋模組" value={radar.blockerModules} tone={radar.blockerModules ? "danger" : "ready"} />
+        <RadarMetric label="待收斂模組" value={radar.warningModules} tone={radar.warningModules ? "warning" : "ready"} />
+        <RadarMetric label="阻擋訊號" value={radar.blockerSignals} tone={radar.blockerSignals ? "danger" : "ready"} />
+      </div>
+
+      <div className="console-readiness-radar-grid" aria-label="模組缺口清單">
+        {radar.items.map((item) => (
+          <RadarItemCard item={item} key={item.moduleId} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RadarMetric({ label, value, tone }: { label: string; value: number; tone: ConsoleReadinessRadarItem["tone"] }) {
+  return (
+    <div className={`console-readiness-metric ${toneClass(tone)}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function RadarItemCard({ item }: { item: ConsoleReadinessRadarItem }) {
+  return (
+    <article className={`console-readiness-card ${toneClass(item.tone)}`}>
+      <div className="console-readiness-card-head">
+        <div>
+          <span>{item.statusLabel}</span>
+          <strong className="console-readiness-card-title">{item.title}</strong>
+        </div>
+        <strong>{toneLabel(item.tone)}</strong>
+      </div>
+      <div className="console-readiness-counts" aria-label={`${item.title} 缺口數`}>
+        <span>阻擋 {item.blockerCount}</span>
+        <span>待收斂 {item.warningCount}</span>
+        <span>可用 {item.readyCount}</span>
+      </div>
+      <ul>
+        {item.topRisks.map((risk) => (
+          <li key={risk}>{risk}</li>
+        ))}
+      </ul>
+      <div className="console-readiness-actions">
+        <Link className="button" href={`/console/modules/${item.moduleId}`}>
+          模組總覽
+        </Link>
+        <Link className="button primary" href={item.nextAction.href}>
+          {item.nextAction.label}
+        </Link>
+      </div>
+    </article>
+  );
+}
+
 function PilotGateBoard({ report }: { report: PilotOperationsReport }) {
   const openPhases = report.phases.filter((phase) => phase.status !== "verified");
   const focusPhase = report.currentPhase ?? report.phases[report.phases.length - 1];
@@ -333,4 +419,16 @@ function phaseStatusClass(status: PilotOperationsPhase["status"]) {
   if (status === "blocked") return "blocked";
   if (status === "in_progress") return "in-progress";
   return "not-started";
+}
+
+function toneClass(tone: ConsoleReadinessRadarItem["tone"]) {
+  if (tone === "danger") return "danger";
+  if (tone === "warning") return "warning";
+  return "ready";
+}
+
+function toneLabel(tone: ConsoleReadinessRadarItem["tone"]) {
+  if (tone === "danger") return "阻擋";
+  if (tone === "warning") return "待收斂";
+  return "可用";
 }

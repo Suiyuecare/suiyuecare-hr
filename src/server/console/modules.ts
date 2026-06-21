@@ -57,6 +57,29 @@ export type ConsoleModuleDetail = {
   setupLinks: ConsoleLink[];
 };
 
+export type ConsoleReadinessRadarItem = {
+  moduleId: string;
+  title: string;
+  statusLabel: string;
+  tone: ConsoleTone;
+  blockerCount: number;
+  warningCount: number;
+  readyCount: number;
+  topRisks: string[];
+  nextAction: ConsoleLink;
+};
+
+export type ConsoleReadinessRadar = {
+  totalModules: number;
+  blockerModules: number;
+  warningModules: number;
+  readyModules: number;
+  blockerSignals: number;
+  warningSignals: number;
+  nextAction: ConsoleReadinessRadarItem | null;
+  items: ConsoleReadinessRadarItem[];
+};
+
 type ConsoleModuleProfile = Omit<ConsoleModuleDetail, "module" | "setupLinks"> & {
   setupLinks: ConsoleLink[];
 };
@@ -795,6 +818,73 @@ export function getConsoleModuleDetail(role: RoleKey, moduleId: string): Console
   };
 }
 
+export function getConsoleReadinessRadar(role: RoleKey): ConsoleReadinessRadar {
+  const items = getConsoleModules(role)
+    .map((consoleModule) => {
+      const detail = getConsoleModuleDetail(role, consoleModule.id);
+      if (!detail) return null;
+
+      const kpiSignals = detail.kpis.map((kpi) => ({
+        title: `${kpi.label}：${kpi.current}`,
+        tone: kpi.tone,
+      }));
+      const taskSignals = detail.tasks.map((task) => ({
+        title: task.title,
+        tone: task.tone,
+      }));
+      const guardrailSignals = detail.guardrails.map((guardrail) => ({
+        title: guardrail.title,
+        tone: guardrail.tone,
+      }));
+      const signals = [...taskSignals, ...guardrailSignals, ...kpiSignals];
+      const blockerCount = signals.filter((signal) => signal.tone === "danger").length;
+      const warningCount = signals.filter((signal) => signal.tone === "warning").length;
+      const readyCount = signals.filter((signal) => signal.tone === "ready").length;
+      const tone: ConsoleTone = blockerCount > 0 ? "danger" : warningCount > 0 ? "warning" : "ready";
+      const prioritizedTask =
+        detail.tasks.find((task) => task.tone === "danger") ??
+        detail.tasks.find((task) => task.tone === "warning") ??
+        detail.tasks[0];
+      const topRisks = signals
+        .filter((signal) => signal.tone === tone)
+        .slice(0, 3)
+        .map((signal) => signal.title);
+
+      return {
+        moduleId: consoleModule.id,
+        title: consoleModule.title,
+        statusLabel: consoleModule.statusLabel,
+        tone,
+        blockerCount,
+        warningCount,
+        readyCount,
+        topRisks,
+        nextAction: prioritizedTask
+          ? { label: prioritizedTask.status, href: prioritizedTask.href }
+          : consoleModule.primary,
+      } satisfies ConsoleReadinessRadarItem;
+    })
+    .filter((item): item is ConsoleReadinessRadarItem => item !== null)
+    .sort((left, right) => {
+      const toneDelta = toneRank(left.tone) - toneRank(right.tone);
+      if (toneDelta !== 0) return toneDelta;
+      const blockerDelta = right.blockerCount - left.blockerCount;
+      if (blockerDelta !== 0) return blockerDelta;
+      return right.warningCount - left.warningCount;
+    });
+
+  return {
+    totalModules: items.length,
+    blockerModules: items.filter((item) => item.tone === "danger").length,
+    warningModules: items.filter((item) => item.tone === "warning").length,
+    readyModules: items.filter((item) => item.tone === "ready").length,
+    blockerSignals: items.reduce((sum, item) => sum + item.blockerCount, 0),
+    warningSignals: items.reduce((sum, item) => sum + item.warningCount, 0),
+    nextAction: items[0] ?? null,
+    items,
+  };
+}
+
 export function hasConsoleModuleDefinition(moduleId: string) {
   return modules.some((module) => module.id === moduleId);
 }
@@ -825,6 +915,12 @@ export function filterConsoleModules(modules: ConsoleModule[], query: string) {
 
 function canSeeLink(role: RoleKey, link: ConsoleLink) {
   return !link.permission || hasPermission(role, link.permission);
+}
+
+function toneRank(tone: ConsoleTone) {
+  if (tone === "danger") return 0;
+  if (tone === "warning") return 1;
+  return 2;
 }
 
 function buildDefaultModuleProfile(module: ConsoleModule): ConsoleModuleProfile {
