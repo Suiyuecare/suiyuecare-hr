@@ -917,6 +917,57 @@ test("HR 可以用中文薪資法遵工作台調整扣繳與投保設定", async
   await expect(page.locator("body")).not.toContainText("12345678901234567");
 });
 
+test("HR 可以用中文特休年度給假工作台建立批次", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr/annual-leave-grants?asOfDate=2026-01-01");
+
+  await expect(page.getByRole("heading", { name: "特休年度給假工作台" })).toBeVisible();
+  await expect(page.getByLabel("特休年度給假工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("特休給假訊號板").getByText("員工預覽", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("特休給假作業卡").getByRole("heading", { name: "年資級距 Gate" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "三步年度給假批次" })).toBeVisible();
+
+  const grantForm = page.getByRole("form", { name: "特休年度給假批次" });
+  await grantForm.getByLabel("給假基準日").fill("2026-01-01");
+  await grantForm.getByRole("button", { name: "建立特休給假批次" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/annual-leave-grants\?asOfDate=2026-01-01$/);
+  await expect(page.getByLabel("今日先處理").getByText("批次已建立，追蹤到期")).toBeVisible();
+  await expect(page.getByText("張小安")).toBeVisible();
+  await expect(page.getByText("勞基法第 38 條").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "特休給假治理原則" })).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("baseSalary");
+  await expect(page.locator("body")).not.toContainText("accountNumber");
+  await expect(page.locator("body")).not.toContainText("nationalId");
+});
+
+test("HR 可以用中文特休到期提醒工作台發送提醒", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "hr_admin");
+  await page.goto("/hr/annual-leave-expiry?asOfDate=2026-10-15&warningDays=90");
+
+  await expect(page.getByRole("heading", { name: "特休到期提醒工作台" })).toBeVisible();
+  await expect(page.getByLabel("特休到期提醒工作台").getByText("今日先處理")).toBeVisible();
+  await expect(page.getByLabel("特休到期訊號板").getByText("提醒風險", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("特休到期作業卡").getByRole("heading", { name: "到期掃描" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "三步到期提醒批次" })).toBeVisible();
+
+  const expiryForm = page.getByRole("form", { name: "特休到期提醒批次" });
+  await expiryForm.getByLabel("掃描基準日").fill("2026-10-15");
+  await expiryForm.getByLabel("提醒天數").fill("90");
+  await expiryForm.getByRole("button", { name: "發送特休到期提醒" }).click();
+
+  await expect(page).toHaveURL(/\/hr\/annual-leave-expiry\?asOfDate=2026-10-15&warningDays=90$/);
+  await expect(page.getByText("張小安")).toBeVisible();
+  await expect(page.getByText("接近到期").first()).toBeVisible();
+  await expect(page.getByText("勞基法第 38 條").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "到期提醒治理原則" })).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("baseSalary");
+  await expect(page.locator("body")).not.toContainText("accountNumber");
+  await expect(page.locator("body")).not.toContainText("nationalId");
+});
+
 test("HR 可以用中文特休結清工作台準備未休工資草稿", async ({ page }) => {
   await page.goto("/app");
   await switchDemoRole(page, "hr_admin");

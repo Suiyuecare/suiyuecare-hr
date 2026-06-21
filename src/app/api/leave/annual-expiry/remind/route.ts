@@ -4,12 +4,17 @@ import { sendAnnualLeaveExpiryReminders } from "@/server/leave/annual-leave-expi
 
 export async function POST(request: Request) {
   const formData = await request.formData();
+  const asOfDate = parseDate(formData.get("asOfDate")) ?? new Date();
+  const warningDays = parseInteger(formData.get("warningDays")) ?? 60;
   try {
     await sendAnnualLeaveExpiryReminders(await requireTenantSession({ permission: "employee:write" }), {
-      asOfDate: parseDate(formData.get("asOfDate")) ?? new Date(),
-      warningDays: parseInteger(formData.get("warningDays")) ?? 60,
+      asOfDate,
+      warningDays,
     });
-    return NextResponse.redirect(new URL("/hr/annual-leave-expiry", request.url), 303);
+    return NextResponse.redirect(
+      new URL(`/hr/annual-leave-expiry?asOfDate=${formatDate(asOfDate)}&warningDays=${warningDays}`, request.url),
+      303,
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to send annual leave expiry reminders.";
     return NextResponse.redirect(
@@ -29,4 +34,8 @@ function parseInteger(value: FormDataEntryValue | null) {
   if (typeof value !== "string" || !value.trim()) return null;
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function formatDate(date: Date) {
+  return date.toISOString().slice(0, 10);
 }
