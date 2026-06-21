@@ -1,6 +1,7 @@
 import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { writeAuditLog } from "@/server/audit/audit";
+import { stableHash } from "@/server/audit/redaction";
 import { getDb } from "@/server/db/client";
 import type { Prisma } from "@prisma/client";
 import {
@@ -60,6 +61,33 @@ export type TaiwanLaborRuleCenterReadiness = {
   blockers: string[];
   warnings: string[];
   nextActions: string[];
+};
+
+export type TaiwanLaborSourceReviewStatus = "fresh" | "stale" | "invalid" | "missing";
+
+export type TaiwanLaborSourceReviewItem = {
+  id: string;
+  title: string;
+  url: string | null;
+  checkedAt: string | null;
+  ageDays: number | null;
+  status: TaiwanLaborSourceReviewStatus;
+  coverageTitles: string[];
+  nextAction: string;
+};
+
+export type TaiwanLaborSourceReviewSummary = {
+  status: TaiwanLaborRuleCenterReadiness["status"];
+  totalCount: number;
+  freshCount: number;
+  staleCount: number;
+  invalidCount: number;
+  missingCount: number;
+  dueCount: number;
+  nextReviewDueAt: string | null;
+  maxAgeDays: number;
+  checkedAt: string;
+  items: TaiwanLaborSourceReviewItem[];
 };
 
 export type TaiwanLaborComplianceCoverageStatus = "covered" | "needs_review" | "blocked";
@@ -139,6 +167,7 @@ export type TaiwanLaborRuleCenter = {
   config: TaiwanLaborStandardsConfig;
   validation: ReturnType<typeof validateTaiwanLaborStandardsRuleSet>;
   sourceFreshness: ReturnType<typeof evaluateLegalSourceFreshness>;
+  sourceReview: TaiwanLaborSourceReviewSummary;
   complianceCoverage: TaiwanLaborComplianceCoverageItem[];
   complianceCoverageSummary: TaiwanLaborComplianceCoverageSummary;
   impactTasks: TaiwanLaborRuleImpactTask[];
@@ -170,6 +199,15 @@ type TaiwanLaborSettingsInput = Partial<Pick<
     incomeTaxWithholding?: Partial<TaiwanStatutoryPayrollConfig["incomeTaxWithholding"]>;
   };
   sources?: LegalSource[];
+};
+
+export type ReviewTaiwanLaborLegalSourcesInput = {
+  reviewedBy?: string | null;
+  reviewedAt?: string | Date | null;
+  sourceIds?: string[];
+  evidenceNote?: string | null;
+  reviewStatus?: RuleChangeControl["reviewStatus"] | null;
+  requiresPayrollRecalculation?: boolean | null;
 };
 
 export function getRuleSettingsDemoState() {
@@ -235,6 +273,7 @@ export async function getTaiwanLaborRuleCenter(session?: SessionLike): Promise<T
   const validation = validateTaiwanLaborStandardsRuleSet(config);
   const sourceFreshness = evaluateLegalSourceFreshness(config.sources);
   const complianceCoverage = buildTaiwanLaborComplianceCoverage(config, sourceFreshness);
+  const sourceReview = buildTaiwanLaborSourceReview(config, sourceFreshness, complianceCoverage);
   const complianceCoverageSummary = summarizeTaiwanLaborComplianceCoverage(complianceCoverage);
   const impactTasks = buildTaiwanLaborRuleImpactTasks(config, complianceCoverage);
   const versionHistory = session && canUseDatabase(session)
@@ -260,12 +299,96 @@ export async function getTaiwanLaborRuleCenter(session?: SessionLike): Promise<T
     config,
     validation,
     sourceFreshness,
+    sourceReview,
     complianceCoverage,
     complianceCoverageSummary,
     impactTasks,
     launchGate,
     versionHistory,
     readiness,
+  };
+}
+
+export function buildTaiwanLaborSourceReview(
+  config: TaiwanLaborStandardsConfig,
+  sourceFreshness = evaluateLegalSourceFreshness(config.sources),
+  coverage = buildTaiwanLaborComplianceCoverage(config, sourceFreshness),
+): TaiwanLaborSourceReviewSummary {
+  const checkedAtDate = new Date(`${sourceFreshness.checkedAt}T00:00:00.000Z`);
+  const coverageBySourceId = new Map<string, string[]>();
+  const missingSourceIds = new Set<string>();
+  for (const item of coverage) {
+    for (const sourceId of item.sourceIds) {
+      const titles = coverageBySourceId.get(sourceId) ?? [];
+      titles.push(item.title);
+      coverageBySourceId.set(sourceId, titles);
+    }
+    for (const sourceId of item.missingSourceIds) {
+      missingSourceIds.add(sourceId);
+    }
+  }
+
+  const items: TaiwanLaborSourceReviewItem[] = config.sources.map((source) => {
+    const sourceDate = parseDateOnly(source.checkedAt);
+    const invalid = sourceFreshness.invalidSourceIds.includes(source.id) || !sourceDate;
+    const stale = sourceFreshness.staleSourceIds.includes(source.id);
+    const ageDays = sourceDate
+      ? Math.floor((checkedAtDate.getTime() - sourceDate.getTime()) / 86_400_000)
+      : null;
+    const status: TaiwanLaborSourceReviewStatus = invalid ? "invalid" : stale ? "stale" : "fresh";
+    return {
+      id: source.id,
+      title: source.title,
+      url: source.url,
+      checkedAt: source.checkedAt,
+      ageDays,
+      status,
+      coverageTitles: coverageBySourceId.get(source.id) ?? [],
+      nextAction: status === "fresh"
+        ? "下次例行複核前保持現有證據。"
+        : status === "stale"
+          ? "重新打開官方來源，確認條文或公告未變更，再更新複核日期。"
+          : "修正 checkedAt 日期格式後重新建立 rule version。",
+    };
+  });
+
+  for (const sourceId of missingSourceIds) {
+    items.push({
+      id: sourceId,
+      title: sourceId,
+      url: null,
+      checkedAt: null,
+      ageDays: null,
+      status: "missing",
+      coverageTitles: coverageBySourceId.get(sourceId) ?? [],
+      nextAction: "補上官方來源 URL、標題與複核日期，否則台灣法遵 Gate 會阻擋上線。",
+    });
+  }
+
+  const freshCount = items.filter((item) => item.status === "fresh").length;
+  const staleCount = items.filter((item) => item.status === "stale").length;
+  const invalidCount = items.filter((item) => item.status === "invalid").length;
+  const missingCount = items.filter((item) => item.status === "missing").length;
+  const dueCount = staleCount + invalidCount + missingCount;
+  const validCheckedAtValues = items
+    .filter((item) => item.status !== "missing" && item.checkedAt)
+    .map((item) => item.checkedAt!)
+    .sort();
+
+  return {
+    status: missingCount || invalidCount ? "blocked" : staleCount ? "needs_review" : "ready",
+    totalCount: items.length,
+    freshCount,
+    staleCount,
+    invalidCount,
+    missingCount,
+    dueCount,
+    nextReviewDueAt: validCheckedAtValues.length
+      ? addDaysDateOnly(validCheckedAtValues[0], sourceFreshness.maxAgeDays)
+      : null,
+    maxAgeDays: sourceFreshness.maxAgeDays,
+    checkedAt: sourceFreshness.checkedAt,
+    items,
   };
 }
 
@@ -740,6 +863,62 @@ export async function updateTaiwanLaborStandardsConfig(
     },
   });
   return state.taiwanLaborStandards;
+}
+
+export async function reviewTaiwanLaborLegalSources(
+  session: SessionLike,
+  input: ReviewTaiwanLaborLegalSourcesInput = {},
+) {
+  assertPermission(session.role, "settings:write");
+  const current = await getTaiwanLaborStandardsConfig(session);
+  const reviewedBy = cleanOptionalText(input.reviewedBy) ??
+    session.user?.displayName ??
+    session.employee?.displayName ??
+    null;
+  if (!reviewedBy) {
+    throw new Error("請輸入官方來源複核人。");
+  }
+  const reviewedAt = normalizeSourceReviewDate(input.reviewedAt);
+  const selectedIds = new Set(
+    (input.sourceIds ?? [])
+      .map((sourceId) => cleanSourceId(sourceId))
+      .filter((sourceId): sourceId is string => Boolean(sourceId)),
+  );
+  const reviewAllSources = selectedIds.size === 0;
+  let reviewedCount = 0;
+  const sources = current.sources.map((source) => {
+    if (!reviewAllSources && !selectedIds.has(source.id)) return source;
+    reviewedCount += 1;
+    return {
+      ...source,
+      checkedAt: reviewedAt,
+    };
+  });
+  if (reviewedCount === 0) {
+    throw new Error("請至少選擇一個既有官方來源。");
+  }
+
+  const evidenceHash = stableHash({
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    previousVersion: current.version,
+    reviewedAt,
+    reviewedBy,
+    sourceIds: sources.filter((source) => reviewAllSources || selectedIds.has(source.id)).map((source) => source.id),
+    evidenceNote: cleanOptionalText(input.evidenceNote),
+  });
+
+  return updateTaiwanLaborStandardsConfig(session, {
+    sources,
+    changeControl: {
+      reason: `官方法規來源人工複核 ${reviewedAt}；evidenceHash:${evidenceHash}`,
+      sourceUrl: sources.find((source) => reviewAllSources || selectedIds.has(source.id))?.url ?? current.changeControl.sourceUrl,
+      reviewedBy,
+      reviewedAt: `${reviewedAt}T00:00:00.000Z`,
+      reviewStatus: input.reviewStatus === "pending_legal_review" ? "pending_legal_review" : "approved",
+      requiresPayrollRecalculation: input.requiresPayrollRecalculation ?? false,
+    },
+  });
 }
 
 async function getDbTaiwanLaborRuleVersionHistory(session: SessionLike) {
@@ -1442,6 +1621,27 @@ function cleanDateOnly(value: string | null | undefined) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
   const parsed = new Date(`${normalized}T00:00:00.000Z`);
   return Number.isNaN(parsed.getTime()) ? null : normalized;
+}
+
+function parseDateOnly(value: string | null | undefined) {
+  const normalized = cleanDateOnly(value);
+  if (!normalized) return null;
+  const parsed = new Date(`${normalized}T00:00:00.000Z`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function normalizeSourceReviewDate(value: string | Date | null | undefined) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  return cleanDateOnly(typeof value === "string" ? value : null) ?? new Date().toISOString().slice(0, 10);
+}
+
+function addDaysDateOnly(dateOnly: string, days: number) {
+  const parsed = parseDateOnly(dateOnly);
+  if (!parsed) return null;
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return parsed.toISOString().slice(0, 10);
 }
 
 function positiveNumber(value: number | undefined, fallback: number) {

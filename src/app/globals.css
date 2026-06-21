@@ -5717,6 +5717,75 @@ legend {
   color: var(--foreground);
 }
 
+.law-source-review-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.law-source-review-summary > div,
+.law-source-review-form {
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.law-source-review-summary.warning > div {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.law-source-review-summary.danger > div {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.law-source-review-summary span,
+.law-source-review-summary small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.4;
+}
+
+.law-source-review-summary strong {
+  display: block;
+  margin: 3px 0;
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 1000;
+  line-height: 1.16;
+}
+
+.law-source-review-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.compact-heading {
+  margin-bottom: 0;
+}
+
+.law-source-review-checklist {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.law-source-review-checklist legend {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 1000;
+  padding: 0 4px;
+}
+
 .hr-monthly-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
@@ -12152,6 +12221,7 @@ legend {
   .law-rule-launch-gate,
   .law-rule-governance-grid,
   .law-rule-impact-grid,
+  .law-source-review-summary,
   .hr-monthly-hero,
   .hr-monthly-signal-board,
   .hr-attendance-dayline,

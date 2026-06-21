@@ -4,6 +4,7 @@ import { getAuditLogs } from "@/server/audit/queries";
 import {
   getActiveTaiwanLaborStandardsConfig,
   getTaiwanLaborRuleCenter,
+  reviewTaiwanLaborLegalSources,
   resetRuleSettingsDemoState,
   updateTaiwanLaborStandardsConfig,
 } from "./settings";
@@ -144,6 +145,17 @@ describe("rule settings", () => {
     const initial = await getTaiwanLaborRuleCenter(ownerSession);
 
     expect(initial.readiness.status).toBe("ready");
+    expect(initial.sourceReview).toMatchObject({
+      status: "ready",
+      dueCount: 0,
+      missingCount: 0,
+      invalidCount: 0,
+      staleCount: 0,
+    });
+    expect(initial.sourceReview.items[0]).toMatchObject({
+      status: "fresh",
+      coverageTitles: expect.arrayContaining(["加班費與休息日出勤"]),
+    });
     expect(initial.complianceCoverageSummary).toMatchObject({
       status: "ready",
       coveredCount: 11,
@@ -294,7 +306,65 @@ describe("rule settings", () => {
       status: "blocked",
       blockers: expect.arrayContaining(["台灣法遵覆蓋矩陣有 10 個阻擋項"]),
     });
+    expect(center.sourceReview).toMatchObject({
+      status: "blocked",
+      missingCount: 18,
+      dueCount: 18,
+    });
     expect(JSON.stringify(center.impactTasks)).not.toMatch(/postgresql:\/\/|sb_publishable_|password|銀行帳號|身分證字號/);
+  });
+
+  it("lets HR review configured legal sources without changing payroll parameters", async () => {
+    await updateTaiwanLaborStandardsConfig(ownerSession, {
+      changeControl: {
+        reason: "Backdated source review fixture",
+        sourceUrl: "https://laws.mol.gov.tw/",
+        reviewedBy: "Payroll owner",
+        reviewStatus: "approved",
+        requiresPayrollRecalculation: false,
+      },
+      sources: getActiveTaiwanLaborStandardsConfig().sources.map((source) => ({
+        ...source,
+        checkedAt: "2025-12-01",
+      })),
+    });
+    const stale = await getTaiwanLaborRuleCenter(ownerSession);
+
+    expect(stale.sourceReview.status).toBe("needs_review");
+    expect(stale.sourceReview.staleCount).toBe(stale.config.sources.length);
+
+    const reviewed = await reviewTaiwanLaborLegalSources(ownerSession, {
+      reviewedBy: "Legal reviewer",
+      reviewedAt: "2026-06-19",
+      evidenceNote: "raw private legal note should not be stored",
+      sourceIds: ["tw-lsa-article-24", "tw-lsa-article-30"],
+    });
+    const center = await getTaiwanLaborRuleCenter(ownerSession);
+    const auditPayload = JSON.stringify(await getAuditLogs(ownerSession, 3));
+
+    expect(reviewed.sources.find((source) => source.id === "tw-lsa-article-24")?.checkedAt).toBe("2026-06-19");
+    expect(reviewed.sources.find((source) => source.id === "tw-lsa-article-30")?.checkedAt).toBe("2026-06-19");
+    expect(reviewed.sources.find((source) => source.id === "tw-lsa-article-32")?.checkedAt).toBe("2025-12-01");
+    expect(reviewed.changeControl).toMatchObject({
+      reviewedBy: "Legal reviewer",
+      reviewStatus: "approved",
+      requiresPayrollRecalculation: false,
+    });
+    expect(reviewed.changeControl.reason).toContain("evidenceHash:");
+    expect(center.versionHistory[0]).toMatchObject({
+      status: "active",
+      reviewedBy: "Legal reviewer",
+      requiresPayrollRecalculation: false,
+    });
+    expect(center.sourceReview.items.find((source) => source.id === "tw-lsa-article-24")).toMatchObject({
+      checkedAt: "2026-06-19",
+      status: "fresh",
+    });
+    expect(center.sourceReview.items.find((source) => source.id === "tw-lsa-article-32")).toMatchObject({
+      checkedAt: "2025-12-01",
+      status: "stale",
+    });
+    expect(auditPayload).not.toContain("raw private legal note should not be stored");
   });
 
   it("versions statutory filing package mappings without code changes", async () => {
@@ -471,6 +541,11 @@ describe("rule settings", () => {
     await expect(
       updateTaiwanLaborStandardsConfig(managerSession, {
         minimumHourlyWage: 205,
+      }),
+    ).rejects.toThrow(/settings:write/);
+    await expect(
+      reviewTaiwanLaborLegalSources(managerSession, {
+        reviewedBy: "陳主管",
       }),
     ).rejects.toThrow(/settings:write/);
   });

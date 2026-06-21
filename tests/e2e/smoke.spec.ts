@@ -228,8 +228,14 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByLabel("台灣法遵覆蓋矩陣").getByRole("heading", { name: "台灣法遵覆蓋矩陣" })).toBeVisible();
   await expect(page.getByLabel("台灣法遵覆蓋矩陣").getByRole("heading", { name: "最低工資" })).toBeVisible();
   await expect(page.getByLabel("台灣法遵覆蓋矩陣").getByRole("heading", { name: "勞健保、勞退與補充保費" })).toBeVisible();
+  await expect(page.getByLabel("來源複核摘要")).toBeVisible();
+  await expect(page.getByRole("form", { name: "來源複核工作台" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "來源更新精靈" })).toBeVisible();
   await expect(page.getByText("最低月薪")).toBeVisible();
+  await page.getByRole("form", { name: "來源複核工作台" }).getByLabel("複核證據代碼").fill("MOL-MOJ-E2E-SOURCE-REVIEW");
+  await page.getByRole("form", { name: "來源複核工作台" }).getByRole("button", { name: "完成來源複核" }).click();
+  await expect(page).toHaveURL(/\/settings\/law-rules\?success=source-review#source-review-workspace$/);
+  await expect(page.getByText("官方來源複核已完成")).toBeVisible();
 
   await page.goto("/hr/shift-templates");
   await expect(page.getByRole("heading", { name: "排班設定工作台" })).toBeVisible();

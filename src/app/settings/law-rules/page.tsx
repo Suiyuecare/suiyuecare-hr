@@ -18,6 +18,8 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
   const governanceCards = buildRuleGovernanceCards(center);
   const coverageSummary = center.complianceCoverageSummary;
   const launchGate = center.launchGate;
+  const sourceReview = center.sourceReview;
+  const today = formatDateInput(new Date());
 
   return (
     <main className="page law-rules-page">
@@ -192,8 +194,12 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
         ) : null}
         {params.success ? (
           <div className="panel span-12 success-box">
-            <strong>法規規則已更新</strong>
-            <p className="muted">系統已建立新版本、執行規則測試，並保留變更稽核紀錄。</p>
+            <strong>{params.success === "source-review" ? "官方來源複核已完成" : "法規規則已更新"}</strong>
+            <p className="muted">
+              {params.success === "source-review"
+                ? "系統已更新來源 checkedAt、建立新 rule version、執行規則測試，並只保存複核證據 hash。"
+                : "系統已建立新版本、執行規則測試，並保留變更稽核紀錄。"}
+            </p>
           </div>
         ) : null}
 
@@ -244,29 +250,99 @@ export default async function LawRulesSettingsPage({ searchParams }: { searchPar
               </p>
             </div>
             <span className={`badge ${center.sourceFreshness.passed ? "" : "warning"}`}>
-              {center.sourceFreshness.freshSourceCount}/{center.sourceFreshness.totalSourceCount} 有效
+              {sourceReview.freshCount}/{sourceReview.totalCount} 有效
             </span>
           </div>
+          <div className={`law-source-review-summary ${toneFromReadiness(sourceReview.status)}`} aria-label="來源複核摘要">
+            <div>
+              <span>本次檢查</span>
+              <strong>{sourceReview.dueCount ? `${sourceReview.dueCount} 項需處理` : "來源皆有效"}</strong>
+              <small>
+                {sourceReview.missingCount} 缺來源、{sourceReview.invalidCount} 日期錯誤、{sourceReview.staleCount} 過期。
+              </small>
+            </div>
+            <div>
+              <span>下次複核期限</span>
+              <strong>{sourceReview.nextReviewDueAt ?? "待補來源"}</strong>
+              <small>來源檢查週期：{sourceReview.maxAgeDays} 天。</small>
+            </div>
+          </div>
           <ul className="task-list">
-            {config.sources.map((source) => {
-              const stale = center.sourceFreshness.staleSourceIds.includes(source.id);
-              const invalid = center.sourceFreshness.invalidSourceIds.includes(source.id);
+            {sourceReview.items.map((source) => {
               return (
                 <li className="task" key={source.id}>
                   <span>
                     <strong>{source.title}</strong>
-                    <small>{source.id} · {source.url}</small>
+                    <small>{source.id} · {source.url ?? "尚未設定 URL"}</small>
+                    <small>
+                      影響：{source.coverageTitles.length ? source.coverageTitles.join("、") : "尚未被覆蓋矩陣使用"}。
+                      {source.ageDays != null ? `已複核 ${source.ageDays} 天。` : ""}
+                    </small>
                   </span>
                   <span className="inline-actions">
-                    <span className={`badge ${stale || invalid ? "warning" : ""}`}>
-                      {invalid ? "日期錯誤" : stale ? "需複核" : "有效"}
+                    <span className={`badge ${source.status === "fresh" ? "" : source.status === "missing" || source.status === "invalid" ? "danger" : "warning"}`}>
+                      {sourceReviewStatusLabel(source.status)}
                     </span>
-                    <span className="badge">{source.checkedAt}</span>
+                    <span className="badge">{source.checkedAt ?? "未設定"}</span>
                   </span>
                 </li>
               );
             })}
           </ul>
+          <form
+            action="/api/settings/law-rules/source-review"
+            method="post"
+            className="law-source-review-form"
+            id="source-review-workspace"
+            aria-label="來源複核工作台"
+          >
+            <input type="hidden" name="returnTo" value="/settings/law-rules?success=source-review#source-review-workspace" />
+            <div className="section-heading compact-heading">
+              <div>
+                <h3>來源複核工作台</h3>
+                <p className="muted">複核只更新來源檢查證據，不改薪資、假勤或工時計算參數。</p>
+              </div>
+              <span className="badge">人工確認</span>
+            </div>
+            <div className="field-grid">
+              <label>
+                複核日期
+                <input name="reviewedAt" type="date" defaultValue={today} required />
+              </label>
+              <label>
+                複核人
+                <input name="reviewedBy" defaultValue={session.user?.displayName ?? session.employee?.displayName ?? ""} required />
+              </label>
+              <label>
+                審核狀態
+                <select name="reviewStatus" defaultValue="approved">
+                  <option value="approved">已人工確認</option>
+                  <option value="pending_legal_review">先標記待法務複核</option>
+                </select>
+              </label>
+              <label>
+                複核證據代碼
+                <input name="evidenceNote" placeholder="例：MOL-MOJ-2026-Q2-REVIEW" required />
+              </label>
+            </div>
+            <fieldset className="law-source-review-checklist">
+              <legend>納入此次複核的來源</legend>
+              {sourceReview.items.filter((source) => source.status !== "missing").map((source) => (
+                <label className="check-row" key={source.id}>
+                  <input name="sourceIds" type="checkbox" value={source.id} defaultChecked />
+                  {source.title}
+                </label>
+              ))}
+            </fieldset>
+            <label className="check-row">
+              <input name="requiresPayrollRecalculation" type="checkbox" />
+              此次來源複核會影響既有薪資草稿，需要重新試算
+            </label>
+            <p className="muted">複核證據代碼只會以 hash 寫入版本原因，不保存原始備註、薪資、身分證、銀行帳號或員工私人資料。</p>
+            <button className="button primary" type="submit">
+              完成來源複核
+            </button>
+          </form>
         </section>
 
         <section className="panel span-4">
@@ -540,6 +616,13 @@ function coverageStatusLabel(status: LawRuleCenter["complianceCoverage"][number]
   return "已覆蓋";
 }
 
+function sourceReviewStatusLabel(status: LawRuleCenter["sourceReview"]["items"][number]["status"]) {
+  if (status === "missing") return "缺來源";
+  if (status === "invalid") return "日期錯誤";
+  if (status === "stale") return "需複核";
+  return "有效";
+}
+
 function buildRuleGovernanceCards(center: LawRuleCenter) {
   const sourceIssueCount = center.sourceFreshness.staleSourceCount + center.sourceFreshness.invalidSourceCount;
   return [
@@ -606,4 +689,13 @@ function formatDateTime(value: string) {
     timeStyle: "short",
     timeZone: "Asia/Taipei",
   }).format(date);
+}
+
+function formatDateInput(value: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(value);
 }
