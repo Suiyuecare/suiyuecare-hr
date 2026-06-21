@@ -5,6 +5,7 @@ import {
   createCustomReportJob,
   downloadReportArchive,
   getReportAdminWorkspace,
+  issueReportArchiveDownloadToken,
   resetReportDemoState,
   updateReportPermission,
 } from "./builder";
@@ -320,13 +321,17 @@ describe("report builder foundation", () => {
       selectedFieldKeys: ["employee_no", "department", "hire_month", "labor_roster_status"],
     });
 
-    await expect(downloadReportArchive(hrSession, job.archive.id)).rejects.toThrow(/第二人覆核/);
+    await expect(issueReportArchiveDownloadToken(hrSession, job.archive.id)).rejects.toThrow(/第二人覆核/);
     await expect(approveReportJobReview(hrSession, { jobId: job.id })).rejects.toThrow(/不可由建立者自行核准/);
     const approved = await approveReportJobReview(ownerSession, {
       jobId: job.id,
       reviewerNote: "REV-2026-06",
     });
-    const download = await downloadReportArchive(hrSession, job.archive.id);
+    await expect(downloadReportArchive(hrSession, job.archive.id)).rejects.toThrow(/短效下載連結/);
+    const issued = await issueReportArchiveDownloadToken(hrSession, job.archive.id);
+    await expect(downloadReportArchive(ownerSession, job.archive.id, issued.token)).rejects.toThrow(/不符合/);
+    await expect(downloadReportArchive(hrSession, job.archive.id, "v1.invalid.token")).rejects.toThrow(/驗證失敗|內容無效|格式無效/);
+    const download = await downloadReportArchive(hrSession, job.archive.id, issued.token);
     const workspace = await getReportAdminWorkspace(hrSession);
     const auditPayload = JSON.stringify(getAuditDemoState().logs);
 
@@ -359,11 +364,24 @@ describe("report builder foundation", () => {
       entityId: job.archive.id,
     });
     expect(getAuditDemoState().logs.map((log) => log.action)).toContain("approve");
+    expect(getAuditDemoState().logs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entityType: "report_archive_download_token",
+          action: "create",
+          metadataJson: expect.objectContaining({
+            downloadTokenIssued: true,
+            rawTokenStored: false,
+          }),
+        }),
+      ]),
+    );
     expect(getAuditDemoState().logs[0].metadataJson).toMatchObject({
       downloadManifestOnly: true,
       rawRowsIncluded: false,
       sensitiveValuesRedacted: true,
     });
+    expect(auditPayload).not.toContain(issued.token);
     expect(auditPayload).not.toContain("baseSalary");
     expect(auditPayload).not.toContain("accountNumber");
     expect(auditPayload).not.toContain("A123456789");
@@ -383,6 +401,6 @@ describe("report builder foundation", () => {
       exportAllowed: "false",
     });
 
-    await expect(downloadReportArchive(hrSession, job.archive.id)).rejects.toThrow(/不能匯出/);
+    await expect(issueReportArchiveDownloadToken(hrSession, job.archive.id)).rejects.toThrow(/不能匯出/);
   });
 });

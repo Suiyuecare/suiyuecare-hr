@@ -704,16 +704,18 @@ function ReportArchiveItem({
       <span>
         <strong>{archive.fileName}</strong>
         <small>{archive.recordCount} 筆 · hash {archive.contentHash.slice(0, 10)} · 到期 {formatDateLabel(archive.downloadExpiresAt)}</small>
-        {blockedByReview ? <small>待第二人覆核後才可下載 manifest。</small> : null}
+        {blockedByReview ? <small>待第二人覆核後才可下載 manifest。</small> : <small>下載前會簽發短效 token，不提供長效公開連結。</small>}
       </span>
       <span className="report-archive-actions">
         <span className={`badge ${blockedByReview ? "warning" : archive.status === "expired" ? "danger" : archive.status === "downloaded" ? "done" : ""}`}>
           {blockedByReview ? "待覆核" : statusLabel}
         </span>
         {archive.status === "expired" || blockedByReview ? null : (
-          <a className="button" href={`/api/reports/archives/${archive.id}/download`}>
-            下載 manifest
-          </a>
+          <form action={`/api/reports/archives/${archive.id}/download-token`} method="post">
+            <button className="button" type="submit">
+              簽發短效下載
+            </button>
+          </form>
         )}
       </span>
     </li>
@@ -840,8 +842,8 @@ function buildNextStageItems() {
       tone: "done",
     },
     {
-      title: "短效下載 URL 與背景佇列",
-      detail: "下一步把 manifest 匯出改成背景工作、短效物件儲存 URL、失敗重試與到期清理排程。",
+      title: "物件儲存 URL 與背景佇列",
+      detail: "短效下載 token 已上線；下一步把 manifest 匯出改成背景工作、物件儲存 signed URL、失敗重試與到期清理排程。",
       status: "佇列",
       tone: "warning",
     },

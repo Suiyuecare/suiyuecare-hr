@@ -1345,7 +1345,7 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   await expect(customReportJobs.getByText(/hash [a-f0-9]{10}/).first()).toBeVisible();
   const pendingReportArchives = page.getByLabel("報表封存清單");
   await expect(pendingReportArchives.getByText("待覆核")).toBeVisible();
-  await expect(pendingReportArchives.getByRole("link", { name: "下載 manifest" })).toHaveCount(0);
+  await expect(pendingReportArchives.getByRole("button", { name: "簽發短效下載" })).toHaveCount(0);
   await switchDemoRole(page, "owner");
   await page.goto("/hr/reports#report-jobs");
   const ownerReportJobs = page.getByLabel("最近自訂報表");
@@ -1356,9 +1356,9 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   await expect(page.getByText("報表覆核已核准")).toBeVisible();
   await expect(page.getByLabel("最近自訂報表").getByText("第二人覆核已完成")).toBeVisible();
   const reportArchives = page.getByLabel("報表封存清單");
-  await expect(reportArchives.getByRole("link", { name: "下載 manifest" }).first()).toBeVisible();
+  await expect(reportArchives.getByRole("button", { name: "簽發短效下載" }).first()).toBeVisible();
   const reportManifestDownload = page.waitForEvent("download");
-  await reportArchives.getByRole("link", { name: "下載 manifest" }).first().click();
+  await reportArchives.getByRole("button", { name: "簽發短效下載" }).first().click();
   expect((await reportManifestDownload).suggestedFilename()).toMatch(/hr-one-people_readiness-\d{8}-manifest\.csv/);
   await expect(page.locator("body")).not.toContainText("baseSalary");
   await expect(page.locator("body")).not.toContainText("accountNumber");

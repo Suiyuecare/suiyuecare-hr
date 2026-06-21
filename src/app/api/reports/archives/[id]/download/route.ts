@@ -6,13 +6,14 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function GET(_request: Request, { params }: RouteContext) {
+export async function GET(request: Request, { params }: RouteContext) {
   try {
     const [{ id }, session] = await Promise.all([
       params,
       requireTenantSession({ permission: "report:manage" }),
     ]);
-    const download = await downloadReportArchive(session, id);
+    const token = new URL(request.url).searchParams.get("token");
+    const download = await downloadReportArchive(session, id, token);
     return new Response(download.body, {
       headers: {
         "Content-Type": download.contentType,

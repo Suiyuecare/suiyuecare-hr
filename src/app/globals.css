@@ -11140,6 +11140,10 @@ legend {
   gap: 8px;
 }
 
+.report-archive-actions form {
+  margin: 0;
+}
+
 .report-archive-actions .button {
   min-height: 34px;
   padding: 8px 10px;

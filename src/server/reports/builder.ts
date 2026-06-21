@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { writeAuditLog } from "@/server/audit/audit";
 import { writeDemoAuditLog } from "@/server/audit/demo-store";
@@ -110,6 +111,12 @@ export type ReportArchiveDownload = {
   body: string;
 };
 
+export type ReportArchiveDownloadToken = {
+  archiveId: string;
+  token: string;
+  expiresAt: Date;
+};
+
 export type ReportAdminWorkspace = {
   datasets: ReportDatasetView[];
   permissions: ReportPermissionView[];
@@ -170,6 +177,17 @@ export type UpdateReportPermissionInput = {
 export type ApproveReportReviewInput = {
   jobId?: string | null;
   reviewerNote?: string | null;
+};
+
+type ReportArchiveDownloadTokenPayload = {
+  version: 1;
+  archiveId: string;
+  tenantId: string;
+  companyId: string;
+  actorId: string;
+  contentHash: string;
+  issuedAt: string;
+  expiresAt: string;
 };
 
 type ReportDemoState = {
@@ -395,9 +413,26 @@ export async function approveReportJobReview(
   return approveDemoReportJobReview(session, jobId, input.reviewerNote);
 }
 
+export async function issueReportArchiveDownloadToken(
+  session: SessionLike,
+  archiveId: string,
+): Promise<ReportArchiveDownloadToken> {
+  assertPermission(session.role, "report:manage");
+  const normalizedArchiveId = archiveId.trim();
+  if (!normalizedArchiveId) {
+    throw new Error("請選擇有效的報表封存。");
+  }
+
+  if (canUseDatabase(session)) {
+    return issueDbReportArchiveDownloadToken(session, normalizedArchiveId);
+  }
+  return issueDemoReportArchiveDownloadToken(session, normalizedArchiveId);
+}
+
 export async function downloadReportArchive(
   session: SessionLike,
   archiveId: string,
+  token?: string | null,
 ): Promise<ReportArchiveDownload> {
   assertPermission(session.role, "report:manage");
   const normalizedArchiveId = archiveId.trim();
@@ -406,9 +441,9 @@ export async function downloadReportArchive(
   }
 
   if (canUseDatabase(session)) {
-    return downloadDbReportArchive(session, normalizedArchiveId);
+    return downloadDbReportArchive(session, normalizedArchiveId, token);
   }
-  return downloadDemoReportArchive(session, normalizedArchiveId);
+  return downloadDemoReportArchive(session, normalizedArchiveId, token);
 }
 
 export function resetReportDemoState() {
@@ -713,9 +748,73 @@ async function listDbReportArchives(session: SessionLike & { tenantId: string; c
   return records.map(mapDbArchive);
 }
 
+async function issueDbReportArchiveDownloadToken(
+  session: SessionLike & { tenantId: string; companyId: string },
+  archiveId: string,
+) {
+  const db = getDb();
+  const datasets = await getDbReportCatalog(session);
+  const permissions = await listDbReportPermissions(session, datasets);
+  const existing = await db.reportExportArchive.findFirst({
+    where: {
+      id: archiveId,
+      tenantId: session.tenantId,
+      companyId: session.companyId,
+    },
+    include: {
+      reportJob: {
+        include: {
+          dataset: true,
+          archives: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+  if (!existing) throw new Error("找不到報表封存。");
+  assertReportJobReadyForDownload(mapDbJob(existing.reportJob, datasets));
+
+  const dataset = findDataset(datasets, existing.reportJob.dataset.code);
+  const permission = findDatasetPermission(permissions, dataset, session.role);
+  assertDatasetPermission(permission, dataset, session.role);
+  const selectedFields = applyPermissionsToFields(
+    permission,
+    findFieldPermissions(permissions, dataset, session.role),
+    normalizeSelectedFields(dataset, readStringArray(existing.reportJob.selectedFieldKeysJson)),
+  );
+  assertFieldsAllowed(session.role, selectedFields);
+  assertArchiveNotExpired(existing.downloadExpiresAt);
+
+  const issued = sealReportArchiveDownloadToken(session, {
+    archiveId: existing.id,
+    contentHash: existing.contentHash,
+    downloadExpiresAt: existing.downloadExpiresAt,
+  });
+  await writeAuditLog(db, {
+    tenantId: session.tenantId,
+    companyId: session.companyId,
+    actorUserId: session.user?.id,
+    actorEmployeeId: session.employee?.id,
+    action: "create",
+    entityType: "report_archive_download_token",
+    entityId: existing.id,
+    before: null,
+    after: {
+      tokenExpiresAt: issued.expiresAt.toISOString(),
+      tokenHash: stableHash({ downloadToken: issued.token }),
+      manifestOnly: true,
+    },
+    metadata: archiveDownloadTokenMetadata(dataset, existing.reportJob.id, existing.fileName, existing.contentHash, issued),
+  });
+  return issued;
+}
+
 async function downloadDbReportArchive(
   session: SessionLike & { tenantId: string; companyId: string },
   archiveId: string,
+  token?: string | null,
 ) {
   const db = getDb();
   const datasets = await getDbReportCatalog(session);
@@ -783,6 +882,10 @@ async function downloadDbReportArchive(
     }
     throw new Error("報表封存下載期限已過，請重新產生。");
   }
+  assertReportArchiveDownloadToken(session, token, {
+    archiveId: existing.id,
+    contentHash: existing.contentHash,
+  });
 
   const updated = await db.$transaction(async (tx) => {
     const record = await tx.reportExportArchive.update({
@@ -1172,7 +1275,53 @@ function createDemoReportJob(session: SessionLike, draft: ReportJobView) {
   return draft;
 }
 
-function downloadDemoReportArchive(session: SessionLike, archiveId: string) {
+function issueDemoReportArchiveDownloadToken(session: SessionLike, archiveId: string) {
+  const state = getDemoState();
+  const existingArchive = state.archives.find((item) => item.id === archiveId);
+  const existingJob = state.jobs.find((item) => item.archive.id === archiveId);
+  if (!existingArchive || !existingJob) {
+    throw new Error("找不到報表封存。");
+  }
+  assertReportJobReadyForDownload(existingJob);
+
+  const datasets = getDefaultCatalogViews();
+  const dataset = findDataset(datasets, existingJob.datasetCode);
+  const permissions = getDemoReportPermissions(datasets);
+  const permission = findDatasetPermission(permissions, dataset, session.role);
+  assertDatasetPermission(permission, dataset, session.role);
+  const selectedFields = applyPermissionsToFields(
+    permission,
+    findFieldPermissions(permissions, dataset, session.role),
+    normalizeSelectedFields(dataset, existingJob.selectedFields.map((fieldItem) => fieldItem.key)),
+  );
+  assertFieldsAllowed(session.role, selectedFields);
+  assertArchiveNotExpired(existingArchive.downloadExpiresAt);
+
+  const issued = sealReportArchiveDownloadToken(session, {
+    archiveId: existingArchive.id,
+    contentHash: existingArchive.contentHash,
+    downloadExpiresAt: existingArchive.downloadExpiresAt,
+  });
+  writeDemoAuditLog({
+    tenantId: session.tenantId ?? "demo-tenant",
+    companyId: session.companyId ?? "demo-company",
+    actorUserId: session.user?.id,
+    actorEmployeeId: session.employee?.id,
+    actorName: session.user?.displayName ?? session.employee?.displayName,
+    action: "create",
+    entityType: "report_archive_download_token",
+    entityId: existingArchive.id,
+    after: {
+      tokenExpiresAt: issued.expiresAt.toISOString(),
+      tokenHash: stableHash({ downloadToken: issued.token }),
+      manifestOnly: true,
+    },
+    metadata: archiveDownloadTokenMetadata(dataset, existingJob.id, existingArchive.fileName, existingArchive.contentHash, issued),
+  });
+  return issued;
+}
+
+function downloadDemoReportArchive(session: SessionLike, archiveId: string, token?: string | null) {
   const state = getDemoState();
   const archiveIndex = state.archives.findIndex((item) => item.id === archiveId);
   const existingArchive = state.archives[archiveIndex];
@@ -1206,6 +1355,10 @@ function downloadDemoReportArchive(session: SessionLike, archiveId: string) {
     writeReportArchiveDownloadDemoAuditLog(session, dataset, existingJob.id, existingArchive, expiredArchive);
     throw new Error("報表封存下載期限已過，請重新產生。");
   }
+  assertReportArchiveDownloadToken(session, token, {
+    archiveId: existingArchive.id,
+    contentHash: existingArchive.contentHash,
+  });
 
   const updatedArchive = {
     ...existingArchive,
@@ -1878,6 +2031,155 @@ function archiveDownloadMetadata(
     healthValuesIncluded: false,
     privateNotesIncluded: false,
   };
+}
+
+function archiveDownloadTokenMetadata(
+  dataset: Pick<ReportDatasetView, "code" | "category">,
+  reportJobId: string,
+  fileName: string,
+  contentHash: string,
+  issued: ReportArchiveDownloadToken,
+) {
+  return {
+    ...archiveDownloadMetadata(dataset, reportJobId, fileName, contentHash),
+    downloadTokenIssued: true,
+    tokenExpiresAt: issued.expiresAt.toISOString(),
+    tokenHash: stableHash({ downloadToken: issued.token }),
+    rawTokenStored: false,
+  };
+}
+
+function sealReportArchiveDownloadToken(
+  session: SessionLike,
+  input: {
+    archiveId: string;
+    contentHash: string;
+    downloadExpiresAt: Date;
+  },
+): ReportArchiveDownloadToken {
+  const now = new Date();
+  const tokenExpiresAt = new Date(Math.min(
+    now.getTime() + readReportDownloadTokenTtlMs(),
+    input.downloadExpiresAt.getTime(),
+  ));
+  const payload: ReportArchiveDownloadTokenPayload = {
+    version: 1,
+    archiveId: input.archiveId,
+    tenantId: requireTokenScope(session.tenantId, "tenant"),
+    companyId: requireTokenScope(session.companyId, "company"),
+    actorId: reportDownloadActorId(session),
+    contentHash: input.contentHash,
+    issuedAt: now.toISOString(),
+    expiresAt: tokenExpiresAt.toISOString(),
+  };
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const signature = signReportDownloadTokenPayload(encodedPayload);
+  return {
+    archiveId: input.archiveId,
+    token: `v1.${encodedPayload}.${signature}`,
+    expiresAt: tokenExpiresAt,
+  };
+}
+
+function assertReportArchiveDownloadToken(
+  session: SessionLike,
+  token: string | null | undefined,
+  expected: {
+    archiveId: string;
+    contentHash: string;
+  },
+) {
+  if (!token) throw new Error("下載 manifest 需要短效下載連結，請重新簽發。");
+  const [version, encodedPayload, signature] = token.split(".");
+  if (version !== "v1" || !encodedPayload || !signature) {
+    throw new Error("短效下載連結格式無效，請重新簽發。");
+  }
+  const expectedSignature = signReportDownloadTokenPayload(encodedPayload);
+  const signatureBuffer = Buffer.from(signature);
+  const expectedSignatureBuffer = Buffer.from(expectedSignature);
+  if (
+    signatureBuffer.length !== expectedSignatureBuffer.length ||
+    !timingSafeEqual(signatureBuffer, expectedSignatureBuffer)
+  ) {
+    throw new Error("短效下載連結驗證失敗，請重新簽發。");
+  }
+  const payload = parseReportArchiveDownloadTokenPayload(base64UrlDecode(encodedPayload));
+  if (new Date(payload.expiresAt).getTime() <= Date.now()) {
+    throw new Error("短效下載連結已到期，請重新簽發。");
+  }
+  if (
+    payload.archiveId !== expected.archiveId ||
+    payload.contentHash !== expected.contentHash ||
+    payload.tenantId !== session.tenantId ||
+    payload.companyId !== session.companyId ||
+    payload.actorId !== reportDownloadActorId(session)
+  ) {
+    throw new Error("短效下載連結不符合目前使用者或報表封存，請重新簽發。");
+  }
+}
+
+function parseReportArchiveDownloadTokenPayload(text: string): ReportArchiveDownloadTokenPayload {
+  const payload = JSON.parse(text) as Partial<ReportArchiveDownloadTokenPayload>;
+  if (
+    payload.version !== 1 ||
+    typeof payload.archiveId !== "string" ||
+    typeof payload.tenantId !== "string" ||
+    typeof payload.companyId !== "string" ||
+    typeof payload.actorId !== "string" ||
+    typeof payload.contentHash !== "string" ||
+    typeof payload.issuedAt !== "string" ||
+    typeof payload.expiresAt !== "string"
+  ) {
+    throw new Error("短效下載連結內容無效，請重新簽發。");
+  }
+  return payload as ReportArchiveDownloadTokenPayload;
+}
+
+function signReportDownloadTokenPayload(encodedPayload: string) {
+  return createHmac("sha256", readReportDownloadTokenSecret())
+    .update(encodedPayload)
+    .digest("base64url");
+}
+
+function readReportDownloadTokenSecret() {
+  const secret = process.env.HR_ONE_REPORT_DOWNLOAD_TOKEN_SECRET?.trim() ||
+    process.env.HR_ONE_ENCRYPTION_KEY?.trim();
+  if (secret && secret.length >= 32) return secret;
+  if (process.env.HR_ONE_ENV === "production") {
+    throw new Error("HR_ONE_REPORT_DOWNLOAD_TOKEN_SECRET is required for production report downloads.");
+  }
+  return "hr-one-local-report-download-token-secret-v1";
+}
+
+function readReportDownloadTokenTtlMs() {
+  const rawMinutes = Number(process.env.HR_ONE_REPORT_DOWNLOAD_TOKEN_TTL_MINUTES ?? "");
+  const minutes = Number.isInteger(rawMinutes) && rawMinutes > 0 ? Math.min(rawMinutes, 30) : 10;
+  return minutes * 60_000;
+}
+
+function reportDownloadActorId(session: SessionLike) {
+  const actorId = session.user?.id ?? session.employee?.id;
+  if (!actorId) throw new Error("下載 manifest 需要登入使用者。");
+  return actorId;
+}
+
+function requireTokenScope(value: string | null | undefined, label: "tenant" | "company") {
+  if (!value) throw new Error(`下載 manifest 需要 ${label} scope。`);
+  return value;
+}
+
+function assertArchiveNotExpired(downloadExpiresAt: Date) {
+  if (downloadExpiresAt <= new Date()) {
+    throw new Error("報表封存下載期限已過，請重新產生。");
+  }
+}
+
+function base64UrlEncode(value: string) {
+  return Buffer.from(value, "utf8").toString("base64url");
+}
+
+function base64UrlDecode(value: string) {
+  return Buffer.from(value, "base64url").toString("utf8");
 }
 
 function buildDownloadFromReportJob(job: ReportJobView): ReportArchiveDownload {
