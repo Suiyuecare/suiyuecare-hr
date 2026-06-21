@@ -83,8 +83,8 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
             系統會把 production DB、Finance-style 體驗、真實 20-50 人試用、台灣法遵、薪資月結與商務證據包排成同一條路線。
           </p>
           <div className="settings-control-hero-actions">
-            <a className="button primary" href={saleRoadmap.currentStage.actionHref}>
-              {saleRoadmap.currentStage.actionLabel}
+            <a className="button primary" href={saleRoadmap.currentFoundationTask.actionHref}>
+              {saleRoadmap.currentFoundationTask.actionLabel}
             </a>
             <a className="button" href="/settings/production-database">
               修正式資料庫 Gate
@@ -99,9 +99,9 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
           <strong>
             第 {saleRoadmap.currentStage.step} 階段 · {saleRoadmap.currentStage.title}
           </strong>
-          <p>{saleRoadmap.currentStage.nextStep}</p>
-          <span className={`badge ${badgeClass(saleRoadmap.currentStage.status)}`}>
-            {roadmapStatusLabel(saleRoadmap.currentStage.status)}
+          <p>{saleRoadmap.currentFoundationTask.nextStep}</p>
+          <span className={`badge ${badgeClass(saleRoadmap.currentFoundationTask.status)}`}>
+            {roadmapStatusLabel(saleRoadmap.currentFoundationTask.status)}
           </span>
         </aside>
       </section>
@@ -117,6 +117,39 @@ export default async function LaunchReadinessPage({ searchParams }: { searchPara
             <small>{stage.kpiTarget}</small>
           </a>
         ))}
+      </section>
+
+      <section className="panel span-12 sale-foundation-board" aria-label="下一階段基礎工程">
+        <div className="section-heading">
+          <div>
+            <h2>下一階段基礎工程</h2>
+            <p className="muted">
+              這張清單把可販售前的工程、HR、Owner 工作排成可驗收任務；每一項都要有 redacted 或 hash-only 證據，不以口頭完成作為放行。
+            </p>
+          </div>
+          <span className={`badge ${saleRoadmap.foundationTasks.some((task) => task.status === "blocked") ? "danger" : saleRoadmap.foundationTasks.some((task) => task.status === "action_required") ? "warning" : ""}`}>
+            {saleRoadmap.foundationTasks.filter((task) => task.status !== "ready").length} 項待處理
+          </span>
+        </div>
+        <div className="sale-foundation-grid">
+          {saleRoadmap.foundationTasks.map((task) => (
+            <article className={`sale-foundation-card ${roadmapTone(task.status)}`} key={task.id}>
+              <div className="sale-foundation-card-topline">
+                <span className="eyebrow">P{task.priority} · {task.owner}</span>
+                <span className={`badge ${badgeClass(task.status)}`}>
+                  {roadmapStatusLabel(task.status)}
+                </span>
+              </div>
+              <h3>{task.title}</h3>
+              <p>{task.outcome}</p>
+              <small>驗收：{task.acceptanceEvidence}</small>
+              <small>下一步：{task.nextStep}</small>
+              <a className="button" href={task.actionHref}>
+                {task.actionLabel}
+              </a>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="grid">

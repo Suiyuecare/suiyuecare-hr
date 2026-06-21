@@ -4095,6 +4095,79 @@ legend {
   background: #f0fdf4;
 }
 
+.sale-foundation-board {
+  margin-bottom: 14px;
+}
+
+.sale-foundation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(228px, 1fr));
+  gap: 10px;
+}
+
+.sale-foundation-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 304px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.sale-foundation-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.sale-foundation-card.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.sale-foundation-card.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.sale-foundation-card-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sale-foundation-card h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 1000;
+  line-height: 1.18;
+}
+
+.sale-foundation-card p {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.sale-foundation-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.sale-foundation-card .button {
+  align-self: end;
+  justify-self: start;
+  margin-top: auto;
+}
+
 .settings-command-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -10866,6 +10939,7 @@ legend {
   .manager-risk-grid,
   .settings-control-hero,
   .settings-signal-board,
+  .sale-foundation-grid,
   .settings-command-grid,
   .security-setup-grid,
   .notification-channel-grid,
@@ -11367,6 +11441,7 @@ legend {
   .console-readiness-action-item,
   .settings-control-focus,
   .settings-signal-card,
+  .sale-foundation-card,
   .settings-command-card,
   .law-rules-focus,
   .law-rule-signal-card,

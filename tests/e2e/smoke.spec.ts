@@ -303,6 +303,11 @@ test("Owner 可以檢查試用營運與上線 Gate", async ({ page }) => {
   await expect(saleRoadmap.getByText("匯入 20-50 人真實試用資料")).toBeVisible();
   await expect(saleRoadmap.getByText("完成薪資月結與台灣法遵閉環")).toBeVisible();
   await expect(saleRoadmap.getByText("整理可販售證據與商務交付")).toBeVisible();
+  const foundationBoard = page.getByLabel("下一階段基礎工程");
+  await expect(foundationBoard.getByRole("heading", { name: "下一階段基礎工程" })).toBeVisible();
+  await expect(foundationBoard.getByRole("heading", { name: "正式資料庫與租戶持久化" })).toBeVisible();
+  await expect(foundationBoard.getByRole("heading", { name: "台灣法遵控制台與版本化規則" })).toBeVisible();
+  await expect(foundationBoard.getByText(/驗收：\/api\/health\/ready/)).toBeVisible();
 
   await gotoAppPage(page, "/settings/pilot-operations");
   await expect(page.getByRole("heading", { name: "試用每日戰情" })).toBeVisible();
