@@ -11,6 +11,7 @@ export async function POST(request: Request) {
       datasetCode: readString(formData.get("datasetCode")),
       purpose: readString(formData.get("purpose")),
       format: readString(formData.get("format")),
+      deliveryMode: readString(formData.get("deliveryMode")),
       periodStart: readString(formData.get("periodStart")),
       periodEnd: readString(formData.get("periodEnd")),
       selectedFieldKeys: formData.getAll("selectedFieldKeys").map(readString).filter(Boolean),

@@ -10957,6 +10957,11 @@ legend {
   background: linear-gradient(180deg, #fffbeb 0%, #ffffff 100%);
 }
 
+.report-job-card.danger {
+  border-color: #fecaca;
+  background: linear-gradient(180deg, #fef2f2 0%, #ffffff 100%);
+}
+
 .report-builder-card-header {
   display: grid;
   gap: 8px;
@@ -10980,7 +10985,8 @@ legend {
   line-height: 1.45;
 }
 
-.report-review-gate {
+.report-review-gate,
+.report-queue-gate {
   display: grid;
   gap: 8px;
   border: 1px solid var(--panel-border);
@@ -10989,27 +10995,42 @@ legend {
   padding: 12px;
 }
 
-.report-review-gate.warning {
+.report-review-gate.warning,
+.report-queue-gate.warning {
   border-color: #fde68a;
   background: #fffbeb;
 }
 
-.report-review-gate.done {
+.report-review-gate.done,
+.report-queue-gate.done {
   border-color: #bbf7d0;
   background: #f0fdf4;
 }
 
-.report-review-gate strong {
+.report-queue-gate.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.report-review-gate strong,
+.report-queue-gate strong {
   color: var(--foreground);
   font-size: 14px;
   font-weight: 1000;
 }
 
-.report-review-gate small {
+.report-review-gate small,
+.report-queue-gate small {
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
   line-height: 1.4;
+}
+
+.report-builder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .report-fieldset {

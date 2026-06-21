@@ -48,6 +48,7 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
     payrollRun: payroll.run,
     payrollChecklist: payroll.checklist,
     auditEventCount: auditLogs.length,
+    reportSummary: reportWorkspace.summary,
   });
   const nextStageItems = buildNextStageItems();
   const canManageReports = hasPermission(session.role, "report:manage");
@@ -113,6 +114,24 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
           <div className="panel success-panel">
             <strong>報表覆核已核准</strong>
             <p>高敏報表已由第二位授權者核准，下載仍只提供 manifest metadata、欄位政策與內容 hash。</p>
+          </div>
+        </section>
+      ) : null}
+
+      {params.success === "report-queue" ? (
+        <section className="report-alerts" aria-live="polite">
+          <div className="panel success-panel">
+            <strong>背景匯出佇列已處理</strong>
+            <p>已把可處理的 queued 報表轉成可下載封存，並寫入不含原始資料列的 audit log。</p>
+          </div>
+        </section>
+      ) : null}
+
+      {params.success === "report-queue-empty" ? (
+        <section className="report-alerts" aria-live="polite">
+          <div className="panel warning-panel">
+            <strong>目前沒有可處理的佇列</strong>
+            <p>待覆核或已完成的報表不會被背景 worker 重複處理。</p>
           </div>
         </section>
       ) : null}
@@ -325,13 +344,10 @@ export default async function HrReportsPage({ searchParams }: { searchParams: Se
           </div>
           {reportWorkspace.archives.length ? (
             <ul className="task-list compact report-archive-list" aria-label="報表封存清單">
-              {reportWorkspace.archives.map((archive) => (
-                <ReportArchiveItem
-                  archive={archive}
-                  blockedByReview={reportWorkspace.jobs.some((job) => job.archive.id === archive.id && job.status === "pending_review")}
-                  key={archive.id}
-                />
-              ))}
+              {reportWorkspace.archives.map((archive) => {
+                const job = reportWorkspace.jobs.find((jobItem) => jobItem.archive.id === archive.id) ?? null;
+                return <ReportArchiveItem archive={archive} job={job} key={archive.id} />;
+              })}
             </ul>
           ) : (
             <div className="empty-state compact">
@@ -496,9 +512,14 @@ function ReportDatasetBuilder({
           <span>{blockedFields.map((field) => field.label).join("、")}</span>
         </div>
       ) : null}
-      <button className="button primary" type="submit" disabled={!canManageReports}>
-        產生遮罩封存
-      </button>
+      <div className="report-builder-actions">
+        <button className="button primary" type="submit" disabled={!canManageReports}>
+          產生遮罩封存
+        </button>
+        <button className="button" type="submit" name="deliveryMode" value="background" disabled={!canManageReports}>
+          送背景佇列
+        </button>
+      </div>
     </form>
   );
 }
@@ -629,11 +650,12 @@ function ReportJobCard({
 }) {
   const pendingReview = job.status === "pending_review" || job.review.status === "pending";
   const selfReviewBlocked = pendingReview && currentUserId != null && currentUserId === job.review.requestedByUserId;
+  const queueTone = queueStatusTone(job.queue.status);
   return (
-    <article className={`report-job-card ${pendingReview ? "warning" : ""}`}>
+    <article className={`report-job-card ${pendingReview ? "warning" : queueTone}`}>
       <div>
-        <span className={`badge ${pendingReview ? "warning" : "done"}`}>
-          {pendingReview ? "待第二人覆核" : "遮罩封存"}
+        <span className={`badge ${pendingReview ? "warning" : queueTone === "done" ? "done" : queueTone}`}>
+          {pendingReview ? "待第二人覆核" : queueStatusLabel(job.queue.status)}
         </span>
         <h3>{job.title}</h3>
         <p>{job.datasetName} · {purposeLabel(job.purpose)} · {job.periodLabel}</p>
@@ -658,6 +680,25 @@ function ReportJobCard({
             {field.label} · {maskingLabel(field.maskingMode)}
           </span>
         ))}
+      </div>
+      <div className={`report-queue-gate ${queueTone}`}>
+        <strong>{queueStatusLabel(job.queue.status)}</strong>
+        <small>
+          {deliveryModeLabel(job.queue.deliveryMode)} · 嘗試 {job.queue.attempts}/{job.queue.maxAttempts}
+          {job.queue.nextRunAt ? ` · 下次處理 ${formatDateTimeLabel(job.queue.nextRunAt)}` : ""}
+        </small>
+        <small>
+          儲存目標：{job.queue.storageTarget === "object_storage_pending" ? "等待物件儲存 signed URL" : "安全 manifest"}
+        </small>
+        {job.queue.status === "queued" ? (
+          <form action="/api/reports/queue/process" method="post" className="mini-form compact-form">
+            <input type="hidden" name="jobId" value={job.id} />
+            <input type="hidden" name="limit" value="1" />
+            <button className="button primary" type="submit" disabled={!canManageReports}>
+              處理背景佇列
+            </button>
+          </form>
+        ) : null}
       </div>
       {job.review.required ? (
         <div className={`report-review-gate ${pendingReview ? "warning" : "done"}`}>
@@ -693,24 +734,34 @@ function ReportJobCard({
 
 function ReportArchiveItem({
   archive,
-  blockedByReview,
+  job,
 }: {
   archive: ReportArchiveView;
-  blockedByReview: boolean;
+  job: ReportJobView | null;
 }) {
+  const blockedReason = job?.status === "pending_review"
+    ? "review"
+    : job?.status === "queued"
+      ? "queue"
+      : job?.status === "failed"
+        ? "failed"
+        : null;
   const statusLabel = archive.status === "downloaded" ? "已下載" : archive.status === "expired" ? "已到期" : "已產生";
   return (
     <li className="task report-archive-task">
       <span>
         <strong>{archive.fileName}</strong>
         <small>{archive.recordCount} 筆 · hash {archive.contentHash.slice(0, 10)} · 到期 {formatDateLabel(archive.downloadExpiresAt)}</small>
-        {blockedByReview ? <small>待第二人覆核後才可下載 manifest。</small> : <small>下載前會簽發短效 token，不提供長效公開連結。</small>}
+        {blockedReason === "review" ? <small>待第二人覆核後才可下載 manifest。</small> : null}
+        {blockedReason === "queue" ? <small>背景匯出尚未完成，處理完成後才可簽發短效下載。</small> : null}
+        {blockedReason === "failed" ? <small>背景匯出失敗，需重新處理或建立新報表。</small> : null}
+        {!blockedReason ? <small>下載前會簽發短效 token，不提供長效公開連結。</small> : null}
       </span>
       <span className="report-archive-actions">
-        <span className={`badge ${blockedByReview ? "warning" : archive.status === "expired" ? "danger" : archive.status === "downloaded" ? "done" : ""}`}>
-          {blockedByReview ? "待覆核" : statusLabel}
+        <span className={`badge ${blockedReason ? blockedReason === "failed" ? "danger" : "warning" : archive.status === "expired" ? "danger" : archive.status === "downloaded" ? "done" : ""}`}>
+          {blockedReason === "review" ? "待覆核" : blockedReason === "queue" ? "佇列中" : blockedReason === "failed" ? "失敗" : statusLabel}
         </span>
-        {archive.status === "expired" || blockedByReview ? null : (
+        {archive.status === "expired" || blockedReason ? null : (
           <form action={`/api/reports/archives/${archive.id}/download-token`} method="post">
             <button className="button" type="submit">
               簽發短效下載
@@ -781,8 +832,10 @@ function buildReportCards(input: {
   payrollRun: PayrollRunView | null;
   payrollChecklist: PayrollCloseChecklist;
   auditEventCount: number;
+  reportSummary: Awaited<ReturnType<typeof getReportAdminWorkspace>>["summary"];
 }) {
   const payrollOpenSteps = input.payrollChecklist.steps.filter((step) => step.status !== "done").length;
+  const queueOpenCount = input.reportSummary.queuedExportCount + input.reportSummary.waitingReviewExportCount + input.reportSummary.failedExportCount;
   return [
     {
       label: "人事分析",
@@ -812,6 +865,13 @@ function buildReportCards(input: {
       href: "/settings/audit",
       tone: input.auditEventCount ? "done" : "warning",
     },
+    {
+      label: "匯出佇列",
+      value: queueOpenCount ? `${queueOpenCount} 筆待處理` : "已清空",
+      detail: `${input.reportSummary.queuedExportCount} 佇列、${input.reportSummary.waitingReviewExportCount} 待覆核、${input.reportSummary.failedExportCount} 失敗。`,
+      href: "/hr/reports#report-jobs",
+      tone: input.reportSummary.failedExportCount ? "danger" : queueOpenCount ? "warning" : "done",
+    },
   ];
 }
 
@@ -819,9 +879,9 @@ function buildNextStageItems() {
   return [
     {
       title: "背景匯出工作佇列",
-      detail: "把目前同步產生的 manifest 推進成背景工作、短效下載 URL 與失敗重試。",
-      status: "佇列",
-      tone: "warning",
+      detail: "自訂報表已可送入背景佇列、待覆核後再處理，並將 queue 狀態與 worker hash 寫入 audit log。",
+      status: "已上線",
+      tone: "done",
     },
     {
       title: "高敏報表雙人覆核 Gate",
@@ -843,7 +903,7 @@ function buildNextStageItems() {
     },
     {
       title: "物件儲存 URL 與背景佇列",
-      detail: "短效下載 token 已上線；下一步把 manifest 匯出改成背景工作、物件儲存 signed URL、失敗重試與到期清理排程。",
+      detail: "短效下載 token 與背景佇列已上線；下一步接物件儲存 signed URL、失敗重試策略與到期清理排程。",
       status: "佇列",
       tone: "warning",
     },
@@ -880,6 +940,27 @@ function accessLevelLabel(accessLevel: string) {
     aggregate: "只看彙總",
   };
   return labels[accessLevel] ?? "只看摘要";
+}
+
+function queueStatusLabel(status: ReportJobView["queue"]["status"]) {
+  const labels: Record<ReportJobView["queue"]["status"], string> = {
+    ready: "遮罩封存",
+    waiting_for_review: "等待覆核",
+    queued: "背景佇列",
+    processing: "處理中",
+    failed: "處理失敗",
+  };
+  return labels[status];
+}
+
+function queueStatusTone(status: ReportJobView["queue"]["status"]) {
+  if (status === "ready") return "done";
+  if (status === "failed") return "danger";
+  return "warning";
+}
+
+function deliveryModeLabel(mode: ReportJobView["queue"]["deliveryMode"]) {
+  return mode === "background" ? "背景匯出" : "即時 manifest";
 }
 
 function roleLabel(roleKey: string) {

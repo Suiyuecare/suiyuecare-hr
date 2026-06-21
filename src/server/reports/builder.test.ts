@@ -6,6 +6,7 @@ import {
   downloadReportArchive,
   getReportAdminWorkspace,
   issueReportArchiveDownloadToken,
+  processReportExportQueue,
   resetReportDemoState,
   updateReportPermission,
 } from "./builder";
@@ -385,6 +386,110 @@ describe("report builder foundation", () => {
     expect(auditPayload).not.toContain("baseSalary");
     expect(auditPayload).not.toContain("accountNumber");
     expect(auditPayload).not.toContain("A123456789");
+  });
+
+  it("processes background report export queue before allowing short-lived downloads", async () => {
+    const job = await createCustomReportJob(hrSession, {
+      title: "背景出勤報表",
+      datasetCode: "attendance_monthly",
+      purpose: "monthly_close",
+      deliveryMode: "background",
+      selectedFieldKeys: ["exception_type", "severity"],
+    });
+    const queuedWorkspace = await getReportAdminWorkspace(hrSession);
+
+    expect(job).toMatchObject({
+      status: "queued",
+      queue: {
+        deliveryMode: "background",
+        status: "queued",
+        attempts: 0,
+        storageTarget: "object_storage_pending",
+      },
+    });
+    expect(queuedWorkspace.summary.queuedExportCount).toBe(1);
+    await expect(issueReportArchiveDownloadToken(hrSession, job.archive.id)).rejects.toThrow(/尚未產生完成/);
+
+    const processed = await processReportExportQueue(hrSession, {
+      jobId: job.id,
+      workerId: "unit-test-worker",
+    });
+    const issued = await issueReportArchiveDownloadToken(hrSession, job.archive.id);
+    const download = await downloadReportArchive(hrSession, job.archive.id, issued.token);
+    const auditPayload = JSON.stringify(getAuditDemoState().logs);
+
+    expect(processed).toMatchObject({
+      processedCount: 1,
+      failedCount: 0,
+    });
+    expect(processed.jobs[0]).toMatchObject({
+      id: job.id,
+      status: "generated",
+      queue: {
+        deliveryMode: "background",
+        status: "ready",
+        attempts: 1,
+        storageTarget: "inline_manifest",
+      },
+    });
+    expect(download.body).toContain("exception_type");
+    expect(getAuditDemoState().logs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entityType: "report_export_queue",
+          action: "update",
+          metadataJson: expect.objectContaining({
+            queueStatus: "ready",
+            rawRowsIncluded: false,
+            rawErrorStored: false,
+          }),
+        }),
+      ]),
+    );
+    expect(auditPayload).not.toContain("unit-test-worker");
+    expect(auditPayload).not.toContain("baseSalary");
+    expect(auditPayload).not.toContain("accountNumber");
+  });
+
+  it("keeps sensitive background exports queued after second-person review", async () => {
+    const job = await createCustomReportJob(hrSession, {
+      title: "背景高敏人事報表",
+      datasetCode: "people_readiness",
+      purpose: "labor_inspection",
+      deliveryMode: "background",
+      selectedFieldKeys: ["employee_no", "hire_month"],
+    });
+
+    expect(job).toMatchObject({
+      status: "pending_review",
+      queue: {
+        deliveryMode: "background",
+        status: "waiting_for_review",
+      },
+    });
+
+    const approved = await approveReportJobReview(ownerSession, {
+      jobId: job.id,
+      reviewerNote: "REV-BG-2026-06",
+    });
+    await expect(issueReportArchiveDownloadToken(hrSession, job.archive.id)).rejects.toThrow(/尚未產生完成/);
+    const processed = await processReportExportQueue(hrSession, { jobId: job.id });
+
+    expect(approved).toMatchObject({
+      status: "queued",
+      queue: {
+        status: "queued",
+      },
+      review: {
+        status: "approved",
+      },
+    });
+    expect(processed.jobs[0]).toMatchObject({
+      status: "generated",
+      queue: {
+        status: "ready",
+      },
+    });
   });
 
   it("uses the permission matrix again before report archive download", async () => {
