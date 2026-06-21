@@ -1256,6 +1256,10 @@ test("兩週試用核心流程可從 UI 完成", async ({ page }) => {
   await expect(page.getByLabel("出勤異常處理工作台").getByText("今日先處理")).toBeVisible();
   await expect(page.getByLabel("出勤異常訊號板").getByText("異常解決率")).toBeVisible();
   await expect(page.getByLabel("出勤異常訊號板").getByText("高風險工時")).toBeVisible();
+  await expect(page.getByLabel("月底清理路線")).toContainText("月底清理路線");
+  await expect(page.getByLabel("月底清理路線")).toContainText("90%");
+  await expect(page.getByLabel("月底清理路線").getByText("01 達標差距")).toBeVisible();
+  await expect(page.getByLabel("月底清理路線").getByText("03 高風險人工")).toBeVisible();
   await expect(page.getByLabel("出勤異常作業卡").getByRole("heading", { name: "安全建議不自動套用" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "異常處理清單" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "處理原則" })).toBeVisible();

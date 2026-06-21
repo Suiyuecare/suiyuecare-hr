@@ -16,6 +16,7 @@ export default async function AttendanceExceptionsPage({ searchParams }: { searc
   const exceptions = await listAttendanceExceptions(session);
   const summary = summarizeAttendanceExceptionResolution(exceptions);
   const focus = buildAttendanceExceptionFocus(summary);
+  const closePath = buildAttendanceExceptionClosePath(summary);
   const pending = exceptions.filter((exception) => exception.status === "pending");
   const resolved = exceptions.filter((exception) => exception.status !== "pending");
 
@@ -96,6 +97,38 @@ export default async function AttendanceExceptionsPage({ searchParams }: { searc
           <strong>{summary.highRiskCount} 筆</strong>
           <small>涉及勞基法工時或休息日風險時，一律人工審查。</small>
         </article>
+      </section>
+
+      <section className="attendance-exception-close-path" aria-label="月底清理路線">
+        <div className="attendance-exception-close-copy">
+          <span>月底清理路線</span>
+          <strong>
+            {summary.kpiReady ? "出勤異常已達 90% 目標" : `還差 ${resolutionGap(summary.resolutionRate)} 個百分點`}
+          </strong>
+          <small>
+            目標是月底前把出勤異常解決率推到 90% 以上。先確認低風險安全建議，再處理高風險工時，所有處理都要留下 audit。
+          </small>
+        </div>
+        {closePath.map((item) => (
+          <article className={`attendance-exception-close-card ${item.tone}`} key={item.step}>
+            <span>{item.step}</span>
+            <strong>{item.title}</strong>
+            <p>{item.detail}</p>
+            <small>{item.metric}</small>
+            {item.formIntent ? (
+              <form action="/api/attendance/exceptions" method="post">
+                <input type="hidden" name="intent" value={item.formIntent} />
+                <button className="button" type="submit" disabled={item.disabled}>
+                  {item.actionLabel}
+                </button>
+              </form>
+            ) : (
+              <Link className="button" href={item.href}>
+                {item.actionLabel}
+              </Link>
+            )}
+          </article>
+        ))}
       </section>
 
       <section className="settings-command-grid attendance-exception-command-grid" aria-label="出勤異常作業卡">
@@ -253,6 +286,18 @@ export default async function AttendanceExceptionsPage({ searchParams }: { searc
   );
 }
 
+type AttendanceExceptionClosePathItem = {
+  step: string;
+  title: string;
+  detail: string;
+  metric: string;
+  tone: "ready" | "warning" | "danger" | "focus";
+  actionLabel: string;
+  href: string;
+  formIntent?: "resolve_safe";
+  disabled?: boolean;
+};
+
 function buildAttendanceExceptionFocus(summary: ReturnType<typeof summarizeAttendanceExceptionResolution>) {
   if (summary.highRiskCount > 0) {
     return {
@@ -295,6 +340,62 @@ function buildAttendanceExceptionFocus(summary: ReturnType<typeof summarizeAtten
     actionLabel: "回 HR 月結",
     tone: "ready",
   };
+}
+
+function buildAttendanceExceptionClosePath(
+  summary: ReturnType<typeof summarizeAttendanceExceptionResolution>,
+): AttendanceExceptionClosePathItem[] {
+  const total = summary.pendingCount + summary.resolvedCount;
+  const gap = resolutionGap(summary.resolutionRate);
+
+  return [
+    {
+      step: "01 達標差距",
+      title: summary.kpiReady ? "已達 90% 目標" : `${summary.resolutionRate}% 解決率`,
+      detail: summary.kpiReady ? "可進入薪資月結複檢，但仍要保留處理證據。" : "未達 90% 前，先清安全建議與高風險阻擋項。",
+      metric: summary.kpiReady ? "月結可進行" : `還差 ${gap} 個百分點`,
+      href: "#attendance-exception-queue",
+      actionLabel: "查看待處理",
+      tone: summary.kpiReady ? "ready" : summary.highRiskCount ? "danger" : "warning",
+    },
+    {
+      step: "02 安全建議",
+      title: summary.autoResolvableCount ? "HR 確認後套用" : "沒有低風險建議",
+      detail: summary.autoResolvableCount
+        ? "漏打卡與重複打卡可批次轉處理，但仍由 HR 按下確認。"
+        : "目前沒有可批次處理的低風險異常。",
+      metric: `${summary.autoResolvableCount} 筆`,
+      href: "#attendance-exception-queue",
+      actionLabel: "套用安全建議",
+      formIntent: "resolve_safe",
+      disabled: summary.autoResolvableCount === 0,
+      tone: summary.autoResolvableCount ? "focus" : "ready",
+    },
+    {
+      step: "03 高風險人工",
+      title: summary.highRiskCount ? "不可批次關閉" : "高風險已清空",
+      detail: summary.highRiskCount
+        ? "工時、休息日或法遵風險需追溯班表、假勤、加班與打卡來源。"
+        : "沒有工時或法遵高風險阻擋項。",
+      metric: `${summary.highRiskCount} 筆`,
+      href: summary.highRiskCount ? "/hr/worktime-compliance" : "#attendance-exception-queue",
+      actionLabel: summary.highRiskCount ? "開啟工時分析" : "查看清單",
+      tone: summary.highRiskCount ? "danger" : "ready",
+    },
+    {
+      step: "04 月結證據",
+      title: "audit 先留好",
+      detail: "證據欄只放文件編號或處理原因，不寫薪資、身分證、健康資料或私人備註。",
+      metric: total === 0 ? "無異常" : `${summary.resolvedCount}/${total} 已留痕`,
+      href: "/settings/audit",
+      actionLabel: "查看稽核",
+      tone: summary.pendingCount ? "warning" : "ready",
+    },
+  ];
+}
+
+function resolutionGap(rate: number) {
+  return Math.max(0, 90 - rate);
 }
 
 function exceptionTone(exception: HrExceptionView) {

@@ -7880,6 +7880,119 @@ legend {
   width: 100%;
 }
 
+.attendance-exception-close-path {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  align-items: stretch;
+  margin: 0 0 14px;
+}
+
+.attendance-exception-close-copy,
+.attendance-exception-close-card {
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.attendance-exception-close-copy {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  min-height: 172px;
+  border: 1px solid rgba(30, 41, 59, 0.14);
+  background: var(--command-bg);
+  color: #ffffff;
+  padding: 16px;
+}
+
+.attendance-exception-close-copy span {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.attendance-exception-close-copy strong {
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 1000;
+  line-height: 1.08;
+}
+
+.attendance-exception-close-copy small {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.attendance-exception-close-card {
+  display: grid;
+  grid-template-rows: auto auto minmax(58px, auto) auto auto;
+  align-content: start;
+  gap: 8px;
+  min-height: 172px;
+  border: 1px solid var(--panel-border);
+  background: #ffffff;
+  padding: 14px;
+}
+
+.attendance-exception-close-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.attendance-exception-close-card strong {
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 1000;
+  line-height: 1.15;
+}
+
+.attendance-exception-close-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1.42;
+}
+
+.attendance-exception-close-card small {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 950;
+  line-height: 1.25;
+}
+
+.attendance-exception-close-card form,
+.attendance-exception-close-card .button {
+  width: 100%;
+}
+
+.attendance-exception-close-card .button {
+  align-self: end;
+}
+
+.attendance-exception-close-card.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.attendance-exception-close-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.attendance-exception-close-card.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.attendance-exception-close-card.focus {
+  border-color: rgba(234, 136, 12, 0.4);
+  background: #fff7ed;
+}
+
 .attendance-exception-command-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -11584,6 +11697,7 @@ legend {
   .worktime-compliance-command-grid,
   .worktime-compliance-risk-task,
   .worktime-compliance-guardrail-grid,
+  .attendance-exception-close-path,
   .shift-template-command-grid,
   .shift-template-weekdays,
   .shift-template-task,
