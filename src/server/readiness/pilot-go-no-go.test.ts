@@ -6,6 +6,7 @@ import type { PilotInviteReadinessReport } from "@/server/readiness/pilot-invite
 import type { PilotImportPreflightReport } from "@/server/readiness/pilot-import-preflight";
 import type { PilotWorkflowReadinessReport } from "@/server/readiness/pilot-workflow-readiness";
 import type { ProductionDatabaseRemediationReport } from "@/server/readiness/production-database-remediation";
+import { buildVercelProductionEnvInventoryReport } from "@/server/readiness/vercel-production-env-inventory";
 import {
   buildPilotGoNoGoReport,
   formatPilotGoNoGoMarkdown,
@@ -364,6 +365,9 @@ function productionDatabaseReport(options: {
         evidence: "Fixture env repair evidence.",
       },
     ],
+    vercelEnvInventory: buildVercelProductionEnvInventoryReport(null, {
+      generatedAt: new Date("2026-06-17T00:00:00.000Z"),
+    }),
     launchChecklist: [],
     vercelCutover: {
       status: options.status === "ready" ? "verified" : envDraftStatus === "ready" ? "ready_to_apply" : "waiting_for_env",

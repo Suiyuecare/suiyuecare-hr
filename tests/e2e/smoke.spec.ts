@@ -470,6 +470,11 @@ test("Owner 可以檢查試用營運與上線 Gate", async ({ page }) => {
   await expect(envRepairMatrix.getByRole("heading", { name: "正式登入、Tenant context 與 session" })).toBeVisible();
   await expect(envRepairMatrix.getByText("DATABASE_URL").first()).toBeVisible();
   await expect(envRepairMatrix.getByText("HR_ONE_WEB_SESSION_MAX_AGE_SECONDS").first()).toBeVisible();
+  const vercelEnvInventory = page.getByLabel("Vercel Production env key inventory");
+  await expect(vercelEnvInventory.getByRole("heading", { name: "Vercel Production env key inventory" })).toBeVisible();
+  await expect(vercelEnvInventory.getByText("只讀 inventory 命令")).toBeVisible();
+  await expect(page.getByLabel("Vercel env inventory 摘要").getByText("Required keys")).toBeVisible();
+  await expect(vercelEnvInventory.getByText("Key 存在仍不等於值可用")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Supabase private schema / RLS Gate" })).toBeVisible();
   await expect(page.getByText("瀏覽器角色不可直通 HR 表")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Supabase Transaction Pooler 形狀" })).toBeVisible();

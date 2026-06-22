@@ -23,6 +23,10 @@ import {
   type SupabasePrivateSchemaVerificationCheck,
   type SupabasePrivateSchemaVerificationSnapshot,
 } from "@/server/readiness/supabase-private-schema-verification";
+import {
+  buildVercelProductionEnvInventoryReport,
+  type VercelProductionEnvInventoryReport,
+} from "@/server/readiness/vercel-production-env-inventory";
 import { getUnresolvedEnvPlaceholderKeys } from "@/server/readiness/vercel-production-env-draft";
 
 export type ProductionDatabaseRootCause =
@@ -134,6 +138,7 @@ export type ProductionDatabaseRemediationReport = {
   databaseDetail: string;
   environmentDetail: string;
   envRepairPlan: ProductionDatabaseEnvRepairGroup[];
+  vercelEnvInventory: VercelProductionEnvInventoryReport;
   launchChecklist: ProductionDatabaseLaunchChecklistItem[];
   vercelCutover: VercelProductionCutoverPlan;
   tracks: ProductionDatabaseRemediationTrack[];
@@ -180,6 +185,7 @@ export type ProductionDatabaseRemediationInput = {
   fetchedHealthStatusCode?: number | null;
   envDraft?: ProductionDatabaseEnvDraftReport | null;
   privateSchema?: ProductionDatabasePrivateSchemaReport | null;
+  vercelEnvInventory?: VercelProductionEnvInventoryReport | null;
   supabaseUrl?: string | null;
   supabaseRegion?: string | null;
   generatedAt?: Date;
@@ -190,6 +196,7 @@ export type ProductionDatabaseWorkspaceOptions = {
   expectedHost?: string | null;
   envDraft?: ProductionDatabaseEnvDraftReport | null;
   privateSchema?: ProductionDatabasePrivateSchemaReport | null;
+  vercelEnvInventory?: VercelProductionEnvInventoryReport | null;
   fetcher?: typeof fetch;
   generatedAt?: Date;
   includeRuntimeEnvDiagnostics?: boolean;
@@ -229,6 +236,7 @@ export async function getProductionDatabaseRemediationReport(
     fetchedHealthStatusCode: fetched.statusCode,
     envDraft,
     privateSchema: options.privateSchema ?? buildProductionDatabasePrivateSchemaReport(),
+    vercelEnvInventory: options.vercelEnvInventory ?? null,
     supabaseUrl:
       options.supabaseUrl ??
       options.runtimeEnv?.NEXT_PUBLIC_SUPABASE_URL ??
@@ -408,6 +416,9 @@ export function buildProductionDatabaseRemediationReport(
   const envDraft = input.envDraft ?? null;
   const envRepairPlan = buildProductionDatabaseEnvRepairPlan(envDraft);
   const privateSchema = input.privateSchema ?? buildProductionDatabasePrivateSchemaReport();
+  const vercelEnvInventory = input.vercelEnvInventory ?? buildVercelProductionEnvInventoryReport(null, {
+    generatedAt,
+  });
   const supabasePooler = buildSupabaseTransactionPoolerTemplate({
     supabaseUrl: input.supabaseUrl ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
     region: input.supabaseRegion ?? process.env.HR_ONE_SUPABASE_REGION,
@@ -432,7 +443,7 @@ export function buildProductionDatabaseRemediationReport(
     status: liveConnectionReady ? "ready" : "blocked",
   });
   const tracks = buildTracks(rootCause, privateSchema);
-  const nextActions = buildNextActions(rootCause, gate, envDraft, privateSchema);
+  const nextActions = buildNextActions(rootCause, gate, envDraft, privateSchema, vercelEnvInventory);
 
   return {
     status,
@@ -448,6 +459,7 @@ export function buildProductionDatabaseRemediationReport(
     databaseDetail,
     environmentDetail,
     envRepairPlan,
+    vercelEnvInventory,
     launchChecklist,
     vercelCutover,
     tracks,
@@ -484,6 +496,10 @@ export function formatProductionDatabaseRemediationMarkdown(
     "## Production Env Repair Matrix",
     "",
     ...formatEnvRepairPlan(report.envRepairPlan),
+    "",
+    "## Vercel Production Env Inventory",
+    "",
+    ...formatVercelEnvInventory(report.vercelEnvInventory),
     "",
     "## Supabase Transaction Pooler Shape",
     "",
@@ -593,6 +609,24 @@ function formatEnvRepairPlan(groups: ProductionDatabaseEnvRepairGroup[]) {
     `- Evidence: ${redactSensitiveDetail(group.evidence)}`,
     "",
   ]);
+}
+
+function formatVercelEnvInventory(report: VercelProductionEnvInventoryReport) {
+  return [
+    `- Status: ${report.status}`,
+    `- Source: ${redactSensitiveDetail(report.source)}`,
+    `- Command: ${redactSensitiveDetail(report.command)}`,
+    `- Required keys: ${report.presentRequiredCount}/${report.requiredKeyCount}`,
+    `- Total keys inspected: ${report.totalKeyCount}`,
+    `- Production keys inspected: ${report.productionKeyCount}`,
+    `- Missing keys: ${report.missingKeys.length ? report.missingKeys.join(", ") : "None"}`,
+    `- Wrong-target keys: ${report.wrongTargetKeys.length ? report.wrongTargetKeys.join(", ") : "None"}`,
+    `- Unsafe-type keys: ${report.unsafeTypeKeys.length ? report.unsafeTypeKeys.join(", ") : "None"}`,
+    "- Inventory groups:",
+    ...report.groups.map((group) =>
+      `  - [${group.status.toUpperCase()}] ${group.title}: ${group.presentCount}/${group.requiredCount}; next=${redactSensitiveDetail(group.nextStep)}`,
+    ),
+  ];
 }
 
 function formatSupabasePooler(pooler: SupabaseTransactionPoolerTemplate) {
@@ -922,6 +956,7 @@ function buildNextActions(
   gate: ProductionPilotGateReport,
   envDraft: ProductionDatabaseEnvDraftReport | null,
   privateSchema: ProductionDatabasePrivateSchemaReport,
+  vercelEnvInventory: VercelProductionEnvInventoryReport,
 ) {
   const actions: string[] = [];
   if (rootCause === "ready") {
@@ -951,6 +986,9 @@ function buildNextActions(
   }
   if (privateSchema.status !== "ready") {
     actions.push(...privateSchema.nextActions);
+  }
+  if (vercelEnvInventory.status !== "ready") {
+    actions.push(...vercelEnvInventory.nextActions);
   }
   actions.push(...gate.nextActions);
   return [...new Set(actions.map(redactSensitiveDetail))];

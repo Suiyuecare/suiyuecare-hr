@@ -129,6 +129,8 @@ describe("production database remediation", () => {
     expect(markdown).toContain("## Local Env Draft");
     expect(markdown).toContain("## Production Env Repair Matrix");
     expect(markdown).toContain("資料庫連線與 private schema");
+    expect(markdown).toContain("## Vercel Production Env Inventory");
+    expect(markdown).toContain("Status: not_checked");
     expect(markdown).toContain("Database shape: Supabase direct host");
     expect(markdown).toContain("## Supabase Transaction Pooler Shape");
     expect(markdown).toContain("## Supabase Private Schema / RLS Gate");

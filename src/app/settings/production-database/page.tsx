@@ -57,6 +57,7 @@ export default async function ProductionDatabasePage({ searchParams }: { searchP
   const overallReady = checkPassed(report, "overall readiness");
   const demoAuthOff = checkPassed(report, "demo auth disabled");
   const privateSchemaReady = report.privateSchema.status === "ready";
+  const vercelInventoryReady = report.vercelEnvInventory.status === "ready";
 
   return (
     <main className="page production-database-page">
@@ -123,6 +124,7 @@ export default async function ProductionDatabasePage({ searchParams }: { searchP
         <SignalCard label="Production env" value={environmentReady ? "OK" : "FAIL"} detail={report.environmentDetail} tone={environmentReady ? "done" : "danger"} />
         <SignalCard label="Database ping" value={databaseReady ? "OK" : "FAIL"} detail={report.databaseDetail} tone={databaseReady ? "done" : "danger"} />
         <SignalCard label="Private schema / RLS" value={privateSchemaReady ? "OK" : "CHECK"} detail={report.privateSchema.summary} tone={privateSchemaTone(report.privateSchema.status)} />
+        <SignalCard label="Vercel env inventory" value={vercelInventoryReady ? "OK" : "CHECK"} detail={report.vercelEnvInventory.summary} tone={vercelInventorySignalTone(report.vercelEnvInventory.status)} />
         <SignalCard label="Demo auth" value={demoAuthOff ? "OFF" : "RISK"} detail="正式 runtime 不可開 demo auth" tone={demoAuthOff ? "done" : "danger"} />
       </section>
 
@@ -365,6 +367,106 @@ export default async function ProductionDatabasePage({ searchParams }: { searchP
                     <span>
                       <strong>證據</strong>
                       <small>{group.evidence}</small>
+                    </span>
+                  </li>
+                </ul>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel span-12 production-database-env-inventory" aria-label="Vercel Production env key inventory">
+          <div className="section-heading">
+            <div>
+              <h2>Vercel Production env key inventory</h2>
+              <p className="muted">
+                只讀取 key metadata，確認必要 key 是否在 production target、是否使用 secret-safe type；不讀、不保存、不顯示 env value。
+              </p>
+            </div>
+            <span className={`badge ${vercelInventoryBadgeClass(report.vercelEnvInventory.status)}`}>
+              {vercelInventoryStatusLabel(report.vercelEnvInventory.status)}
+            </span>
+          </div>
+          <div className={`production-database-cutover-focus ${vercelInventoryTone(report.vercelEnvInventory.status)}`}>
+            <div>
+              <span className="eyebrow">只讀 inventory 命令</span>
+              <strong>{report.vercelEnvInventory.summary}</strong>
+              <code>{report.vercelEnvInventory.command}</code>
+            </div>
+            <a className="button primary" href="#production-database-commands">
+              看完整命令
+            </a>
+          </div>
+          <div className="production-database-diagnostic-grid" aria-label="Vercel env inventory 摘要">
+            <article className={`production-database-mini-card ${vercelInventoryTone(report.vercelEnvInventory.status)}`}>
+              <span className="badge">Required keys</span>
+              <h3>{report.vercelEnvInventory.presentRequiredCount}/{report.vercelEnvInventory.requiredKeyCount}</h3>
+              <ul className="task-list">
+                <li className="task">
+                  <span>
+                    <strong>Inspected keys</strong>
+                    <small>{report.vercelEnvInventory.totalKeyCount} total · {report.vercelEnvInventory.productionKeyCount} production</small>
+                  </span>
+                </li>
+                <li className="task">
+                  <span>
+                    <strong>Missing</strong>
+                    <small>{report.vercelEnvInventory.missingKeys.length ? report.vercelEnvInventory.missingKeys.join(", ") : "無"}</small>
+                  </span>
+                </li>
+                <li className="task">
+                  <span>
+                    <strong>Wrong target / unsafe type</strong>
+                    <small>
+                      {report.vercelEnvInventory.wrongTargetKeys.length + report.vercelEnvInventory.unsafeTypeKeys.length
+                        ? [...report.vercelEnvInventory.wrongTargetKeys, ...report.vercelEnvInventory.unsafeTypeKeys].join(", ")
+                        : "無"}
+                    </small>
+                  </span>
+                </li>
+              </ul>
+            </article>
+            <article className="production-database-mini-card warning">
+              <span className="badge warning">證據限制</span>
+              <h3>Key 存在仍不等於值可用</h3>
+              <p>inventory 只能證明 key 名稱、target 與 type；DATABASE_URL 是否是 pooler、密碼是否正確，仍以 redeploy 後 live health ready 為準。</p>
+            </article>
+          </div>
+          <div className="production-database-track-grid">
+            {report.vercelEnvInventory.groups.map((group) => (
+              <article className={`production-database-track ${vercelInventoryTone(group.status)}`} key={group.id}>
+                <span className={`badge ${vercelInventoryBadgeClass(group.status)}`}>
+                  {vercelInventoryStatusLabel(group.status)}
+                </span>
+                <h3>{group.title}</h3>
+                <p>{group.nextStep}</p>
+                <ul className="task-list">
+                  <li className="task production-database-task">
+                    <span>
+                      <strong>負責人</strong>
+                      <small>{group.owner}</small>
+                    </span>
+                  </li>
+                  <li className="task production-database-task">
+                    <span>
+                      <strong>Required keys</strong>
+                      <small>{group.presentCount}/{group.requiredCount}</small>
+                    </span>
+                  </li>
+                  <li className="task production-database-task">
+                    <span>
+                      <strong>Missing</strong>
+                      <small>{group.missingKeys.length ? group.missingKeys.join(", ") : "無"}</small>
+                    </span>
+                  </li>
+                  <li className="task production-database-task">
+                    <span>
+                      <strong>Wrong target / unsafe</strong>
+                      <small>
+                        {group.wrongTargetKeys.length + group.unsafeTypeKeys.length
+                          ? [...group.wrongTargetKeys, ...group.unsafeTypeKeys].join(", ")
+                          : "無"}
+                      </small>
                     </span>
                   </li>
                 </ul>
@@ -701,6 +803,7 @@ export default async function ProductionDatabasePage({ searchParams }: { searchP
           <ul className="task-list">
             <CommandTask title="Pooler handoff" command={poolerHandoffCommand} />
             <CommandTask title="更新本地 env 草稿" command={poolerDraftCommand} />
+            <CommandTask title="Vercel env inventory" command="pnpm vercel:inventory:production -- --team-id=team_LGag47eU8tKbsK6ixAmVa5Uq --output=/tmp/hr-one-vercel-production-env-inventory.md" />
             <CommandTask title="寫入 Vercel Production env" command={vercelEnvApplyCommand} />
             <CommandTask title="重新部署 Production" command={productionDeployCommand} />
             <CommandTask title="Production health" command="curl -fsS https://hr.suiyuecare.com/api/health/ready" />
@@ -902,6 +1005,30 @@ function privateSchemaStatusLabel(status: ProductionDatabaseRemediationReport["p
 }
 
 function privateSchemaTone(status: ProductionDatabaseRemediationReport["privateSchema"]["status"]) {
+  if (status === "ready") return "done";
+  if (status === "blocked") return "danger";
+  return "warning";
+}
+
+function vercelInventoryStatusLabel(status: ProductionDatabaseRemediationReport["vercelEnvInventory"]["status"]) {
+  if (status === "ready") return "Inventory OK";
+  if (status === "blocked") return "Inventory 阻擋";
+  return "尚未檢查";
+}
+
+function vercelInventoryBadgeClass(status: ProductionDatabaseRemediationReport["vercelEnvInventory"]["status"]) {
+  if (status === "ready") return "done";
+  if (status === "blocked") return "danger";
+  return "warning";
+}
+
+function vercelInventoryTone(status: ProductionDatabaseRemediationReport["vercelEnvInventory"]["status"]) {
+  if (status === "ready") return "ready";
+  if (status === "blocked") return "danger";
+  return "warning";
+}
+
+function vercelInventorySignalTone(status: ProductionDatabaseRemediationReport["vercelEnvInventory"]["status"]) {
   if (status === "ready") return "done";
   if (status === "blocked") return "danger";
   return "warning";
