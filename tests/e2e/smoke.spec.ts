@@ -526,6 +526,23 @@ test("Owner 可以檢查試用證據包 Gate 並產生稽核證據", async ({ pa
   await expect(page.getByText("稽核證據包已產生")).toBeVisible();
 });
 
+test("Owner 可以查看商務訂閱與 HR One 可販售模組", async ({ page }) => {
+  await page.goto("/app");
+  await switchDemoRole(page, "owner");
+
+  await page.goto("/settings/subscription");
+  await expect(page.getByRole("heading", { name: "商務訂閱與模組販售" })).toBeVisible();
+  await expect(page.getByLabel("可販售模組目錄").getByRole("heading", { name: "可販售模組目錄" })).toBeVisible();
+  await expect(page.getByText("HR 基礎營運")).toBeVisible();
+  await expect(page.getByText("薪資月結與薪資單")).toBeVisible();
+  await expect(page.getByText("安全 AI Copilot")).toBeVisible();
+  await expect(page.getByText("SaaS 多租戶營運")).toBeVisible();
+  await expect(page.getByText("需升級").first()).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("baseSalary");
+  await expect(page.locator("body")).not.toContainText("accountNumber");
+  await expect(page.locator("body")).not.toContainText("nationalId");
+});
+
 test("Owner 可以用中文權限中樞邀請帳號並綁定員工", async ({ page }) => {
   await page.goto("/app");
   await switchDemoRole(page, "owner");

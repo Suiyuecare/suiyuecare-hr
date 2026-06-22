@@ -51,6 +51,11 @@ describe("tenant subscriptions", () => {
     const workspace = await getSubscriptionWorkspace(ownerSession);
 
     expect(workspace.readiness.ready).toBe(false);
+    expect(workspace.productModules).toMatchObject({
+      plan: "demo",
+      readyForPackaging: false,
+      includedCount: 0,
+    });
     expect(workspace.readiness.missing).toEqual([
       "paid customer plan selected",
       "active subscription status",
@@ -95,6 +100,16 @@ describe("tenant subscriptions", () => {
       verificationStatus: "verified",
     });
     expect(updated.contractHash).toHaveLength(64);
+
+    const workspace = await getSubscriptionWorkspace(ownerSession);
+    expect(workspace.productModules).toMatchObject({
+      plan: "enterprise",
+      readyForPackaging: true,
+    });
+    expect(workspace.productModules.items.find((item) => item.module.id === "safe-ai-copilot")).toMatchObject({
+      included: true,
+      upgradeRequired: false,
+    });
 
     const audit = getAuditDemoState().logs[0];
     expect(audit).toMatchObject({

@@ -3,6 +3,7 @@ import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { stableHash } from "@/server/audit/redaction";
 import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
+import { getProductModuleSummary, type ProductModuleSummary } from "./product-modules";
 
 type SessionLike = {
   role: RoleKey;
@@ -44,6 +45,7 @@ export type SubscriptionReadiness = {
 export type SubscriptionWorkspace = {
   subscription: TenantSubscriptionView;
   readiness: SubscriptionReadiness;
+  productModules: ProductModuleSummary;
 };
 
 const defaultSubscription: TenantSubscriptionView = {
@@ -159,6 +161,7 @@ async function getDbSubscriptionWorkspace(session: SessionLike & { tenantId: str
   return {
     subscription,
     readiness: evaluateSubscriptionReadiness(subscription),
+    productModules: getProductModuleSummary(subscription.plan),
   };
 }
 
@@ -205,6 +208,7 @@ function getDemoSubscriptionWorkspace(): SubscriptionWorkspace {
   return {
     subscription,
     readiness: evaluateSubscriptionReadiness(subscription),
+    productModules: getProductModuleSummary(subscription.plan),
   };
 }
 

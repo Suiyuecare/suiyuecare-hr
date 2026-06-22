@@ -2814,6 +2814,130 @@ legend {
   line-height: 1.5;
 }
 
+.product-module-board {
+  display: grid;
+  gap: 14px;
+}
+
+.product-module-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.product-module-summary article {
+  display: grid;
+  gap: 6px;
+  min-height: 96px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--cream);
+  padding: 12px;
+}
+
+.product-module-summary span,
+.product-module-summary small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.product-module-summary strong {
+  color: var(--foreground);
+  font-size: 26px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.product-module-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.product-module-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 342px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.product-module-card.ready {
+  border-color: rgba(21, 128, 61, 0.26);
+  background: #f4fbf7;
+}
+
+.product-module-card.warning {
+  border-color: rgba(183, 121, 31, 0.28);
+  background: #fff9ed;
+}
+
+.product-module-card.danger {
+  border-color: rgba(185, 28, 28, 0.24);
+  background: #fff6f5;
+}
+
+.product-module-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.product-module-card-head h3 {
+  margin: 4px 0 0;
+  font-size: 20px;
+  font-weight: 1000;
+  line-height: 1.15;
+}
+
+.product-module-card p {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.6;
+}
+
+.product-module-meta,
+.product-module-gates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.product-module-meta span,
+.product-module-gates span {
+  border: 1px solid rgba(30, 41, 59, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 5px 8px;
+  color: var(--foreground);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.product-module-gates span {
+  border-color: rgba(234, 136, 12, 0.24);
+  background: #fff8ed;
+  color: var(--accent-text);
+}
+
+.product-module-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-self: end;
+}
+
+.product-module-links .button {
+  width: 100%;
+}
+
 .console-command-board {
   display: grid;
   grid-template-columns: minmax(280px, 1.25fr) repeat(3, minmax(0, 1fr));
@@ -12828,6 +12952,10 @@ legend {
   .console-product-lanes,
   .role-experience-head,
   .role-experience-grid,
+  .product-module-summary,
+  .product-module-grid,
+  .product-module-card-head,
+  .product-module-links,
   .console-module-detail-hero,
   .organization-hero,
   .organization-metric-strip,
@@ -13342,6 +13470,14 @@ legend {
 
   .role-experience-actions {
     grid-template-columns: 1fr;
+  }
+
+  .product-module-card {
+    min-height: auto;
+  }
+
+  .product-module-card-head {
+    display: grid;
   }
 
   .quick-approval-row .button {
