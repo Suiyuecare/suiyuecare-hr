@@ -33,7 +33,7 @@ export default async function RootLayout({
             <div className="topbar-inner">
               <Link href="/" className="brand" aria-label="HR One 首頁">
                 <strong>HR One</strong>
-                <span>AI 原生人資作業系統</span>
+                <span>人資系統</span>
               </Link>
               <div className="auth-assurance" aria-label="登入安全狀態">
                 {authEvaluation ? (
@@ -42,25 +42,25 @@ export default async function RootLayout({
                       {authEvaluation.allowed ? "登入已驗證" : translateAuthStatus(authEvaluation.status)}
                     </span>
                     <small>
-                      {translateAuthMethod(authAssurance?.method)} · 多因素驗證{" "}
-                      {authAssurance?.mfaVerified ? "已完成" : "未完成"}
+                      {translateAuthMethod(authAssurance?.method)} ·{" "}
+                      {authAssurance?.mfaVerified ? "安全完成" : "待驗證"}
                     </small>
                   </>
                 ) : (
                   <>
                     <span className="badge warning">需要正式登入</span>
-                    <small>production 停用示範角色切換</small>
+                    <small>請用公司帳號</small>
                   </>
                 )}
               </div>
               <nav className="topbar-nav" aria-label="主要系統切換">
                 <Link href="/app">
                   <span>員工前台</span>
-                  <small>打卡 · 請假 · 薪資單</small>
+                  <small>打卡 · 請假</small>
                 </Link>
                 <Link href="/console">
                   <span>管理後台</span>
-                  <small>簽核 · 月結 · 設定</small>
+                  <small>簽核 · 月結</small>
                 </Link>
               </nav>
               {session && showDemoRoleSwitcher ? (

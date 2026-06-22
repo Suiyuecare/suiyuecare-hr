@@ -57,7 +57,7 @@ export default async function EmployeeHomePage() {
     {
       label: "簽核",
       value: `${pendingRequests.length} 筆`,
-      detail: pendingRequests.length ? "等待主管處理" : "沒有等待中的申請",
+      detail: pendingRequests.length ? "等主管" : "不用處理",
       href: "#requests",
       tone: pendingRequests.length ? "focus" : "done",
     },
@@ -69,39 +69,6 @@ export default async function EmployeeHomePage() {
       tone: unreadNotificationCount ? "focus" : "done",
     },
   ];
-  const employeeFlow = [
-    {
-      step: "01",
-      title: "打卡",
-      detail: workspace.attendance.clockInAt ? `已於 ${clockInDisplay} 上班` : "先完成上班打卡",
-      href: "/app/attendance",
-      state: workspace.attendance.clockInAt ? "done" : "focus",
-    },
-    {
-      step: "02",
-      title: "申請",
-      detail: pendingRequests.length ? `${pendingRequests.length} 筆等待主管` : "請假、加班、補打卡",
-      href: "#quick-actions",
-      state: pendingRequests.length ? "focus" : "ready",
-    },
-    {
-      step: "03",
-      title: "公告",
-      detail: workspace.notifications.some((notification) => notification.status === "unread")
-        ? "有未讀通知"
-        : "通知已讀",
-      href: "/app/announcements",
-      state: workspace.notifications.some((notification) => notification.status === "unread") ? "focus" : "done",
-    },
-    {
-      step: "04",
-      title: "薪資單",
-      detail: "發布後本人查看",
-      href: "/app/payslip",
-      state: "ready",
-    },
-  ];
-
   return (
     <>
       <main className="page mobile-page">
@@ -163,8 +130,8 @@ export default async function EmployeeHomePage() {
             <strong>{primaryPunchAction?.label ?? "出勤完成"}</strong>
             <small>
               {primaryPunchAction
-                ? `${clockInDisplay} / ${clockOutDisplay} · 來源 mobile`
-                : `${clockInDisplay} / ${clockOutDisplay} · 今日出勤可查看`}
+                ? `${clockInDisplay} / ${clockOutDisplay} · 手機`
+                : `${clockInDisplay} / ${clockOutDisplay} · 可查看`}
             </small>
             {primaryPunchAction ? (
               <form action={primaryPunchAction.action} method="post">
@@ -182,12 +149,12 @@ export default async function EmployeeHomePage() {
           <a className="employee-daily-command-card" href="#quick-leave">
             <span>02 申請</span>
             <strong>60 秒請假</strong>
-            <small>{workspace.leaveBalance.remainingUnits} 天可用 · 上午/下午可直接送出</small>
+            <small>{workspace.leaveBalance.remainingUnits} 天可用 · 點一下送出</small>
           </a>
           <a className={`employee-daily-command-card ${pendingRequests.length ? "warning" : ""}`} href="#requests">
             <span>03 追蹤</span>
             <strong>{pendingRequests.length ? `${pendingRequests.length} 筆簽核中` : "沒有等待"}</strong>
-            <small>{pendingRequests.length ? "查看目前關卡與主管回覆" : "送出後會在這裡看到時間線"}</small>
+            <small>{pendingRequests.length ? "看主管回覆" : "送出後看進度"}</small>
           </a>
         </section>
 
@@ -197,16 +164,6 @@ export default async function EmployeeHomePage() {
               <span>{signal.label}</span>
               <strong>{signal.value}</strong>
               <small>{signal.detail}</small>
-            </a>
-          ))}
-        </section>
-
-        <section className="employee-pilot-strip" aria-label="三步任務流程">
-          {employeeFlow.map((item) => (
-            <a className={`employee-flow-step ${item.state}`} href={item.href} key={item.step}>
-              <span>{item.step}</span>
-              <strong>{item.title}</strong>
-              <small>{item.detail}</small>
             </a>
           ))}
         </section>
@@ -230,56 +187,11 @@ export default async function EmployeeHomePage() {
             </p>
           </div>
 
-          <section className="span-12 employee-command-grid" aria-label="今日常用任務">
-            <a className="employee-action-card primary-card" href="#quick-actions">
-              <span className="muted">主要任務</span>
-              <strong>請假 / 加班 / 補打卡</strong>
-              <small>展開表單後送出</small>
-            </a>
-            <a className="employee-action-card" href="/app/attendance">
-              <span className="muted">今日出勤</span>
-              <strong>{labelStatus(workspace.attendance.status)}</strong>
-              <small>
-                {workspace.attendance.clockInAt ? formatTime(workspace.attendance.clockInAt) : "--:--"}
-                {" / "}
-                {workspace.attendance.clockOutAt ? formatTime(workspace.attendance.clockOutAt) : "--:--"}
-              </small>
-            </a>
-            <a className="employee-action-card" href="#requests">
-              <span className="muted">簽核進度</span>
-              <strong>{pendingRequests.length} 筆等待</strong>
-              <small>查看目前關卡</small>
-            </a>
-            <a className="employee-action-card" href="/app/payslip">
-              <span className="muted">薪資單</span>
-              <strong>自助查看</strong>
-              <small>發布後僅本人可讀</small>
-            </a>
-          </section>
-
-          <div className="panel span-12 leave-balance-strip">
-            <div>
-              <span className="muted">特休剩餘</span>
-              <strong>{workspace.leaveBalance.remainingUnits}</strong>
-            </div>
-            <span className="badge">{workspace.leaveBalance.pendingUnits} 待簽核</span>
-            {workspace.leaveBalance.carryoverUnits ? (
-              <small className="muted">
-                {Math.max(
-                  0,
-                  workspace.leaveBalance.carryoverUnits - (workspace.leaveBalance.carryoverUsedUnits ?? 0),
-                )} 優先使用遞延特休
-              </small>
-            ) : (
-              <small className="muted">請假送出後會保留餘額並通知主管。</small>
-            )}
-          </div>
-
           <section className="panel span-12 quick-leave-panel" aria-labelledby="quick-leave">
             <div className="section-heading">
               <div>
                 <h2 id="quick-leave">60 秒請假</h2>
-                <p className="muted">常見請假不用填完整表單；送出後一樣通知主管並留下 audit。</p>
+                <p className="muted">上午、下午、全天，選一個送出。</p>
               </div>
               <span className="badge">{workspace.leaveBalance.remainingUnits} 可用</span>
             </div>
@@ -314,7 +226,7 @@ export default async function EmployeeHomePage() {
             <div className="section-heading">
               <div>
                 <h2 id="quick-actions">快速處理</h2>
-                <p className="muted">手機上保留三個常用任務，避免進深層選單。</p>
+                <p className="muted">常用三件事放這裡。</p>
               </div>
               <span className="badge">三步完成</span>
             </div>
@@ -323,7 +235,7 @@ export default async function EmployeeHomePage() {
                 <summary>
                   <span>
                     <strong>請假</strong>
-                    <small>選日期、填原因，送給主管簽核。</small>
+                    <small>選日期，填原因。</small>
                   </span>
                   <span className="badge">{workspace.leaveBalance.remainingUnits} 可用</span>
                 </summary>
@@ -356,16 +268,13 @@ export default async function EmployeeHomePage() {
                       <input name="units" type="number" min="0.5" step="0.5" defaultValue="1" required />
                     </label>
                     <label>
-                      附件
-                      <input name="attachmentFileName" placeholder="診斷證明.pdf" />
+                      附件檔名
+                      <input name="attachmentFileName" placeholder="選填" />
                     </label>
-                    <label>
-                      附件儲存代碼
-                      <input name="attachmentStorageKey" placeholder="選填，未來由上傳功能帶入" />
-                      <input type="hidden" name="attachmentMimeType" value="application/pdf" />
-                      <input type="hidden" name="attachmentScanStatus" value="pending" />
-                      <input type="hidden" name="attachmentFileSizeBytes" value="0" />
-                    </label>
+                    <input type="hidden" name="attachmentStorageKey" value="" />
+                    <input type="hidden" name="attachmentMimeType" value="application/pdf" />
+                    <input type="hidden" name="attachmentScanStatus" value="pending" />
+                    <input type="hidden" name="attachmentFileSizeBytes" value="0" />
                   </div>
                   <label>
                     請假原因
@@ -381,7 +290,7 @@ export default async function EmployeeHomePage() {
                 <summary>
                   <span>
                     <strong>加班</strong>
-                    <small>填寫開始結束時間與原因。</small>
+                    <small>填時間和原因。</small>
                   </span>
                   <span className="badge">主管簽核</span>
                 </summary>
@@ -424,7 +333,7 @@ export default async function EmployeeHomePage() {
                 <summary>
                   <span>
                     <strong>補打卡</strong>
-                    <small>補正漏刷或設備異常紀錄。</small>
+                    <small>漏打卡就補這裡。</small>
                   </span>
                   <span className="badge">出勤修正</span>
                 </summary>
@@ -461,55 +370,6 @@ export default async function EmployeeHomePage() {
             </div>
           </section>
 
-          <section className="panel span-12" aria-labelledby="custom-forms">
-            <div className="section-heading">
-              <div>
-                <h2 id="custom-forms">表單</h2>
-                <p className="muted">不用找功能選單，直接送出人資申請。</p>
-              </div>
-              <span className="badge">{workspace.formTemplates.length} 個啟用中</span>
-            </div>
-            {workspace.formTemplates.length === 0 ? (
-              <p className="muted">目前沒有啟用中的自訂表單。</p>
-            ) : (
-              <div className="form-stack">
-                {workspace.formTemplates.map((template) => (
-                  <CustomFormCard key={template.id} template={template} today={today} />
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="panel span-12" aria-labelledby="employee-compliance">
-            <div className="section-heading">
-              <div>
-                <h2 id="employee-compliance">我的人資任務</h2>
-                <p className="muted">用手機完成需要確認的文件、訓練與到職任務。</p>
-              </div>
-              <span className="badge">手機優先</span>
-            </div>
-            <div className="inline-actions">
-              <a className="button" href="/app/work-rules">
-                工作規則
-              </a>
-              <a className="button" href="/app/employment-terms">
-                勞動條件
-              </a>
-              <a className="button" href="/app/training">
-                訓練
-              </a>
-              <a className="button" href="/app/privacy">
-                個資
-              </a>
-              <a className="button" href="/app/documents">
-                文件
-              </a>
-              <a className="button" href="/app/announcements">
-                公告
-              </a>
-            </div>
-          </section>
-
           <section className="panel span-12" id="requests">
             <h2>申請進度</h2>
             {workspace.requests.length === 0 ? (
@@ -540,6 +400,57 @@ export default async function EmployeeHomePage() {
                 ))}
               </ul>
             )}
+          </section>
+
+          <section className="panel span-12" aria-labelledby="custom-forms">
+            <details className="action-disclosure custom-form-section">
+              <summary>
+                <span>
+                  <strong id="custom-forms">表單</strong>
+                  <small>常用人資申請。</small>
+                </span>
+                <span className="badge">{workspace.formTemplates.length} 個</span>
+              </summary>
+              {workspace.formTemplates.length === 0 ? (
+                <p className="muted empty-note">目前沒有表單。</p>
+              ) : (
+                <div className="form-stack custom-form-stack">
+                  {workspace.formTemplates.map((template) => (
+                    <CustomFormCard key={template.id} template={template} today={today} />
+                  ))}
+                </div>
+              )}
+            </details>
+          </section>
+
+          <section className="panel span-12" aria-labelledby="employee-compliance">
+            <div className="section-heading">
+              <div>
+                <h2 id="employee-compliance">我的人資任務</h2>
+                <p className="muted">要看的文件都在這裡。</p>
+              </div>
+              <span className="badge">手機優先</span>
+            </div>
+            <div className="inline-actions">
+              <a className="button" href="/app/work-rules">
+                工作規則
+              </a>
+              <a className="button" href="/app/employment-terms">
+                勞動條件
+              </a>
+              <a className="button" href="/app/training">
+                訓練
+              </a>
+              <a className="button" href="/app/privacy">
+                個資
+              </a>
+              <a className="button" href="/app/documents">
+                文件
+              </a>
+              <a className="button" href="/app/announcements">
+                公告
+              </a>
+            </div>
           </section>
         </section>
       </main>
@@ -658,7 +569,7 @@ function buildNextBestAction(input: {
     return {
       badge: "待打卡",
       title: "先完成上班打卡",
-      detail: "目前尚未有上班紀錄，請先確認今日出勤。",
+      detail: "先按上班打卡。",
       href: "/app/attendance",
       cta: "看出勤",
       tone: "warning",
@@ -668,7 +579,7 @@ function buildNextBestAction(input: {
     return {
       badge: "工作中",
       title: "下班前確認出勤",
-      detail: "如果漏刷，直接在快速處理送出補打卡。",
+      detail: "漏打卡就補卡。",
       href: "#quick-actions",
       cta: "補打卡",
       tone: "focus",
@@ -678,7 +589,7 @@ function buildNextBestAction(input: {
     return {
       badge: "簽核中",
       title: "查看申請進度",
-      detail: `${input.pendingRequests} 筆申請正在等主管處理。`,
+      detail: `${input.pendingRequests} 筆等主管。`,
       href: "#requests",
       cta: "看進度",
       tone: "focus",
@@ -688,7 +599,7 @@ function buildNextBestAction(input: {
     return {
       badge: "有通知",
       title: "讀完今天通知",
-      detail: `${input.unreadNotifications} 則通知尚未讀取。`,
+      detail: `${input.unreadNotifications} 則未讀。`,
       href: "/app/announcements",
       cta: "看通知",
       tone: "warning",
@@ -697,7 +608,7 @@ function buildNextBestAction(input: {
   return {
     badge: "已整理",
     title: "今天任務已收斂",
-    detail: "可查看薪資單、工作規則或自訂表單。",
+    detail: "可查看薪資單或公告。",
     href: "#employee-compliance",
     cta: "看任務",
     tone: "done",

@@ -1,28 +1,28 @@
 @import "tailwindcss";
 
 :root {
-  --background: #e8dcc8;
+  --background: #eef3f4;
   --foreground: #1e293b;
   --muted: #64748b;
   --panel: #ffffff;
-  --panel-border: #eedfc8;
-  --accent: #ea880c;
-  --accent-strong: #c97008;
-  --accent-soft: #fff8ed;
-  --accent-mid: #fde8bc;
-  --accent-text: #5c3800;
+  --panel-border: #d9e2e3;
+  --accent: #06aeb8;
+  --accent-strong: #008c95;
+  --accent-soft: #effdfe;
+  --accent-mid: #bdeff2;
+  --accent-text: #006b73;
   --sidebar: #1e293b;
   --sidebar-muted: #94a3b8;
   --nav-border: #2d3f55;
   --nav-panel: #172033;
   --command-bg: #1e293b;
-  --cream: #fdf8f2;
-  --warm: #f8f0e4;
+  --cream: #f8fbfb;
+  --warm: #eef6f6;
   --warning: #b7791f;
   --danger: #b91c1c;
   --success: #15803d;
-  --shadow: 0 8px 28px rgba(100, 50, 0, 0.08);
-  --shadow-strong: 0 8px 48px rgba(100, 50, 0, 0.14);
+  --shadow: 0 8px 26px rgba(15, 23, 42, 0.07);
+  --shadow-strong: 0 10px 38px rgba(15, 23, 42, 0.13);
 }
 
 * {
@@ -57,7 +57,7 @@ textarea {
 
 .app-shell {
   min-height: 100vh;
-  padding-left: 236px;
+  padding-left: 196px;
   background: var(--cream);
 }
 
@@ -67,7 +67,7 @@ textarea {
   bottom: 0;
   left: 0;
   z-index: 10;
-  width: 236px;
+  width: 196px;
   overflow: hidden;
   border-right: 1px solid var(--nav-border);
   background: var(--sidebar);
@@ -78,34 +78,34 @@ textarea {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 16px;
+  gap: 10px;
   min-height: 100%;
   width: 100%;
-  padding: 14px 12px;
+  padding: 12px 10px;
 }
 
 .brand {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr);
+  grid-template-columns: 30px minmax(0, 1fr);
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   min-width: 0;
   border-bottom: 1px solid var(--nav-border);
-  padding: 2px 2px 12px;
+  padding: 2px 2px 10px;
 }
 
 .brand::before {
   content: "HR";
   display: flex;
-  width: 38px;
-  height: 38px;
+  width: 30px;
+  height: 30px;
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
   background: var(--accent);
   color: #ffffff;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 1000;
   box-shadow: none;
   grid-row: span 2;
@@ -113,7 +113,7 @@ textarea {
 
 .brand strong {
   color: #ffffff;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 1000;
   line-height: 1.2;
 }
@@ -125,7 +125,7 @@ textarea {
 
 .brand span {
   color: var(--sidebar-muted);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 900;
 }
 
@@ -133,24 +133,24 @@ textarea {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: 6px;
   margin-top: auto;
   border: 1px solid var(--nav-border);
   border-radius: 8px;
   background: var(--nav-panel);
-  padding: 10px;
+  padding: 8px;
 }
 
 .auth-assurance {
   display: grid;
-  gap: 8px;
+  gap: 5px;
   margin-left: 0;
   border: 1px solid var(--nav-border);
   border-radius: 8px;
   background: var(--nav-panel);
   color: var(--sidebar-muted);
-  padding: 10px;
-  font-size: 12px;
+  padding: 8px;
+  font-size: 11px;
   white-space: normal;
 }
 
@@ -161,19 +161,19 @@ textarea {
 
 .topbar-nav {
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
 .topbar-nav a {
   display: grid;
   align-content: center;
   gap: 3px;
-  min-height: 40px;
+  min-height: 36px;
   border: 1px solid transparent;
   border-radius: 7px;
   color: var(--sidebar-muted);
-  padding: 6px 9px;
-  font-size: 13px;
+  padding: 6px 8px;
+  font-size: 12px;
   font-weight: 850;
   transition:
     background 0.18s ease,
@@ -183,14 +183,14 @@ textarea {
 
 .topbar-nav a span {
   color: inherit;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.15;
 }
 
 .topbar-nav a small {
   overflow: hidden;
   color: rgba(255, 255, 255, 0.55);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   line-height: 1.2;
   text-overflow: ellipsis;
@@ -210,22 +210,22 @@ textarea {
 
 .role-switcher select,
 .button {
-  min-height: 42px;
+  min-height: 38px;
   border: 1px solid var(--panel-border);
   border-radius: 7px;
   background: var(--panel);
   color: var(--foreground);
-  padding: 0 14px;
+  padding: 0 12px;
 }
 
 .role-switcher label {
   color: var(--sidebar-muted);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 950;
 }
 
 .role-switcher select {
-  min-height: 44px;
+  min-height: 38px;
   border-color: var(--nav-border);
   border-radius: 7px;
   background: #111827;
@@ -278,9 +278,9 @@ textarea {
 }
 
 .page {
-  width: min(1280px, 100%);
+  width: min(1160px, 100%);
   margin: 0 auto;
-  padding: 18px 20px 36px;
+  padding: 16px 16px 32px;
 }
 
 .mobile-page {
@@ -296,7 +296,7 @@ textarea {
 .page-header h1 {
   margin: 0;
   color: var(--foreground);
-  font-size: 32px;
+  font-size: 25px;
   font-weight: 1000;
   line-height: 1.08;
   letter-spacing: 0;
@@ -305,15 +305,23 @@ textarea {
 .page-header p {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 750;
-  line-height: 1.6;
+  line-height: 1.45;
+}
+
+.panel p,
+.section-heading p,
+.console-module-header p,
+.task small,
+.muted {
+  line-height: 1.42;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  gap: 14px;
+  gap: 12px;
 }
 
 .grid > *,
@@ -327,8 +335,8 @@ textarea {
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: var(--panel);
-  padding: 16px;
-  box-shadow: var(--shadow);
+  padding: 14px;
+  box-shadow: 0 6px 18px rgba(100, 50, 0, 0.06);
   min-width: 0;
 }
 
@@ -437,12 +445,12 @@ textarea {
   display: grid;
   gap: 6px;
   background: #ffffff;
-  min-height: 106px;
+  min-height: 90px;
 }
 
 .metric strong {
   color: var(--foreground);
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 1000;
   line-height: 1;
 }
@@ -479,7 +487,7 @@ textarea {
 }
 
 .section-heading h2 {
-  font-size: 20px;
+  font-size: 17px;
   line-height: 1.15;
 }
 
@@ -579,13 +587,13 @@ textarea {
 .manager-inbox-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 12px;
   border: 1px solid rgba(17, 24, 39, 0.96);
   border-radius: 8px;
   background: linear-gradient(135deg, #111827 0%, #1e293b 62%, #3b2a14 100%);
   color: #ffffff;
-  padding: 18px;
+  padding: 14px;
   box-shadow: var(--shadow-strong);
 }
 
@@ -595,7 +603,7 @@ textarea {
 
 .manager-inbox-hero h1 {
   margin: 6px 0;
-  font-size: 34px;
+  font-size: 27px;
   font-weight: 1000;
   line-height: 1.08;
 }
@@ -604,19 +612,20 @@ textarea {
   max-width: 760px;
   margin: 0;
   color: rgba(255, 255, 255, 0.76);
-  font-weight: 850;
+  font-size: 13px;
+  font-weight: 800;
   line-height: 1.55;
 }
 
 .manager-inbox-focus {
   display: grid;
   align-content: start;
-  gap: 10px;
-  min-height: 190px;
+  gap: 8px;
+  min-height: 150px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
-  padding: 16px;
+  padding: 12px;
 }
 
 .manager-inbox-focus strong {
@@ -1387,12 +1396,12 @@ textarea {
   display: inline-flex;
   align-items: center;
   max-width: 100%;
-  min-height: 30px;
+  min-height: 24px;
   border-radius: 6px;
   background: var(--accent-soft);
   color: var(--accent-strong);
-  padding: 5px 12px;
-  font-size: 12px;
+  padding: 3px 8px;
+  font-size: 11px;
   font-weight: 1000;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1431,21 +1440,21 @@ textarea {
   z-index: 9;
   display: none;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
   border-top: 1px solid var(--panel-border);
   background: rgba(255, 255, 255, 0.96);
-  padding: 10px 12px;
+  padding: 8px 10px;
 }
 
 .bottom-nav a {
   display: flex;
-  min-height: 44px;
+  min-height: 40px;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
   background: var(--panel);
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 1000;
   white-space: nowrap;
 }
@@ -1454,63 +1463,63 @@ textarea {
   display: grid;
   grid-template-columns: minmax(0, 1.24fr) minmax(260px, 0.76fr);
   align-items: stretch;
-  gap: 16px;
-  margin-bottom: 16px;
-  border: 1px solid rgba(17, 24, 39, 0.96);
+  gap: 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--panel-border);
   border-radius: 8px;
-  background: linear-gradient(135deg, #111827 0%, #1e293b 58%, #3b2a14 100%);
-  color: #ffffff;
-  padding: 18px;
-  box-shadow: var(--shadow-strong);
+  background: #ffffff;
+  color: var(--foreground);
+  padding: 14px;
+  box-shadow: var(--shadow);
 }
 
 .employee-pilot-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0 0 16px;
+  gap: 8px;
+  margin: 0 0 12px;
 }
 
 .employee-daily-command {
   display: grid;
   grid-template-columns: minmax(0, 1.18fr) repeat(3, minmax(0, 0.94fr));
-  gap: 10px;
-  margin: 0 0 16px;
+  gap: 8px;
+  margin: 0 0 12px;
 }
 
 .employee-daily-command-copy,
 .employee-daily-command-card {
   display: grid;
   align-content: start;
-  gap: 8px;
-  min-height: 138px;
+  gap: 6px;
+  min-height: 116px;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: #ffffff;
-  padding: 14px;
-  box-shadow: var(--shadow);
+  padding: 12px;
+  box-shadow: none;
 }
 
 .employee-daily-command-copy {
-  border-color: #111827;
-  background: #111827;
+  border-color: var(--accent-mid);
+  background: var(--accent-soft);
 }
 
 .employee-daily-command-copy .muted,
 .employee-daily-command-copy small {
-  color: rgba(255, 255, 255, 0.68);
+  color: var(--accent-text);
 }
 
 .employee-daily-command-copy strong {
-  color: #ffffff;
-  font-size: 22px;
+  color: var(--foreground);
+  font-size: 18px;
   font-weight: 1000;
   line-height: 1.14;
 }
 
 .employee-daily-command-copy small,
 .employee-daily-command-card small {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 850;
   line-height: 1.35;
 }
@@ -1536,13 +1545,13 @@ textarea {
 
 .employee-daily-command-card span {
   color: var(--accent-text);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 1000;
 }
 
 .employee-daily-command-card strong {
   color: var(--foreground);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 1000;
   line-height: 1.18;
 }
@@ -1557,7 +1566,7 @@ textarea {
 
 .employee-daily-command-card .button {
   width: 100%;
-  min-height: 42px;
+  min-height: 36px;
   margin-top: 2px;
 }
 
@@ -1569,20 +1578,20 @@ textarea {
 .employee-signal-board {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0 0 16px;
+  gap: 8px;
+  margin: 0 0 12px;
 }
 
 .employee-signal-card {
   display: grid;
   align-content: start;
-  gap: 8px;
-  min-height: 112px;
+  gap: 5px;
+  min-height: 92px;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: #ffffff;
-  padding: 14px;
-  box-shadow: var(--shadow);
+  padding: 11px;
+  box-shadow: none;
 }
 
 .employee-signal-card.focus {
@@ -1602,20 +1611,20 @@ textarea {
 
 .employee-signal-card span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 1000;
 }
 
 .employee-signal-card strong {
   color: var(--foreground);
-  font-size: 19px;
+  font-size: 16px;
   font-weight: 1000;
   line-height: 1.16;
 }
 
 .employee-signal-card small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 850;
   line-height: 1.35;
 }
@@ -1628,31 +1637,31 @@ textarea {
 .employee-flow-step {
   display: grid;
   align-content: start;
-  gap: 7px;
-  min-height: 106px;
+  gap: 5px;
+  min-height: 88px;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: #ffffff;
-  padding: 14px;
-  box-shadow: var(--shadow);
+  padding: 11px;
+  box-shadow: 0 6px 18px rgba(100, 50, 0, 0.06);
 }
 
 .employee-flow-step span {
   color: var(--accent-text);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 1000;
 }
 
 .employee-flow-step strong {
   color: var(--foreground);
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 1000;
   line-height: 1.2;
 }
 
 .employee-flow-step small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 850;
   line-height: 1.35;
 }
@@ -1677,10 +1686,6 @@ textarea {
   background: var(--accent-soft);
 }
 
-.employee-hero .muted {
-  color: rgba(255, 255, 255, 0.72);
-}
-
 .employee-hero-topline {
   display: flex;
   align-items: center;
@@ -1691,22 +1696,22 @@ textarea {
 .employee-hero-main {
   display: grid;
   align-content: start;
-  gap: 12px;
+  gap: 9px;
   min-width: 0;
 }
 
 .employee-hero h1 {
   max-width: 560px;
   margin: 0;
-  font-size: 34px;
+  font-size: 27px;
   font-weight: 1000;
   line-height: 1.12;
 }
 
 .employee-hero p {
   margin: 0;
-  color: rgba(255, 255, 255, 0.76);
-  font-size: 15px;
+  color: var(--muted);
+  font-size: 13px;
   font-weight: 850;
   line-height: 1.55;
 }
@@ -1714,7 +1719,7 @@ textarea {
 .employee-hero-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 150px));
-  gap: 10px;
+  gap: 8px;
   margin-top: 4px;
 }
 
@@ -1726,17 +1731,17 @@ textarea {
 .employee-hero-status {
   display: grid;
   align-content: start;
-  gap: 12px;
-  min-height: 184px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  gap: 8px;
+  min-height: 148px;
+  border: 1px solid var(--accent-mid);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  padding: 16px;
+  background: var(--accent-soft);
+  padding: 12px;
 }
 
 .employee-hero-status small {
-  color: rgba(255, 255, 255, 0.64);
-  font-size: 12px;
+  color: var(--accent-text);
+  font-size: 11px;
   font-weight: 900;
 }
 
@@ -1749,28 +1754,28 @@ textarea {
 .employee-hero-status div > strong {
   display: block;
   margin-top: 5px;
-  color: #ffffff;
-  font-size: 28px;
+  color: var(--foreground);
+  font-size: 21px;
   font-weight: 1000;
   line-height: 1.08;
 }
 
 .employee-hero-status p {
   margin-top: 8px;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 13px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .employee-hero-status .button {
   width: 100%;
-  min-height: 44px;
+  min-height: 38px;
 }
 
 .employee-progress {
   height: 8px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
+  background: #d8f3f5;
 }
 
 .employee-progress span {
@@ -1812,11 +1817,12 @@ textarea {
   position: relative;
   display: grid;
   grid-template-columns: 1.2fr 0.8fr;
-  gap: 16px;
+  gap: 12px;
   overflow: hidden;
   border-color: var(--panel-border);
   border-radius: 8px;
-  background: linear-gradient(90deg, #ffffff 0%, #fffaf3 100%);
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .today-card::before {
@@ -1874,7 +1880,7 @@ textarea {
   border-radius: 8px;
   background: #ffffff;
   padding: 16px;
-  box-shadow: var(--shadow);
+  box-shadow: none;
 }
 
 .employee-action-card strong {
@@ -1943,7 +1949,7 @@ textarea {
   border-radius: 8px;
   background: #ffffff;
   padding: 16px;
-  box-shadow: var(--shadow);
+  box-shadow: none;
 }
 
 .quick-leave-card.primary-card {
@@ -2020,7 +2026,7 @@ textarea {
 .form-stack,
 .approval-list {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -2030,10 +2036,10 @@ textarea {
 .decision-form,
 .wizard-form {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
-  padding: 16px;
+  padding: 12px;
   background: #ffffff;
 }
 
@@ -2053,9 +2059,9 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-height: 70px;
-  padding: 16px;
+  gap: 10px;
+  min-height: 56px;
+  padding: 12px;
   cursor: pointer;
   list-style: none;
 }
@@ -2070,18 +2076,19 @@ textarea {
 }
 
 .action-disclosure summary strong {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 1000;
 }
 
 .action-disclosure summary small {
   color: var(--muted);
-  line-height: 1.4;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .action-disclosure[open] {
   border-color: var(--accent);
-  box-shadow: 0 10px 28px rgba(234, 136, 12, 0.1);
+  box-shadow: 0 10px 24px rgba(6, 174, 184, 0.1);
 }
 
 .action-disclosure[open] summary {
@@ -2102,7 +2109,7 @@ textarea {
 .decision-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .toggle-row {
@@ -2120,9 +2127,9 @@ textarea {
 
 label {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 850;
 }
 
@@ -2130,14 +2137,15 @@ input,
 select,
 textarea {
   width: 100%;
-  min-height: 50px;
+  min-height: 40px;
   min-width: 0;
   border: 1px solid var(--panel-border);
   border-radius: 7px;
   background: #ffffff;
   color: var(--foreground);
-  padding: 0 12px;
+  padding: 0 10px;
   font-weight: 800;
+  font-size: 12px;
 }
 
 input:focus,
@@ -2149,8 +2157,8 @@ textarea:focus {
 }
 
 textarea {
-  min-height: 112px;
-  padding: 12px;
+  min-height: 88px;
+  padding: 10px;
   resize: vertical;
 }
 
@@ -2381,8 +2389,8 @@ legend {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .section-heading h2,
@@ -2597,21 +2605,21 @@ legend {
 }
 
 .console-page {
-  max-width: 1280px;
+  max-width: 1160px;
 }
 
 .console-hero {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
+  gap: 12px;
+  margin-bottom: 10px;
   padding: 2px 0 6px;
 }
 
 .console-hero h1 {
   margin: 3px 0 6px;
-  font-size: 34px;
+  font-size: 26px;
   font-weight: 1000;
   line-height: 1.1;
 }
@@ -2619,7 +2627,10 @@ legend {
 .console-hero p {
   margin: 0;
   color: var(--muted);
-  line-height: 1.6;
+  max-width: 720px;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.45;
 }
 
 .console-hero-actions {
@@ -2637,27 +2648,27 @@ legend {
 
 .role-experience-board {
   display: grid;
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: 10px;
+  margin-bottom: 12px;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: #ffffff;
-  padding: 14px;
-  box-shadow: var(--shadow);
+  padding: 12px;
+  box-shadow: none;
 }
 
 .role-experience-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   border-bottom: 1px solid var(--panel-border);
-  padding-bottom: 12px;
+  padding-bottom: 10px;
 }
 
 .role-experience-head h2 {
   margin: 3px 0 6px;
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 1000;
   line-height: 1.15;
 }
@@ -2690,53 +2701,57 @@ legend {
 
 .role-experience-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
 }
 
 .role-experience-card {
   display: grid;
   align-content: start;
-  gap: 12px;
-  min-height: 336px;
+  gap: 8px;
+  min-height: 210px;
   border: 1px solid var(--panel-border);
+  border-left: 4px solid var(--accent);
   border-radius: 8px;
   background: #ffffff;
-  padding: 14px;
+  padding: 12px;
 }
 
 .role-experience-card.ready {
   border-color: rgba(21, 128, 61, 0.28);
-  background: #f4fbf7;
+  border-left-color: var(--success);
+  background: #ffffff;
 }
 
 .role-experience-card.warning {
   border-color: rgba(183, 121, 31, 0.28);
-  background: #fff9ed;
+  border-left-color: var(--warning);
+  background: #ffffff;
 }
 
 .role-experience-card.danger {
   border-color: rgba(185, 28, 28, 0.22);
-  background: #fff6f5;
+  border-left-color: var(--danger);
+  background: #ffffff;
 }
 
 .role-experience-card-head {
   display: grid;
-  gap: 10px;
-  min-height: 120px;
+  gap: 6px;
+  min-height: 74px;
 }
 
 .role-experience-card-head span,
 .role-experience-card-head small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
   line-height: 1.35;
 }
 
 .role-experience-card-head h3 {
   margin: 3px 0;
-  font-size: 22px;
+  font-size: 17px;
   font-weight: 1000;
   line-height: 1.15;
 }
@@ -2746,18 +2761,18 @@ legend {
   border: 1px solid rgba(30, 41, 59, 0.1);
   border-radius: 999px;
   background: #ffffff;
-  padding: 7px 10px;
+  padding: 5px 8px;
   color: var(--foreground);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 1000;
 }
 
 .role-experience-card p {
   margin: 0;
   color: var(--foreground);
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 750;
-  line-height: 1.55;
+  line-height: 1.35;
 }
 
 .role-experience-task-row {
@@ -2770,15 +2785,15 @@ legend {
   border: 1px solid rgba(30, 41, 59, 0.08);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
-  padding: 6px 8px;
+  padding: 4px 7px;
   color: var(--foreground);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 950;
 }
 
 .role-experience-guardrails {
   display: grid;
-  gap: 7px;
+  gap: 5px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -2788,7 +2803,7 @@ legend {
   border-left: 3px solid rgba(30, 41, 59, 0.2);
   padding-left: 8px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 850;
   line-height: 1.35;
 }
@@ -2807,7 +2822,7 @@ legend {
 .role-experience-hidden {
   margin: 0;
   border-top: 1px solid var(--panel-border);
-  padding-top: 12px;
+  padding-top: 9px;
   color: var(--muted);
   font-size: 13px;
   font-weight: 850;
@@ -2941,56 +2956,56 @@ legend {
 .console-command-board {
   display: grid;
   grid-template-columns: minmax(280px, 1.25fr) repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .console-command-copy,
 .console-command-card {
   display: grid;
   align-content: start;
-  gap: 8px;
-  min-height: 116px;
+  gap: 6px;
+  min-height: 96px;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: #ffffff;
-  padding: 14px;
-  box-shadow: var(--shadow);
+  padding: 12px;
+  box-shadow: none;
 }
 
 .console-command-copy {
-  border-color: var(--command-bg);
-  background: var(--command-bg);
-  color: #ffffff;
+  border-color: var(--accent-mid);
+  background: var(--accent-soft);
+  color: var(--foreground);
 }
 
 .console-command-copy .muted {
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--accent-text);
 }
 
 .console-command-copy strong {
   max-width: 520px;
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 1000;
   line-height: 1.25;
 }
 
 .console-command-card span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 1000;
 }
 
 .console-command-card strong {
   color: var(--foreground);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 1000;
   line-height: 1.2;
 }
 
 .console-command-card small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 850;
   line-height: 1.4;
 }
@@ -3643,17 +3658,17 @@ legend {
   border-radius: 8px;
   background: #ffffff;
   padding: 14px 16px;
-  box-shadow: var(--shadow);
+  box-shadow: none;
 }
 
 .pilot-operating-strip a:first-child {
-  border-color: var(--command-bg);
-  background: var(--command-bg);
+  border-color: var(--accent-mid);
+  background: var(--accent-soft);
 }
 
 .pilot-operating-strip a:first-child span,
 .pilot-operating-strip a:first-child strong {
-  color: #ffffff;
+  color: var(--foreground);
 }
 
 .pilot-operating-strip span {
@@ -3694,7 +3709,7 @@ legend {
   border-radius: 8px;
   background: #ffffff;
   padding: 14px;
-  box-shadow: var(--shadow);
+  box-shadow: none;
 }
 
 .console-search > div {
@@ -3718,7 +3733,7 @@ legend {
   border-radius: 8px;
   background: #ffffff;
   padding: 14px 16px;
-  box-shadow: var(--shadow);
+  box-shadow: none;
 }
 
 .console-summary strong {
@@ -3732,21 +3747,20 @@ legend {
 
 .console-layout {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 14px;
 }
 
 .console-sidebar {
-  position: sticky;
-  top: 24px;
+  position: static;
   display: grid;
-  gap: 12px;
+  gap: 10px;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: #ffffff;
-  padding: 14px;
-  box-shadow: var(--shadow);
+  padding: 12px;
+  box-shadow: none;
 }
 
 .console-sidebar strong {
@@ -3756,6 +3770,7 @@ legend {
 
 .console-sidebar nav {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 6px;
 }
 
@@ -3793,7 +3808,7 @@ legend {
   border-radius: 8px;
   background: #ffffff;
   padding: 18px 20px;
-  box-shadow: var(--shadow);
+  box-shadow: none;
 }
 
 .console-module-header {
@@ -4799,27 +4814,27 @@ legend {
 }
 
 .settings-control-page {
-  max-width: 1280px;
+  max-width: 1160px;
 }
 
 .settings-control-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.24fr) minmax(300px, 0.76fr);
   align-items: stretch;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 12px;
   border: 1px solid rgba(17, 24, 39, 0.96);
   border-radius: 8px;
   background: linear-gradient(135deg, #111827 0%, #1e293b 58%, #3b2a14 100%);
   color: #ffffff;
-  padding: 18px;
+  padding: 14px;
   box-shadow: var(--shadow-strong);
 }
 
 .settings-control-hero-main {
   display: grid;
   align-content: start;
-  gap: 12px;
+  gap: 9px;
   min-width: 0;
 }
 
@@ -4838,7 +4853,7 @@ legend {
   max-width: 680px;
   margin: 0;
   color: #ffffff;
-  font-size: 34px;
+  font-size: 27px;
   font-weight: 1000;
   line-height: 1.08;
   letter-spacing: 0;
@@ -4848,9 +4863,9 @@ legend {
   max-width: 780px;
   margin: 0;
   color: rgba(255, 255, 255, 0.76);
-  font-size: 15px;
-  font-weight: 850;
-  line-height: 1.55;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
 }
 
 .settings-control-hero-actions {
@@ -4863,8 +4878,8 @@ legend {
 .settings-control-focus {
   display: grid;
   align-content: start;
-  gap: 12px;
-  min-height: 214px;
+  gap: 8px;
+  min-height: 150px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
@@ -6395,20 +6410,20 @@ legend {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
   align-items: stretch;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 12px;
   border: 1px solid rgba(17, 24, 39, 0.96);
   border-radius: 8px;
   background: linear-gradient(135deg, #111827 0%, #1e293b 58%, #3b2a14 100%);
   color: #ffffff;
-  padding: 18px;
+  padding: 14px;
   box-shadow: var(--shadow-strong);
 }
 
 .hr-monthly-hero-main {
   display: grid;
   align-content: start;
-  gap: 12px;
+  gap: 9px;
   min-width: 0;
 }
 
@@ -6427,7 +6442,7 @@ legend {
   max-width: 680px;
   margin: 0;
   color: #ffffff;
-  font-size: 34px;
+  font-size: 27px;
   font-weight: 1000;
   line-height: 1.08;
   letter-spacing: 0;
@@ -6437,9 +6452,9 @@ legend {
   max-width: 760px;
   margin: 0;
   color: rgba(255, 255, 255, 0.76);
-  font-size: 15px;
-  font-weight: 850;
-  line-height: 1.55;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
 }
 
 .hr-monthly-hero-actions {
@@ -6457,27 +6472,27 @@ legend {
 .hr-monthly-hero-focus {
   display: grid;
   align-content: start;
-  gap: 12px;
-  min-height: 212px;
+  gap: 8px;
+  min-height: 150px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
-  padding: 16px;
+  padding: 12px;
 }
 
 .hr-monthly-hero-focus strong {
   display: block;
   margin-top: 6px;
   color: #ffffff;
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 1000;
   line-height: 1.12;
 }
 
 .hr-monthly-hero-focus p {
   margin-top: 8px;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .hr-monthly-hero-focus small {
@@ -12697,27 +12712,27 @@ legend {
   .topbar-inner {
     align-items: flex-start;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     min-height: 0;
-    padding: 10px 12px;
+    padding: 8px 10px;
   }
 
   .brand {
-    grid-template-columns: 42px minmax(0, 1fr);
+    grid-template-columns: 34px minmax(0, 1fr);
     width: 100%;
     border-bottom: 0;
     padding-bottom: 0;
   }
 
   .brand::before {
-    width: 42px;
-    height: 42px;
+    width: 34px;
+    height: 34px;
     border-radius: 8px;
-    font-size: 15px;
+    font-size: 13px;
   }
 
   .brand strong {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .brand span {
@@ -12755,7 +12770,7 @@ legend {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     margin-top: 0;
-    padding: 10px;
+    padding: 8px;
   }
 
   .role-switcher label {
@@ -12764,11 +12779,11 @@ legend {
 
   .role-switcher select {
     flex: 1;
-    min-height: 44px;
+    min-height: 38px;
   }
 
   .page {
-    padding: 16px 12px 96px;
+    padding: 12px 10px 88px;
   }
 
   .mobile-page {
@@ -12776,28 +12791,28 @@ legend {
   }
 
   .page-header {
-    gap: 6px;
-    margin-bottom: 14px;
+    gap: 5px;
+    margin-bottom: 10px;
   }
 
   .page-header h1 {
-    font-size: 30px;
+    font-size: 24px;
     line-height: 1.08;
   }
 
   .page-header p {
-    font-size: 13px;
-    line-height: 1.55;
+    font-size: 12px;
+    line-height: 1.42;
   }
 
   .panel {
     border-radius: 8px;
-    padding: 16px;
-    box-shadow: var(--shadow);
+    padding: 12px;
+    box-shadow: 0 6px 18px rgba(100, 50, 0, 0.06);
   }
 
   .metric {
-    min-height: 112px;
+    min-height: 88px;
   }
 
   .bottom-nav {
@@ -13090,19 +13105,19 @@ legend {
   }
 
   .employee-hero {
-    padding: 16px;
+    padding: 12px;
   }
 
   .employee-hero h1 {
-    font-size: 27px;
+    font-size: 23px;
   }
 
   .hr-monthly-hero {
-    padding: 16px;
+    padding: 12px;
   }
 
   .hr-monthly-hero h1 {
-    font-size: 27px;
+    font-size: 23px;
   }
 
   .hr-monthly-hero-actions {
@@ -13115,11 +13130,11 @@ legend {
   }
 
   .settings-control-hero {
-    padding: 16px;
+    padding: 12px;
   }
 
   .settings-control-hero h1 {
-    font-size: 27px;
+    font-size: 23px;
   }
 
   .settings-control-hero-actions {
@@ -13489,7 +13504,7 @@ legend {
   }
 
   .console-lane strong {
-    font-size: 23px;
+    font-size: 18px;
   }
 
   .pilot-trial-copy strong {
@@ -13589,11 +13604,11 @@ legend {
   }
 
   .console-section a {
-    font-size: 20px;
+    font-size: 16px;
   }
 
   .console-pinned a {
-    font-size: 20px;
+    font-size: 16px;
   }
 
   .today-card {
@@ -13604,12 +13619,12 @@ legend {
   .action-disclosure summary {
     align-items: flex-start;
     flex-direction: column;
-    min-height: 64px;
-    padding: 14px;
+    min-height: 54px;
+    padding: 12px;
   }
 
   .action-disclosure summary strong {
-    font-size: 17px;
+    font-size: 15px;
   }
 
   .field-grid,
@@ -13620,7 +13635,7 @@ legend {
   input,
   select,
   textarea {
-    min-height: 46px;
+    min-height: 40px;
     border-radius: 7px;
   }
 

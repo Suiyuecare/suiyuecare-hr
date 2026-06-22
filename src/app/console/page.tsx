@@ -51,9 +51,9 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
     <main className="page console-page">
       <section className="console-hero">
         <div>
-          <span className="muted">HR One Operating Console</span>
+          <span className="muted">後台首頁</span>
           <h1>HR One 後台工作台</h1>
-          <p>前台讓員工完成日常任務；後台讓執行長、人資與行政主管掌握簽核、月結、異常與安全上線狀態。</p>
+          <p>今天要處理的簽核、月結、異常與設定，都從這裡開始。</p>
         </div>
         <div className="console-hero-actions">
           <Link className="button" href="/app">
@@ -69,23 +69,23 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
 
       <section className="console-command-board" aria-label="試用後台指揮板">
         <div className="console-command-copy">
-          <span className="muted">Finance-style 操作台</span>
-          <strong>先看今天哪些事會卡住，再處理打卡、簽核、公告、月結與安全 Gate。</strong>
+          <span className="muted">今日工作</span>
+          <strong>先處理會卡住的事。</strong>
         </div>
         <Link className="console-command-card focus" href="/settings/pilot-operations">
           <span>今日戰情</span>
-          <strong>Day 0-14 checkpoint</strong>
-          <small>只存彙總與 hash-only 證據</small>
+          <strong>試用進度</strong>
+          <small>看今天要補什麼</small>
         </Link>
         <Link className="console-command-card" href="/manager/inbox">
           <span>待簽核</span>
           <strong>統一 Inbox</strong>
-          <small>主管不用進深層選單</small>
+          <small>所有簽核在這裡</small>
         </Link>
         <Link className="console-command-card" href="/settings/readiness">
-          <span>上線 Gate</span>
-          <strong>權限與敏感資料</strong>
-          <small>未通過就不邀請員工</small>
+          <span>上線檢查</span>
+          <strong>權限與資料安全</strong>
+          <small>沒通過就先不開放</small>
         </Link>
       </section>
 
@@ -244,9 +244,9 @@ function RoleExperienceBoard({ commandCenter }: { commandCenter: RoleExperienceC
     <section className="role-experience-board" aria-label="角色任務導覽">
       <div className="role-experience-head">
         <div>
-          <span className="muted">前台 / 後台分流</span>
+          <span className="muted">你的工作台</span>
           <h2>{commandCenter.roleLabel} 今天看到的工作台</h2>
-          <p>{commandCenter.primaryPrinciple}</p>
+          <p>只顯示這個角色今天需要處理的工作。</p>
         </div>
         <div className="role-experience-summary" aria-label="可見工作台摘要">
           <span>前台 {commandCenter.frontstageCount}</span>
@@ -263,7 +263,7 @@ function RoleExperienceBoard({ commandCenter }: { commandCenter: RoleExperienceC
 
       {commandCenter.hiddenLaneTitles.length > 0 ? (
         <p className="role-experience-hidden">
-          此角色不顯示：{commandCenter.hiddenLaneTitles.join("、")}。薪資、權限與支援存取仍依 RBAC/ABAC 控制。
+          隱藏：{commandCenter.hiddenLaneTitles.join("、")}
         </p>
       ) : null}
     </section>
@@ -275,13 +275,13 @@ function RoleExperienceCard({ lane }: { lane: RoleExperienceLane }) {
     <article className={`role-experience-card ${lane.tone}`}>
       <div className="role-experience-card-head">
         <div>
-          <span>{lane.surface === "frontstage" ? "前端員工日常使用" : "後端管理系統"}</span>
+          <span>{lane.surface === "frontstage" ? "員工前台" : "後台管理"}</span>
           <h3>{lane.title}</h3>
           <small>{lane.audience}</small>
         </div>
         <strong>{lane.kpi}</strong>
       </div>
-      <p>{lane.promise}</p>
+      <p>{lane.headline}</p>
       <div className="role-experience-task-row" aria-label={`${lane.title} 主要任務`}>
         {lane.tasks.map((task) => (
           <span key={task}>{task}</span>
