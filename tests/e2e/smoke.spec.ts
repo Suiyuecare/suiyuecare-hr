@@ -54,6 +54,10 @@ test("正式登入頁提供 Finance 風格 Google 入口與 Email 備援", async
   await expect(page.getByRole("heading", { name: "帳號登入" })).toBeVisible();
   await expect(page.getByRole("button", { name: "使用 Google 登入" })).toBeVisible();
   await expect(page.getByText("Google / Email")).toBeVisible();
+  await expect(page.getByRole("button", { name: "員工快速登入" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "主管快速登入" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "人資快速登入" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "老闆快速登入" })).toBeVisible();
   await page.getByText("使用 Email 登入連結").click();
   await expect(page.getByLabel("公司 Email")).toBeVisible();
   await expect(page.getByRole("button", { name: "寄送登入連結" })).toBeVisible();
@@ -61,6 +65,28 @@ test("正式登入頁提供 Finance 風格 Google 入口與 Email 備援", async
   await page.goto("/auth/callback");
   await expect(page.getByRole("heading", { name: "登入失敗" })).toBeVisible();
   await expect(page.getByText("登入流程沒有有效憑證，請重新登入。")).toBeVisible();
+});
+
+test("各類示範帳號可以從登入頁快速進入對應工作台", async ({ page }) => {
+  await page.goto("/auth/sign-in");
+  await page.getByRole("button", { name: "員工快速登入" }).click();
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.getByRole("heading", { name: /今天要處理的事/ })).toBeVisible();
+
+  await page.goto("/auth/sign-in");
+  await page.getByRole("button", { name: "主管快速登入" }).click();
+  await expect(page).toHaveURL(/\/manager\/inbox$/);
+  await expect(page.getByLabel("主管簽核指揮台").getByText("主管簽核工作台")).toBeVisible();
+
+  await page.goto("/auth/sign-in");
+  await page.getByRole("button", { name: "人資快速登入" }).click();
+  await expect(page).toHaveURL(/\/console$/);
+  await expect(page.getByLabel("角色任務導覽").getByRole("heading", { name: "人資 / 行政主任 今天看到的工作台" })).toBeVisible();
+
+  await page.goto("/auth/sign-in");
+  await page.getByRole("button", { name: "老闆快速登入" }).click();
+  await expect(page).toHaveURL(/\/console$/);
+  await expect(page.getByLabel("角色任務導覽").getByRole("heading", { name: "執行長 / Owner 今天看到的工作台" })).toBeVisible();
 });
 
 test("員工前台與管理後台依角色分流", async ({ page }) => {

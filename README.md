@@ -183,6 +183,8 @@ pnpm db:migrate
 pnpm db:seed
 ```
 
+Local/demo sign-in at `/auth/sign-in` includes four quick-login buttons: employee, manager, HR admin, and owner. They post to the demo role-switch endpoint and are only available when demo auth is allowed; production/OIDC environments must continue using Google/SSO or email login.
+
 6. Verify the database foundation:
 
 ```bash

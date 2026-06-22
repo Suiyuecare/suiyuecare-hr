@@ -541,6 +541,72 @@ textarea {
   font-weight: 1000;
 }
 
+.auth-quick-login {
+  display: grid;
+  gap: 10px;
+  width: min(388px, 100%);
+  margin-top: 8px;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 14px;
+}
+
+.auth-quick-login header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.auth-quick-login header strong {
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 1000;
+}
+
+.auth-quick-login header small,
+.auth-quick-account small,
+.auth-quick-note {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.4;
+}
+
+.auth-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.auth-quick-account {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: #fffaf5;
+  padding: 10px;
+}
+
+.auth-quick-account strong {
+  color: var(--foreground);
+  font-size: 16px;
+  font-weight: 1000;
+  line-height: 1.2;
+}
+
+.auth-quick-account .button {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.auth-quick-note {
+  width: min(388px, 100%);
+  margin: 4px 0 0;
+}
+
 .auth-email-fallback {
   width: min(388px, 100%);
   margin-top: 12px;
@@ -633,6 +699,10 @@ textarea {
 
   .google-signin-button {
     width: 100%;
+  }
+
+  .auth-quick-grid {
+    grid-template-columns: 1fr;
   }
 
   .auth-status-card {
