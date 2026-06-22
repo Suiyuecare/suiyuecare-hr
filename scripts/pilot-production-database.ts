@@ -3,11 +3,11 @@ import { resolve } from "node:path";
 import {
   buildProductionDatabaseEnvDraftReport,
   buildProductionDatabasePrivateSchemaReport,
+  buildProductionDatabasePrivateSchemaReportFromPayload,
   formatProductionDatabaseRemediationMarkdown,
   getProductionDatabaseRemediationReport,
 } from "../src/server/readiness/production-database-remediation";
 import { redactSensitiveDetail } from "../src/server/readiness/production-pilot-gate";
-import type { SupabasePrivateSchemaVerificationSnapshot } from "../src/server/readiness/supabase-private-schema-verification";
 import { parseEnvFile } from "../src/server/readiness/vercel-production-env";
 
 async function main() {
@@ -112,57 +112,12 @@ function loadPrivateSchemaReport(options: {
     });
   }
   const payload = JSON.parse(readFileSync(filePath, "utf8")) as unknown;
-  const snapshot = extractSnapshot(payload);
-  return buildProductionDatabasePrivateSchemaReport({
-    snapshot,
+  return buildProductionDatabasePrivateSchemaReportFromPayload(payload, {
     expectedMigrationCount: options.expectedMigrationCount,
-    schemaName: readSchemaName(payload) ?? options.schemaName,
-    allowTenantData: readAllowTenantData(payload) ?? options.allowTenantData,
+    schemaName: options.schemaName,
+    allowTenantData: options.allowTenantData,
     command,
   });
-}
-
-function extractSnapshot(payload: unknown): SupabasePrivateSchemaVerificationSnapshot {
-  if (isSnapshot(payload)) return payload;
-  if (payload && typeof payload === "object" && isSnapshot((payload as { snapshot?: unknown }).snapshot)) {
-    return (payload as { snapshot: SupabasePrivateSchemaVerificationSnapshot }).snapshot;
-  }
-  throw new Error("Private schema snapshot file must contain a Supabase verification snapshot.");
-}
-
-function isSnapshot(value: unknown): value is SupabasePrivateSchemaVerificationSnapshot {
-  if (!value || typeof value !== "object") return false;
-  const record = value as Partial<SupabasePrivateSchemaVerificationSnapshot>;
-  return [
-    record.tableCount,
-    record.enumTypeCount,
-    record.prismaMigrationCount,
-    record.rlsEnabledTableCount,
-    record.rlsDisabledTableCount,
-    record.exposedTablePrivilegeCount,
-    record.exposedSecurityDefinerFunctionCount,
-    record.publicSchemaShadowTableCount,
-    record.publicSecurityDefinerExecuteCount,
-    record.tenantCount,
-    record.companyCount,
-    record.employeeCount,
-  ].every((item) => typeof item === "number") &&
-    typeof record.anonUsage === "boolean" &&
-    typeof record.authenticatedUsage === "boolean";
-}
-
-function readSchemaName(payload: unknown) {
-  if (payload && typeof payload === "object" && typeof (payload as { schemaName?: unknown }).schemaName === "string") {
-    return (payload as { schemaName: string }).schemaName;
-  }
-  return null;
-}
-
-function readAllowTenantData(payload: unknown) {
-  if (payload && typeof payload === "object" && typeof (payload as { allowTenantData?: unknown }).allowTenantData === "boolean") {
-    return (payload as { allowTenantData: boolean }).allowTenantData;
-  }
-  return null;
 }
 
 function countLocalPrismaMigrations() {

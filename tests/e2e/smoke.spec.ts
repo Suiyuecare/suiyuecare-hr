@@ -439,6 +439,9 @@ test("Owner 可以檢查試用營運與上線 Gate", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "正式環境資料庫 Gate" })).toBeVisible();
   await expect(page.getByLabel("正式環境資料庫 Gate").getByText("今日先處理")).toBeVisible();
   await expect(page.getByLabel("正式資料庫訊號板").getByText("Database ping", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("正式資料庫訊號板").getByText("Private schema / RLS", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "上線證據封存" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "保存 Gate 證據" })).toBeVisible();
   await expect(page.getByLabel("資料庫修復作業卡").getByRole("heading", { name: "Key 存在不等於可用" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Production database 仍阻擋試用開跑" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Runtime env 診斷" })).toBeVisible();
@@ -455,6 +458,8 @@ test("Owner 可以檢查試用營運與上線 Gate", async ({ page }) => {
   await expect(cutoverBoard.getByText("下一個不可跳過的命令")).toBeVisible();
   await expect(cutoverBoard.getByRole("heading", { name: "本地 production env 草稿通過" })).toBeVisible();
   await expect(cutoverBoard.getByRole("heading", { name: "Live /api/health/ready 通過" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Supabase private schema / RLS Gate" })).toBeVisible();
+  await expect(page.getByText("瀏覽器角色不可直通 HR 表")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Supabase Transaction Pooler 形狀" })).toBeVisible();
   const poolerShape = page.getByLabel("Supabase transaction pooler 安全形狀");
   await expect(poolerShape.getByText("aws-0-ap-northeast-2.pooler.supabase.com")).toBeVisible();
@@ -465,6 +470,10 @@ test("Owner 可以檢查試用營運與上線 Gate", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "路線 A：Supabase Transaction Pooler" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "必跑命令" })).toBeVisible();
   await expect(page.getByText("Pooler handoff")).toBeVisible();
+  await page.getByRole("button", { name: "保存 Gate 證據" }).click({ noWaitAfter: true });
+  await expect(page).toHaveURL(/success=production-database-evidence/, { timeout: 60_000 });
+  await expect(page.getByText("正式資料庫 Gate 證據已保存")).toBeVisible();
+  await expect(page.getByText("content hash：")).toBeVisible();
 
   await gotoAppPage(page, "/settings/pilot-completion");
   await expect(page.getByRole("heading", { name: "試用結案檢查" })).toBeVisible();

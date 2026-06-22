@@ -354,6 +354,25 @@ export function buildProductionDatabasePrivateSchemaReport(
   };
 }
 
+export function buildProductionDatabasePrivateSchemaReportFromPayload(
+  payload: unknown,
+  options: {
+    expectedMigrationCount?: number | null;
+    schemaName?: string;
+    allowTenantData?: boolean;
+    command?: string;
+  } = {},
+) {
+  const snapshot = extractPrivateSchemaSnapshot(payload);
+  return buildProductionDatabasePrivateSchemaReport({
+    snapshot,
+    expectedMigrationCount: readPayloadExpectedMigrationCount(payload) ?? options.expectedMigrationCount,
+    schemaName: readPayloadSchemaName(payload) ?? options.schemaName,
+    allowTenantData: readPayloadAllowTenantData(payload) ?? options.allowTenantData,
+    command: options.command,
+  });
+}
+
 export function buildProductionDatabaseRemediationReport(
   input: ProductionDatabaseRemediationInput,
 ): ProductionDatabaseRemediationReport {
@@ -1019,6 +1038,56 @@ function metricsFromPrivateSchemaSnapshot(
     anonUsage: snapshot.anonUsage,
     authenticatedUsage: snapshot.authenticatedUsage,
   };
+}
+
+function extractPrivateSchemaSnapshot(payload: unknown): SupabasePrivateSchemaVerificationSnapshot {
+  if (isPrivateSchemaSnapshot(payload)) return payload;
+  if (payload && typeof payload === "object" && isPrivateSchemaSnapshot((payload as { snapshot?: unknown }).snapshot)) {
+    return (payload as { snapshot: SupabasePrivateSchemaVerificationSnapshot }).snapshot;
+  }
+  throw new Error("Private schema verifier JSON must contain a Supabase verification snapshot.");
+}
+
+function isPrivateSchemaSnapshot(value: unknown): value is SupabasePrivateSchemaVerificationSnapshot {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Partial<SupabasePrivateSchemaVerificationSnapshot>;
+  return [
+    record.tableCount,
+    record.enumTypeCount,
+    record.prismaMigrationCount,
+    record.rlsEnabledTableCount,
+    record.rlsDisabledTableCount,
+    record.exposedTablePrivilegeCount,
+    record.exposedSecurityDefinerFunctionCount,
+    record.publicSchemaShadowTableCount,
+    record.publicSecurityDefinerExecuteCount,
+    record.tenantCount,
+    record.companyCount,
+    record.employeeCount,
+  ].every((item) => typeof item === "number") &&
+    typeof record.anonUsage === "boolean" &&
+    typeof record.authenticatedUsage === "boolean";
+}
+
+function readPayloadSchemaName(payload: unknown) {
+  if (payload && typeof payload === "object" && typeof (payload as { schemaName?: unknown }).schemaName === "string") {
+    return (payload as { schemaName: string }).schemaName;
+  }
+  return null;
+}
+
+function readPayloadExpectedMigrationCount(payload: unknown) {
+  if (payload && typeof payload === "object" && typeof (payload as { expectedMigrationCount?: unknown }).expectedMigrationCount === "number") {
+    return (payload as { expectedMigrationCount: number }).expectedMigrationCount;
+  }
+  return null;
+}
+
+function readPayloadAllowTenantData(payload: unknown) {
+  if (payload && typeof payload === "object" && typeof (payload as { allowTenantData?: unknown }).allowTenantData === "boolean") {
+    return (payload as { allowTenantData: boolean }).allowTenantData;
+  }
+  return null;
 }
 
 function metricValue(value: number | null) {

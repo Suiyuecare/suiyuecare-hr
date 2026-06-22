@@ -4,6 +4,7 @@ import { writeDemoAuditLog } from "@/server/audit/demo-store";
 import { stableHash } from "@/server/audit/redaction";
 import { assertPermission, type RoleKey } from "@/server/auth/rbac";
 import { getDb } from "@/server/db/client";
+import type { ProductionDatabaseRemediationReport } from "@/server/readiness/production-database-remediation";
 import { getAuditLogs, type AuditLogView } from "./queries";
 
 type SessionLike = {
@@ -16,7 +17,7 @@ type SessionLike = {
 
 export type AuditEvidencePackageView = {
   id: string;
-  packageType: "labor_inspection";
+  packageType: AuditEvidencePackageType;
   periodStart: Date;
   periodEnd: Date;
   status: "generated";
@@ -27,6 +28,8 @@ export type AuditEvidencePackageView = {
   contentHash: string;
   generatedAt: Date;
 };
+
+export type AuditEvidencePackageType = "labor_inspection" | "production_database_gate";
 
 type AuditEvidenceDemoState = {
   packages: AuditEvidencePackageView[];
@@ -52,7 +55,8 @@ export async function getAuditEvidenceWorkspace(session: SessionLike) {
     : getDemoState().packages;
   return {
     packages,
-    latest: packages[0] ?? null,
+    latest: latestPackageByType(packages, "labor_inspection") ?? packages[0] ?? null,
+    latestProductionDatabase: latestPackageByType(packages, "production_database_gate"),
   };
 }
 
@@ -65,6 +69,25 @@ export async function generateAuditEvidencePackage(
   const logs = await getAuditLogs(session, 500);
   const periodLogs = logs.filter((log) => log.createdAt >= period.periodStart && log.createdAt <= period.periodEnd);
   const draft = buildPackageDraft(periodLogs, period.periodStart, period.periodEnd);
+
+  if (canUseDatabase(session)) {
+    try {
+      return await createDbPackage(session, draft);
+    } catch {
+      return createDemoPackage(session, draft);
+    }
+  }
+  return createDemoPackage(session, draft);
+}
+
+export async function generateProductionDatabaseEvidencePackage(
+  session: SessionLike,
+  report: ProductionDatabaseRemediationReport,
+) {
+  assertPermission(session.role, "audit:read");
+  const generatedAt = new Date(report.generatedAt);
+  const safeGeneratedAt = Number.isNaN(generatedAt.getTime()) ? new Date() : generatedAt;
+  const draft = buildProductionDatabasePackageDraft(report, startOfDate(safeGeneratedAt), endOfDate(safeGeneratedAt));
 
   if (canUseDatabase(session)) {
     try {
@@ -205,6 +228,88 @@ function buildPackageDraft(logs: AuditLogView[], periodStart: Date, periodEnd: D
   };
 }
 
+function buildProductionDatabasePackageDraft(
+  report: ProductionDatabaseRemediationReport,
+  periodStart: Date,
+  periodEnd: Date,
+): AuditEvidencePackageView {
+  const gateBlocked = report.gate.checks.filter((check) => !check.passed);
+  const launchBlocked = report.launchChecklist.filter((item) => item.status === "blocked");
+  const cutoverBlocked = report.vercelCutover.steps.filter((step) => step.status === "blocked");
+  const privateSchemaNotChecked = report.privateSchema.status === "not_checked";
+  const summaryRows = [
+    {
+      entityType: "production_database_gate",
+      count: report.gate.checks.length,
+      actions: [report.status, report.rootCause, `blocked:${gateBlocked.length}`],
+    },
+    {
+      entityType: "supabase_private_schema_rls",
+      count: report.privateSchema.checks.length,
+      actions: [
+        report.privateSchema.status,
+        `failed:${report.privateSchema.failedCheckNames.length}`,
+        `rlsDisabled:${metricValue(report.privateSchema.metrics.rlsDisabledTableCount)}`,
+        `browserGrants:${metricValue(report.privateSchema.metrics.exposedTablePrivilegeCount)}`,
+      ],
+    },
+    {
+      entityType: "vercel_production_cutover",
+      count: report.vercelCutover.steps.length,
+      actions: [report.vercelCutover.status, `blocked:${cutoverBlocked.length}`],
+    },
+    {
+      entityType: "production_launch_checklist",
+      count: report.launchChecklist.length,
+      actions: [
+        `done:${report.launchChecklist.filter((item) => item.status === "done").length}`,
+        `blocked:${launchBlocked.length}`,
+      ],
+    },
+  ];
+  const warnings = [
+    report.status === "ready" ? null : `Production database gate is ${report.status}; root cause ${report.rootCause}.`,
+    privateSchemaNotChecked ? "Supabase private schema / RLS verifier has not been attached." : null,
+    report.privateSchema.status === "blocked"
+      ? `Supabase private schema / RLS verifier failed: ${report.privateSchema.failedCheckNames.join(", ")}.`
+      : null,
+    gateBlocked.length ? `${gateBlocked.length} live readiness check(s) are blocked.` : null,
+    launchBlocked.length ? `${launchBlocked.length} launch checklist item(s) are blocked.` : null,
+    cutoverBlocked.length ? `${cutoverBlocked.length} Vercel cutover step(s) are blocked.` : null,
+  ].filter((item): item is string => Boolean(item));
+  const coveredEntityTypes = summaryRows.map((row) => row.entityType);
+  const recordCount =
+    report.gate.checks.length +
+    report.privateSchema.checks.length +
+    report.launchChecklist.length +
+    report.vercelCutover.steps.length;
+  const contentHash = stableHash({
+    packageType: "production_database_gate",
+    generatedAt: report.generatedAt,
+    status: report.status,
+    rootCause: report.rootCause,
+    readinessUrl: report.readinessUrl,
+    envDraftStatus: report.envDraft?.status ?? "not_attached",
+    privateSchemaStatus: report.privateSchema.status,
+    privateSchemaMetrics: report.privateSchema.metrics,
+    summaryRows,
+    warnings,
+  });
+  return {
+    id: "draft",
+    packageType: "production_database_gate",
+    periodStart,
+    periodEnd,
+    status: "generated",
+    recordCount,
+    coveredEntityTypes,
+    summaryRows,
+    warnings,
+    contentHash,
+    generatedAt: new Date(),
+  };
+}
+
 function auditMetadata(draft: AuditEvidencePackageView) {
   return {
     packageType: draft.packageType,
@@ -234,7 +339,7 @@ function readPackageRecord(record: {
 }): AuditEvidencePackageView {
   return {
     id: record.id,
-    packageType: "labor_inspection",
+    packageType: normalizePackageType(record.packageType),
     periodStart: record.periodStart,
     periodEnd: record.periodEnd,
     status: "generated",
@@ -245,6 +350,14 @@ function readPackageRecord(record: {
     contentHash: record.contentHash,
     generatedAt: record.generatedAt,
   };
+}
+
+function normalizePackageType(value: string): AuditEvidencePackageType {
+  return value === "production_database_gate" ? "production_database_gate" : "labor_inspection";
+}
+
+function latestPackageByType(packages: AuditEvidencePackageView[], packageType: AuditEvidencePackageType) {
+  return packages.find((item) => item.packageType === packageType) ?? null;
 }
 
 function readSummaryRows(value: Prisma.JsonValue) {
@@ -289,6 +402,10 @@ function endOfDate(date: Date) {
 
 function formatDate(date: Date) {
   return date.toISOString().slice(0, 10);
+}
+
+function metricValue(value: number | null) {
+  return value === null ? "not_checked" : String(value);
 }
 
 function getDemoState() {

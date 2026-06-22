@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/EmptyState";
+import { getAuditEvidenceWorkspace } from "@/server/audit/evidence-packages";
 import { hasPermission } from "@/server/auth/rbac";
 import { getDemoSession } from "@/server/auth/session";
 import {
@@ -24,8 +25,13 @@ const productionDeployCommand =
 const privateSchemaVerifyCommand =
   "pnpm db:supabase:verify-schema -- --project-ref=aruncclorusswpfnpgsn --schema=hr_one --allow-tenant-data";
 
-export default async function ProductionDatabasePage() {
-  const session = await getDemoSession();
+type SearchParams = Promise<{
+  error?: string;
+  success?: string;
+}>;
+
+export default async function ProductionDatabasePage({ searchParams }: { searchParams: SearchParams }) {
+  const [params, session] = await Promise.all([searchParams, getDemoSession()]);
   if (!hasPermission(session.role, "settings:read")) {
     return (
       <main className="page">
@@ -37,10 +43,14 @@ export default async function ProductionDatabasePage() {
     );
   }
 
-  const report = await getProductionDatabaseRemediationReport({
-    appUrl: "https://hr.suiyuecare.com",
-    expectedHost: "hr.suiyuecare.com",
-  });
+  const [report, auditEvidence] = await Promise.all([
+    getProductionDatabaseRemediationReport({
+      appUrl: "https://hr.suiyuecare.com",
+      expectedHost: "hr.suiyuecare.com",
+    }),
+    getAuditEvidenceWorkspace(session),
+  ]);
+  const latestEvidence = auditEvidence.latestProductionDatabase;
   const focus = buildDatabaseFocus(report);
   const databaseReady = checkPassed(report, "production database");
   const environmentReady = checkPassed(report, "production environment");
@@ -95,12 +105,101 @@ export default async function ProductionDatabasePage() {
         </aside>
       </section>
 
+      {params.error ? (
+        <div className="panel danger-panel">
+          <strong>無法保存正式資料庫證據</strong>
+          <p>{params.error}</p>
+        </div>
+      ) : null}
+      {params.success === "production-database-evidence" ? (
+        <div className="panel success-panel">
+          <strong>正式資料庫 Gate 證據已保存</strong>
+          <p>只保存彙總、warning、hash 與 audit log；沒有保存完整 DATABASE_URL、密碼、員工資料、薪資、銀行、身分證或健康資料。</p>
+        </div>
+      ) : null}
+
       <section className="hr-monthly-signal-board production-database-signal-board" aria-label="正式資料庫訊號板">
         <SignalCard label="Live readiness" value={overallReady ? "OK" : "FAIL"} detail={report.readinessUrl} tone={overallReady ? "done" : "danger"} />
         <SignalCard label="Production env" value={environmentReady ? "OK" : "FAIL"} detail={report.environmentDetail} tone={environmentReady ? "done" : "danger"} />
         <SignalCard label="Database ping" value={databaseReady ? "OK" : "FAIL"} detail={report.databaseDetail} tone={databaseReady ? "done" : "danger"} />
         <SignalCard label="Private schema / RLS" value={privateSchemaReady ? "OK" : "CHECK"} detail={report.privateSchema.summary} tone={privateSchemaTone(report.privateSchema.status)} />
         <SignalCard label="Demo auth" value={demoAuthOff ? "OFF" : "RISK"} detail="正式 runtime 不可開 demo auth" tone={demoAuthOff ? "done" : "danger"} />
+      </section>
+
+      <section className="grid" aria-label="正式資料庫證據封存">
+        <section className="panel span-7 production-database-evidence-panel" id="production-database-evidence">
+          <div className="section-heading">
+            <div>
+              <h2>上線證據封存</h2>
+              <p className="muted">把 live readiness、Vercel cutover、private schema/RLS verifier 結果收成 hash-only evidence package。</p>
+            </div>
+            <span className={`badge ${latestEvidence ? "done" : "warning"}`}>
+              {latestEvidence ? "已有證據" : "待保存"}
+            </span>
+          </div>
+          {latestEvidence ? (
+            <div className="production-database-diagnostic-grid">
+              <article className={`production-database-mini-card ${latestEvidence.warnings.length ? "warning" : "ready"}`}>
+                <span className="badge">latest evidence</span>
+                <h3>{formatDateTime(latestEvidence.generatedAt.toISOString())}</h3>
+                <p>content hash：{latestEvidence.contentHash}</p>
+                <ul className="task-list">
+                  <li className="task">
+                    <span>
+                      <strong>Record count</strong>
+                      <small>{latestEvidence.recordCount}</small>
+                    </span>
+                  </li>
+                  <li className="task">
+                    <span>
+                      <strong>Warnings</strong>
+                      <small>{latestEvidence.warnings.length ? latestEvidence.warnings.join(" · ") : "無"}</small>
+                    </span>
+                  </li>
+                  <li className="task">
+                    <span>
+                      <strong>Covered evidence</strong>
+                      <small>{latestEvidence.coveredEntityTypes.join("、")}</small>
+                    </span>
+                  </li>
+                </ul>
+              </article>
+            </div>
+          ) : (
+            <EmptyState
+              title="尚未保存正式資料庫 Gate 證據"
+              body="通過或阻擋狀態都可以先保存；Owner/HR 會看到目前阻擋點、hash 與 audit log，而不是靠截圖追蹤。"
+            />
+          )}
+        </section>
+
+        <section className="panel span-5">
+          <div className="section-heading">
+            <div>
+              <h2>保存目前 Gate</h2>
+              <p className="muted">可貼上 `verify-schema --json` 輸出；系統只保存解析後的 counts/check names/hash。</p>
+            </div>
+            <span className="badge warning">hash-only</span>
+          </div>
+          <form action="/api/settings/production-database/evidence" method="post" className="mini-form">
+            <input name="schemaName" type="hidden" value="hr_one" />
+            <label>
+              Private schema verifier JSON
+              <textarea
+                name="privateSchemaJson"
+                placeholder='貼上 pnpm db:supabase:verify-schema --json 的輸出；留空則保存「尚未驗證」狀態。'
+                rows={7}
+              />
+            </label>
+            <label className="checkbox-row">
+              <input name="allowTenantData" type="checkbox" defaultChecked />
+              正式 tenant 已匯入，允許 verifier 接受 tenant/company/employee 聚合筆數
+            </label>
+            <button className="button primary" type="submit">
+              保存 Gate 證據
+            </button>
+          </form>
+        </section>
       </section>
 
       <section className="settings-command-grid production-database-command-grid" aria-label="資料庫修復作業卡">
