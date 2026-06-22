@@ -487,6 +487,7 @@ test("Owner 可以檢查試用營運與上線 Gate", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "路線 A：Supabase Transaction Pooler" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "必跑命令" })).toBeVisible();
   await expect(page.getByText("Pooler handoff")).toBeVisible();
+  await expect(page.getByText("只補 inventory 缺少的安全 key")).toBeVisible();
   await page.getByRole("button", { name: "保存 Gate 證據" }).click({ noWaitAfter: true });
   await expect(page).toHaveURL(/success=production-database-evidence/, { timeout: 60_000 });
   await expect(page.getByText("正式資料庫 Gate 證據已保存")).toBeVisible();

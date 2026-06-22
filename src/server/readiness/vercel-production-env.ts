@@ -35,6 +35,8 @@ export type VercelKnownProductionEnvPlan = {
   items: VercelEnvPayloadItem[];
   skippedPlaceholderKeys: string[];
   operatorManagedKeys: string[];
+  requestedKeys: string[];
+  omittedRequestedKeys: string[];
 };
 
 const sensitiveNamePatterns = [
@@ -182,16 +184,22 @@ export function buildVercelKnownProductionEnvPlan(options: {
   env: Record<string, string | undefined>;
   projectId: string;
   teamId: string;
+  onlyKeys?: readonly string[] | null;
 }): VercelKnownProductionEnvPlan {
   const bootstrapKeys = new Set<string>([
     ...knownProductionBootstrapKeys,
     ...generatedSecretBootstrapKeys,
   ]);
+  const requestedKeySet = options.onlyKeys?.length
+    ? new Set(options.onlyKeys.map((key) => key.trim()).filter(Boolean))
+    : null;
   const skippedPlaceholderKeys: string[] = [];
   const operatorManagedKeys: string[] = [];
+  const omittedRequestedKeys = new Set<string>(requestedKeySet ?? []);
   const items = Object.entries(options.env)
     .filter((entry): entry is [string, string] => Boolean(entry[1]))
     .filter(([key, value]) => {
+      if (requestedKeySet && !requestedKeySet.has(key)) return false;
       if (hasUnresolvedPlaceholder(value)) {
         skippedPlaceholderKeys.push(key);
         return false;
@@ -202,8 +210,11 @@ export function buildVercelKnownProductionEnvPlan(options: {
       }
       if (!bootstrapKeys.has(key)) return false;
       if (generatedSecretBootstrapKeys.includes(key as (typeof generatedSecretBootstrapKeys)[number])) {
-        return isStrongGeneratedSecret(value);
+        const accepted = isStrongGeneratedSecret(value);
+        if (accepted) omittedRequestedKeys.delete(key);
+        return accepted;
       }
+      omittedRequestedKeys.delete(key);
       return true;
     })
     .sort(([left], [right]) => left.localeCompare(right))
@@ -215,6 +226,8 @@ export function buildVercelKnownProductionEnvPlan(options: {
     items,
     skippedPlaceholderKeys: skippedPlaceholderKeys.sort(),
     operatorManagedKeys: [...new Set(operatorManagedKeys)].sort(),
+    requestedKeys: [...(requestedKeySet ?? [])].sort(),
+    omittedRequestedKeys: [...omittedRequestedKeys].sort(),
   };
 }
 
@@ -276,6 +289,8 @@ export function summarizeVercelKnownProductionEnvPlan(plan: VercelKnownProductio
     `project=${plan.projectId}`,
     `team=${plan.teamId}`,
     `${plan.items.length} bootstrap variable(s): ${sensitiveCount} sensitive, ${encryptedCount} encrypted`,
+    `requested key filter: ${plan.requestedKeys.join(", ") || "none"}`,
+    `${plan.omittedRequestedKeys.length} requested key(s) omitted: ${plan.omittedRequestedKeys.join(", ") || "none"}`,
     `${plan.operatorManagedKeys.length} operator-managed key(s): ${plan.operatorManagedKeys.join(", ") || "none"}`,
     `${plan.skippedPlaceholderKeys.length} placeholder key(s) skipped: ${plan.skippedPlaceholderKeys.join(", ") || "none"}`,
   ];

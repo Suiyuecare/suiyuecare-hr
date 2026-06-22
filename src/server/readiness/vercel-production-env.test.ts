@@ -191,4 +191,43 @@ describe("Vercel production env bootstrap", () => {
     expect(command.redactedCommand).not.toContain("generated-secret");
     expect(command.redactedCommand).toContain("<value via stdin>");
   });
+
+  it("can limit known-env bootstrap to missing inventory keys without rotating unrelated secrets", () => {
+    const plan = buildVercelKnownProductionEnvPlan({
+      env: productionEnv,
+      projectId: "prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N",
+      teamId: "team_LGag47eU8tKbsK6ixAmVa5Uq",
+      onlyKeys: [
+        "CRON_SECRET",
+        "HR_ONE_CRON_TENANT_ID",
+        "HR_ONE_OBJECT_STORAGE_KMS_KEY_REF",
+        "DATABASE_URL",
+        "HR_ONE_WEB_SESSION_MAX_AGE_SECONDS",
+      ],
+    });
+    const keys = plan.items.map((item) => item.key);
+    const summary = summarizeVercelKnownProductionEnvPlan(plan);
+
+    expect(keys).toEqual([
+      "CRON_SECRET",
+      "HR_ONE_CRON_TENANT_ID",
+      "HR_ONE_WEB_SESSION_MAX_AGE_SECONDS",
+    ]);
+    expect(keys).not.toContain("HR_ONE_SESSION_SECRET");
+    expect(keys).not.toContain("DATABASE_URL");
+    expect(keys).not.toContain("HR_ONE_OBJECT_STORAGE_KMS_KEY_REF");
+    expect(plan.requestedKeys).toEqual([
+      "CRON_SECRET",
+      "DATABASE_URL",
+      "HR_ONE_CRON_TENANT_ID",
+      "HR_ONE_OBJECT_STORAGE_KMS_KEY_REF",
+      "HR_ONE_WEB_SESSION_MAX_AGE_SECONDS",
+    ]);
+    expect(plan.omittedRequestedKeys).toEqual([
+      "DATABASE_URL",
+      "HR_ONE_OBJECT_STORAGE_KMS_KEY_REF",
+    ]);
+    expect(summary.join("\n")).toContain("requested key filter: CRON_SECRET, DATABASE_URL");
+    expect(JSON.stringify(plan)).not.toContain("secret@aws-0-ap-northeast-1.pooler.supabase.com");
+  });
 });

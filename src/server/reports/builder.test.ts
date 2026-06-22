@@ -489,7 +489,6 @@ describe("report builder foundation", () => {
   });
 
   it("retries failed background report exports with backoff and redacted audit metadata", async () => {
-    const now = new Date("2026-06-22T01:00:00.000Z");
     await updateFileStorageSettings(ownerSession, {
       allowedMimeTypes: ["application/pdf"],
     });
@@ -500,6 +499,7 @@ describe("report builder foundation", () => {
       deliveryMode: "background",
       selectedFieldKeys: ["exception_type", "severity"],
     });
+    const now = job.queue.nextRunAt ?? new Date("2026-06-22T01:00:00.000Z");
 
     const failed = await processReportExportQueue(hrSession, {
       jobId: job.id,
@@ -509,7 +509,7 @@ describe("report builder foundation", () => {
     const tooEarly = await processReportExportQueue(hrSession, {
       jobId: job.id,
       workerId: "unit-test-worker-secret",
-      now: new Date("2026-06-22T01:01:00.000Z"),
+      now: new Date(now.getTime() + 60_000),
     });
     await updateFileStorageSettings(ownerSession, {
       allowedMimeTypes: ["application/pdf", "text/csv"],
@@ -517,7 +517,7 @@ describe("report builder foundation", () => {
     const retried = await processReportExportQueue(hrSession, {
       jobId: job.id,
       workerId: "unit-test-worker-secret",
-      now: new Date("2026-06-22T01:06:00.000Z"),
+      now: new Date(now.getTime() + 6 * 60_000),
     });
     const auditPayload = JSON.stringify(getAuditDemoState().logs);
 
@@ -536,7 +536,7 @@ describe("report builder foundation", () => {
       ],
     });
     expect(failed.jobs[0].queue.lastErrorHash).toHaveLength(64);
-    expect(failed.jobs[0].queue.nextRunAt?.toISOString()).toBe("2026-06-22T01:05:00.000Z");
+    expect(failed.jobs[0].queue.nextRunAt?.toISOString()).toBe(new Date(now.getTime() + 5 * 60_000).toISOString());
     expect(tooEarly).toMatchObject({
       processedCount: 0,
       skippedCount: 1,

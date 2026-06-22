@@ -20,6 +20,8 @@ const vercelEnvListCommand =
   `pnpm dlx vercel@latest env ls production --format json --scope ${teamId}`;
 const vercelEnvApplyCommand =
   "pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --method=cli";
+const vercelMissingKnownEnvBootstrapCommand =
+  "pnpm vercel:bootstrap-known-env -- --env-file=.env.vercel.production --only-keys=CRON_SECRET,HR_ONE_CRON_TENANT_ID,HR_ONE_CRON_COMPANY_ID,HR_ONE_OBJECT_STORAGE_PROVIDER,HR_ONE_OBJECT_STORAGE_BUCKET,HR_ONE_OBJECT_STORAGE_SIGNED_URL_MAX_TTL_SECONDS,HR_ONE_AUTH_TENANT_CONTEXT_SOURCE,HR_ONE_WEB_SESSION_MAX_AGE_SECONDS --apply";
 const productionDeployCommand =
   `pnpm dlx vercel@latest --prod --scope ${teamId}`;
 const privateSchemaVerifyCommand =
@@ -804,6 +806,7 @@ export default async function ProductionDatabasePage({ searchParams }: { searchP
             <CommandTask title="Pooler handoff" command={poolerHandoffCommand} />
             <CommandTask title="更新本地 env 草稿" command={poolerDraftCommand} />
             <CommandTask title="Vercel env inventory" command="pnpm vercel:inventory:production -- --team-id=team_LGag47eU8tKbsK6ixAmVa5Uq --output=/tmp/hr-one-vercel-production-env-inventory.md" />
+            <CommandTask title="只補 inventory 缺少的安全 key" command={vercelMissingKnownEnvBootstrapCommand} />
             <CommandTask title="寫入 Vercel Production env" command={vercelEnvApplyCommand} />
             <CommandTask title="重新部署 Production" command={productionDeployCommand} />
             <CommandTask title="Production health" command="curl -fsS https://hr.suiyuecare.com/api/health/ready" />

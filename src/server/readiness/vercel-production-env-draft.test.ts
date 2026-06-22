@@ -106,8 +106,35 @@ describe("Vercel production env draft", () => {
       HR_ONE_AUTH_ISSUER_URL: "https://aruncclorusswpfnpgsn.supabase.co/auth/v1",
       HR_ONE_AUTH_LOGIN_URL: "https://hr.suiyuecare.com/auth/sign-in",
       HR_ONE_AUTH_JWKS_URL: "https://aruncclorusswpfnpgsn.supabase.co/auth/v1/.well-known/jwks.json",
+      HR_ONE_AUTH_TENANT_CONTEXT_SOURCE: "env_defaults",
       HR_ONE_BACKUP_RESTORE_TESTED_AT: "REPLACE_WITH_RESTORE_DRILL_DATE_AFTER_2026-06-17",
     });
+  });
+
+  it("fills missing generated secrets in an old env draft without rotating existing secrets", () => {
+    let generatedCount = 0;
+    const existing = [
+      "DATABASE_URL=\"REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE\"",
+      "HR_ONE_SESSION_SECRET=\"keep-this-session-secret-with-more-than-32-characters\"",
+      "HR_ONE_ENCRYPTION_KEY=\"keep-this-encryption-secret-with-more-than-32-characters\"",
+      "HR_ONE_AUDIT_LOG_SIGNING_KEY=\"keep-this-audit-secret-with-more-than-32-characters\"",
+      "",
+    ].join("\n");
+    const refreshed = refreshVercelProductionEnvDraftKnownValues(existing, {
+      now: new Date("2026-06-17T00:00:00.000Z"),
+      randomSecret: () => {
+        generatedCount += 1;
+        return `new-generated-secret-${generatedCount}-with-more-than-32-characters`;
+      },
+    });
+    const env = parseEnvFile(refreshed.text);
+
+    expect(refreshed.appendedKeys).toContain("CRON_SECRET");
+    expect(env.HR_ONE_SESSION_SECRET).toBe("keep-this-session-secret-with-more-than-32-characters");
+    expect(env.HR_ONE_ENCRYPTION_KEY).toBe("keep-this-encryption-secret-with-more-than-32-characters");
+    expect(env.HR_ONE_AUDIT_LOG_SIGNING_KEY).toBe("keep-this-audit-secret-with-more-than-32-characters");
+    expect(env.CRON_SECRET).toBe("new-generated-secret-1-with-more-than-32-characters");
+    expect(generatedCount).toBe(1);
   });
 
   it("updates restore drill evidence only when an explicit tested date is provided", () => {

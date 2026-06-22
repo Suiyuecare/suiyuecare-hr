@@ -14,6 +14,7 @@ function main() {
   const envFile = resolve(readArg(args, "--env-file") ?? ".env.vercel.production");
   const projectId = readArg(args, "--project-id") ?? process.env.VERCEL_PROJECT_ID ?? "prj_QY0hzJ4hFzLX8XYO5ljIffLnH99N";
   const teamId = readArg(args, "--team-id") ?? process.env.VERCEL_TEAM_ID ?? "team_LGag47eU8tKbsK6ixAmVa5Uq";
+  const onlyKeys = parseOnlyKeys(readArg(args, "--only-keys"));
   const apply = args.includes("--apply");
 
   if (!existsSync(envFile)) {
@@ -21,7 +22,7 @@ function main() {
   }
 
   const env = parseEnvFile(readFileSync(envFile, "utf8"));
-  const plan = buildVercelKnownProductionEnvPlan({ env, projectId, teamId });
+  const plan = buildVercelKnownProductionEnvPlan({ env, projectId, teamId, onlyKeys });
 
   console.log("HR One known Vercel production env bootstrap plan:");
   for (const line of summarizeVercelKnownProductionEnvPlan(plan)) {
@@ -40,6 +41,9 @@ function main() {
   if (!apply) {
     console.log("Dry run only; pass --apply to write these known values to Vercel Production.");
     console.log("Operator-managed keys still require real DATABASE_URL, vault references, and restore-drill evidence before pilot use.");
+    if (onlyKeys.length > 0) {
+      console.log("--only-keys is active, so existing unrelated Vercel env variables will not be rewritten.");
+    }
     return;
   }
 
@@ -83,6 +87,15 @@ function readArg(args: string[], name: string) {
   const index = args.indexOf(name);
   if (index >= 0) return args[index + 1] ?? null;
   return null;
+}
+
+function parseOnlyKeys(value: string | null) {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((key) => key.trim())
+    .filter((key) => /^[A-Z0-9_]+$/.test(key))
+    .sort();
 }
 
 main();

@@ -61,6 +61,7 @@ const refreshableKnownValueKeys = new Set([
   "HR_ONE_AUTH_LOGIN_URL",
   "HR_ONE_AUTH_AUDIENCE",
   "HR_ONE_AUTH_JWKS_URL",
+  "HR_ONE_AUTH_TENANT_CONTEXT_SOURCE",
   "HR_ONE_AUTH_DEFAULT_TENANT",
   "HR_ONE_AUTH_DEFAULT_COMPANY",
   "HR_ONE_CRON_TENANT_ID",
@@ -79,6 +80,12 @@ const refreshableKnownValueKeys = new Set([
   "HR_ONE_BACKUP_ENABLED",
   "HR_ONE_BACKUP_RETENTION_DAYS",
 ]);
+const generatedSecretKeys = [
+  "HR_ONE_SESSION_SECRET",
+  "HR_ONE_ENCRYPTION_KEY",
+  "HR_ONE_AUDIT_LOG_SIGNING_KEY",
+  "CRON_SECRET",
+] as const;
 
 export function buildVercelProductionEnvDraft(options: VercelProductionEnvDraftOptions = {}) {
   const env = buildVercelProductionEnvDraftValues(options);
@@ -154,15 +161,18 @@ export function refreshVercelProductionEnvDraftKnownValues(
     ...options,
     randomSecret: () => "unused-generated-secret-with-more-than-32-characters",
   }));
+  const secret = options.randomSecret ?? generateSecret;
   const refreshableKeys = new Set(refreshableKnownValueKeys);
   if (options.restoreDrillTestedAt) {
     defaults.set("HR_ONE_BACKUP_RESTORE_TESTED_AT", normalizeDate(options.restoreDrillTestedAt));
     refreshableKeys.add("HR_ONE_BACKUP_RESTORE_TESTED_AT");
   }
   const seen = new Set<string>();
+  const allSeen = new Set<string>();
   const changedKeys: string[] = [];
   const lines = text.split(/\r?\n/).map((line) => {
     const parsed = parseEnvLine(line);
+    if (parsed) allSeen.add(parsed.key);
     if (!parsed || !refreshableKeys.has(parsed.key)) return line;
     seen.add(parsed.key);
     const nextValue = defaults.get(parsed.key);
@@ -171,11 +181,14 @@ export function refreshVercelProductionEnvDraftKnownValues(
     return `${parsed.key}=${quoteEnvValue(nextValue)}`;
   });
   const appendedKeys = [...refreshableKeys]
-    .filter((key) => !seen.has(key))
+    .filter((key) => !allSeen.has(key))
     .filter((key) => defaults.has(key))
     .sort();
+  const appendedGeneratedSecretKeys = generatedSecretKeys
+    .filter((key) => !allSeen.has(key))
+    .sort();
 
-  if (appendedKeys.length > 0) {
+  if (appendedKeys.length > 0 || appendedGeneratedSecretKeys.length > 0) {
     const insertAt = lines.length > 0 && lines.at(-1) === "" ? lines.length - 1 : lines.length;
     lines.splice(
       insertAt,
@@ -183,13 +196,19 @@ export function refreshVercelProductionEnvDraftKnownValues(
       "# Refreshed known non-secret HR One production values.",
       ...appendedKeys.map((key) => `${key}=${quoteEnvValue(defaults.get(key)!)}`
       ),
+      ...(appendedGeneratedSecretKeys.length
+        ? [
+            "# Generated missing local-only HR One production secrets; values are not printed by scripts.",
+            ...appendedGeneratedSecretKeys.map((key) => `${key}=${quoteEnvValue(secret())}`),
+          ]
+        : []),
     );
   }
 
   return {
     text: lines.join("\n"),
     changedKeys: changedKeys.sort(),
-    appendedKeys,
+    appendedKeys: [...appendedKeys, ...appendedGeneratedSecretKeys].sort(),
   };
 }
 
