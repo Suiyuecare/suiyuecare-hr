@@ -17,6 +17,11 @@ import {
   type PilotOperationsTodayGateStatus,
 } from "@/server/readiness/pilot-operations";
 import { getLaunchReadinessReport } from "@/server/readiness/launch";
+import {
+  getRoleExperienceCommandCenter,
+  type RoleExperienceCommandCenter,
+  type RoleExperienceLane,
+} from "@/server/product/role-experience";
 
 type SearchParams = Promise<{ q?: string }>;
 
@@ -26,6 +31,7 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
   const session = await getDemoSession();
   const allModules = getConsoleModules(session.role);
   const modules = filterConsoleModules(allModules, query);
+  const roleExperience = getRoleExperienceCommandCenter(session.role);
   const [pilotOperations, launchReadiness, auditEvidence] = await Promise.all([
     hasPermission(session.role, "settings:read") ? getPilotOperationsReport(session) : null,
     hasPermission(session.role, "settings:read") ? getLaunchReadinessReport(session) : null,
@@ -59,18 +65,7 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
         </div>
       </section>
 
-      <section className="console-product-lanes" aria-label="產品分流">
-        <Link className="console-lane employee-lane" href="/app">
-          <span>1. 前端員工日常使用</span>
-          <strong>打卡、請假、補打卡、公告、薪資單</strong>
-          <small>手機第一屏只放員工今天需要完成的任務。</small>
-        </Link>
-        <Link className="console-lane admin-lane" href="/hr">
-          <span>2. 後端管理系統</span>
-          <strong>執行長、人資、行政部門主任</strong>
-          <small>月結、異常、簽核、權限與稽核集中處理。</small>
-        </Link>
-      </section>
+      <RoleExperienceBoard commandCenter={roleExperience} />
 
       <section className="console-command-board" aria-label="試用後台指揮板">
         <div className="console-command-copy">
@@ -241,6 +236,71 @@ export default async function ConsolePage({ searchParams }: { searchParams: Sear
         </section>
       </div>
     </main>
+  );
+}
+
+function RoleExperienceBoard({ commandCenter }: { commandCenter: RoleExperienceCommandCenter }) {
+  return (
+    <section className="role-experience-board" aria-label="角色任務導覽">
+      <div className="role-experience-head">
+        <div>
+          <span className="muted">前台 / 後台分流</span>
+          <h2>{commandCenter.roleLabel} 今天看到的工作台</h2>
+          <p>{commandCenter.primaryPrinciple}</p>
+        </div>
+        <div className="role-experience-summary" aria-label="可見工作台摘要">
+          <span>前台 {commandCenter.frontstageCount}</span>
+          <span>後台 {commandCenter.backstageCount}</span>
+          <span>角色 {roleLabel(commandCenter.role)}</span>
+        </div>
+      </div>
+
+      <div className="role-experience-grid">
+        {commandCenter.visibleLanes.map((lane) => (
+          <RoleExperienceCard lane={lane} key={lane.id} />
+        ))}
+      </div>
+
+      {commandCenter.hiddenLaneTitles.length > 0 ? (
+        <p className="role-experience-hidden">
+          此角色不顯示：{commandCenter.hiddenLaneTitles.join("、")}。薪資、權限與支援存取仍依 RBAC/ABAC 控制。
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function RoleExperienceCard({ lane }: { lane: RoleExperienceLane }) {
+  return (
+    <article className={`role-experience-card ${lane.tone}`}>
+      <div className="role-experience-card-head">
+        <div>
+          <span>{lane.surface === "frontstage" ? "前端員工日常使用" : "後端管理系統"}</span>
+          <h3>{lane.title}</h3>
+          <small>{lane.audience}</small>
+        </div>
+        <strong>{lane.kpi}</strong>
+      </div>
+      <p>{lane.promise}</p>
+      <div className="role-experience-task-row" aria-label={`${lane.title} 主要任務`}>
+        {lane.tasks.map((task) => (
+          <span key={task}>{task}</span>
+        ))}
+      </div>
+      <ul className="role-experience-guardrails" aria-label={`${lane.title} 安全護欄`}>
+        {lane.guardrails.map((guardrail) => (
+          <li key={guardrail}>{guardrail}</li>
+        ))}
+      </ul>
+      <div className="role-experience-actions">
+        <Link className="button primary" href={lane.primary.href}>
+          {lane.primary.label}
+        </Link>
+        <Link className="button" href={lane.secondary.href}>
+          {lane.secondary.label}
+        </Link>
+      </div>
+    </article>
   );
 }
 

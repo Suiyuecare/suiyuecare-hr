@@ -73,6 +73,9 @@ test("員工前台與管理後台依角色分流", async ({ page }) => {
   await page.getByRole("button", { name: "切換" }).click();
   await expect(page).toHaveURL(/\/console$/);
   await expect(page.getByRole("heading", { name: "HR One 後台工作台" })).toBeVisible();
+  await expect(page.getByLabel("角色任務導覽").getByRole("heading", { name: "人資 / 行政主任 今天看到的工作台" })).toBeVisible();
+  await expect(page.getByLabel("角色任務導覽").getByText("HR 營運後台")).toBeVisible();
+  await expect(page.getByLabel("角色任務導覽").getByText("薪資資料需 payroll 權限")).toBeVisible();
   await expect(page.getByRole("navigation").getByText("公司管理", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "人事建檔" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "出勤管理", level: 3 })).toBeVisible();
@@ -162,6 +165,9 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await page.getByRole("button", { name: "切換" }).click();
 
   await expect(page).toHaveURL(/\/console$/);
+  await expect(page.getByLabel("角色任務導覽").getByText("前台 1")).toBeVisible();
+  await expect(page.getByLabel("角色任務導覽").getByText("後台 3")).toBeVisible();
+  await expect(page.getByLabel("角色任務導覽").getByRole("heading", { name: "主管簽核工作台" })).toBeVisible();
   await expect(page.getByLabel("後台摘要").getByText("可用模組")).toBeVisible();
   await expect(page.getByLabel("後台模組導覽").getByText("薪資管理", { exact: true })).toBeVisible();
   await expect(page.getByLabel("兩週試用 Gate").getByText("今日先處理")).toBeVisible();

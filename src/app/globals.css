@@ -2635,6 +2635,185 @@ legend {
   margin-bottom: 14px;
 }
 
+.role-experience-board {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.role-experience-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--panel-border);
+  padding-bottom: 12px;
+}
+
+.role-experience-head h2 {
+  margin: 3px 0 6px;
+  font-size: 24px;
+  font-weight: 1000;
+  line-height: 1.15;
+}
+
+.role-experience-head p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.role-experience-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 260px;
+}
+
+.role-experience-summary span {
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: var(--cream);
+  color: var(--foreground);
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 1000;
+  white-space: nowrap;
+}
+
+.role-experience-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.role-experience-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 336px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.role-experience-card.ready {
+  border-color: rgba(21, 128, 61, 0.28);
+  background: #f4fbf7;
+}
+
+.role-experience-card.warning {
+  border-color: rgba(183, 121, 31, 0.28);
+  background: #fff9ed;
+}
+
+.role-experience-card.danger {
+  border-color: rgba(185, 28, 28, 0.22);
+  background: #fff6f5;
+}
+
+.role-experience-card-head {
+  display: grid;
+  gap: 10px;
+  min-height: 120px;
+}
+
+.role-experience-card-head span,
+.role-experience-card-head small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.role-experience-card-head h3 {
+  margin: 3px 0;
+  font-size: 22px;
+  font-weight: 1000;
+  line-height: 1.15;
+}
+
+.role-experience-card-head > strong {
+  width: fit-content;
+  border: 1px solid rgba(30, 41, 59, 0.1);
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 7px 10px;
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.role-experience-card p {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.55;
+}
+
+.role-experience-task-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.role-experience-task-row span {
+  border: 1px solid rgba(30, 41, 59, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 6px 8px;
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.role-experience-guardrails {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.role-experience-guardrails li {
+  border-left: 3px solid rgba(30, 41, 59, 0.2);
+  padding-left: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.role-experience-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-self: end;
+}
+
+.role-experience-actions .button {
+  width: 100%;
+}
+
+.role-experience-hidden {
+  margin: 0;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.5;
+}
+
 .console-command-board {
   display: grid;
   grid-template-columns: minmax(280px, 1.25fr) repeat(3, minmax(0, 1fr));
@@ -12647,6 +12826,8 @@ legend {
   .console-readiness-source-strip,
   .console-readiness-action-item,
   .console-product-lanes,
+  .role-experience-head,
+  .role-experience-grid,
   .console-module-detail-hero,
   .organization-hero,
   .organization-metric-strip,
@@ -13143,6 +13324,23 @@ legend {
 
   .console-readiness-actions,
   .console-readiness-counts {
+    grid-template-columns: 1fr;
+  }
+
+  .role-experience-head {
+    display: grid;
+  }
+
+  .role-experience-summary {
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .role-experience-card {
+    min-height: auto;
+  }
+
+  .role-experience-actions {
     grid-template-columns: 1fr;
   }
 
