@@ -133,6 +133,7 @@ export type ProductionDatabaseRemediationReport = {
   supabasePooler: SupabaseTransactionPoolerTemplate;
   databaseDetail: string;
   environmentDetail: string;
+  envRepairPlan: ProductionDatabaseEnvRepairGroup[];
   launchChecklist: ProductionDatabaseLaunchChecklistItem[];
   vercelCutover: VercelProductionCutoverPlan;
   tracks: ProductionDatabaseRemediationTrack[];
@@ -151,6 +152,25 @@ export type ProductionDatabaseEnvDraftReport = {
   failedCheckNames: string[];
   checks: EnvironmentVerificationCheck[];
   nextActions: string[];
+};
+
+export type ProductionDatabaseEnvRepairGroup = {
+  id:
+    | "database_connection"
+    | "scheduled_maintenance"
+    | "object_storage"
+    | "auth_session"
+    | "secrets_rate_limit_backup"
+    | "ai_governance"
+    | "other";
+  title: string;
+  owner: "Owner" | "Engineering" | "Owner + Engineering";
+  status: "ready" | "blocked" | "not_checked";
+  failedCheckNames: string[];
+  affectedEnvKeys: string[];
+  detail: string;
+  nextStep: string;
+  evidence: string;
 };
 
 export type ProductionDatabaseRemediationInput = {
@@ -386,6 +406,7 @@ export function buildProductionDatabaseRemediationReport(
   const databaseDetail = safeCheckDetail(input.healthReport ?? null, "database");
   const environmentDetail = safeCheckDetail(input.healthReport ?? null, "environment");
   const envDraft = input.envDraft ?? null;
+  const envRepairPlan = buildProductionDatabaseEnvRepairPlan(envDraft);
   const privateSchema = input.privateSchema ?? buildProductionDatabasePrivateSchemaReport();
   const supabasePooler = buildSupabaseTransactionPoolerTemplate({
     supabaseUrl: input.supabaseUrl ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -426,6 +447,7 @@ export function buildProductionDatabaseRemediationReport(
     supabasePooler,
     databaseDetail,
     environmentDetail,
+    envRepairPlan,
     launchChecklist,
     vercelCutover,
     tracks,
@@ -458,6 +480,10 @@ export function formatProductionDatabaseRemediationMarkdown(
     "## Local Env Draft",
     "",
     ...formatEnvDraft(report.envDraft),
+    "",
+    "## Production Env Repair Matrix",
+    "",
+    ...formatEnvRepairPlan(report.envRepairPlan),
     "",
     "## Supabase Transaction Pooler Shape",
     "",
@@ -552,6 +578,21 @@ function formatEnvDraft(report: ProductionDatabaseEnvDraftReport | null) {
     "- Draft next actions:",
     ...formatList(report.nextActions).map((item) => `  ${item}`),
   ];
+}
+
+function formatEnvRepairPlan(groups: ProductionDatabaseEnvRepairGroup[]) {
+  return groups.flatMap((group) => [
+    `### ${group.title}`,
+    "",
+    `- Status: ${group.status}`,
+    `- Owner: ${group.owner}`,
+    `- Failed checks: ${group.failedCheckNames.length ? group.failedCheckNames.join(", ") : "None"}`,
+    `- Env keys: ${group.affectedEnvKeys.length ? group.affectedEnvKeys.join(", ") : "None"}`,
+    `- Detail: ${redactSensitiveDetail(group.detail)}`,
+    `- Next step: ${redactSensitiveDetail(group.nextStep)}`,
+    `- Evidence: ${redactSensitiveDetail(group.evidence)}`,
+    "",
+  ]);
 }
 
 function formatSupabasePooler(pooler: SupabaseTransactionPoolerTemplate) {
@@ -951,6 +992,232 @@ function buildEnvDraftNextActions(input: {
   }
 
   return [...new Set(actions.map(redactSensitiveDetail))];
+}
+
+export function buildProductionDatabaseEnvRepairPlan(
+  envDraft: ProductionDatabaseEnvDraftReport | null,
+): ProductionDatabaseEnvRepairGroup[] {
+  const specs = productionEnvRepairSpecs();
+  if (!envDraft) {
+    return specs.map((spec) => ({
+      id: spec.id,
+      title: spec.title,
+      owner: spec.owner,
+      status: "not_checked",
+      failedCheckNames: [],
+      affectedEnvKeys: spec.envKeys,
+      detail: "尚未附加 production env draft；無法判斷此組 production env 是否可用。",
+      nextStep: "先產生或附加 .env.vercel.production redacted verifier，再補齊此組設定。",
+      evidence: "pnpm env:verify:production -- --env-file=.env.vercel.production",
+    }));
+  }
+
+  const failedCheckSet = new Set(envDraft.failedCheckNames);
+  const unresolvedPlaceholderSet = new Set(envDraft.unresolvedPlaceholderKeys);
+  const matchedCheckNames = new Set<string>();
+  const groups: ProductionDatabaseEnvRepairGroup[] = specs.map((spec) => {
+    const failedCheckNames = spec.checkNames.filter((name) => failedCheckSet.has(name));
+    const unresolvedEnvKeys = spec.envKeys.filter((key) => unresolvedPlaceholderSet.has(key));
+    for (const name of failedCheckNames) matchedCheckNames.add(name);
+    const blocked = failedCheckNames.length > 0 || unresolvedEnvKeys.length > 0;
+    return {
+      id: spec.id,
+      title: spec.title,
+      owner: spec.owner,
+      status: blocked ? "blocked" : "ready",
+      failedCheckNames,
+      affectedEnvKeys: [...new Set([...spec.envKeys, ...unresolvedEnvKeys])],
+      detail: blocked ? spec.blockedDetail : spec.readyDetail,
+      nextStep: blocked ? spec.nextStep : spec.keepReadyStep,
+      evidence: spec.evidence,
+    };
+  });
+
+  const unmatchedFailedChecks = envDraft.failedCheckNames.filter((name) => !matchedCheckNames.has(name));
+  if (unmatchedFailedChecks.length > 0) {
+    groups.push({
+      id: "other",
+      title: "其他 production env 檢查",
+      owner: "Owner + Engineering",
+      status: "blocked",
+      failedCheckNames: unmatchedFailedChecks,
+      affectedEnvKeys: [],
+      detail: "有尚未被分類的 production verifier 失敗項；先不要寫入 Vercel Production env。",
+      nextStep: `釐清並修正這些 verifier checks：${unmatchedFailedChecks.join(", ")}。`,
+      evidence: "env verifier failed check names resolved to zero.",
+    });
+  }
+
+  return groups.map((group) => ({
+    ...group,
+    detail: redactSensitiveDetail(group.detail),
+    nextStep: redactSensitiveDetail(group.nextStep),
+    evidence: redactSensitiveDetail(group.evidence),
+  }));
+}
+
+function productionEnvRepairSpecs() {
+  return [
+    {
+      id: "database_connection" as const,
+      title: "資料庫連線與 private schema",
+      owner: "Engineering" as const,
+      checkNames: [
+        "database url",
+        "database provider",
+        "database private schema",
+        "Supabase Vercel database network",
+        "Supabase Prisma pooler params",
+        "Supabase project url",
+        "Supabase publishable key",
+      ],
+      envKeys: [
+        "DATABASE_URL",
+        "HR_ONE_DATABASE_PROVIDER",
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+        "HR_ONE_SUPABASE_IPV4_ADDON_ENABLED",
+      ],
+      blockedDetail: "正式資料庫或 Supabase schema/pooler 形狀尚未通過；不可邀請真實員工或跑正式試用。",
+      readyDetail: "資料庫 URL、Supabase provider、private schema 與 Vercel network posture 已通過本地 verifier。",
+      nextStep: "用 Supabase transaction pooler DATABASE_URL 經 stdin 建立 redacted handoff，確認 schema=hr_one、pgbouncer=true、connection_limit=1 後再寫入 Vercel。",
+      keepReadyStep: "改 Vercel/Supabase/Prisma schema 後重新跑 env verifier、live ready 與 production database evidence。",
+      evidence: "redacted DATABASE_URL handoff, env verifier ready, live /api/health/ready ok.",
+    },
+    {
+      id: "scheduled_maintenance" as const,
+      title: "Cron 與正式維護 scope",
+      owner: "Engineering" as const,
+      checkNames: ["CRON_SECRET", "scheduled job tenant scope", "scheduled job company scope"],
+      envKeys: ["CRON_SECRET", "HR_ONE_CRON_TENANT_ID", "HR_ONE_CRON_COMPANY_ID"],
+      blockedDetail: "排程授權或 tenant/company scope 不完整；報表清理、AI 暫存清理與維護 audit 不能安全跑。",
+      readyDetail: "Cron secret 與正式維護 tenant/company scope 已通過本地 verifier。",
+      nextStep: "補 CRON_SECRET 與正式 tenant/company scope，然後跑 maintenance readiness 與 hash-only audit evidence。",
+      keepReadyStep: "每次換正式 tenant 或 company id 時，同步更新 Cron scope 並重跑 maintenance Gate。",
+      evidence: "env verifier ready, /settings/readiness operational maintenance ready, hash-only maintenance audit.",
+    },
+    {
+      id: "object_storage" as const,
+      title: "正式文件儲存與保留政策",
+      owner: "Owner + Engineering" as const,
+      checkNames: [
+        "object storage provider",
+        "object storage bucket",
+        "HR_ONE_OBJECT_STORAGE_SECRET_REF",
+        "HR_ONE_OBJECT_STORAGE_KMS_KEY_REF",
+        "object storage lifecycle policy",
+        "object storage signed URL ceiling",
+      ],
+      envKeys: [
+        "HR_ONE_OBJECT_STORAGE_PROVIDER",
+        "HR_ONE_OBJECT_STORAGE_BUCKET",
+        "HR_ONE_OBJECT_STORAGE_SECRET_REF",
+        "HR_ONE_OBJECT_STORAGE_KMS_KEY_REF",
+        "HR_ONE_OBJECT_STORAGE_LIFECYCLE_POLICY_REF",
+        "HR_ONE_OBJECT_STORAGE_SIGNED_URL_MAX_TTL_SECONDS",
+      ],
+      blockedDetail: "正式文件儲存 provider、bucket、KMS、保存政策或短效 signed URL TTL 尚未完整。",
+      readyDetail: "正式文件儲存 provider、bucket、KMS、保存政策與 signed URL TTL 已通過本地 verifier。",
+      nextStep: "補正式 object storage provider/bucket/KMS/lifecycle ref，並在文件金庫跑 smoke test，不把文件落在 demo storage。",
+      keepReadyStep: "更換 bucket、KMS 或保存政策後重跑 storage Gate 與文件金庫 smoke test。",
+      evidence: "file storage Gate ready, KMS/lifecycle refs, document vault smoke test, audit log.",
+    },
+    {
+      id: "auth_session" as const,
+      title: "正式登入、Tenant context 與 session",
+      owner: "Owner + Engineering" as const,
+      checkNames: [
+        "auth provider",
+        "auth session source",
+        "auth issuer url",
+        "auth login url",
+        "auth audience",
+        "auth jwks url",
+        "auth token max age",
+        "auth tenant context",
+        "web session max age",
+      ],
+      envKeys: [
+        "HR_ONE_AUTH_PROVIDER",
+        "HR_ONE_AUTH_SESSION_SOURCE",
+        "HR_ONE_AUTH_ISSUER_URL",
+        "HR_ONE_AUTH_LOGIN_URL",
+        "HR_ONE_AUTH_AUDIENCE",
+        "HR_ONE_AUTH_JWKS_URL",
+        "HR_ONE_AUTH_MAX_TOKEN_AGE_SECONDS",
+        "HR_ONE_AUTH_TENANT_CONTEXT_SOURCE",
+        "HR_ONE_AUTH_DEFAULT_TENANT",
+        "HR_ONE_AUTH_DEFAULT_COMPANY",
+        "HR_ONE_WEB_SESSION_MAX_AGE_SECONDS",
+      ],
+      blockedDetail: "正式 OIDC/session 或 tenant context 不完整；角色切換、薪資權限與跨租戶隔離不可放行。",
+      readyDetail: "正式 OIDC/session、tenant context 與瀏覽器 session max-age 已通過本地 verifier。",
+      nextStep: "補 HR_ONE_AUTH_TENANT_CONTEXT_SOURCE 與 web session max age；若使用 env_defaults，也要補正式 tenant/company defaults。",
+      keepReadyStep: "更換 IdP、tenant claim 或登入 URL 後重跑 access cutover、薪資防漏與 tenant isolation tests。",
+      evidence: "access cutover ready, SSO subject hash bindings, tenant API boundary guardrail.",
+    },
+    {
+      id: "secrets_rate_limit_backup" as const,
+      title: "核心 secrets、Rate limit 與備份還原",
+      owner: "Owner + Engineering" as const,
+      checkNames: [
+        "deployment environment",
+        "public app url",
+        "deployment target",
+        "Vercel project binding",
+        "HR_ONE_SESSION_SECRET",
+        "HR_ONE_ENCRYPTION_KEY",
+        "HR_ONE_AUDIT_LOG_SIGNING_KEY",
+        "app rate limiter",
+        "rate limit provider",
+        "HR_ONE_RATE_LIMIT_SECRET_REF",
+        "external rate limit endpoint",
+        "external rate limit token",
+        "rate limit window",
+        "rate limit ceiling",
+        "database backups",
+        "backup retention",
+        "HR_ONE_BACKUP_ENCRYPTION_KEY_REF",
+        "restore drill evidence",
+      ],
+      envKeys: [
+        "HR_ONE_ENV",
+        "HR_ONE_APP_URL",
+        "NEXT_PUBLIC_APP_URL",
+        "HR_ONE_DEPLOYMENT_TARGET",
+        "VERCEL_PROJECT_ID",
+        "HR_ONE_SESSION_SECRET",
+        "HR_ONE_ENCRYPTION_KEY",
+        "HR_ONE_AUDIT_LOG_SIGNING_KEY",
+        "HR_ONE_RATE_LIMIT_ENABLED",
+        "HR_ONE_RATE_LIMIT_PROVIDER",
+        "HR_ONE_RATE_LIMIT_SECRET_REF",
+        "HR_ONE_RATE_LIMIT_WINDOW_SECONDS",
+        "HR_ONE_RATE_LIMIT_MAX_REQUESTS",
+        "HR_ONE_BACKUP_ENABLED",
+        "HR_ONE_BACKUP_RETENTION_DAYS",
+        "HR_ONE_BACKUP_ENCRYPTION_KEY_REF",
+        "HR_ONE_BACKUP_RESTORE_TESTED_AT",
+      ],
+      blockedDetail: "核心 secrets、rate limit、備份或還原演練有缺口；正式 runtime 不能視為可販售。",
+      readyDetail: "核心 secrets、rate limit、備份保留與還原演練已通過本地 verifier。",
+      nextStep: "補 vault refs、rate limit posture、backup retention 與最近 restore drill evidence，再跑 production release gate。",
+      keepReadyStep: "secret rotation、rate limit provider 或備份策略改動後重新跑 env verifier 與 restore drill evidence scan。",
+      evidence: "env verifier ready, restore drill report, rate limit posture, secret refs only.",
+    },
+    {
+      id: "ai_governance" as const,
+      title: "AI provider 與 prompt 保存治理",
+      owner: "Owner" as const,
+      checkNames: ["AI provider posture", "AI prompt storage"],
+      envKeys: ["HR_ONE_AI_PROVIDER", "HR_ONE_AI_SECRET_REF", "HR_ONE_AI_PROMPT_STORAGE"],
+      blockedDetail: "AI provider 或 prompt 保存策略不符合安全限制；不能把敏感 prompt 原文帶進正式環境。",
+      readyDetail: "AI provider disabled 或已使用 vault ref，且 raw sensitive prompt storage 未啟用。",
+      nextStep: "保持 AI_PROVIDER=disabled，或只用 vault secret ref 啟用 AI；prompt storage 必須是 hash/redacted，不可 raw。",
+      keepReadyStep: "啟用外部 AI 前重新跑 AI safety tests、來源引用 Gate 與 audit redaction checks。",
+      evidence: "AI safety tests, prompt storage redaction posture, AI usage audit hash.",
+    },
+  ];
 }
 
 function describeDatabaseUrlShape(

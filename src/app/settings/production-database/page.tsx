@@ -316,6 +316,63 @@ export default async function ProductionDatabasePage({ searchParams }: { searchP
           </ol>
         </section>
 
+        <section className="panel span-12 production-database-env-repair" aria-label="Production env 修復矩陣">
+          <div className="section-heading">
+            <div>
+              <h2>Production env 修復矩陣</h2>
+              <p className="muted">
+                把 production verifier 失敗項整理成 Owner/工程可處理的群組；只列 key 名稱、負責人、下一步與證據，不回顯任何 secret value。
+              </p>
+            </div>
+            <span className={`badge ${report.envRepairPlan.some((group) => group.status === "blocked") ? "danger" : "done"}`}>
+              {report.envRepairPlan.filter((group) => group.status === "ready").length}/{report.envRepairPlan.length}
+            </span>
+          </div>
+          <div className="production-database-track-grid">
+            {report.envRepairPlan.map((group) => (
+              <article className={`production-database-track ${envRepairTone(group.status)}`} key={group.id}>
+                <span className={`badge ${envRepairBadgeClass(group.status)}`}>
+                  {envRepairStatusLabel(group.status)}
+                </span>
+                <h3>{group.title}</h3>
+                <p>{group.detail}</p>
+                <ul className="task-list">
+                  <li className="task production-database-task">
+                    <span>
+                      <strong>負責人</strong>
+                      <small>{group.owner}</small>
+                    </span>
+                  </li>
+                  <li className="task production-database-task">
+                    <span>
+                      <strong>Failed checks</strong>
+                      <small>{group.failedCheckNames.length ? group.failedCheckNames.join(", ") : "無"}</small>
+                    </span>
+                  </li>
+                  <li className="task production-database-task">
+                    <span>
+                      <strong>Env keys</strong>
+                      <small>{group.affectedEnvKeys.join(", ")}</small>
+                    </span>
+                  </li>
+                  <li className="task production-database-task">
+                    <span>
+                      <strong>下一步</strong>
+                      <small>{group.nextStep}</small>
+                    </span>
+                  </li>
+                  <li className="task production-database-task">
+                    <span>
+                      <strong>證據</strong>
+                      <small>{group.evidence}</small>
+                    </span>
+                  </li>
+                </ul>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section
           className={`panel span-12 production-database-gate ${privateSchemaReady ? "ready" : "danger"}`}
           id="production-database-private-schema"
@@ -798,6 +855,24 @@ function stepBadgeClass(status: ProductionDatabaseRemediationStep["status"]) {
   if (status === "blocked") return "danger";
   if (status === "todo") return "warning";
   return "done";
+}
+
+function envRepairStatusLabel(status: ProductionDatabaseRemediationReport["envRepairPlan"][number]["status"]) {
+  if (status === "ready") return "已就緒";
+  if (status === "blocked") return "阻擋";
+  return "未檢查";
+}
+
+function envRepairBadgeClass(status: ProductionDatabaseRemediationReport["envRepairPlan"][number]["status"]) {
+  if (status === "ready") return "done";
+  if (status === "blocked") return "danger";
+  return "warning";
+}
+
+function envRepairTone(status: ProductionDatabaseRemediationReport["envRepairPlan"][number]["status"]) {
+  if (status === "ready") return "ready";
+  if (status === "blocked") return "danger";
+  return "warning";
 }
 
 function envDraftStatusLabel(status: ProductionDatabaseEnvDraftReport["status"]) {

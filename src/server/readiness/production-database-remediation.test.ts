@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildProductionDatabaseEnvDraftReport,
+  buildProductionDatabaseEnvRepairPlan,
   buildProductionDatabasePrivateSchemaReport,
   buildProductionDatabaseRemediationReport,
   formatProductionDatabaseRemediationMarkdown,
@@ -109,9 +110,25 @@ describe("production database remediation", () => {
       status: "blocked",
       evidence: "Vercel env apply summary with key names only",
     });
+    expect(report.envRepairPlan).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "database_connection",
+          status: "blocked",
+          failedCheckNames: expect.arrayContaining(["Supabase Vercel database network"]),
+          affectedEnvKeys: expect.arrayContaining(["DATABASE_URL"]),
+        }),
+        expect.objectContaining({
+          id: "scheduled_maintenance",
+          status: "ready",
+        }),
+      ]),
+    );
 
     const markdown = formatProductionDatabaseRemediationMarkdown(report);
     expect(markdown).toContain("## Local Env Draft");
+    expect(markdown).toContain("## Production Env Repair Matrix");
+    expect(markdown).toContain("資料庫連線與 private schema");
     expect(markdown).toContain("Database shape: Supabase direct host");
     expect(markdown).toContain("## Supabase Transaction Pooler Shape");
     expect(markdown).toContain("## Supabase Private Schema / RLS Gate");
@@ -130,6 +147,59 @@ describe("production database remediation", () => {
     expect(markdown).not.toContain("postgresql://");
     expect(markdown).not.toContain("top-secret-password");
     expect(markdown).not.toContain("hrone_runtime");
+  });
+
+  it("groups production env verifier failures into owner-actionable repair tracks", () => {
+    const envDraft = buildProductionDatabaseEnvDraftReport(
+      {
+        ...validProductionEnv(),
+        DATABASE_URL: "REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE",
+        CRON_SECRET: "",
+        HR_ONE_CRON_TENANT_ID: "",
+        HR_ONE_OBJECT_STORAGE_PROVIDER: "",
+        HR_ONE_OBJECT_STORAGE_BUCKET: "",
+        HR_ONE_OBJECT_STORAGE_KMS_KEY_REF: "",
+        HR_ONE_AUTH_TENANT_CONTEXT_SOURCE: "",
+        HR_ONE_WEB_SESSION_MAX_AGE_SECONDS: "",
+      },
+      {
+        source: ".env.vercel.production",
+        now: new Date("2026-06-17T08:00:00.000Z"),
+      },
+    );
+    const plan = buildProductionDatabaseEnvRepairPlan(envDraft);
+
+    expect(plan.find((group) => group.id === "database_connection")).toMatchObject({
+      status: "blocked",
+      owner: "Engineering",
+      failedCheckNames: expect.arrayContaining([
+        "database url",
+        "database private schema",
+        "Supabase Vercel database network",
+      ]),
+      affectedEnvKeys: expect.arrayContaining(["DATABASE_URL"]),
+    });
+    expect(plan.find((group) => group.id === "scheduled_maintenance")).toMatchObject({
+      status: "blocked",
+      failedCheckNames: expect.arrayContaining(["CRON_SECRET", "scheduled job tenant scope"]),
+      affectedEnvKeys: expect.arrayContaining(["CRON_SECRET", "HR_ONE_CRON_TENANT_ID"]),
+    });
+    expect(plan.find((group) => group.id === "object_storage")).toMatchObject({
+      status: "blocked",
+      affectedEnvKeys: expect.arrayContaining(["HR_ONE_OBJECT_STORAGE_PROVIDER", "HR_ONE_OBJECT_STORAGE_BUCKET"]),
+    });
+    expect(plan.find((group) => group.id === "auth_session")).toMatchObject({
+      status: "blocked",
+      failedCheckNames: expect.arrayContaining(["auth tenant context", "web session max age"]),
+    });
+    expect(plan.find((group) => group.id === "ai_governance")).toMatchObject({
+      status: "ready",
+    });
+
+    const serialized = JSON.stringify(plan);
+    expect(serialized).not.toContain("REPLACE_WITH_SUPABASE_TRANSACTION_POOLER_URL_SCHEMA_HR_ONE");
+    expect(serialized).not.toContain("postgresql://");
+    expect(serialized).not.toContain("DATABASE_URL=");
   });
 
   it("reports unresolved local env placeholders by key name only", () => {

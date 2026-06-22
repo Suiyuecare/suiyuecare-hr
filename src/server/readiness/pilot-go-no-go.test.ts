@@ -351,6 +351,19 @@ function productionDatabaseReport(options: {
     },
     databaseDetail: options.status === "ready" ? "database ping succeeded" : "database ping failed",
     environmentDetail: options.status === "ready" ? "production environment posture verified" : "production environment verification failed",
+    envRepairPlan: [
+      {
+        id: "database_connection",
+        title: "資料庫連線與 private schema",
+        owner: "Engineering",
+        status: envDraftStatus === "ready" ? "ready" : "blocked",
+        failedCheckNames: envDraftStatus === "ready" ? [] : ["database url"],
+        affectedEnvKeys: ["DATABASE_URL"],
+        detail: "Fixture env repair state.",
+        nextStep: "Fixture env repair next step.",
+        evidence: "Fixture env repair evidence.",
+      },
+    ],
     launchChecklist: [],
     vercelCutover: {
       status: options.status === "ready" ? "verified" : envDraftStatus === "ready" ? "ready_to_apply" : "waiting_for_env",

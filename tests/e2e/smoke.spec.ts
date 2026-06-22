@@ -462,6 +462,14 @@ test("Owner 可以檢查試用營運與上線 Gate", async ({ page }) => {
   await expect(cutoverBoard.getByText("下一個不可跳過的命令")).toBeVisible();
   await expect(cutoverBoard.getByRole("heading", { name: "本地 production env 草稿通過" })).toBeVisible();
   await expect(cutoverBoard.getByRole("heading", { name: "Live /api/health/ready 通過" })).toBeVisible();
+  const envRepairMatrix = page.getByLabel("Production env 修復矩陣");
+  await expect(envRepairMatrix.getByRole("heading", { name: "Production env 修復矩陣" })).toBeVisible();
+  await expect(envRepairMatrix.getByRole("heading", { name: "資料庫連線與 private schema" })).toBeVisible();
+  await expect(envRepairMatrix.getByRole("heading", { name: "Cron 與正式維護 scope" })).toBeVisible();
+  await expect(envRepairMatrix.getByRole("heading", { name: "正式文件儲存與保留政策" })).toBeVisible();
+  await expect(envRepairMatrix.getByRole("heading", { name: "正式登入、Tenant context 與 session" })).toBeVisible();
+  await expect(envRepairMatrix.getByText("DATABASE_URL").first()).toBeVisible();
+  await expect(envRepairMatrix.getByText("HR_ONE_WEB_SESSION_MAX_AGE_SECONDS").first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Supabase private schema / RLS Gate" })).toBeVisible();
   await expect(page.getByText("瀏覽器角色不可直通 HR 表")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Supabase Transaction Pooler 形狀" })).toBeVisible();
