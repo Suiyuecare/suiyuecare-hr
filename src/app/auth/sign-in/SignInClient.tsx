@@ -15,10 +15,15 @@ export type QuickLoginAccount = {
 
 type SignInClientProps = {
   quickAccounts: QuickLoginAccount[];
+  quickLoginEnabled: boolean;
   quickLoginUnavailableReason?: string;
 };
 
-export default function SignInClient({ quickAccounts, quickLoginUnavailableReason }: SignInClientProps) {
+export default function SignInClient({
+  quickAccounts,
+  quickLoginEnabled,
+  quickLoginUnavailableReason,
+}: SignInClientProps) {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<SignInState>("idle");
   const [message, setMessage] = useState("");
@@ -153,23 +158,29 @@ export default function SignInClient({ quickAccounts, quickLoginUnavailableReaso
             <section className="auth-quick-login" aria-label="示範帳號快速登入">
               <header>
                 <strong>快速登入</strong>
-                <small>選一種身分直接進入</small>
+                <small>{quickLoginEnabled ? "選一種身分直接進入" : "正式站請用 Google"}</small>
               </header>
               <div className="auth-quick-grid">
                 {quickAccounts.map((account) => (
-                  <form key={account.role} action="/api/demo/switch-role" method="post" className="auth-quick-account">
+                  <form
+                    key={account.role}
+                    action="/api/demo/switch-role"
+                    method="post"
+                    className={`auth-quick-account ${quickLoginEnabled ? "" : "is-disabled"}`}
+                  >
                     <input type="hidden" name="role" value={account.role} />
                     <strong>{account.title}</strong>
                     <small>{account.subtitle}</small>
-                    <button className="button primary" type="submit">
-                      {account.buttonLabel}
+                    <button className="button primary" type="submit" disabled={!quickLoginEnabled}>
+                      {quickLoginEnabled ? account.buttonLabel : "試用環境開放"}
                     </button>
                   </form>
                 ))}
               </div>
+              {!quickLoginEnabled && quickLoginUnavailableReason ? (
+                <p className="auth-quick-note">四種帳號入口已保留；正式站需使用公司 Google 帳號。</p>
+              ) : null}
             </section>
-          ) : quickLoginUnavailableReason ? (
-            <p className="auth-quick-note">快速登入僅開放試用環境。</p>
           ) : null}
 
           <details className="auth-email-fallback">

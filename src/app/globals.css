@@ -595,11 +595,23 @@ textarea {
   line-height: 1.2;
 }
 
+.auth-quick-account.is-disabled {
+  background: #fffdf9;
+  opacity: 0.72;
+}
+
 .auth-quick-account .button {
   width: 100%;
   min-height: 36px;
   padding: 0 8px;
   font-size: 13px;
+}
+
+.auth-quick-account .button:disabled {
+  border-color: var(--panel-border);
+  background: #f7eadb;
+  color: var(--muted);
+  cursor: not-allowed;
 }
 
 .auth-quick-note {

@@ -33,7 +33,8 @@ export default function SignInPage() {
 
   return (
     <SignInClient
-      quickAccounts={quickLoginStatus.allowed ? quickLoginAccounts : []}
+      quickAccounts={quickLoginAccounts}
+      quickLoginEnabled={quickLoginStatus.allowed}
       quickLoginUnavailableReason={quickLoginStatus.allowed ? undefined : quickLoginStatus.reason}
     />
   );
