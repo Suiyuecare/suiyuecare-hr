@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildProductionDatabaseEnvDraftReport,
+  buildProductionDatabasePrivateSchemaReport,
   buildProductionDatabaseRemediationReport,
   formatProductionDatabaseRemediationMarkdown,
   getProductionDatabaseRemediationReport,
@@ -113,6 +114,7 @@ describe("production database remediation", () => {
     expect(markdown).toContain("## Local Env Draft");
     expect(markdown).toContain("Database shape: Supabase direct host");
     expect(markdown).toContain("## Supabase Transaction Pooler Shape");
+    expect(markdown).toContain("## Supabase Private Schema / RLS Gate");
     expect(markdown).toContain("Host: aws-0-ap-northeast-2.pooler.supabase.com");
     expect(markdown).toContain("Username: postgres.aruncclorusswpfnpgsn");
     expect(markdown).toContain("Required params: pgbouncer=true, connection_limit=1, schema=hr_one");
@@ -273,7 +275,7 @@ describe("production database remediation", () => {
     expect(markdown).not.toContain("salary: 60000");
   });
 
-  it("marks the gate ready only when production health and database checks are ok", () => {
+  it("fails closed when production health is ok but private schema verification has not run", () => {
     const report = buildProductionDatabaseRemediationReport({
       appUrl: "https://hr.suiyuecare.com",
       expectedHost: "hr.suiyuecare.com",
@@ -282,9 +284,46 @@ describe("production database remediation", () => {
       generatedAt: new Date("2026-06-17T08:00:00.000Z"),
     });
 
+    expect(report.status).toBe("blocked");
+    expect(report.rootCause).toBe("private_schema_unverified");
+    expect(report.gate.status).toBe("ready");
+    expect(report.privateSchema.status).toBe("not_checked");
+    expect(report.summary).toContain("Supabase private schema");
+    expect(report.nextActions.join("\n")).toContain("private schema / RLS verifier");
+    expect(report.vercelCutover.status).toBe("verified");
+    expect(report.launchChecklist).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "health-ready", status: "done" }),
+        expect.objectContaining({ id: "private-schema-verification", status: "blocked" }),
+        expect.objectContaining({ id: "production-tenant-verify", status: "blocked" }),
+      ]),
+    );
+
+    const markdown = formatProductionDatabaseRemediationMarkdown(report);
+    expect(markdown).toContain("Root cause: private_schema_unverified");
+    expect(markdown).toContain("Status: not_checked");
+  });
+
+  it("marks the gate ready only when production health and private schema checks are ok", () => {
+    const privateSchema = buildProductionDatabasePrivateSchemaReport({
+      snapshot: readyPrivateSchemaSnapshot(),
+      expectedMigrationCount: 42,
+      allowTenantData: true,
+      command: "pnpm db:supabase:verify-schema -- --project-ref=aruncclorusswpfnpgsn --schema=hr_one --allow-tenant-data",
+    });
+    const report = buildProductionDatabaseRemediationReport({
+      appUrl: "https://hr.suiyuecare.com",
+      expectedHost: "hr.suiyuecare.com",
+      healthReport: readyHealth,
+      fetchedHealthStatusCode: 200,
+      privateSchema,
+      generatedAt: new Date("2026-06-17T08:00:00.000Z"),
+    });
+
     expect(report.status).toBe("ready");
     expect(report.rootCause).toBe("ready");
     expect(report.gate.status).toBe("ready");
+    expect(report.privateSchema.status).toBe("ready");
     expect(report.nextActions[0]).toContain("Production database gate 已通過");
     expect(report.vercelCutover.status).toBe("verified");
     expect(report.vercelCutover.steps.find((step) => step.id === "live_ready_probe")).toMatchObject({
@@ -293,10 +332,55 @@ describe("production database remediation", () => {
     expect(report.launchChecklist).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "health-ready", status: "done" }),
+        expect.objectContaining({ id: "private-schema-verification", status: "done" }),
         expect.objectContaining({ id: "production-tenant-verify", status: "todo" }),
         expect.objectContaining({ id: "pilot-go-no-go", status: "todo" }),
       ]),
     );
+  });
+
+  it("surfaces blocked Supabase private schema checks without leaking sensitive values", () => {
+    const privateSchema = buildProductionDatabasePrivateSchemaReport({
+      snapshot: {
+        ...readyPrivateSchemaSnapshot(),
+        rlsEnabledTableCount: 79,
+        rlsDisabledTableCount: 1,
+        exposedTablePrivilegeCount: 2,
+        publicSchemaShadowTableCount: 1,
+        anonUsage: true,
+      },
+      expectedMigrationCount: 42,
+      allowTenantData: true,
+      command: "pnpm db:supabase:verify-schema -- --project-ref=aruncclorusswpfnpgsn --schema=hr_one --allow-tenant-data",
+    });
+    const report = buildProductionDatabaseRemediationReport({
+      appUrl: "https://hr.suiyuecare.com",
+      expectedHost: "hr.suiyuecare.com",
+      healthReport: readyHealth,
+      fetchedHealthStatusCode: 200,
+      privateSchema,
+      generatedAt: new Date("2026-06-17T08:00:00.000Z"),
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.rootCause).toBe("private_schema_security");
+    expect(report.privateSchema.failedCheckNames).toEqual(
+      expect.arrayContaining([
+        "Supabase private schema RLS defense",
+        "Supabase public schema shadow tables",
+        "Supabase browser role schema usage",
+        "Supabase browser table grants",
+      ]),
+    );
+    expect(report.nextActions.join("\n")).toContain("browser role grants");
+
+    const markdown = formatProductionDatabaseRemediationMarkdown(report);
+    expect(markdown).toContain("Root cause: private_schema_security");
+    expect(markdown).toContain("Browser table grants: 2");
+    expect(markdown).toContain("anon/authenticated schema usage: allowed/blocked");
+    expect(markdown).not.toContain("postgresql://");
+    expect(markdown).not.toContain("DATABASE_URL=");
+    expect(JSON.stringify(report)).not.toContain("salary: 60000");
   });
 
   it("fails closed when live readiness cannot be fetched", async () => {
@@ -358,5 +442,24 @@ function validProductionEnv() {
     HR_ONE_BACKUP_RETENTION_DAYS: "35",
     HR_ONE_BACKUP_ENCRYPTION_KEY_REF: "vault://suiyuecare/hr-one/backup-key",
     HR_ONE_BACKUP_RESTORE_TESTED_AT: "2026-06-17",
+  };
+}
+
+function readyPrivateSchemaSnapshot() {
+  return {
+    tableCount: 80,
+    enumTypeCount: 18,
+    prismaMigrationCount: 42,
+    rlsEnabledTableCount: 80,
+    rlsDisabledTableCount: 0,
+    exposedTablePrivilegeCount: 0,
+    exposedSecurityDefinerFunctionCount: 0,
+    publicSchemaShadowTableCount: 0,
+    publicSecurityDefinerExecuteCount: 0,
+    tenantCount: 1,
+    companyCount: 1,
+    employeeCount: 50,
+    anonUsage: false,
+    authenticatedUsage: false,
   };
 }

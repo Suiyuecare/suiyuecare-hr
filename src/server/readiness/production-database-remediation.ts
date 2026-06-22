@@ -17,6 +17,12 @@ import {
   type DatabaseConnectionPosture,
   type SupabaseTransactionPoolerTemplate,
 } from "@/server/readiness/database-url";
+import {
+  buildSupabasePrivateSchemaVerificationChecks,
+  supabasePrivateSchemaVerificationPassed,
+  type SupabasePrivateSchemaVerificationCheck,
+  type SupabasePrivateSchemaVerificationSnapshot,
+} from "@/server/readiness/supabase-private-schema-verification";
 import { getUnresolvedEnvPlaceholderKeys } from "@/server/readiness/vercel-production-env-draft";
 
 export type ProductionDatabaseRootCause =
@@ -25,6 +31,8 @@ export type ProductionDatabaseRootCause =
   | "pooler_configuration"
   | "missing_database_url"
   | "environment_configuration"
+  | "private_schema_unverified"
+  | "private_schema_security"
   | "health_unreachable"
   | "unknown";
 
@@ -75,11 +83,41 @@ export type VercelProductionCutoverPlan = {
 };
 
 export type ProductionDatabaseRemediationTrack = {
-  id: "transaction_pooler" | "ipv4_addon" | "verification";
+  id: "transaction_pooler" | "ipv4_addon" | "private_schema" | "verification";
   title: string;
   recommended: boolean;
   detail: string;
   steps: ProductionDatabaseRemediationStep[];
+};
+
+export type ProductionDatabasePrivateSchemaStatus = "ready" | "blocked" | "not_checked";
+
+export type ProductionDatabasePrivateSchemaMetrics = {
+  tableCount: number | null;
+  enumTypeCount: number | null;
+  prismaMigrationCount: number | null;
+  rlsEnabledTableCount: number | null;
+  rlsDisabledTableCount: number | null;
+  exposedTablePrivilegeCount: number | null;
+  exposedSecurityDefinerFunctionCount: number | null;
+  publicSchemaShadowTableCount: number | null;
+  publicSecurityDefinerExecuteCount: number | null;
+  tenantCount: number | null;
+  companyCount: number | null;
+  employeeCount: number | null;
+  anonUsage: boolean | null;
+  authenticatedUsage: boolean | null;
+};
+
+export type ProductionDatabasePrivateSchemaReport = {
+  status: ProductionDatabasePrivateSchemaStatus;
+  schemaName: string;
+  summary: string;
+  command: string;
+  checks: SupabasePrivateSchemaVerificationCheck[];
+  failedCheckNames: string[];
+  metrics: ProductionDatabasePrivateSchemaMetrics;
+  nextActions: string[];
 };
 
 export type ProductionDatabaseRemediationReport = {
@@ -91,6 +129,7 @@ export type ProductionDatabaseRemediationReport = {
   summary: string;
   gate: ProductionPilotGateReport;
   envDraft: ProductionDatabaseEnvDraftReport | null;
+  privateSchema: ProductionDatabasePrivateSchemaReport;
   supabasePooler: SupabaseTransactionPoolerTemplate;
   databaseDetail: string;
   environmentDetail: string;
@@ -120,6 +159,7 @@ export type ProductionDatabaseRemediationInput = {
   healthReport?: HealthReport | null;
   fetchedHealthStatusCode?: number | null;
   envDraft?: ProductionDatabaseEnvDraftReport | null;
+  privateSchema?: ProductionDatabasePrivateSchemaReport | null;
   supabaseUrl?: string | null;
   supabaseRegion?: string | null;
   generatedAt?: Date;
@@ -129,6 +169,7 @@ export type ProductionDatabaseWorkspaceOptions = {
   appUrl?: string;
   expectedHost?: string | null;
   envDraft?: ProductionDatabaseEnvDraftReport | null;
+  privateSchema?: ProductionDatabasePrivateSchemaReport | null;
   fetcher?: typeof fetch;
   generatedAt?: Date;
   includeRuntimeEnvDiagnostics?: boolean;
@@ -139,6 +180,8 @@ export type ProductionDatabaseWorkspaceOptions = {
 };
 
 const defaultAppUrl = "https://hr.suiyuecare.com";
+const defaultPrivateSchemaName = "hr_one";
+const defaultSupabaseProjectRef = "aruncclorusswpfnpgsn";
 
 export async function getProductionDatabaseRemediationReport(
   options: ProductionDatabaseWorkspaceOptions = {},
@@ -165,6 +208,7 @@ export async function getProductionDatabaseRemediationReport(
     healthReport: fetched.healthReport,
     fetchedHealthStatusCode: fetched.statusCode,
     envDraft,
+    privateSchema: options.privateSchema ?? buildProductionDatabasePrivateSchemaReport(),
     supabaseUrl:
       options.supabaseUrl ??
       options.runtimeEnv?.NEXT_PUBLIC_SUPABASE_URL ??
@@ -246,6 +290,70 @@ export function buildProductionDatabaseEnvDraftReport(
   };
 }
 
+export function buildProductionDatabasePrivateSchemaReport(
+  input: {
+    snapshot?: SupabasePrivateSchemaVerificationSnapshot | null;
+    expectedMigrationCount?: number | null;
+    schemaName?: string;
+    allowTenantData?: boolean;
+    command?: string;
+  } = {},
+): ProductionDatabasePrivateSchemaReport {
+  const schemaName = input.schemaName ?? defaultPrivateSchemaName;
+  const command = redactSensitiveDetail(
+    input.command ?? buildDefaultPrivateSchemaVerifierCommand(schemaName),
+  );
+  const snapshot = input.snapshot ?? null;
+  if (!snapshot || typeof input.expectedMigrationCount !== "number") {
+    const missingExpectedMigrationCount = Boolean(snapshot && typeof input.expectedMigrationCount !== "number");
+    return {
+      status: "not_checked",
+      schemaName,
+      command,
+      summary: missingExpectedMigrationCount
+        ? "已取得 Supabase private schema snapshot，但缺少預期 migration 數，不能放行 RLS / grant / migration Gate。"
+        : "尚未執行 Supabase private schema / RLS verifier；正式資料庫不能只用連線成功判定可試用。",
+      checks: [],
+      failedCheckNames: [],
+      metrics: emptyPrivateSchemaMetrics(),
+      nextActions: [
+        missingExpectedMigrationCount
+          ? "重新產生 Supabase private schema verifier 報告，並附上 expected migration count。"
+          : "執行 Supabase private schema / RLS verifier，確認 hr_one schema、RLS、anon/authenticated grants 與 public schema exposure。",
+        command,
+      ],
+    };
+  }
+
+  const checks = buildSupabasePrivateSchemaVerificationChecks(snapshot, input.expectedMigrationCount, {
+    allowTenantData: input.allowTenantData,
+  }).map((check) => ({
+    ...check,
+    detail: redactSensitiveDetail(check.detail),
+  }));
+  const failedCheckNames = checks.filter((check) => !check.passed).map((check) => check.name);
+  const passed = supabasePrivateSchemaVerificationPassed(checks);
+
+  return {
+    status: passed ? "ready" : "blocked",
+    schemaName,
+    command,
+    summary: passed
+      ? "Supabase private schema / RLS verifier 已通過；hr_one schema 沒有暴露給 browser roles，public schema 也沒有 shadow table 或可被 anon/authenticated 呼叫的 security definer RPC。"
+      : `Supabase private schema / RLS verifier 仍有 ${failedCheckNames.length} 個阻擋項：${failedCheckNames.join("、")}。`,
+    checks,
+    failedCheckNames,
+    metrics: metricsFromPrivateSchemaSnapshot(snapshot),
+    nextActions: passed
+      ? ["Private schema / RLS Gate 已通過；接著保存 redacted evidence 並跑 production tenant verification。"]
+      : [
+          "修正失敗的 Supabase private schema / RLS 檢查後重新執行 verifier。",
+          command,
+          ...failedCheckNames.map((name) => `處理 ${name}。`),
+        ].map(redactSensitiveDetail),
+  };
+}
+
 export function buildProductionDatabaseRemediationReport(
   input: ProductionDatabaseRemediationInput,
 ): ProductionDatabaseRemediationReport {
@@ -259,27 +367,32 @@ export function buildProductionDatabaseRemediationReport(
   const databaseDetail = safeCheckDetail(input.healthReport ?? null, "database");
   const environmentDetail = safeCheckDetail(input.healthReport ?? null, "environment");
   const envDraft = input.envDraft ?? null;
+  const privateSchema = input.privateSchema ?? buildProductionDatabasePrivateSchemaReport();
   const supabasePooler = buildSupabaseTransactionPoolerTemplate({
     supabaseUrl: input.supabaseUrl ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
     region: input.supabaseRegion ?? process.env.HR_ONE_SUPABASE_REGION,
     schema: "hr_one",
   });
-  const rootCause = classifyRootCause({
+  const liveRootCause = classifyRootCause({
     healthReport: input.healthReport ?? null,
     statusCode: input.fetchedHealthStatusCode ?? null,
     databaseDetail,
     environmentDetail,
   });
-  const status = gate.status === "ready" && rootCause === "ready" ? "ready" : "blocked";
-  const launchChecklist = buildLaunchChecklist(rootCause, gate, envDraft);
+  const liveConnectionReady = gate.status === "ready" && liveRootCause === "ready";
+  const rootCause = liveRootCause === "ready" && privateSchema.status !== "ready"
+    ? classifyPrivateSchemaRootCause(privateSchema)
+    : liveRootCause;
+  const status = liveConnectionReady && privateSchema.status === "ready" ? "ready" : "blocked";
+  const launchChecklist = buildLaunchChecklist(rootCause, gate, envDraft, privateSchema, liveConnectionReady);
   const vercelCutover = buildVercelProductionCutoverPlan({
     envDraft,
     gate,
-    rootCause,
-    status,
+    rootCause: liveRootCause,
+    status: liveConnectionReady ? "ready" : "blocked",
   });
-  const tracks = buildTracks(rootCause);
-  const nextActions = buildNextActions(rootCause, gate, envDraft);
+  const tracks = buildTracks(rootCause, privateSchema);
+  const nextActions = buildNextActions(rootCause, gate, envDraft, privateSchema);
 
   return {
     status,
@@ -290,6 +403,7 @@ export function buildProductionDatabaseRemediationReport(
     summary: summaryForRootCause(rootCause),
     gate,
     envDraft,
+    privateSchema,
     supabasePooler,
     databaseDetail,
     environmentDetail,
@@ -329,6 +443,10 @@ export function formatProductionDatabaseRemediationMarkdown(
     "## Supabase Transaction Pooler Shape",
     "",
     ...formatSupabasePooler(report.supabasePooler),
+    "",
+    "## Supabase Private Schema / RLS Gate",
+    "",
+    ...formatPrivateSchema(report.privateSchema),
     "",
     "## Gate Checks",
     "",
@@ -431,6 +549,28 @@ function formatSupabasePooler(pooler: SupabaseTransactionPoolerTemplate) {
   ];
 }
 
+function formatPrivateSchema(report: ProductionDatabasePrivateSchemaReport) {
+  return [
+    `- Status: ${report.status}`,
+    `- Schema: ${report.schemaName}`,
+    `- Summary: ${redactSensitiveDetail(report.summary)}`,
+    `- Command: ${redactSensitiveDetail(report.command)}`,
+    "- Metrics:",
+    `  - Tables: ${metricValue(report.metrics.tableCount)}`,
+    `  - RLS enabled/disabled: ${metricValue(report.metrics.rlsEnabledTableCount)}/${metricValue(report.metrics.rlsDisabledTableCount)}`,
+    `  - Browser table grants: ${metricValue(report.metrics.exposedTablePrivilegeCount)}`,
+    `  - Public shadow tables: ${metricValue(report.metrics.publicSchemaShadowTableCount)}`,
+    `  - Public security-definer RPC exposure: ${metricValue(report.metrics.publicSecurityDefinerExecuteCount)}`,
+    `  - anon/authenticated schema usage: ${booleanMetricValue(report.metrics.anonUsage)}/${booleanMetricValue(report.metrics.authenticatedUsage)}`,
+    "- Checks:",
+    ...(report.checks.length
+      ? report.checks.map((check) => `  - [${check.passed ? "PASS" : "BLOCK"}] ${check.name}: ${redactSensitiveDetail(check.detail)}`)
+      : ["  - Not checked."]),
+    "- Private schema next actions:",
+    ...formatList(report.nextActions).map((item) => `  ${item}`),
+  ];
+}
+
 function classifyRootCause(input: {
   healthReport: HealthReport | null;
   statusCode: number | null;
@@ -458,7 +598,10 @@ function classifyRootCause(input: {
   return "unknown";
 }
 
-function buildTracks(rootCause: ProductionDatabaseRootCause): ProductionDatabaseRemediationTrack[] {
+function buildTracks(
+  rootCause: ProductionDatabaseRootCause,
+  privateSchema: ProductionDatabasePrivateSchemaReport,
+): ProductionDatabaseRemediationTrack[] {
   return [
     {
       id: "transaction_pooler",
@@ -483,8 +626,19 @@ function buildTracks(rootCause: ProductionDatabaseRootCause): ProductionDatabase
       ],
     },
     {
+      id: "private_schema",
+      title: "路線 C：Private schema / RLS Gate",
+      recommended: true,
+      detail: "連線成功後，還要確認 HR One 表都在 hr_one private schema、RLS 已啟用，且 anon/authenticated browser roles 沒有直接讀寫 HR 資料的 grant。",
+      steps: [
+        step("private-schema-bootstrap", "套用 hr_one private schema bootstrap", "確認 Prisma schema、migration 與 Supabase private schema search_path 都指向 hr_one，不把 HR 資料表放在 public schema。", privateSchema.status === "ready" ? "done" : "todo", "pnpm db:supabase:bootstrap-sql -- --schema=hr_one"),
+        step("private-schema-verify", "執行 RLS / grant verifier", privateSchema.summary, privateSchema.status === "ready" ? "done" : "blocked", privateSchema.command),
+        step("private-schema-evidence", "保存 redacted verifier 證據", "只保存 table/count/check name/hash，不保存員工個資、薪資、銀行、身分證或健康資料。", privateSchema.status === "ready" ? "todo" : "blocked"),
+      ],
+    },
+    {
       id: "verification",
-      title: "驗證與開跑 Gate",
+      title: "路線 D：驗證與開跑 Gate",
       recommended: true,
       detail: "任何路線修復後，都必須通過 live health、production gate、Supabase schema verification 與 pilot go/no-go。",
       steps: [
@@ -500,10 +654,12 @@ function buildLaunchChecklist(
   rootCause: ProductionDatabaseRootCause,
   gate: ProductionPilotGateReport,
   envDraft: ProductionDatabaseEnvDraftReport | null,
+  privateSchema: ProductionDatabasePrivateSchemaReport,
+  liveConnectionReady: boolean,
 ) {
   const productionEnvironmentPassed = gateCheckPassed(gate, "production environment");
   const productionDatabasePassed = gateCheckPassed(gate, "production database");
-  const overallReady = gate.status === "ready" && rootCause === "ready";
+  const overallReady = liveConnectionReady && privateSchema.status === "ready";
   const envDraftReady = envDraft?.status === "ready";
   const envDraftHasTransactionPooler = envDraft?.databaseConnectionPosture === "supabase-pooler-transaction";
   const envDraftBlocked = envDraft?.status === "blocked" || envDraft?.status === "missing";
@@ -544,7 +700,15 @@ function buildLaunchChecklist(
       detail: "正式站 readiness 必須回 ok，且 payload 只含 redacted health 狀態，不含 database URL、薪資、身分證、銀行或健康資料。",
       evidence: "hr.suiyuecare.com /api/health/ready response",
       command: "curl -fsS https://hr.suiyuecare.com/api/health/ready",
-      status: overallReady ? "done" : databaseNetworkBlocked || rootCause === "environment_configuration" ? "blocked" : "todo",
+      status: liveConnectionReady ? "done" : databaseNetworkBlocked || rootCause === "environment_configuration" ? "blocked" : "todo",
+    }),
+    checklistItem({
+      id: "private-schema-verification",
+      title: "驗證 Supabase private schema / RLS",
+      detail: privateSchema.summary,
+      evidence: "Supabase private schema verifier redacted report: table counts, RLS counts, browser grants, public exposure checks",
+      command: privateSchema.command,
+      status: privateSchema.status === "ready" ? "done" : liveConnectionReady ? "blocked" : "blocked",
     }),
     checklistItem({
       id: "production-tenant-verify",
@@ -697,6 +861,7 @@ function buildNextActions(
   rootCause: ProductionDatabaseRootCause,
   gate: ProductionPilotGateReport,
   envDraft: ProductionDatabaseEnvDraftReport | null,
+  privateSchema: ProductionDatabasePrivateSchemaReport,
 ) {
   const actions: string[] = [];
   if (rootCause === "ready") {
@@ -710,6 +875,10 @@ function buildNextActions(
     actions.push("在 Vercel Production 補 server-only DATABASE_URL；不可使用 NEXT_PUBLIC_ 前綴。");
   } else if (rootCause === "environment_configuration") {
     actions.push("補齊 HR_ONE_ENV=production、OIDC、vault/KMS、backup restore、rate limit 等 production env。");
+  } else if (rootCause === "private_schema_unverified") {
+    actions.push("執行 Supabase private schema / RLS verifier；正式資料庫不能只靠 DB ping 成功就放行。");
+  } else if (rootCause === "private_schema_security") {
+    actions.push("修正 Supabase private schema / RLS verifier 的阻擋項，尤其是 browser role grants、RLS disabled table、public shadow table 或 security definer exposure。");
   } else if (rootCause === "health_unreachable") {
     actions.push("確認 https://hr.suiyuecare.com/api/health/ready 可以從外部讀取 JSON health payload。");
   } else {
@@ -719,6 +888,9 @@ function buildNextActions(
     actions.push(...envDraft.nextActions);
   } else if (envDraft?.status === "missing") {
     actions.push("Attach a local production env draft to the database gate report before applying Vercel Production env changes.");
+  }
+  if (privateSchema.status !== "ready") {
+    actions.push(...privateSchema.nextActions);
   }
   actions.push(...gate.nextActions);
   return [...new Set(actions.map(redactSensitiveDetail))];
@@ -793,10 +965,69 @@ function summaryForRootCause(rootCause: ProductionDatabaseRootCause) {
     pooler_configuration: "目前阻擋是 Supabase pooler 連線設定或 runtime role 尚未驗證成功。",
     missing_database_url: "Production 尚未設定 server-side DATABASE_URL。",
     environment_configuration: "Production env 尚未通過完整環境檢查。",
+    private_schema_unverified: "Production database 連線已可用，但尚未完成 Supabase private schema / RLS Gate。",
+    private_schema_security: "Production database 連線已可用，但 Supabase private schema / RLS Gate 仍有安全阻擋項。",
     health_unreachable: "無法讀取 live readiness JSON，不能判定 production 是否可試用。",
     unknown: "Production readiness 仍 blocked，需要看 live health 與 runtime logs 定位。",
   };
   return labels[rootCause];
+}
+
+function classifyPrivateSchemaRootCause(privateSchema: ProductionDatabasePrivateSchemaReport): ProductionDatabaseRootCause {
+  return privateSchema.status === "not_checked" ? "private_schema_unverified" : "private_schema_security";
+}
+
+function buildDefaultPrivateSchemaVerifierCommand(schemaName: string) {
+  return `pnpm db:supabase:verify-schema -- --project-ref=${defaultSupabaseProjectRef} --schema=${schemaName} --allow-tenant-data`;
+}
+
+function emptyPrivateSchemaMetrics(): ProductionDatabasePrivateSchemaMetrics {
+  return {
+    tableCount: null,
+    enumTypeCount: null,
+    prismaMigrationCount: null,
+    rlsEnabledTableCount: null,
+    rlsDisabledTableCount: null,
+    exposedTablePrivilegeCount: null,
+    exposedSecurityDefinerFunctionCount: null,
+    publicSchemaShadowTableCount: null,
+    publicSecurityDefinerExecuteCount: null,
+    tenantCount: null,
+    companyCount: null,
+    employeeCount: null,
+    anonUsage: null,
+    authenticatedUsage: null,
+  };
+}
+
+function metricsFromPrivateSchemaSnapshot(
+  snapshot: SupabasePrivateSchemaVerificationSnapshot,
+): ProductionDatabasePrivateSchemaMetrics {
+  return {
+    tableCount: snapshot.tableCount,
+    enumTypeCount: snapshot.enumTypeCount,
+    prismaMigrationCount: snapshot.prismaMigrationCount,
+    rlsEnabledTableCount: snapshot.rlsEnabledTableCount,
+    rlsDisabledTableCount: snapshot.rlsDisabledTableCount,
+    exposedTablePrivilegeCount: snapshot.exposedTablePrivilegeCount,
+    exposedSecurityDefinerFunctionCount: snapshot.exposedSecurityDefinerFunctionCount,
+    publicSchemaShadowTableCount: snapshot.publicSchemaShadowTableCount,
+    publicSecurityDefinerExecuteCount: snapshot.publicSecurityDefinerExecuteCount,
+    tenantCount: snapshot.tenantCount,
+    companyCount: snapshot.companyCount,
+    employeeCount: snapshot.employeeCount,
+    anonUsage: snapshot.anonUsage,
+    authenticatedUsage: snapshot.authenticatedUsage,
+  };
+}
+
+function metricValue(value: number | null) {
+  return value === null ? "not checked" : String(value);
+}
+
+function booleanMetricValue(value: boolean | null) {
+  if (value === null) return "not checked";
+  return value ? "allowed" : "blocked";
 }
 
 function gateCheckPassed(gate: ProductionPilotGateReport, name: string) {

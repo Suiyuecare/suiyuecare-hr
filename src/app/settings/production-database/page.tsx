@@ -21,6 +21,8 @@ const vercelEnvApplyCommand =
   "pnpm vercel:apply-production-env -- --env-file=.env.vercel.production --method=cli";
 const productionDeployCommand =
   `pnpm dlx vercel@latest --prod --scope ${teamId}`;
+const privateSchemaVerifyCommand =
+  "pnpm db:supabase:verify-schema -- --project-ref=aruncclorusswpfnpgsn --schema=hr_one --allow-tenant-data";
 
 export default async function ProductionDatabasePage() {
   const session = await getDemoSession();
@@ -44,6 +46,7 @@ export default async function ProductionDatabasePage() {
   const environmentReady = checkPassed(report, "production environment");
   const overallReady = checkPassed(report, "overall readiness");
   const demoAuthOff = checkPassed(report, "demo auth disabled");
+  const privateSchemaReady = report.privateSchema.status === "ready";
 
   return (
     <main className="page production-database-page">
@@ -66,6 +69,9 @@ export default async function ProductionDatabasePage() {
             </Link>
             <Link className="button" href="#production-database-pooler">
               Pooler 形狀
+            </Link>
+            <Link className="button" href="#production-database-private-schema">
+              RLS Gate
             </Link>
             <Link className="button" href="/settings/pilot-go-no-go">
               Go/No-Go
@@ -93,6 +99,7 @@ export default async function ProductionDatabasePage() {
         <SignalCard label="Live readiness" value={overallReady ? "OK" : "FAIL"} detail={report.readinessUrl} tone={overallReady ? "done" : "danger"} />
         <SignalCard label="Production env" value={environmentReady ? "OK" : "FAIL"} detail={report.environmentDetail} tone={environmentReady ? "done" : "danger"} />
         <SignalCard label="Database ping" value={databaseReady ? "OK" : "FAIL"} detail={report.databaseDetail} tone={databaseReady ? "done" : "danger"} />
+        <SignalCard label="Private schema / RLS" value={privateSchemaReady ? "OK" : "CHECK"} detail={report.privateSchema.summary} tone={privateSchemaTone(report.privateSchema.status)} />
         <SignalCard label="Demo auth" value={demoAuthOff ? "OFF" : "RISK"} detail="正式 runtime 不可開 demo auth" tone={demoAuthOff ? "done" : "danger"} />
       </section>
 
@@ -119,6 +126,14 @@ export default async function ProductionDatabasePage() {
           <p>Vercel/serverless 不應依賴 Supabase direct host；建議用 port 6543 pooler 並加上 Prisma pooler 參數。</p>
           <a className="button" href="#production-database-pooler">
             看安全形狀
+          </a>
+        </article>
+        <article className={`settings-command-card ${privateSchemaReady ? "ready" : "warning"}`}>
+          <span className="eyebrow">Private schema</span>
+          <h2>RLS / grant 也要通過</h2>
+          <p>DB ping 成功只是第一步；正式資料表必須在 hr_one private schema，且 browser roles 不可直接讀寫 HR 資料。</p>
+          <a className="button" href="#production-database-private-schema">
+            看 RLS Gate
           </a>
         </article>
         <article className="settings-command-card warning">
@@ -200,6 +215,111 @@ export default async function ProductionDatabasePage() {
               </li>
             ))}
           </ol>
+        </section>
+
+        <section
+          className={`panel span-12 production-database-gate ${privateSchemaReady ? "ready" : "danger"}`}
+          id="production-database-private-schema"
+          aria-label="Supabase private schema and RLS gate"
+        >
+          <div className="section-heading">
+            <div>
+              <h2>Supabase private schema / RLS Gate</h2>
+              <p className="muted">
+                這裡檢查 hr_one private schema、RLS、anon/authenticated grants、public shadow table 與 security definer RPC exposure；DB 連線成功但這裡未過，仍不能開真實試用。
+              </p>
+            </div>
+            <span className={`badge ${privateSchemaReady ? "done" : "danger"}`}>
+              {privateSchemaStatusLabel(report.privateSchema.status)}
+            </span>
+          </div>
+          <div className="production-database-diagnostic-grid" aria-label="Supabase private schema 診斷摘要">
+            <article className={`production-database-mini-card ${privateSchemaReady ? "ready" : "warning"}`}>
+              <span className="badge">Schema</span>
+              <h3>{report.privateSchema.schemaName}</h3>
+              <p>{report.privateSchema.summary}</p>
+              <ul className="task-list">
+                <li className="task">
+                  <span>
+                    <strong>資料表 / enum</strong>
+                    <small>{metricLabel(report.privateSchema.metrics.tableCount)} / {metricLabel(report.privateSchema.metrics.enumTypeCount)}</small>
+                  </span>
+                </li>
+                <li className="task">
+                  <span>
+                    <strong>Migration baseline</strong>
+                    <small>{metricLabel(report.privateSchema.metrics.prismaMigrationCount)}</small>
+                  </span>
+                </li>
+                <li className="task">
+                  <span>
+                    <strong>正式 tenant 資料</strong>
+                    <small>
+                      {metricLabel(report.privateSchema.metrics.tenantCount)} tenant · {metricLabel(report.privateSchema.metrics.companyCount)} company · {metricLabel(report.privateSchema.metrics.employeeCount)} employee
+                    </small>
+                  </span>
+                </li>
+              </ul>
+            </article>
+            <article className={`production-database-mini-card ${privateSchemaReady ? "ready" : "warning"}`}>
+              <span className="badge warning">RLS / Exposure</span>
+              <h3>瀏覽器角色不可直通 HR 表</h3>
+              <ul className="task-list">
+                <li className="task">
+                  <span>
+                    <strong>RLS enabled / disabled</strong>
+                    <small>{metricLabel(report.privateSchema.metrics.rlsEnabledTableCount)} / {metricLabel(report.privateSchema.metrics.rlsDisabledTableCount)}</small>
+                  </span>
+                </li>
+                <li className="task">
+                  <span>
+                    <strong>anon/auth table grants</strong>
+                    <small>{metricLabel(report.privateSchema.metrics.exposedTablePrivilegeCount)}</small>
+                  </span>
+                </li>
+                <li className="task">
+                  <span>
+                    <strong>public shadow / RPC exposure</strong>
+                    <small>
+                      {metricLabel(report.privateSchema.metrics.publicSchemaShadowTableCount)} / {metricLabel(report.privateSchema.metrics.publicSecurityDefinerExecuteCount)}
+                    </small>
+                  </span>
+                </li>
+                <li className="task">
+                  <span>
+                    <strong>anon/auth schema usage</strong>
+                    <small>{booleanMetricLabel(report.privateSchema.metrics.anonUsage)} / {booleanMetricLabel(report.privateSchema.metrics.authenticatedUsage)}</small>
+                  </span>
+                </li>
+              </ul>
+            </article>
+          </div>
+          {report.privateSchema.checks.length ? (
+            <ul className="task-list production-database-check-list">
+              {report.privateSchema.checks.map((check) => (
+                <li className={`task production-database-task ${check.passed ? "done" : "danger"}`} key={check.name}>
+                  <span>
+                    <strong>{privateSchemaCheckLabel(check.name)}</strong>
+                    <small>{check.detail}</small>
+                  </span>
+                  <span className={`badge ${check.passed ? "done" : "danger"}`}>
+                    {check.passed ? "通過" : "阻擋"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="production-database-cutover-focus warning">
+              <div>
+                <span className="eyebrow">尚未取得 verifier 結果</span>
+                <strong>請先執行 RLS / grant verifier</strong>
+                <code>{report.privateSchema.command}</code>
+              </div>
+              <a className="button primary" href="#production-database-commands">
+                看命令區
+              </a>
+            </div>
+          )}
         </section>
 
         <section
@@ -428,6 +548,7 @@ export default async function ProductionDatabasePage() {
             <CommandTask title="寫入 Vercel Production env" command={vercelEnvApplyCommand} />
             <CommandTask title="重新部署 Production" command={productionDeployCommand} />
             <CommandTask title="Production health" command="curl -fsS https://hr.suiyuecare.com/api/health/ready" />
+            <CommandTask title="Supabase private schema / RLS verifier" command={privateSchemaVerifyCommand} />
             <CommandTask title="Production pilot gate" command="pnpm pilot:gate:production -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com" />
             <CommandTask title="Full Go/No-Go" command="pnpm pilot:go-no-go -- --url=https://hr.suiyuecare.com --expected-host=hr.suiyuecare.com --tenant-slug=<customer-slug>" />
           </ul>
@@ -516,6 +637,16 @@ function buildDatabaseFocus(report: ProductionDatabaseRemediationReport) {
       tone: "warning",
     } as const;
   }
+  if (report.rootCause === "private_schema_unverified" || report.rootCause === "private_schema_security") {
+    return {
+      action: "看 RLS Gate",
+      copy: "正式站連線已接近可用，但 Supabase private schema、RLS、browser role grants 或 public exposure 還沒有通過證據。",
+      href: "#production-database-private-schema",
+      meta: report.privateSchema.summary,
+      title: "補齊 private schema Gate",
+      tone: "danger",
+    } as const;
+  }
   return {
     action: "看修復路線",
     copy: "先依 live health、runtime env 診斷與 Vercel runtime logs 定位，再套用修復路線。",
@@ -537,6 +668,8 @@ function rootCauseLabel(rootCause: ProductionDatabaseRemediationReport["rootCaus
     pooler_configuration: "Pooler 設定",
     missing_database_url: "缺 DATABASE_URL",
     environment_configuration: "Env 未通過",
+    private_schema_unverified: "RLS 未驗證",
+    private_schema_security: "RLS 安全阻擋",
     health_unreachable: "Health 不可讀",
     unknown: "待定位",
   };
@@ -586,6 +719,44 @@ function databasePostureLabel(posture: ProductionDatabaseEnvDraftReport["databas
     not_checked: "未檢查",
   };
   return labels[posture];
+}
+
+function privateSchemaStatusLabel(status: ProductionDatabaseRemediationReport["privateSchema"]["status"]) {
+  if (status === "ready") return "RLS 已通過";
+  if (status === "blocked") return "RLS 阻擋";
+  return "尚未驗證";
+}
+
+function privateSchemaTone(status: ProductionDatabaseRemediationReport["privateSchema"]["status"]) {
+  if (status === "ready") return "done";
+  if (status === "blocked") return "danger";
+  return "warning";
+}
+
+function privateSchemaCheckLabel(name: string) {
+  const labels: Record<string, string> = {
+    "HR One table count": "HR One 資料表數",
+    "HR One enum count": "HR One enum 數",
+    "Prisma migration baseline": "Prisma migration baseline",
+    "Supabase private schema RLS defense": "Private schema RLS",
+    "Supabase public schema shadow tables": "Public shadow tables",
+    "Supabase browser role schema usage": "Browser role schema usage",
+    "Supabase browser table grants": "Browser table grants",
+    "Supabase private security-definer exposure": "Private security-definer exposure",
+    "Supabase public security-definer RPC exposure": "Public security-definer RPC exposure",
+    "Tenant data allowed": "正式 tenant seed",
+    "Tenant data not accidentally seeded": "未誤植 tenant seed",
+  };
+  return labels[name] ?? name;
+}
+
+function metricLabel(value: number | null) {
+  return value === null ? "未檢查" : String(value);
+}
+
+function booleanMetricLabel(value: boolean | null) {
+  if (value === null) return "未檢查";
+  return value ? "允許" : "阻擋";
 }
 
 function cutoverStatusLabel(status: ProductionDatabaseRemediationReport["vercelCutover"]["status"]) {

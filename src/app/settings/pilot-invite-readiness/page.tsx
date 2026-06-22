@@ -603,6 +603,8 @@ function productionDatabaseRootCauseLabel(rootCause: ProductionDatabaseRemediati
     pooler_configuration: "Pooler 設定",
     missing_database_url: "缺 DATABASE_URL",
     environment_configuration: "Env 未通過",
+    private_schema_unverified: "RLS 未驗證",
+    private_schema_security: "RLS 安全阻擋",
     health_unreachable: "Health 不可讀",
     unknown: "待定位",
   };

@@ -311,6 +311,33 @@ function productionDatabaseReport(options: {
       checks: [],
       nextActions,
     },
+    privateSchema: {
+      status: options.status === "ready" ? "ready" : "not_checked",
+      schemaName: "hr_one",
+      summary: options.status === "ready"
+        ? "Supabase private schema / RLS verifier passed."
+        : "Supabase private schema / RLS verifier not checked.",
+      command: "pnpm db:supabase:verify-schema -- --project-ref=aruncclorusswpfnpgsn --schema=hr_one --allow-tenant-data",
+      checks: [],
+      failedCheckNames: [],
+      metrics: {
+        tableCount: options.status === "ready" ? 80 : null,
+        enumTypeCount: options.status === "ready" ? 18 : null,
+        prismaMigrationCount: options.status === "ready" ? 42 : null,
+        rlsEnabledTableCount: options.status === "ready" ? 80 : null,
+        rlsDisabledTableCount: options.status === "ready" ? 0 : null,
+        exposedTablePrivilegeCount: options.status === "ready" ? 0 : null,
+        exposedSecurityDefinerFunctionCount: options.status === "ready" ? 0 : null,
+        publicSchemaShadowTableCount: options.status === "ready" ? 0 : null,
+        publicSecurityDefinerExecuteCount: options.status === "ready" ? 0 : null,
+        tenantCount: options.status === "ready" ? 1 : null,
+        companyCount: options.status === "ready" ? 1 : null,
+        employeeCount: options.status === "ready" ? 25 : null,
+        anonUsage: options.status === "ready" ? false : null,
+        authenticatedUsage: options.status === "ready" ? false : null,
+      },
+      nextActions,
+    },
     supabasePooler: {
       projectRef: "aruncclorusswpfnpgsn",
       region: "ap-northeast-2",

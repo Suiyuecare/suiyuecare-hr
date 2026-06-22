@@ -19,6 +19,8 @@ function main() {
   const projectRef = readArg(args, "--project-ref") ?? process.env.SUPABASE_PROJECT_REF;
   const expectedMigrationCount = Number(readArg(args, "--expected-migrations") ?? countLocalPrismaMigrations());
   const allowTenantData = args.includes("--allow-tenant-data");
+  const json = args.includes("--json");
+  const output = readArg(args, "--output");
   const verificationSql = buildSupabasePrivateSchemaVerificationSql(schemaName);
 
   if (args.includes("--print-sql")) {
@@ -32,18 +34,38 @@ function main() {
 
   const snapshot = runSupabaseLinkedQuery(projectRef, verificationSql);
   const checks = buildSupabasePrivateSchemaVerificationChecks(snapshot, expectedMigrationCount, { allowTenantData });
+  const passed = supabasePrivateSchemaVerificationPassed(checks);
 
-  console.log(`HR One Supabase private schema verification: ${schemaName}`);
-  for (const item of checks) {
-    console.log(`${item.passed ? "PASS" : "FAIL"} ${item.name}: ${item.detail}`);
+  if (json) {
+    const content = `${JSON.stringify({
+      schemaName,
+      expectedMigrationCount,
+      allowTenantData,
+      snapshot,
+      checks,
+      passed,
+    }, null, 2)}\n`;
+    if (output) {
+      writeFileSync(resolve(output), content, { encoding: "utf8", mode: 0o600 });
+      console.log(`Created ${resolve(output)}.`);
+    } else {
+      process.stdout.write(content);
+    }
+  } else {
+    console.log(`HR One Supabase private schema verification: ${schemaName}`);
+    for (const item of checks) {
+      console.log(`${item.passed ? "PASS" : "FAIL"} ${item.name}: ${item.detail}`);
+    }
   }
 
-  if (!supabasePrivateSchemaVerificationPassed(checks)) {
+  if (!passed) {
     console.error("Supabase private schema verification failed.");
     process.exit(1);
   }
 
-  console.log("Supabase private schema verification passed.");
+  if (!json) {
+    console.log("Supabase private schema verification passed.");
+  }
 }
 
 function runSupabaseLinkedQuery(projectRef: string, sql: string): SupabasePrivateSchemaVerificationSnapshot {

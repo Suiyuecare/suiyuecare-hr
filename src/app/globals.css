@@ -7506,6 +7506,12 @@ legend {
   background: #fffbeb;
 }
 
+.production-database-mini-card.danger,
+.production-database-track.danger {
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
 .production-database-mini-card h3,
 .production-database-track h3 {
   margin: 0;
