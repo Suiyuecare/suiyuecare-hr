@@ -17,7 +17,7 @@ export default function AuthCallbackPage() {
       if (!token) {
         if (!cancelled) {
           setState("failed");
-          setMessage("登入連結沒有有效憑證，請重新寄送登入連結。");
+          setMessage("登入流程沒有有效憑證，請重新登入。");
         }
         return;
       }
@@ -53,18 +53,17 @@ export default function AuthCallbackPage() {
   }, []);
 
   return (
-    <main className="page">
-      <section className="page-header">
+    <main className="auth-portal-page auth-status-page">
+      <section className="auth-status-card">
+        <span>SIGN IN</span>
         <h1>{state === "checking" ? "正在登入" : "登入失敗"}</h1>
         <p>{message}</p>
-      </section>
-      {state === "failed" ? (
-        <section className="panel">
+        {state === "failed" ? (
           <a className="button primary" href="/auth/sign-in">
-            重新取得登入連結
+            重新登入
           </a>
-        </section>
-      ) : null}
+        ) : null}
+      </section>
     </main>
   );
 }
@@ -75,6 +74,12 @@ async function readAccessToken() {
 
   const supabase = createSupabaseClient();
   if (!supabase) return null;
+  const code = new URLSearchParams(window.location.search).get("code");
+  if (code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) return null;
+    return data.session?.access_token ?? null;
+  }
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;
 }
@@ -85,9 +90,10 @@ function createSupabaseClient() {
   if (!url || !key) return null;
   return createClient(url, key, {
     auth: {
-      flowType: "implicit",
+      flowType: "pkce",
       persistSession: false,
       autoRefreshToken: false,
+      detectSessionInUrl: false,
     },
   });
 }

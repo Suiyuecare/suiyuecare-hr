@@ -3,7 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-type SignInState = "idle" | "sending" | "sent" | "error";
+type SignInState = "idle" | "redirecting" | "sending" | "sent" | "error";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
@@ -22,6 +22,32 @@ export default function SignInPage() {
       },
     });
   }, []);
+
+  async function signInWithGoogle() {
+    setState("redirecting");
+    setMessage("");
+
+    if (!supabase) {
+      setState("error");
+      setMessage("目前尚未設定登入服務，請聯絡系統管理員。");
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          prompt: "select_account",
+        },
+      },
+    });
+
+    if (error) {
+      setState("error");
+      setMessage("無法開啟 Google 登入。請稍後再試，或聯絡系統管理員。");
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,37 +86,84 @@ export default function SignInPage() {
   }
 
   return (
-    <main className="page">
-      <section className="page-header">
-        <h1>公司登入</h1>
-        <p>請使用人資已建立的公司 Email。正式試用環境不開放示範角色切換。</p>
-      </section>
+    <main className="auth-portal-page" aria-label="HR One 公司登入">
+      <section className="auth-portal-card">
+        <div className="auth-portal-info">
+          <div className="auth-portal-brand">
+            <span aria-hidden="true">HR</span>
+            <div>
+              <strong>歲悅長照集團</strong>
+              <small>SUIYUECARE HR PORTAL</small>
+            </div>
+          </div>
 
-      <section className="panel auth-panel">
-        <h2>取得登入連結</h2>
-        <form className="mini-form" onSubmit={submit}>
-          <label>
-            公司 Email
-            <input
-              name="email"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="name@company.com"
-              required
-            />
-          </label>
-          <button className="button primary" type="submit" disabled={state === "sending"}>
-            {state === "sending" ? "寄送中" : "寄送登入連結"}
+          <div className="auth-portal-copy">
+            <span className="auth-overline">INTERNAL ACCESS</span>
+            <h1>
+              <span>HR One</span>
+              <span>人資工作台</span>
+            </h1>
+            <p>登入後依職等、角色、組織節點與資料範圍，載入員工前台、主管簽核與 HR 後台。</p>
+          </div>
+
+          <dl className="auth-portal-facts" aria-label="登入與權限摘要">
+            <div>
+              <dt>登入方式</dt>
+              <dd>Google / Email</dd>
+            </div>
+            <div>
+              <dt>權限模型</dt>
+              <dd>RBAC + Data Scope</dd>
+            </div>
+            <div>
+              <dt>資料範圍</dt>
+              <dd>依組織圖控管</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div className="auth-portal-signin">
+          <span>SIGN IN</span>
+          <h2>帳號登入</h2>
+          <p>請使用公司 Google 帳號登入。</p>
+          <button
+            className="google-signin-button"
+            type="button"
+            onClick={signInWithGoogle}
+            disabled={state === "redirecting"}
+          >
+            <span aria-hidden="true">G</span>
+            {state === "redirecting" ? "前往 Google" : "使用 Google 登入"}
           </button>
-        </form>
-        {message ? (
-          <p className={`muted ${state === "error" ? "danger-text" : ""}`} role="status">
-            {message}
-          </p>
-        ) : null}
+
+          <details className="auth-email-fallback">
+            <summary>使用 Email 登入連結</summary>
+            <form className="mini-form" onSubmit={submit}>
+              <label>
+                公司 Email
+                <input
+                  name="email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="name@company.com"
+                  required
+                />
+              </label>
+              <button className="button primary" type="submit" disabled={state === "sending"}>
+                {state === "sending" ? "寄送中" : "寄送登入連結"}
+              </button>
+            </form>
+          </details>
+
+          {message ? (
+            <p className={`auth-message ${state === "error" ? "danger-text" : ""}`} role="status">
+              {message}
+            </p>
+          ) : null}
+        </div>
       </section>
     </main>
   );

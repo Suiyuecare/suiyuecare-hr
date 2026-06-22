@@ -47,16 +47,20 @@ test("API middleware rate limits bursty AI requests", async ({ request }, testIn
   expect(blocked.headers()["retry-after"]).toBeTruthy();
 });
 
-test("正式登入頁提供 Supabase Email 連結入口", async ({ page }) => {
+test("正式登入頁提供 Finance 風格 Google 入口與 Email 備援", async ({ page }) => {
   await page.goto("/auth/sign-in");
 
-  await expect(page.getByRole("heading", { name: "公司登入" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "HR One 人資工作台" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "帳號登入" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "使用 Google 登入" })).toBeVisible();
+  await expect(page.getByText("Google / Email")).toBeVisible();
+  await page.getByText("使用 Email 登入連結").click();
   await expect(page.getByLabel("公司 Email")).toBeVisible();
   await expect(page.getByRole("button", { name: "寄送登入連結" })).toBeVisible();
 
   await page.goto("/auth/callback");
   await expect(page.getByRole("heading", { name: "登入失敗" })).toBeVisible();
-  await expect(page.getByText("登入連結沒有有效憑證，請重新寄送登入連結。")).toBeVisible();
+  await expect(page.getByText("登入流程沒有有效憑證，請重新登入。")).toBeVisible();
 });
 
 test("員工前台與管理後台依角色分流", async ({ page }) => {
