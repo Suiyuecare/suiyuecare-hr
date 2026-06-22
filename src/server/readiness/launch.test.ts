@@ -161,6 +161,50 @@ describe("launch readiness", () => {
     expect(report.actionRequiredCount).toBeGreaterThan(0);
   });
 
+  it("blocks launch when production database Gate evidence has not been saved", () => {
+    const report = buildLaunchReadinessReport({
+      databaseConfigured: true,
+      employeeCount: 5,
+      auditCount: 8,
+      activeRuleCount: 3,
+      laborConfig: defaultTaiwanLaborStandardsConfig,
+      securitySettings: secureSettings,
+      fileStorageSettings: secureStorage,
+      notificationSettings,
+      privilegedSsoIdentityCoverage: {
+        total: 3,
+        linked: 3,
+      },
+      supportAccessGovernance: {
+        activeApprovedCount: 0,
+        activeUnapprovedCount: 0,
+        expiredStillApprovedCount: 0,
+      },
+      payrollPaymentSecurity: readyPaymentSecurity,
+      calendarReadiness: readyCalendar,
+      productionDatabaseEvidence: {
+        ready: false,
+        detail: "No production_database_gate evidence package has been saved for this tenant/company.",
+        missing: ["production_database_gate evidence package"],
+        latestGeneratedAt: null,
+        contentHash: null,
+        warningCount: 1,
+        recordCount: 0,
+      },
+      kpis: passingKpis,
+    });
+
+    expect(report.readyForSale).toBe(false);
+    expect(report.items.find((item) => item.id === "production_database_gate_evidence")).toMatchObject({
+      status: "blocked",
+      actionHref: "/settings/production-database#production-database-evidence",
+    });
+    expect(report.setupSteps[0]).toMatchObject({
+      status: "blocked",
+      actionHref: "/settings/production-database#production-database-evidence",
+    });
+  });
+
   it("requires legal-review approval before launch", () => {
     const laborConfig = structuredClone(defaultTaiwanLaborStandardsConfig);
     laborConfig.changeControl = {

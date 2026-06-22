@@ -1210,6 +1210,9 @@ function launchActionDetail(id: string, status: "ready" | "action_required" | "b
   if (id === "database") {
     return "正式站還不能穩定讀寫 PostgreSQL；先修 Vercel/Supabase 連線，再重新跑 production Gate。";
   }
+  if (id === "production_database_gate_evidence") {
+    return "正式資料庫 Gate 尚未保存可稽核證據，或最新證據仍有 warning；先保存 hash-only Gate 證據再開放試用或販售。";
+  }
   if (id === "tenant_seed") {
     return "正式租戶或員工主檔仍不完整；先用匯入預檢補齊部門、主管線與必要欄位。";
   }
@@ -1269,6 +1272,7 @@ function launchActionDetail(id: string, status: "ready" | "action_required" | "b
 
 const launchItemModuleIds: Record<string, string[]> = {
   database: ["company"],
+  production_database_gate_evidence: ["company", "reports"],
   tenant_seed: ["people"],
   operational_resilience: ["company"],
   subscription: ["company"],
@@ -1292,6 +1296,7 @@ const launchItemModuleIds: Record<string, string[]> = {
 
 const launchItemLabels: Record<string, string> = {
   database: "正式資料庫",
+  production_database_gate_evidence: "正式資料庫 Gate 證據",
   tenant_seed: "租戶與員工資料",
   operational_resilience: "備份還原",
   subscription: "商務訂閱",
@@ -1315,6 +1320,7 @@ const launchItemLabels: Record<string, string> = {
 
 const launchItemHrefs: Record<string, string> = {
   database: "/settings/production-database",
+  production_database_gate_evidence: "/settings/production-database#production-database-evidence",
   tenant_seed: "/hr/employee-import",
   operational_resilience: "/settings/operational-resilience",
   subscription: "/settings/subscription",
@@ -1326,6 +1332,7 @@ const launchItemHrefs: Record<string, string> = {
 
 const launchItemActionLabels: Record<string, string> = {
   database: "修正式資料庫",
+  production_database_gate_evidence: "保存 Gate 證據",
   tenant_seed: "匯入員工",
   operational_resilience: "補備援證據",
   subscription: "檢查商務狀態",

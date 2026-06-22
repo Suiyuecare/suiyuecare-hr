@@ -1,4 +1,5 @@
-import { assertPermission, type RoleKey } from "@/server/auth/rbac";
+import { assertPermission, hasPermission, type RoleKey } from "@/server/auth/rbac";
+import { getAuditEvidenceWorkspace, type AuditEvidencePackageView } from "@/server/audit/evidence-packages";
 import { getUserAccessWorkspace } from "@/server/auth/access-management";
 import { buildAccessCutoverReport } from "@/server/auth/access-cutover";
 import { getCompanyCalendarWorkspace, type CompanyCalendarReadiness } from "@/server/calendar/company-calendar";
@@ -94,6 +95,16 @@ export type LaunchAccessCutoverSummary = {
   };
 };
 
+export type ProductionDatabaseEvidenceReadiness = {
+  ready: boolean;
+  detail: string;
+  missing: string[];
+  latestGeneratedAt: Date | null;
+  contentHash: string | null;
+  warningCount: number;
+  recordCount: number;
+};
+
 export async function getLaunchReadinessReport(session: SessionLike) {
   assertPermission(session.role, "settings:read");
   const [
@@ -116,6 +127,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     laborRosterWorkspace,
     operationalMaintenance,
     kpis,
+    auditEvidenceWorkspace,
   ] = await Promise.all([
     getCompanyOverview(),
     getTaiwanLaborStandardsConfig(session),
@@ -136,6 +148,7 @@ export async function getLaunchReadinessReport(session: SessionLike) {
     getLaborRosterWorkspace(session),
     getOperationalMaintenanceReport(session),
     getHrOneKpis(),
+    hasPermission(session.role, "audit:read") ? getAuditEvidenceWorkspace(session) : Promise.resolve(null),
   ]);
 
   const privilegedUsers = accessWorkspace.users.filter((user) =>
@@ -203,6 +216,9 @@ export async function getLaunchReadinessReport(session: SessionLike) {
         .map((profile) => profile.employeeName),
     },
     operationalMaintenance,
+    productionDatabaseEvidence: buildProductionDatabaseEvidenceReadiness(
+      auditEvidenceWorkspace?.latestProductionDatabase ?? null,
+    ),
     kpis,
   });
 }
@@ -271,6 +287,7 @@ export function buildLaunchReadinessReport(input: {
     OperationalMaintenanceReport,
     "status" | "readyForAutomatedMaintenance" | "summary" | "routePath" | "signals"
   >;
+  productionDatabaseEvidence?: ProductionDatabaseEvidenceReadiness;
   kpis: HrOneKpi[];
 }): LaunchReadinessReport {
   const kpiSummary = summarizeHrOneKpis(input.kpis);
@@ -361,6 +378,7 @@ export function buildLaunchReadinessReport(input: {
   };
   const operationalMaintenance = input.operationalMaintenance ?? defaultOperationalMaintenanceSummary();
   const openMaintenanceSignal = operationalMaintenance.signals.find((signal) => signal.status !== "ready") ?? null;
+  const productionDatabaseEvidence = input.productionDatabaseEvidence ?? defaultProductionDatabaseEvidenceReadiness();
   const items: LaunchReadinessItem[] = [
     {
       id: "database",
@@ -373,6 +391,20 @@ export function buildLaunchReadinessReport(input: {
       nextStep: "Run migrations, seed/import the tenant, then run pnpm db:verify:production with the customer tenant slug.",
       actionLabel: "Open setup docs",
       actionHref: "/settings/readiness#database-setup",
+    },
+    {
+      id: "production_database_gate_evidence",
+      area: "Infrastructure",
+      title: "Production database Gate evidence",
+      status: productionDatabaseEvidence.ready ? "ready" : "blocked",
+      detail: productionDatabaseEvidence.detail,
+      nextStep: productionDatabaseEvidence.ready
+        ? "After every Vercel, Supabase, schema, RLS, or production database change, rerun and re-save the redacted Gate evidence before inviting users."
+        : productionDatabaseEvidence.missing.length > 0
+          ? `Save production database Gate evidence after clearing: ${productionDatabaseEvidence.missing.join(", ")}.`
+          : "Open the production database Gate and save a production_database_gate evidence package before pilot invitations or sale.",
+      actionLabel: productionDatabaseEvidence.ready ? "Review DB evidence" : "Save DB evidence",
+      actionHref: "/settings/production-database#production-database-evidence",
     },
     {
       id: "tenant_seed",
@@ -677,8 +709,15 @@ function buildSetupSteps(items: LaunchReadinessItem[]): LaunchSetupStep[] {
     setupStep({
       step: 1,
       title: "Create durable tenant foundation",
-      itemIds: ["database", "tenant_seed", "subscription", "operational_resilience", "operational_maintenance"],
-      summary: "Migrate, seed or import, confirm commercial terms, configure backup/restore and scheduled maintenance evidence, then run production tenant verification before onboarding employees.",
+      itemIds: [
+        "database",
+        "production_database_gate_evidence",
+        "tenant_seed",
+        "subscription",
+        "operational_resilience",
+        "operational_maintenance",
+      ],
+      summary: "Migrate, seed or import, save the redacted production database Gate evidence, confirm commercial terms, configure backup/restore and scheduled maintenance evidence, then run production tenant verification before onboarding employees.",
       actionLabel: "Start database setup",
       actionHref: "/settings/readiness#database-setup",
       items,
@@ -732,6 +771,56 @@ function defaultOperationalMaintenanceSummary(): Pick<
     summary: "Operational maintenance readiness not evaluated in this test context.",
     routePath: "/api/reports/maintenance/run",
     signals: [],
+  };
+}
+
+function defaultProductionDatabaseEvidenceReadiness(): ProductionDatabaseEvidenceReadiness {
+  return {
+    ready: true,
+    detail: "Production database Gate evidence not evaluated in this test context.",
+    missing: [],
+    latestGeneratedAt: null,
+    contentHash: null,
+    warningCount: 0,
+    recordCount: 0,
+  };
+}
+
+function buildProductionDatabaseEvidenceReadiness(
+  latestProductionDatabasePackage: AuditEvidencePackageView | null,
+): ProductionDatabaseEvidenceReadiness {
+  if (!latestProductionDatabasePackage) {
+    return {
+      ready: false,
+      detail: "No production_database_gate evidence package has been saved for this tenant/company.",
+      missing: ["production_database_gate evidence package"],
+      latestGeneratedAt: null,
+      contentHash: null,
+      warningCount: 1,
+      recordCount: 0,
+    };
+  }
+
+  if (latestProductionDatabasePackage.warnings.length > 0) {
+    return {
+      ready: false,
+      detail: `Latest production_database_gate evidence has ${latestProductionDatabasePackage.warnings.length} warning(s); hash ${latestProductionDatabasePackage.contentHash}.`,
+      missing: latestProductionDatabasePackage.warnings,
+      latestGeneratedAt: latestProductionDatabasePackage.generatedAt,
+      contentHash: latestProductionDatabasePackage.contentHash,
+      warningCount: latestProductionDatabasePackage.warnings.length,
+      recordCount: latestProductionDatabasePackage.recordCount,
+    };
+  }
+
+  return {
+    ready: true,
+    detail: `Latest production_database_gate evidence is saved with ${latestProductionDatabasePackage.recordCount} redacted check record(s); hash ${latestProductionDatabasePackage.contentHash}.`,
+    missing: [],
+    latestGeneratedAt: latestProductionDatabasePackage.generatedAt,
+    contentHash: latestProductionDatabasePackage.contentHash,
+    warningCount: 0,
+    recordCount: latestProductionDatabasePackage.recordCount,
   };
 }
 

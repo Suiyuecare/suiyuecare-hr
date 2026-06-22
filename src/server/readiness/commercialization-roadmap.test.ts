@@ -46,7 +46,40 @@ describe("sale readiness commercialization roadmap", () => {
       owner: "Engineering",
     });
     expect(roadmap.blockerRadar[0].evidenceNeeded).toContain("Live /api/health/ready OK");
+    expect(roadmap.blockerRadar[0].evidenceNeeded).toContain("saved production_database_gate evidence");
     expect(roadmap.summary).toContain("阻擋");
+  });
+
+  it("keeps saved production database Gate evidence in the first sale blocker", () => {
+    const roadmap = buildSaleReadinessRoadmap({
+      launchReport: launchReport({
+        production_database_gate_evidence: {
+          status: "blocked",
+          detail: "No production_database_gate evidence package has been saved.",
+          nextStep: "Save production database Gate evidence.",
+          actionLabel: "Save DB evidence",
+          actionHref: "/settings/production-database#production-database-evidence",
+        },
+      }),
+      betaPilot: betaPilotReport(),
+      trialWorkspace: trialWorkspace(),
+    });
+
+    expect(roadmap.currentStage).toMatchObject({
+      id: "production_foundation",
+      status: "blocked",
+      actionHref: "/settings/production-database#production-database-evidence",
+    });
+    expect(roadmap.currentFoundationTask).toMatchObject({
+      id: "production_database_pooler",
+      status: "blocked",
+      actionHref: "/settings/production-database#production-database-evidence",
+    });
+    expect(roadmap.currentFoundationTask.acceptanceEvidence).toContain("saved production_database_gate evidence");
+    expect(roadmap.blockerRadar[0]).toMatchObject({
+      id: "production_database_pooler",
+      severity: "hard_blocker",
+    });
   });
 
   it("moves the next focus to Finance-style workflows after production foundation is ready", () => {
@@ -163,6 +196,7 @@ function launchReport(overrides: Record<string, Partial<LaunchReadinessItem>> = 
 > {
   const ids = [
     "database",
+    "production_database_gate_evidence",
     "tenant_seed",
     "security",
     "sso_identities",

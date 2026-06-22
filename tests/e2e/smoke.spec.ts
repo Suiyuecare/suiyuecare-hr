@@ -171,12 +171,14 @@ test("管理後台提供 Finance 風格模組搜尋與摘要", async ({ page }) 
   await expect(page.getByLabel("真實營運訊號").getByText("上線 Gate")).toBeVisible();
   await expect(page.getByLabel("真實營運訊號").getByText("Audit evidence")).toBeVisible();
   await expect(page.getByLabel("阻擋處理順序").getByText("正式資料庫", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("阻擋處理順序").getByText("正式資料庫 Gate 證據", { exact: true })).toBeVisible();
   await expect(page.getByLabel("阻擋處理順序").getByRole("link", { name: "修正式資料庫" })).toHaveAttribute(
     "href",
     "/settings/production-database",
   );
   await expect(page.getByLabel("模組缺口清單").getByText("公司管理", { exact: true })).toBeVisible();
   await expect(page.getByLabel("模組缺口清單").getByText("正式資料庫：阻擋")).toBeVisible();
+  await expect(page.getByLabel("模組缺口清單").getByText("正式資料庫 Gate 證據：阻擋").first()).toBeVisible();
 
   const companyModuleLink = page.locator("article#company").getByRole("link", { name: "模組總覽" });
   await expect(companyModuleLink).toBeVisible();
@@ -376,11 +378,13 @@ test("Owner 可以檢查試用營運與上線 Gate", async ({ page }) => {
   await expect(blockerRadar.getByRole("heading", { name: "正式登入、RBAC 與薪資防漏" })).toBeVisible();
   await expect(blockerRadar.getByRole("heading", { name: "薪資月結、付款安全與薪資單權限" })).toBeVisible();
   await expect(blockerRadar.getByText(/需要證據：Live \/api\/health\/ready OK/)).toBeVisible();
+  await expect(blockerRadar.getByText(/saved production_database_gate evidence/)).toBeVisible();
   const foundationBoard = page.getByLabel("下一階段基礎工程");
   await expect(foundationBoard.getByRole("heading", { name: "下一階段基礎工程" })).toBeVisible();
   await expect(foundationBoard.getByRole("heading", { name: "正式資料庫與租戶持久化" })).toBeVisible();
   await expect(foundationBoard.getByRole("heading", { name: "台灣法遵控制台與版本化規則" })).toBeVisible();
   await expect(foundationBoard.getByText(/驗收：\/api\/health\/ready/)).toBeVisible();
+  await expect(foundationBoard.getByText(/saved production_database_gate evidence/)).toBeVisible();
   const maintenanceBoard = page.getByLabel("正式營運維護看板");
   await expect(maintenanceBoard.getByRole("heading", { name: "正式營運維護看板" })).toBeVisible();
   await expect(maintenanceBoard.getByRole("heading", { name: "排程授權與租戶範圍" })).toBeVisible();

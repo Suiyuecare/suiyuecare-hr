@@ -157,6 +157,14 @@ describe("console modules", () => {
             actionHref: "/settings/readiness#database-setup",
           },
           {
+            id: "production_database_gate_evidence",
+            title: "Production database Gate evidence",
+            status: "blocked",
+            detail: "No production_database_gate evidence package has been saved.",
+            actionLabel: "Save DB evidence",
+            actionHref: "/settings/production-database#production-database-evidence",
+          },
+          {
             id: "payment_security",
             title: "Payroll payment security",
             status: "blocked",
@@ -211,6 +219,7 @@ describe("console modules", () => {
       warningCount: 1,
     });
     expect(company?.topRisks).toEqual(expect.arrayContaining(["正式資料庫：阻擋"]));
+    expect(company?.topRisks).toEqual(expect.arrayContaining(["正式資料庫 Gate 證據：阻擋"]));
     expect(company?.nextAction).toMatchObject({ label: "修正式資料庫", href: "/settings/production-database" });
     expect(payroll?.topRisks).toEqual(expect.arrayContaining(["發薪付款安全：阻擋"]));
     expect(reports?.topRisks).toEqual(expect.arrayContaining(["勞檢證據包：1 個覆蓋缺口"]));
@@ -226,7 +235,7 @@ describe("console modules", () => {
       source: "live_gate",
     });
     expect(hrRadar.actionQueue.map((item) => item.title)).toEqual(
-      expect.arrayContaining(["發薪付款安全", "勞檢證據包", "通知管道"]),
+      expect.arrayContaining(["正式資料庫 Gate 證據", "發薪付款安全", "勞檢證據包", "通知管道"]),
     );
     expect(hrRadar.actionQueue.map((item) => item.detail).join(" ")).not.toContain("DATABASE_URL is not configured.");
     expect(hrRadar.actionQueue.map((item) => item.detail).join(" ")).not.toContain("Vault reference missing.");
